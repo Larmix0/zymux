@@ -1,0 +1,18 @@
+{
+    "files.associations": {
+        "lexer.h": "c",
+        "zymux_program.h": "c",
+        "vector": "c",
+        "string_view": "c",
+        "array": "c",
+        "compare": "c",
+        "functional": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c",
+        "string_buffer.h": "c",
+        "data_structures.h": "c",
+        "included_sources.h": "c",
+        "lukip.h": "c"
+    },
+}

@@ -1,0 +1,39 @@
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+
+#include <stdint.h>
+#include <inttypes.h>
+
+#define DEBUG_LEXER 1
+#define DEBUG_PARSER 1
+#define DEBUG_COMPILER 1
+#define DEBUG_RUNTIME 1
+#define DEBUG_GC 1
+
+#define I8_MAX INT8_MAX
+#define I16_MAX INT16_MAX
+#define I32_MAX INT32_MAX
+#define I64_MAX INT64_MAX
+
+#define U8_MAX UINT8_MAX
+#define U16_MAX UINT16_MAX
+#define U32_MAX UINT32_MAX
+#define U64_MAX UINT64_MAX
+
+#define ZMX_INT_FMT "%" PRId64
+#define ZMX_FLOAT_FMT "%lf"
+
+typedef int8_t i8;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
+
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+typedef i64 ZmxInt;
+typedef double ZmxFloat;
+
+#endif
