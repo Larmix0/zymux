@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "lexer.h"
-#include "char_buffer.h"
 #include "data_structures.h"
 #include "errors.h"
 
@@ -33,6 +32,7 @@ typedef struct {
     bool isInterpolated;
     char *interpolationStart;
     int interpolationDepth;
+    int escapes;
     char quote;
 } StringLexer;
 
@@ -64,7 +64,9 @@ void append_token(TokenArray *tokens, Token token) {
 
 void free_token_array(TokenArray *tokens) {
     for (int i = 0; i < tokens->length; i++) {
-        free(tokens->tokens[i].lexeme);
+        if (tokens->tokens[i].type == TOKEN_STRING_LIT) {
+            free_char_buffer(&tokens->tokens[i].stringVal);
+        }
     }
     free(tokens->tokens);
 }
@@ -79,36 +81,56 @@ Token create_token(char *message, const int line, const TokenType type) {
     return token;
 }
 
-Token token_alloc_lexeme(const char *message, const int line, const TokenType type) {
-    int length = strlen(message);
-    Token token = {
-        .lexeme = ZMX_ARRAY_ALLOC(length + 1, char),
-        .length = length, .line = line, .type = type
-    };
-    strncpy(token.lexeme, message, length);
-    token.lexeme[length] = '\0';
-    return token;
-}
-
-static void append_error(Lexer *lexer, const char *message, const int line) {
+static void append_error(Lexer *lexer, char *message, const int line) {
     SYNTAX_ERROR(lexer->program, line, message);
-    append_token(&lexer->tokens, token_alloc_lexeme(message, line, TOKEN_ERROR));
+    append_token(&lexer->tokens, create_token(message, line, TOKEN_ERROR));
     START_TOKEN(lexer);
 }
 
 static void append_lexed(Lexer *lexer, const TokenType type) {
     int length = CURRENT_TOKEN_LENGTH(lexer);
     Token token = {
-        .lexeme = ZMX_ARRAY_ALLOC(length + 1, char),
+        .lexeme = lexer->tokenStart,
         .length = length, .line = lexer->line, .type = type
     };
-    strncpy(token.lexeme, lexer->tokenStart, length);
-    token.lexeme[length] = '\0';
+    append_token(&lexer->tokens, token);
+}
+
+static void append_lexed_int(Lexer *lexer, ZmxInt integer) {
+    int length = CURRENT_TOKEN_LENGTH(lexer);
+    Token token = {
+        .lexeme = lexer->tokenStart, .length = length, .line = lexer->line,
+        .type = TOKEN_INT_LIT, .intVal = integer
+    };
+    append_token(&lexer->tokens, token);
+}
+
+static void append_lexed_string(Lexer *lexer, StringLexer *string, CharBuffer buffer) {
+    Token token = {
+        .lexeme = lexer->tokenStart, 
+        .length = buffer.length - 1 + string->escapes, // -1 because CharBuffer counts null.
+        .line = lexer->line,
+        .type = TOKEN_STRING_LIT, .stringVal = buffer
+    };
     append_token(&lexer->tokens, token);
 }
 
 bool tokens_equal(const Token left, const Token right) {
-    if (left.type != right.type || left.length != right.length) {
+    if (left.type != right.type) {
+        return false;
+    }
+    
+    if (left.type == TOKEN_INT_LIT) {
+        return left.intVal == right.intVal;
+    }
+    if (left.type == TOKEN_STRING_LIT) {
+        if (left.stringVal.length != right.stringVal.length) {
+            return false;
+        }
+        return strncmp(left.stringVal.text, right.stringVal.text, left.stringVal.length) == 0;
+    }
+
+    if (left.length != right.length) {
         return false;
     }
     return strncmp(left.lexeme, right.lexeme, left.length) == 0;
@@ -309,16 +331,17 @@ static void lex_name(Lexer *lexer) {
  * @param lexer The lexer.
  * @param base The base of the lexed number.
  */
-static void append_lexed_base(Lexer *lexer, const int base) {
+static void append_lexed_base(Lexer *lexer, const int base, bool hasPrefix) {
     ZmxInt sum = 0;
     for (int i = 0; i < CURRENT_TOKEN_LENGTH(lexer); i++) {
         char place = PEEK_DISTANCE(lexer, -i - 1);
         ZmxInt placeValue = IS_DIGIT(place) ? place - '0' : LOWERED_CHAR(place) - 'a' + 10;
         sum += zmx_power(base, i) * placeValue;
     }
-    char numAsString[32];
-    snprintf(numAsString, 32, ZMX_INT_FMT, sum);
-    append_token(&lexer->tokens, token_alloc_lexeme(numAsString, lexer->line, TOKEN_INT_LIT));
+    if (hasPrefix) {
+        lexer->tokenStart -= 2; // Shows prefix (so something like 0b and 0x is in).
+    }
+    append_lexed_int(lexer, sum);
 }
 
 static void invalid_literal(Lexer *lexer, const char *stringRepr, const int line) {
@@ -346,7 +369,7 @@ static void lex_base(
         invalid_literal(lexer, stringRepr, lexer->line);
         return;
     }
-    append_lexed_base(lexer, base);
+    append_lexed_base(lexer, base, true);
 }
 
 static void normal_number(Lexer *lexer) {
@@ -373,7 +396,7 @@ static void normal_number(Lexer *lexer) {
         append_lexed(lexer, TOKEN_FLOAT_LIT);
         return;
     }
-    append_lexed(lexer, TOKEN_INT_LIT);
+    append_lexed_base(lexer, 10, false);
 }
 
 static bool is_oct_digit(const char ch) {
@@ -398,12 +421,6 @@ static void lex_number(Lexer *lexer) {
     }
 }
 
-static void flush_buffer_token(Lexer *lexer, CharBuffer *buffer) {
-    START_TOKEN(lexer);
-    append_token(&lexer->tokens, token_alloc_lexeme(buffer->text, lexer->line, TOKEN_STRING_LIT));
-    free_char_buffer(buffer);
-}
-
 static bool interpolate(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
     string->interpolationDepth--;
     if (string->interpolationDepth > 0) {
@@ -411,13 +428,16 @@ static bool interpolate(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
         return false;
     }
     buffer_pop_amount(buffer, lexer->current - string->interpolationStart);
-    flush_buffer_token(lexer, buffer);
+
+    // Responsibility of freeing buffer is passed to the token.
+    append_lexed_string(lexer, string, *buffer);
     *buffer = create_char_buffer();
 
+    START_TOKEN(lexer);
     char *exprEnd = lexer->current + 1;
     lexer->current = string->interpolationStart + 1; // After open brace.
 
-    append_token(&lexer->tokens, token_alloc_lexeme("", lexer->line, TOKEN_FORMAT));
+    append_token(&lexer->tokens, create_token("", lexer->line, TOKEN_FORMAT));
     START_TOKEN(lexer);
     lex_until(lexer, exprEnd - 2); // -2 To stop before closing brace.
 
@@ -432,12 +452,12 @@ static bool interpolation_end(Lexer *lexer, StringLexer *string, CharBuffer *buf
         return true;
     }
     if (PEEK(lexer) != string->quote) {
-        append_token(&lexer->tokens, token_alloc_lexeme("", lexer->line, TOKEN_FORMAT));
+        append_token(&lexer->tokens, create_token("", lexer->line, TOKEN_FORMAT));
         return true;
     }
     // interpolation ended the string
     ADVANCE(lexer); // Skip closing quote.
-    append_token(&lexer->tokens, token_alloc_lexeme("", lexer->line, TOKEN_STRING_END));
+    append_token(&lexer->tokens, create_token("", lexer->line, TOKEN_STRING_END));
     return false;
 }
 
@@ -454,7 +474,7 @@ static bool interpolation_start(Lexer *lexer, StringLexer *string, CharBuffer *b
     return true;
 }
 
-static void escape_character(Lexer *lexer, CharBuffer *buffer) {
+static void escape_character(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
     switch (PEEK_DISTANCE(lexer, 1)) {
         case 'n': buffer_append_char(buffer, '\n'); break;
         case 't': buffer_append_char(buffer, '\t'); break;
@@ -462,13 +482,14 @@ static void escape_character(Lexer *lexer, CharBuffer *buffer) {
         case 'b': buffer_append_char(buffer, '\b'); break;
         default: buffer_append_char(buffer, PEEK_DISTANCE(lexer, 1)); break;
     }
+    string->escapes++;
     ADVANCE_AMOUNT(lexer, 2);
 }
 
 static bool scan_string_char(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
     char current = PEEK(lexer);
     if (current == '\\' && !string->isRaw) {
-        escape_character(lexer, buffer);
+        escape_character(lexer, string, buffer);
         return true;
     }
     if (current == '{' && string->isInterpolated) {
@@ -500,8 +521,9 @@ static void finish_string(Lexer *lexer, StringLexer *string) {
         return;
     }
     ADVANCE(lexer); // Skip closing quote.
-    flush_buffer_token(lexer, &buffer);
-    append_token(&lexer->tokens, token_alloc_lexeme("", lexer->line, TOKEN_STRING_END));
+    // Responsibility of freeing buffer is passed to the token.
+    append_lexed_string(lexer, string, buffer);
+    append_token(&lexer->tokens, create_token("", lexer->line, TOKEN_STRING_END));
 }
 
 static void repeated_metadata_error(Lexer *lexer) {
@@ -602,7 +624,7 @@ static bool valid_syntax(const char ch) {
 
 static void lex_token(Lexer *lexer) {
     if (IS_EOF(lexer)) {
-        append_token(&lexer->tokens, token_alloc_lexeme("", lexer->line, TOKEN_EOF));
+        append_token(&lexer->tokens, create_token("", lexer->line, TOKEN_EOF));
         return;
     }
     if (!valid_syntax(PEEK(lexer))) {

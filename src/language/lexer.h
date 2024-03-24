@@ -1,6 +1,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include "char_buffer.h"
 #include "zymux_program.h"
 
 #define TOKEN_IS_TYPE(token, expected) (token.type == expected)
@@ -72,11 +73,13 @@ typedef enum {
 
 typedef struct {
     char *lexeme;
-    size_t length;
+    int length;
     int line;
     TokenType type;
-    // TODO: Have an enum field for ints and strings, ints are just ZmxInts. Strings are allocated.
-    // While instead having it point to source for most other things.
+    union {
+        ZmxInt intVal;
+        CharBuffer stringVal;
+    };
 } Token;
 
 typedef struct {

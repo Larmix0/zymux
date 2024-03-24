@@ -99,14 +99,24 @@ char *type_to_string(const TokenType type) {
     return NULL; // Unreachable error already exits. This is so the compiler doesn't yell.
 }
 
+static void print_token(const Token token) {
+    printf(
+        "\tToken(lexeme=\"%.*s\", length=%d, line=%d, type=%s",
+        token.length, token.lexeme, token.length,
+        token.line, type_to_string(token.type)
+    );
+    if (token.type == TOKEN_STRING_LIT) {
+        printf(", string=%s", token.stringVal.text);
+    } else if (token.type == TOKEN_INT_LIT) {
+        printf(", integer=" ZMX_INT_FMT, token.intVal);
+    }
+    printf(")");
+}
+
 void print_tokens(const TokenArray tokens) {
-    Token current;
     printf("Tokens:\n");
     for (int i = 0; i < tokens.length; i++) {
-        current = tokens.tokens[i];
-        printf(
-            "\tToken(lexeme=\"%s\", length=%zu, line=%d, type=%s)\n",
-            current.lexeme, current.length, current.line, type_to_string(current.type)
-        );
+        print_token(tokens.tokens[i]);
+        printf("\n");
     }
 }
