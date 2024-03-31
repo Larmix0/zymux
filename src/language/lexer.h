@@ -75,10 +75,12 @@ typedef struct {
     char *lexeme;
     int length;
     int line;
+    int column;
     TokenType type;
     union {
         ZmxInt intVal;
         CharBuffer stringVal;
+        char *errorMessage;
     };
 } Token;
 
@@ -90,17 +92,20 @@ typedef struct {
 
 typedef struct {
     char *tokenStart;
+    int tokenLine;
+    int tokenColumn;
     char *current;
     char *source;
     size_t sourceLength;
     int line;
+    int column;
     ZymuxProgram *program;
     TokenArray tokens;
 } Lexer;
 
 TokenArray create_token_array();
 void append_token(TokenArray *tokens, Token token);
-Token create_token(char *message, const int line, const TokenType type);
+Token create_token(char *message, const int line, const int column, const TokenType type);
 Token token_alloc_lexeme(const char *message, const int line, const TokenType type);
 bool tokens_equal(const Token left, const Token right);
 void free_token_array(TokenArray *tokens);

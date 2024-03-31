@@ -6,21 +6,24 @@
 #include "data_structures.h"
 #include "errors.h"
 
-#define START_TOKEN(lexer) ((lexer)->tokenStart = (lexer)->current)
 #define CURRENT_TOKEN_LENGTH(lexer) ((lexer)->current - (lexer)->tokenStart)
+#define START_TOKEN(lexer) \
+    ((lexer)->tokenStart = (lexer)->current, \
+    (lexer)->tokenLine = (lexer)->line, \
+    (lexer)->tokenColumn = (lexer)->column)
 
 #define PEEK(lexer) (*(lexer)->current)
 #define PEEK_DISTANCE(lexer, distance) \
     ((lexer)->current + (distance) >= (lexer)->source + (lexer)->sourceLength \
         ? '\0' : (lexer)->current[(distance)])
 
-#define ADVANCE_PEEK(lexer) (*(lexer)->current++)
-#define ADVANCE(lexer) ((lexer)->current++)
-#define ADVANCE_AMOUNT(lexer, amount) ((lexer)->current += (amount))
-#define RETREAT(lexer) ((lexer)->current--)
+#define ADVANCE_PEEK(lexer) ((lexer)->column++, *(lexer)->current++)
+#define ADVANCE(lexer) ((lexer)->column++, (lexer)->current++)
+#define ADVANCE_AMOUNT(lexer, amount) ((lexer)->column += (amount), (lexer)->current += (amount))
+#define RETREAT(lexer) ((lexer)->column--, (lexer)->current--)
 
 #define LOWERED_CHAR(ch) ((ch) >= 'A' && (ch) <= 'Z' ? (ch) + 32 : (ch))
-#define IS_ALPHA(ch) ((LOWERED_CHAR((ch)) >= 'a' && LOWERED_CHAR((ch))) || (ch) == '_')
+#define IS_ALPHA(ch) ((LOWERED_CHAR((ch)) >= 'a' && LOWERED_CHAR((ch)) <= 'z') || (ch) == '_')
 #define IS_DIGIT(ch) ((ch) >= '0' && (ch) <= '9')
 
 #define IS_EOF(lexer) (*(lexer)->current == '\0')
@@ -31,19 +34,21 @@ typedef struct {
     bool isRaw;
     bool isInterpolated;
     char *interpolationStart;
+    int interpolationColumn;
     int interpolationDepth;
     int escapes;
     char quote;
 } StringLexer;
 
-static void lex_until(Lexer *lexer, const char *end);
+static void lex_token(Lexer *lexer);
 
 Lexer create_lexer(ZymuxProgram *program, char *source) {
     Lexer lexer = {
         .current = source, .tokenStart = source, .source = source,
         .sourceLength = strlen(source),
         .program = program,
-        .line = 1,
+        .line = 1, .column = 1,
+        .tokenLine = 1, .tokenColumn = 1,
         .tokens = create_token_array()
     };
     return lexer;
@@ -76,30 +81,55 @@ static StringLexer create_string_lexer() {
     return string;
 }
 
-Token create_token(char *message, const int line, const TokenType type) {
-    Token token = {.lexeme = message, .length = strlen(message), .line = line, .type = type};
+Token create_token(char *message, const int line, const int column, const TokenType type) {
+    Token token = {
+        .lexeme = message, .length = strlen(message),
+        .line = line, .column = column,
+        .type = type
+    };
     return token;
 }
 
-static void append_error(Lexer *lexer, char *message, const int line) {
-    SYNTAX_ERROR(lexer->program, line, message);
-    append_token(&lexer->tokens, create_token(message, line, TOKEN_ERROR));
-    START_TOKEN(lexer);
+static Token implicit_token(Lexer *lexer, const TokenType type) {
+    return create_token("", lexer->line, lexer->column, type);
+}
+
+static void append_lexed_error(Lexer *lexer, char *message) {
+    Token errorToken = {
+        .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
+        .line = lexer->tokenLine, .column = lexer->tokenColumn,
+        .errorMessage = message, .type = TOKEN_ERROR,
+    };
+    append_token(&lexer->tokens, errorToken);
+    SYNTAX_ERROR(lexer->program, errorToken);
+}
+
+static void append_error_at(
+    Lexer *lexer, char *message, char *errorStart, const int length,
+    const int line, const int column
+) {
+    Token errorToken = {
+        .lexeme = errorStart, .length = length,
+        .line = line, .column = column,
+        .errorMessage = message, .type = TOKEN_ERROR,
+    };
+    append_token(&lexer->tokens, errorToken);
+    SYNTAX_ERROR(lexer->program, errorToken);
 }
 
 static void append_lexed(Lexer *lexer, const TokenType type) {
-    int length = CURRENT_TOKEN_LENGTH(lexer);
     Token token = {
-        .lexeme = lexer->tokenStart,
-        .length = length, .line = lexer->line, .type = type
+        .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
+        .line = lexer->tokenLine, .column = lexer->tokenColumn,
+        .type = type
     };
     append_token(&lexer->tokens, token);
 }
 
 static void append_lexed_int(Lexer *lexer, ZmxInt integer) {
-    int length = CURRENT_TOKEN_LENGTH(lexer);
     Token token = {
-        .lexeme = lexer->tokenStart, .length = length, .line = lexer->line,
+        .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
+        .line = lexer->tokenLine, lexer->tokenColumn,
         .type = TOKEN_INT_LIT, .intVal = integer
     };
     append_token(&lexer->tokens, token);
@@ -108,8 +138,8 @@ static void append_lexed_int(Lexer *lexer, ZmxInt integer) {
 static void append_lexed_string(Lexer *lexer, StringLexer *string, CharBuffer buffer) {
     Token token = {
         .lexeme = lexer->tokenStart, 
-        .length = buffer.length - 1 + string->escapes, // -1 because CharBuffer counts null.
-        .line = lexer->line,
+        .length = buffer.length + string->escapes - 1, // -1 because CharBuffer counts NULL.
+        .line = lexer->tokenLine, lexer->tokenColumn,
         .type = TOKEN_STRING_LIT, .stringVal = buffer
     };
     append_token(&lexer->tokens, token);
@@ -144,31 +174,34 @@ static void comment(Lexer *lexer) {
 }
 
 static void multiline_comment(Lexer *lexer) {
-    const int commentStart = lexer->line;
+    START_TOKEN(lexer);
     ADVANCE_AMOUNT(lexer, 2); // Skip the "/*".
-
     while (true) {
-        switch (PEEK(lexer)) {
+        switch (ADVANCE_PEEK(lexer)) {
         case '\0':
-            SYNTAX_ERROR(lexer->program, commentStart, "Unterminated multiline comment.");
+            append_error_at(
+                lexer, "Unterminated multiline comment.", lexer->tokenStart, 2,
+                lexer->tokenLine, lexer->tokenColumn
+            );
+            RETREAT(lexer);
             return;
         case '\n':
             lexer->line++;
+            lexer->column = 1;
             break;
         case '*':
-            if (PEEK_DISTANCE(lexer, 1) == '/') {
-                ADVANCE_AMOUNT(lexer, 2); // Advances over the "*/"
+            if (PEEK(lexer) == '/') {
+                ADVANCE(lexer); // Finishes the "*/"
                 return;
             }
             break;
         default:
             break;
         }
-        ADVANCE(lexer);
     }
 }
 
-static void advance_whitespace(Lexer *lexer) {
+static void ignore_whitespace(Lexer *lexer) {
     while (true) {
         switch (PEEK(lexer)) {
         case ' ':
@@ -177,8 +210,9 @@ static void advance_whitespace(Lexer *lexer) {
             ADVANCE(lexer);
             break;
         case '\n':
-            lexer->line++;
             ADVANCE(lexer);
+            lexer->line++;
+            lexer->column = 1;
             break;
         case '/':
             if (PEEK_DISTANCE(lexer, 1) == '/') {
@@ -196,7 +230,7 @@ static void advance_whitespace(Lexer *lexer) {
     }
 }
 
-static void two_possibilities(
+static void one_or_default(
     Lexer *lexer, const TokenType defaultType, const char expected, const TokenType expectedType
 ) {
     if (PEEK(lexer) == expected) {
@@ -207,7 +241,7 @@ static void two_possibilities(
     append_lexed(lexer, defaultType);
 }
 
-static void three_possibilities(
+static void two_or_default(
     Lexer *lexer, const TokenType defaultType,
     const char expected1, const TokenType type1, const char expected2, const TokenType type2
 ) {
@@ -216,7 +250,7 @@ static void three_possibilities(
         append_lexed(lexer, type1);
         return;
     }
-    two_possibilities(lexer, defaultType, expected2, type2);
+    one_or_default(lexer, defaultType, expected2, type2);
 }
 
 static void two_compound_assigns(
@@ -229,12 +263,11 @@ static void two_compound_assigns(
         append_lexed(lexer, extendedCompound);
         return;
     }
-    three_possibilities(lexer, original, overloadedChar, extended, '=', originalCompound);
+    two_or_default(lexer, original, overloadedChar, extended, '=', originalCompound);
 }
 
 static bool is_keyword(Lexer *lexer, const char *keyword) {
     const int length = strlen(keyword);
-
     if (CURRENT_TOKEN_LENGTH(lexer) != length) {
         return false;
     }
@@ -321,16 +354,6 @@ static void lex_name(Lexer *lexer) {
     append_lexed(lexer, type);
 }
 
-/** 
- * @brief Appends a token from lexed number of a base.
- * 
- * Add to the int sum the base to the power of its place in the number.
- * (For example, tenths are base ^ 2 and hundredths are base ^ 3). 
- * Then, multiply that by the actual number in that place.
- * 
- * @param lexer The lexer.
- * @param base The base of the lexed number.
- */
 static void append_lexed_base(Lexer *lexer, const int base, bool hasPrefix) {
     ZmxInt sum = 0;
     for (int i = 0; i < CURRENT_TOKEN_LENGTH(lexer); i++) {
@@ -339,47 +362,58 @@ static void append_lexed_base(Lexer *lexer, const int base, bool hasPrefix) {
         sum += zmx_power(base, i) * placeValue;
     }
     if (hasPrefix) {
-        lexer->tokenStart -= 2; // Shows prefix (so something like 0b and 0x is in).
+        lexer->tokenStart -= 2;
+        lexer->tokenColumn -= 2;
     }
     append_lexed_int(lexer, sum);
 }
 
-static void invalid_literal(Lexer *lexer, const char *stringRepr, const int line) {
-    CharBuffer buffer = create_char_buffer();
-    buffer_append_strings(&buffer, 3, "Invalid ", stringRepr, " literal.");
-
-    append_error(lexer, buffer.text, line);
-    free_char_buffer(&buffer);
+static void invalid_literal(Lexer *lexer, char *message, bool hasPrefix) {
+    if (hasPrefix) {
+        lexer->tokenStart -= 2;
+        lexer->tokenColumn -= 2;
+    }
+    while (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
+        ADVANCE(lexer);
+    }
+    append_lexed_error(lexer, message);
 }
 
 static void lex_base(
-    Lexer *lexer, const BaseCheckFunc is_within_base, const int base, const char *stringRepr
+    Lexer *lexer, const BaseCheckFunc is_within_base, const int base, char *errorMessage
 ) {
     ADVANCE_AMOUNT(lexer, 2); // Skip the prefix (like 0b and 0x).
     START_TOKEN(lexer);
 
     if (!is_within_base(PEEK(lexer))) {
-        invalid_literal(lexer, stringRepr, lexer->line);
+        invalid_literal(lexer, errorMessage, true);
         return;
     }
     while (is_within_base(PEEK(lexer))) {
         ADVANCE(lexer);
     }
     if (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
-        invalid_literal(lexer, stringRepr, lexer->line);
+        invalid_literal(lexer, errorMessage, true);
         return;
     }
     append_lexed_base(lexer, base, true);
 }
 
-static void normal_number(Lexer *lexer) {
-    // Skip zero padding
-    while (PEEK(lexer) == '0') {
+static void finish_float(Lexer *lexer) {
+    while (IS_DIGIT(PEEK(lexer))) {
         ADVANCE(lexer);
     }
-    // Except the last one if it's the last thing in the whole number.
-    if (!IS_DIGIT(PEEK(lexer))) {
-        RETREAT(lexer);
+    if (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
+        invalid_literal(lexer, "Invalid float literal.", false);
+        return;
+    }
+    append_lexed(lexer, TOKEN_FLOAT_LIT);
+}
+
+static void normal_number(Lexer *lexer) {
+    // Skip zero padding, except the last one if it's the last thing in the whole number.
+    while (PEEK(lexer) == '0' && IS_DIGIT(PEEK_DISTANCE(lexer, 1))) {
+        ADVANCE(lexer);
     }
 
     START_TOKEN(lexer);
@@ -389,14 +423,19 @@ static void normal_number(Lexer *lexer) {
     // Handle floats.
     if (PEEK(lexer) == '.' && IS_DIGIT(PEEK_DISTANCE(lexer, 1))) {
         ADVANCE_AMOUNT(lexer, 2);
+        finish_float(lexer);
+        return;
+    }
 
-        while (IS_DIGIT(PEEK(lexer))) {
-            ADVANCE(lexer);
-        }
-        append_lexed(lexer, TOKEN_FLOAT_LIT);
+    if (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
+        invalid_literal(lexer, "Invalid integer literal.", false);
         return;
     }
     append_lexed_base(lexer, 10, false);
+}
+
+static bool is_bin_digit(const char ch) {
+    return ch == '0' || ch == '1';
 }
 
 static bool is_oct_digit(const char ch) {
@@ -408,17 +447,65 @@ static bool is_hex_digit(const char ch) {
     return IS_DIGIT(lowered) || (lowered >= 'a' && lowered <= 'f');
 }
 
-static bool is_bin_digit(const char ch) {
-    return ch == '0' || ch == '1';
-}
-
 static void lex_number(Lexer *lexer) {
+    if (PEEK(lexer) != '0') {
+        normal_number(lexer);
+        return;
+    }
     switch (LOWERED_CHAR(PEEK_DISTANCE(lexer, 1))) {
-    case 'b': lex_base(lexer, is_bin_digit, 2, "binary"); break;
-    case 'o': lex_base(lexer, is_oct_digit, 8, "octal"); break;
-    case 'x': lex_base(lexer, is_hex_digit, 16, "hexadecimal"); break;
+    case 'b': lex_base(lexer, is_bin_digit, 2, "invalid binary literal."); break;
+    case 'o': lex_base(lexer, is_oct_digit, 8, "invalid octal literal."); break;
+    case 'x': lex_base(lexer, is_hex_digit, 16, "invalid hexadecimal literal."); break;
     default: normal_number(lexer); break;
     }
+}
+
+static bool ignore_interpolation_whitespace(Lexer *lexer) {
+    while (true) {
+        switch (PEEK(lexer)) {
+        case ' ':
+        case '\t':
+        case '\r':
+            ADVANCE(lexer);
+            break;
+        case '\n':
+            // Should've errored earlier, so unreachable.
+            UNREACHABLE_ERROR();
+            return false;
+        case '/':
+            if (PEEK_DISTANCE(lexer, 1) == '/' || PEEK_DISTANCE(lexer, 1) == '*') {
+                append_error_at(
+                    lexer, "Can't have comment inside string interpolation.",
+                    lexer->tokenStart, 2, lexer->tokenLine, lexer->tokenColumn
+                );
+                return false;
+            }
+            return true;
+        default:
+            return true;
+        }
+    }
+}
+
+static void lex_interpolation(Lexer *lexer, StringLexer *string) {
+    char *exprEnd = lexer->current;
+    int exprEndColumn = lexer->column;
+    lexer->current = string->interpolationStart + 1;
+    lexer->column = string->interpolationColumn + 1;
+
+    while (lexer->current < exprEnd) {
+        if (!ignore_interpolation_whitespace(lexer)) {
+            break;
+        }
+        lex_token(lexer);
+        if (!ignore_interpolation_whitespace(lexer)) {
+            break;
+        }
+    }
+    lexer->current = exprEnd + 1;
+    lexer->column = exprEndColumn + 1;
+    string->interpolationStart = NULL;
+    string->interpolationColumn = 0;
 }
 
 static bool interpolate(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
@@ -432,18 +519,8 @@ static bool interpolate(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
     // Responsibility of freeing buffer is passed to the token.
     append_lexed_string(lexer, string, *buffer);
     *buffer = create_char_buffer();
-
-    START_TOKEN(lexer);
-    char *exprEnd = lexer->current + 1;
-    lexer->current = string->interpolationStart + 1; // After open brace.
-
-    append_token(&lexer->tokens, create_token("", lexer->line, TOKEN_FORMAT));
-    START_TOKEN(lexer);
-    lex_until(lexer, exprEnd - 2); // -2 To stop before closing brace.
-
-    lexer->current = exprEnd;
-    START_TOKEN(lexer);
-    string->interpolationStart = NULL;
+    append_token(&lexer->tokens, implicit_token(lexer, TOKEN_FORMAT));
+    lex_interpolation(lexer, string);
     return true;
 }
 
@@ -451,27 +528,34 @@ static bool interpolation_end(Lexer *lexer, StringLexer *string, CharBuffer *buf
     if (!interpolate(lexer, string, buffer)) {
         return true;
     }
+    
+    START_TOKEN(lexer);
     if (PEEK(lexer) != string->quote) {
-        append_token(&lexer->tokens, create_token("", lexer->line, TOKEN_FORMAT));
+        append_token(&lexer->tokens, implicit_token(lexer, TOKEN_FORMAT));
         return true;
     }
     // interpolation ended the string
     ADVANCE(lexer); // Skip closing quote.
-    append_token(&lexer->tokens, create_token("", lexer->line, TOKEN_STRING_END));
+    append_token(&lexer->tokens, implicit_token(lexer, TOKEN_STRING_END));
     return false;
 }
 
-static bool interpolation_start(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
+static void interpolation_start(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
     if (PEEK_DISTANCE(lexer, 1) == '}') {
-        append_error(lexer, "Can't have an empty interpolated string.", lexer->line);
-        return false;
+        append_lexed(lexer, TOKEN_STRING_LIT);
+        append_token(&lexer->tokens, implicit_token(lexer, TOKEN_FORMAT));
+        START_TOKEN(lexer);
+        ADVANCE_AMOUNT(lexer, 2);
+        append_lexed_error(lexer, "Can't have empty interpolation.");
+        return;
     }
+
     if (string->interpolationStart == NULL) {
         string->interpolationStart = lexer->current;
+        string->interpolationColumn = lexer->column;
     }
     string->interpolationDepth++;
     buffer_append_char(buffer, ADVANCE_PEEK(lexer));
-    return true;
 }
 
 static void escape_character(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
@@ -486,98 +570,112 @@ static void escape_character(Lexer *lexer, StringLexer *string, CharBuffer *buff
     ADVANCE_AMOUNT(lexer, 2);
 }
 
-static bool scan_string_char(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
+static bool scan_string_char(
+    Lexer *lexer, StringLexer *string, CharBuffer *buffer, char *quote, int quoteColumn
+) {
     char current = PEEK(lexer);
     if (current == '\\' && !string->isRaw) {
         escape_character(lexer, string, buffer);
         return true;
     }
     if (current == '{' && string->isInterpolated) {
-        return interpolation_start(lexer, string, buffer);
+        interpolation_start(lexer, string, buffer);
+        return true;
     }
     if (current == '}' && string->interpolationStart != NULL) {
         return interpolation_end(lexer, string, buffer);
     }
     if (current == '\n' && string->interpolationStart == NULL) {
-        lexer->line++;
+        append_error_at(lexer, "Unterminated string.", quote, 1, lexer->line, quoteColumn);
+        return false;
     }
     buffer_append_char(buffer, ADVANCE_PEEK(lexer));
     return true;
 }
 
 static void finish_string(Lexer *lexer, StringLexer *string) {
-    const int line = lexer->line; // Line of quote.
+    char *quote = lexer->current - 1;
+    int quoteColumn = lexer->column - 1;
     CharBuffer buffer = create_char_buffer();
-
-    while (!IS_EOF(lexer) && PEEK(lexer) != string->quote) {
-        if (!scan_string_char(lexer, string, &buffer)) {
+    while (PEEK(lexer) != string->quote) {
+        if (IS_EOF(lexer)) {
+            append_error_at(lexer, "Unterminated string.", quote, 1, lexer->line, quoteColumn);
             free_char_buffer(&buffer);
-            return; // Done.
+            return;
+        }
+        if (!scan_string_char(lexer, string, &buffer, quote, quoteColumn)) {
+            free_char_buffer(&buffer);
+            return;
         }
     }
-    if (IS_EOF(lexer)) {
-        append_error(lexer, "Unterminated string.", line);
-        free_char_buffer(&buffer);
-        return;
-    }
     ADVANCE(lexer); // Skip closing quote.
-    // Responsibility of freeing buffer is passed to the token.
-    append_lexed_string(lexer, string, buffer);
-    append_token(&lexer->tokens, create_token("", lexer->line, TOKEN_STRING_END));
+    append_lexed_string(lexer, string, buffer); // Responsibility of freeing the buffer is passed.
+    append_token(&lexer->tokens, implicit_token(lexer, TOKEN_STRING_END));
 }
 
 static void repeated_metadata_error(Lexer *lexer) {
     while (!IS_EOF(lexer)) {
-        advance_whitespace(lexer);
-
         char current = ADVANCE_PEEK(lexer);
         if (current != '#' && current != '$') {
             RETREAT(lexer);
             break;
         }
     }
-    append_error(lexer, "Can't repeat \"$\" or \"#\" on string.", lexer->line);
+    append_lexed_error(lexer, "Can't repeat \"$\" or \"#\" on string.");
 }
 
-static void set_string_metadata(Lexer *lexer, StringLexer *string, const char data) {
-    switch (data) {
+typedef enum {
+    METADATA_SUCCESS,
+    METADATA_END,
+    METADATA_REPEATED_ERROR,
+    METADATA_MISSING_STRING_ERROR
+} MetadataStatus;
+
+static MetadataStatus set_string_metadata(Lexer *lexer, StringLexer *string) {
+    switch (PEEK(lexer)) {
     case '#':
         if (string->isRaw) {
             repeated_metadata_error(lexer);
-        } else {
-            string->isRaw = true;
+            return METADATA_REPEATED_ERROR;
         }
-        break;
+        string->isRaw = true;
+        return METADATA_SUCCESS;
     case '$':
         if (string->isInterpolated) {
             repeated_metadata_error(lexer);
-        } else {
-            string->isInterpolated = true;
+            return METADATA_REPEATED_ERROR;
         }
-        break;
+        string->isInterpolated = true;
+        return METADATA_SUCCESS;
     case '\'':
     case '"':
-        string->quote = data;
-        break;
+        string->quote = PEEK(lexer);
+        return METADATA_END;
     default:
-        append_error(lexer, "Expected string after \"#\" or \"$\".", lexer->line);
-        break;
+        // Print the character after #/$ then go back so it can be lexed as a separate token.
+        START_TOKEN(lexer);
+        ADVANCE(lexer);
+        append_lexed_error(lexer, "Expected string after \"#\" or \"$\".");
+        RETREAT(lexer);
+        START_TOKEN(lexer);
+        return METADATA_MISSING_STRING_ERROR;
     }
 }
 
 static void lex_string(Lexer *lexer) {
+    START_TOKEN(lexer);
     StringLexer string = create_string_lexer();
+    MetadataStatus result = METADATA_SUCCESS;
 
-    char current = '\0';
-    while (current != '\'' && current != '"') {
-        advance_whitespace(lexer);
-        current = ADVANCE_PEEK(lexer);
-        set_string_metadata(lexer, &string, current);
-
-        if (current != '$' && current != '#' && current != '\'' && current != '"') {
-            RETREAT(lexer);
+    while (result != METADATA_END) {
+        result = set_string_metadata(lexer, &string);
+        if (result == METADATA_MISSING_STRING_ERROR) {
             return;
         }
+        if (result == METADATA_REPEATED_ERROR) {
+            continue;
+        }
+        ADVANCE(lexer);
     }
     START_TOKEN(lexer);
     finish_string(lexer, &string);
@@ -613,29 +711,34 @@ static bool valid_syntax(const char ch) {
     case '*':
     case '>':
     case '<':
+    case ' ':
+    case '\r':
+    case '\t':
+    case '\n':
         return true;
     default:
         if (IS_ALPHA(ch) || IS_DIGIT(ch)) {
             return true;
         }
-        return false; // Includes whitespace too, as it should've been skipped beforehand.
+        return false;
     }
 }
 
-static void lex_token(Lexer *lexer) {
-    if (IS_EOF(lexer)) {
-        append_token(&lexer->tokens, create_token("", lexer->line, TOKEN_EOF));
-        return;
+static void unsupported_syntax(Lexer *lexer) {
+    while (!IS_EOF(lexer) && !valid_syntax(PEEK(lexer))) {
+        ADVANCE(lexer);
     }
-    if (!valid_syntax(PEEK(lexer))) {
-        while (!valid_syntax(PEEK(lexer))) {
-            ADVANCE(lexer);
-        }
-        append_error(lexer, "Unsupported syntax", lexer->line);
+    append_lexed_error(lexer, "Unsupported syntax.");
+    return;
+}
+
+static void lex_token(Lexer *lexer) {
+    START_TOKEN(lexer);
+    if (IS_EOF(lexer)) {
+        append_token(&lexer->tokens, implicit_token(lexer, TOKEN_EOF));
         return;
     }
 
-    START_TOKEN(lexer);
     char current = ADVANCE_PEEK(lexer);
     switch (current) {
     // String-related, should be left to the string lexer.
@@ -660,21 +763,21 @@ static void lex_token(Lexer *lexer) {
     case '}': append_lexed(lexer, TOKEN_RCURLY); break;
 
     // Single or double character token.
-    case '+': two_possibilities(lexer, TOKEN_PLUS, '=', TOKEN_PLUS_EQ); break;
-    case '-': two_possibilities(lexer, TOKEN_MINUS, '=', TOKEN_MINUS_EQ); break;
-    case '/': two_possibilities(lexer, TOKEN_SLASH, '=', TOKEN_SLASH_EQ); break;
-    case '%': two_possibilities(lexer, TOKEN_MODULO, '=', TOKEN_MODULO_EQ); break;
-    case '=': two_possibilities(lexer, TOKEN_EQ, '=', TOKEN_EQ_EQ); break;
-    case '!': two_possibilities(lexer, TOKEN_BANG, '=', TOKEN_BANG_EQ); break;
-    case '^': two_possibilities(lexer, TOKEN_CARET, '=', TOKEN_CARET_EQ); break;
-    case '~': two_possibilities(lexer, TOKEN_TILDE, '=', TOKEN_TILDE_EQ); break;
-    case '.': two_possibilities(lexer, TOKEN_DOT, '.', TOKEN_DOT_DOT); break;
+    case '+': one_or_default(lexer, TOKEN_PLUS, '=', TOKEN_PLUS_EQ); break;
+    case '-': one_or_default(lexer, TOKEN_MINUS, '=', TOKEN_MINUS_EQ); break;
+    case '/': one_or_default(lexer, TOKEN_SLASH, '=', TOKEN_SLASH_EQ); break;
+    case '%': one_or_default(lexer, TOKEN_MODULO, '=', TOKEN_MODULO_EQ); break;
+    case '=': one_or_default(lexer, TOKEN_EQ, '=', TOKEN_EQ_EQ); break;
+    case '!': one_or_default(lexer, TOKEN_BANG, '=', TOKEN_BANG_EQ); break;
+    case '^': one_or_default(lexer, TOKEN_CARET, '=', TOKEN_CARET_EQ); break;
+    case '~': one_or_default(lexer, TOKEN_TILDE, '=', TOKEN_TILDE_EQ); break;
+    case '.': one_or_default(lexer, TOKEN_DOT, '.', TOKEN_DOT_DOT); break;
     
     // Characters that have 2 possible continuation tokens + 1 default one.
     case '&': 
-        three_possibilities(lexer, TOKEN_AMPER, '&', TOKEN_AMPER_AMPER, '=', TOKEN_AMPER_EQ); break;
+        two_or_default(lexer, TOKEN_AMPER, '&', TOKEN_AMPER_AMPER, '=', TOKEN_AMPER_EQ); break;
     case '|': 
-        three_possibilities(lexer, TOKEN_BAR, '|', TOKEN_BAR_BAR, '=', TOKEN_BAR_EQ); break;
+        two_or_default(lexer, TOKEN_BAR, '|', TOKEN_BAR_BAR, '=', TOKEN_BAR_EQ); break;
 
     // Characters that act like two possibilities, but can be repeated for 2 other possibilities.
     // Eg: "*" and "*=" can be "**" and "**=" because the first character is repeated.
@@ -695,29 +798,24 @@ static void lex_token(Lexer *lexer) {
             return;
         }
         if (IS_DIGIT(current)) {
-            RETREAT(lexer); // So lex_number() fully handles the number (including edge cases).
+            RETREAT(lexer);
             lex_number(lexer);
             return;
         }
-        UNREACHABLE_ERROR();
-    }
-}
-
-static void lex_until(Lexer *lexer, const char *end) {
-    while (lexer->current <= end) {
-        advance_whitespace(lexer);
-        lex_token(lexer);
-        advance_whitespace(lexer);
-
-        Token lastToken = lexer->tokens.tokens[lexer->tokens.length - 1];
-        if (TOKEN_IS_TYPE(lastToken, TOKEN_EOF)) {
-            return;
-        }
+        unsupported_syntax(lexer);
     }
 }
 
 bool lex(Lexer *lexer) {
-    lex_until(lexer, lexer->source + lexer->sourceLength); // Until the "\0".
+    while (true) {
+        ignore_whitespace(lexer);
+        lex_token(lexer);
+        Token lastToken = lexer->tokens.tokens[lexer->tokens.length - 1];
+        if (TOKEN_IS_TYPE(lastToken, TOKEN_EOF)) {
+            break;
+        }
+    }
+
     if (lexer->program->hasErrored) {
         return false;
     }

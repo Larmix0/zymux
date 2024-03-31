@@ -16,7 +16,7 @@ void free_zymux_program(ZymuxProgram *program) {
 void *zmx_alloc(const size_t size, const char *file, const char *func, const int line) {
     void *pointer = malloc(size);
     if (pointer == NULL) {
-        MEMORY_ERROR_ARGS(file, func, line, "Zymux failed to allocate memory");
+        MEMORY_ERROR_ARGS(file, func, line, "Zymux failed to allocate memory.");
     }
     return pointer;
 }
@@ -26,7 +26,7 @@ void *zmx_realloc(
 ) {
     void *newPointer = realloc(oldPointer, newSize);
     if (newPointer == NULL) {
-        MEMORY_ERROR_ARGS(file, func, line, "Zymux failed to reallocate memory");
+        MEMORY_ERROR_ARGS(file, func, line, "Zymux failed to reallocate memory.");
     }
     return newPointer;
 }

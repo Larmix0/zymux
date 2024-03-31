@@ -101,14 +101,16 @@ char *type_to_string(const TokenType type) {
 
 static void print_token(const Token token) {
     printf(
-        "\tToken(lexeme=\"%.*s\", length=%d, line=%d, type=%s",
+        "\tToken(lexeme=\"%.*s\", length=%d, line=%d, column=%d, type=%s",
         token.length, token.lexeme, token.length,
-        token.line, type_to_string(token.type)
+        token.line, token.column, type_to_string(token.type)
     );
     if (token.type == TOKEN_STRING_LIT) {
-        printf(", string=%s", token.stringVal.text);
+        printf(", string=\"%s\"", token.stringVal.text);
     } else if (token.type == TOKEN_INT_LIT) {
         printf(", integer=" ZMX_INT_FMT, token.intVal);
+    } else if (token.type == TOKEN_ERROR) {
+        printf(", error=\"%s\"", token.errorMessage);
     }
     printf(")");
 }

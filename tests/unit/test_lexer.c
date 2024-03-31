@@ -9,7 +9,7 @@
 #define LAST_TOKEN(lexer) ((lexer)->tokens.tokens[(lexer)->tokens.length - 1])
 
 char *defaultSource = "float && var (); $'str {2 * 3}' break; 22 44.2"
-    "\n// single line\n hey /*muti-\nline*/";
+    "\n// single line\n hey /*muti-\nline*/ end";
 Lexer *defaultLexer;
 
 static void setup_default_lexer() {
@@ -28,19 +28,19 @@ static void teardown_default_lexer() {
 }
 
 static Token test_token(char *lexeme, TokenType type) {
-    Token token = create_token(lexeme, 0, type);
+    Token token = create_token(lexeme, 0, 0, type);
     return token;
 }
 
 static Token test_token_string(char *lexeme) {
-    Token token = create_token(lexeme, 0, TOKEN_STRING_LIT);
+    Token token = create_token(lexeme, 0, 0, TOKEN_STRING_LIT);
     token.stringVal = create_char_buffer();
     buffer_append_string(&token.stringVal, lexeme);
     return token;
 }
 
 static Token test_token_int(char *lexeme, int base) {
-    Token token = create_token(lexeme, 0, TOKEN_INT_LIT);
+    Token token = create_token(lexeme, 0, 0, TOKEN_INT_LIT);
     token.intVal = strtol(lexeme, NULL, base);
     return token;
 }
@@ -238,10 +238,10 @@ static void test_lex_lines() {
     TokenArray allTokens = create_token_array();
     append_test_tokens(
         &allTokens, 5,
-        create_token("line1", 1, TOKEN_IDENTIFIER),
-        create_token("line2", 2, TOKEN_IDENTIFIER),
-        create_token("2.2", 2, TOKEN_FLOAT_LIT),
-        create_token("line5", 5, TOKEN_IDENTIFIER),
+        create_token("line1", 1, 1, TOKEN_IDENTIFIER),
+        create_token("line2", 2, 2, TOKEN_IDENTIFIER),
+        create_token("2.2", 2, 2, TOKEN_FLOAT_LIT),
+        create_token("line5", 5, 2, TOKEN_IDENTIFIER),
         (Token){.lexeme = "555", .length = 3, .line = 5, .type = TOKEN_INT_LIT, .intVal = 555}
     );
     allTokens.tokens[allTokens.length - 1].line = 7; // Set EOF line.
@@ -277,7 +277,7 @@ static void test_lex_number() {
     while (!IS_EOF(&lexer)) {
         START_TOKEN(&lexer);
         lex_number(&lexer);
-        advance_whitespace(&lexer);
+        ignore_whitespace(&lexer);
     }
     append_token(&lexer.tokens, test_token("", TOKEN_EOF));
 
@@ -303,7 +303,7 @@ static void test_lex_name() {
     while (!IS_EOF(&lexer)) {
         START_TOKEN(&lexer);
         lex_name(&lexer);
-        advance_whitespace(&lexer);
+        ignore_whitespace(&lexer);
     }
     append_token(&lexer.tokens, test_token("", TOKEN_EOF));
 
@@ -360,7 +360,7 @@ static void test_lex_string() {
     while (!IS_EOF(&lexer)) {
         START_TOKEN(&lexer);
         lex_string(&lexer);
-        advance_whitespace(&lexer);
+        ignore_whitespace(&lexer);
     }
     append_token(&lexer.tokens, test_token("", TOKEN_EOF));
 
@@ -387,19 +387,19 @@ static void test_lex_chars_tokens() {
         START_TOKEN(&lexer);
         ADVANCE(&lexer);
         two_compound_assigns(&lexer, '<', TOKEN_LESS, TOKEN_LESS_EQ, TOKEN_LSHIFT, TOKEN_LSHIFT_EQ);
-        advance_whitespace(&lexer);
+        ignore_whitespace(&lexer);
     }
     for (int i = 0; i < 3; i++) {
         START_TOKEN(&lexer);
         ADVANCE(&lexer);
-        three_possibilities(&lexer, TOKEN_AMPER, '&', TOKEN_AMPER_AMPER, '=', TOKEN_AMPER_EQ);
-        advance_whitespace(&lexer);
+        two_or_default(&lexer, TOKEN_AMPER, '&', TOKEN_AMPER_AMPER, '=', TOKEN_AMPER_EQ);
+        ignore_whitespace(&lexer);
     }
     for (int i = 0; i < 2; i++) {
         START_TOKEN(&lexer);
         ADVANCE(&lexer);
-        two_possibilities(&lexer, TOKEN_DOT, '.', TOKEN_DOT_DOT);
-        advance_whitespace(&lexer);
+        one_or_default(&lexer, TOKEN_DOT, '.', TOKEN_DOT_DOT);
+        ignore_whitespace(&lexer);
     }
     START_TOKEN(&lexer);
     ADVANCE(&lexer);
@@ -462,28 +462,31 @@ static void test_lexer_macro_helpers() {
 static void test_handling_whitespace() {
     // There isn't whitespace in the beginning, so peek result shouldn't change.
     char current = PEEK(defaultLexer);
-    advance_whitespace(defaultLexer);
+    ignore_whitespace(defaultLexer);
     LUKIP_CHAR_EQUAL(current, PEEK(defaultLexer)); 
 
     while (PEEK(defaultLexer) != '\n') {
         ADVANCE(defaultLexer);
     }
     LUKIP_INT_EQUAL(defaultLexer->line, 1);
-    advance_whitespace(defaultLexer);
+    ignore_whitespace(defaultLexer);
     LUKIP_INT_EQUAL(defaultLexer->line, 3);
 
-    START_TOKEN(defaultLexer);
-
-    advance_whitespace(defaultLexer);
+    ignore_whitespace(defaultLexer);
     lex_token(defaultLexer);
     LUKIP_IS_TRUE(
-        tokens_equal(LAST_TOKEN(defaultLexer), create_token("hey", 3, TOKEN_IDENTIFIER))
+        tokens_equal(LAST_TOKEN(defaultLexer), create_token("hey", 3, 2, TOKEN_IDENTIFIER))
+    );
+    ignore_whitespace(defaultLexer);
+    lex_token(defaultLexer);
+    LUKIP_IS_TRUE(
+        tokens_equal(LAST_TOKEN(defaultLexer), create_token("end", 3, 8, TOKEN_IDENTIFIER))
     );
 }
 
 static void test_lexer_struct_functions() {
-    Token stackLexeme = create_token("test", 2, TOKEN_IDENTIFIER);
-    Token heapLexeme = create_token("test", 2, TOKEN_IDENTIFIER);
+    Token stackLexeme = create_token("test", 2, 2, TOKEN_IDENTIFIER);
+    Token heapLexeme = create_token("test", 2, 2, TOKEN_IDENTIFIER);
     Token manual = {.lexeme = "test", .length = 4, .line = 2, .type = TOKEN_IDENTIFIER};
     LUKIP_IS_TRUE(tokens_equal(manual, stackLexeme));
     LUKIP_INT_EQUAL(manual.line, stackLexeme.line);
@@ -504,16 +507,72 @@ static void test_lexer_struct_functions() {
         ADVANCE(defaultLexer);
     }
     append_lexed(defaultLexer, TOKEN_FLOAT_KW);
-    Token keyword = create_token("float", 1, TOKEN_FLOAT_KW);
+    Token keyword = create_token("float", 1, 2, TOKEN_FLOAT_KW);
     LUKIP_IS_TRUE(tokens_equal(LAST_TOKEN(defaultLexer), keyword));
-
-    append_error(defaultLexer, "error", 10);
-    LUKIP_IS_TRUE(tokens_equal(LAST_TOKEN(defaultLexer), create_token("error", 10, TOKEN_ERROR)));
 
     TokenArray tokens = create_token_array();
     append_token(&tokens, heapLexeme); // Passes freeing responsibility to token array.
     LUKIP_IS_TRUE(tokens_equal(tokens.tokens[0], heapLexeme));
+
+    append_token(&tokens, implicit_token(defaultLexer, TOKEN_FORMAT));
+    LUKIP_IS_TRUE(tokens_equal(
+        tokens.tokens[1], create_token("", defaultLexer->line, defaultLexer->column, TOKEN_FORMAT)
+    ));
+
+    ADVANCE(defaultLexer);
+    START_TOKEN(defaultLexer);
+    ADVANCE_AMOUNT(defaultLexer, 3);
+    append_token(&tokens, implicit_token(defaultLexer, TOKEN_STRING_END));
+    LUKIP_IS_TRUE(tokens_equal(
+        tokens.tokens[2],
+        create_token("", defaultLexer->line, defaultLexer->column, TOKEN_STRING_END)
+    ));
+
     free_token_array(&tokens);
+}
+
+static void test_error_functions() {
+    append_error_at(defaultLexer, "at", defaultLexer->source + 2, 4, 1, 1);
+    Token manualAt = {
+        .lexeme = defaultLexer->source + 2, .length = 4,
+        .line = 1, .column = 1,
+        .errorMessage = "lexed", .type = TOKEN_ERROR,
+    };
+    LUKIP_IS_TRUE(tokens_equal(LAST_TOKEN(defaultLexer), manualAt));
+    
+    while (!IS_EOF(defaultLexer) && PEEK(defaultLexer) != ' ') {
+        ADVANCE(defaultLexer);
+    }
+    append_lexed_error(defaultLexer, "lexed");
+    Token manualLexed = {
+        .lexeme = defaultLexer->source, .length = 5,
+        .line = 1, .column = 1,
+        .errorMessage = "lexed", .type = TOKEN_ERROR,
+    };
+    LUKIP_IS_TRUE(tokens_equal(LAST_TOKEN(defaultLexer), manualLexed));
+}
+
+static void test_base_number_checkers() {
+    LUKIP_IS_TRUE(is_bin_digit('1'));
+    LUKIP_IS_TRUE(is_bin_digit('0'));
+    LUKIP_IS_FALSE(is_bin_digit('3'));
+    LUKIP_IS_FALSE(is_bin_digit('f'));
+
+    LUKIP_IS_TRUE(is_oct_digit('0'));
+    LUKIP_IS_TRUE(is_oct_digit('7'));
+    LUKIP_IS_TRUE(is_oct_digit('4'));
+    LUKIP_IS_FALSE(is_oct_digit('8'));
+    LUKIP_IS_FALSE(is_oct_digit('9'));
+    LUKIP_IS_FALSE(is_oct_digit('T'));
+    
+    LUKIP_IS_TRUE(is_hex_digit('0'));
+    LUKIP_IS_TRUE(is_hex_digit('5'));
+    LUKIP_IS_TRUE(is_hex_digit('9'));
+    LUKIP_IS_TRUE(is_hex_digit('a'));
+    LUKIP_IS_TRUE(is_hex_digit('e'));
+    LUKIP_IS_TRUE(is_hex_digit('F'));
+    LUKIP_IS_FALSE(is_hex_digit('T'));
+    LUKIP_IS_FALSE(is_hex_digit('u'));
 }
 
 static void test_tokens_equal() {
@@ -528,12 +587,14 @@ static void test_tokens_equal() {
 
 void test_lexer() {
     TEST(test_tokens_equal);
+    TEST(test_base_number_checkers);
 
     MAKE_TEST_FIXTURE(setup_default_lexer, teardown_default_lexer);
     TEST(test_valid_syntax);
     TEST(test_handling_whitespace);
     TEST(test_lexer_macro_helpers);
     TEST(test_lexer_struct_functions);
+    TEST(test_error_functions);
     RESET_TEST_FIXTURE();
 
     TEST(test_lex_number);

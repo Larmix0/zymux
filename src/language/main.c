@@ -18,7 +18,6 @@ static void run_zmx_file(char *file) {
 
     if (!lex(&lexer)) {
         printf("SYNTAX ERROR, EXITING.\n");
-        exit(1);
     }
     print_tokens(lexer.tokens);
     free_lexer(&lexer);
