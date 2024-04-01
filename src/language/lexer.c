@@ -105,7 +105,7 @@ Token create_token(char *message, const int line, const int column, const TokenT
  * and is only useful internally in Zymux.
  */
 static Token implicit_token(Lexer *lexer, const TokenType type) {
-    // TODO: make this "append_implicit_token".
+    // TODO: make this "append_implicit_token". Could be done as one refactor commit with adding MATCH.
     return create_token("", lexer->line, lexer->column, type);
 }
 
@@ -200,7 +200,7 @@ static void comment(Lexer *lexer) {
     }
 }
 
-/** Multiline comments start with "/*" and skip characters until EOF or a closing asterisk-slash. */
+/** Starts with slash-asterisk and skips characters until EOF or a closing asterisk-slash. */
 static void multiline_comment(Lexer *lexer) {
     START_TOKEN(lexer);
     ADVANCE_AMOUNT(lexer, 2);
@@ -483,11 +483,6 @@ static void finish_float(Lexer *lexer) {
 
 /** Lexes and appends a "normal" number, which is a decimal integer or float. */
 static void normal_number(Lexer *lexer) {
-    // Skip zero padding, except the last one if it's the last thing in the whole number.
-    while (PEEK(lexer) == '0' && IS_DIGIT(PEEK_DISTANCE(lexer, 1))) {
-        ADVANCE(lexer);
-    }
-
     START_TOKEN(lexer);
     while (IS_DIGIT(PEEK(lexer))) {
         ADVANCE(lexer);
@@ -524,25 +519,30 @@ static bool is_hex_digit(const char ch) {
 
 /** 
  * Handles lexing an entire number, whether it's float, int, hex or others.
- * Zymux currently supports binary, octal and hex numbers with 0b, 0o, 0x prefixes respectively.
  * 
  * If an alphabetical or integer character is seen at the end of a number,
- * then an error should be reported.
- * 
- * All preceding zeroes of decimal integers and floats are ignored.
+ * then an error will be reported.
+ * All preceding zeroes are ignored.
  */
 static void lex_number(Lexer *lexer) {
     if (PEEK(lexer) != '0') {
         normal_number(lexer);
         return;
     }
-    // TODO: make preceding zeroes of binary, octal and hex numbers ignored too here.
-    // Make sure to test preceding zeroes for those bases too.
+    // Skip zero padding, except the last one.
+    while (PEEK(lexer) == '0' && PEEK_DISTANCE(lexer, 1) == '0') {
+        ADVANCE(lexer);
+    }
     switch (LOWERED_CHAR(PEEK_DISTANCE(lexer, 1))) {
     case 'b': lex_base(lexer, is_bin_digit, 2, "invalid binary literal."); break;
     case 'o': lex_base(lexer, is_oct_digit, 8, "invalid octal literal."); break;
     case 'x': lex_base(lexer, is_hex_digit, 16, "invalid hexadecimal literal."); break;
-    default: normal_number(lexer); break;
+    default:
+        // Skip last zero if it's not the only thing in the whole number.
+        if (PEEK(lexer) == '0' && IS_DIGIT(PEEK_DISTANCE(lexer, 1))) {
+            ADVANCE(lexer);
+        }
+        normal_number(lexer); break;
     }
 }
 
@@ -574,6 +574,20 @@ static bool ignore_interpolation_whitespace(Lexer *lexer) {
     }
 }
 
+/**
+ * Resets the state after finishing the interpolation.
+ *  
+ * Resets the StringLexer's interpolation state,
+ * and sets the lexer to start scanning after the closing brace. */
+static void finish_interpolation(
+    Lexer *lexer, StringLexer *string, char *closingBrace, int closingBraceColumn
+) {
+    lexer->current = closingBrace + 1;
+    lexer->column = closingBraceColumn + 1;
+    string->interpolationStart = NULL;
+    string->interpolationColumn = 0;
+}
+
 /** 
  * Lexes tokens until we reach the closing brace.
  * After lexing them, we restore the lexer's state to after the closing brace.
@@ -584,26 +598,21 @@ static void lex_interpolation(Lexer *lexer, StringLexer *string) {
     lexer->current = string->interpolationStart + 1;
     lexer->column = string->interpolationColumn + 1;
 
-    // TODO: perform empty interpolation check here, so we can ignore whitespace. The current one
-    // in interpolation_start() merely checks if it's completely empty, so "{  }" wouldn't error.
-    // Also don't forget to test it by having a test_lexer case with whitespace on empty interpolation.
-
-    // Or just don't report empty interpolation but make sure it gets ignored instead.
+    if (!ignore_interpolation_whitespace(lexer)) {
+        finish_interpolation(lexer, string, exprEnd, exprEndColumn);
+    }
+    if (PEEK(lexer) == '}') {
+        finish_interpolation(lexer, string, exprEnd, exprEndColumn);
+        return;
+    }
+    append_token(&lexer->tokens, implicit_token(lexer, TOKEN_FORMAT));
     while (lexer->current < exprEnd) {
-        if (!ignore_interpolation_whitespace(lexer)) {
-            break;
-        }
-        // TODO: Perform a peek check to see if it's a curly brace here. If so, break.
-        // That should allow us to ignore empty interpolations as nothing.
         lex_token(lexer);
         if (!ignore_interpolation_whitespace(lexer)) {
             break;
         }
     }
-    lexer->current = exprEnd + 1;
-    lexer->column = exprEndColumn + 1;
-    string->interpolationStart = NULL;
-    string->interpolationColumn = 0;
+    finish_interpolation(lexer, string, exprEnd, exprEndColumn);
 }
 
 /** 
@@ -620,7 +629,6 @@ static bool interpolate(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
     append_lexed_string(lexer, string, *buffer);
 
     *buffer = create_char_buffer();
-    append_token(&lexer->tokens, implicit_token(lexer, TOKEN_FORMAT));
     lex_interpolation(lexer, string);
     return true;
 }
@@ -656,21 +664,9 @@ static bool interpolation_end(Lexer *lexer, StringLexer *string, CharBuffer *buf
  * 
  * We also have to store how many open braces deep we are
  * so we know how many closing braces to expect before the outermost open brace is finished.
- * Kinda like a stack.
- * 
- * If an empty interpolation is encountered, it errors.
- * But it should keep scanning the string regardless.
+ * Kind of like a stack.
  */
 static void interpolation_start(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
-    if (PEEK_DISTANCE(lexer, 1) == '}') {
-        append_lexed(lexer, TOKEN_STRING_LIT);
-        append_token(&lexer->tokens, implicit_token(lexer, TOKEN_FORMAT));
-        START_TOKEN(lexer);
-        ADVANCE_AMOUNT(lexer, 2);
-        append_lexed_error(lexer, "Can't have empty interpolation.");
-        return;
-    }
-
     if (string->interpolationStart == NULL) {
         string->interpolationStart = lexer->current;
         string->interpolationColumn = lexer->column;
@@ -681,7 +677,7 @@ static void interpolation_start(Lexer *lexer, StringLexer *string, CharBuffer *b
 
 /**
  * Appends and advances over an escape character made up of a backslash and the escaped character.
- * Simply appends the escaped character by default if it's not a built in sequence in C (like "\t").
+ * Appends the escaped character by default if it's not a built in sequence in C (like "\t").
  */
 static void escape_character(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
     switch (PEEK_DISTANCE(lexer, 1)) {
@@ -700,7 +696,7 @@ static void escape_character(Lexer *lexer, StringLexer *string, CharBuffer *buff
  * It may call other scanning helpers if it sees a specific character while some metadata is set.
  * It could also error if it encounters a newline or EOF.
  * 
- * The return value is whether or not the StringLexer should continue scanning characters.
+ * Return whether or not the StringLexer should continue scanning characters.
  */
 static bool scan_string_char(
     Lexer *lexer, StringLexer *string, CharBuffer *buffer, char *quote, int quoteColumn

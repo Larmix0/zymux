@@ -285,17 +285,18 @@ static void test_lex_lines() {
  * It also tests that we handle preceding 0s correctly.  
  */
 static void test_lex_number() {
-    char *source = "0x0 0x00ff0 0xea2301 0b0 0b101 0b010 0b00100110111 0o00 0o02707 0o241"
-        " 0 0.0 0.010 0013 002.3300 931453229 23.3 3.0";
+    char *source = "0x0 0x00ff0 0xea2301 0b0 0b101 0b010 0b00100110111 0o00 0o02707 0o241 "
+        "000x000 00o77 0 0.0 0.010 0013 002.3300 931453229 23.3 3.0";
 
     TokenArray allTokens = create_token_array();
     append_test_tokens(
-        &allTokens, 18,
+        &allTokens, 20,
         test_token_int("0", 16), test_token_int("ff0", 16),
         test_token_int("ea2301", 16), test_token_int("0", 2),
         test_token_int("101", 2), test_token_int("10", 2),
         test_token_int("100110111", 2), test_token_int("0", 8),
         test_token_int("2707", 8), test_token_int("241", 8),
+        test_token_int("0", 16), test_token_int("77", 8),
         test_token_int("0", 10), test_token("0.0", TOKEN_FLOAT_LIT),
         test_token("0.010", TOKEN_FLOAT_LIT), test_token_int("13", 10),
         test_token("2.3300", TOKEN_FLOAT_LIT), test_token_int("931453229", 10),
@@ -354,32 +355,39 @@ static void test_lex_string() {
         "$#'Interpolated raw \\{2 + 3}'"
         "$'{$\"{1 + 2}\"} end'"
         "$' { $\" { 7 ** 23 } \" } '"
-        "$'unclosed { left curly.'";
+        "$'unclosed { left curly.'"
+        "$'{\t}Empty {}{\t}brace.{ }'";
 
     TokenArray allTokens = create_token_array();
         append_test_tokens(
-        &allTokens, 51,
+        &allTokens, 59,
+
         test_token_string("Normal\t string\\n w/escapes"),
         test_token("", TOKEN_STRING_END),
+
         test_token_string("This is a\\t raw string.\\n\\\\n"),
         test_token("", TOKEN_STRING_END),
+
         test_token_string("Interpolated { <- escaped "),
         test_token("", TOKEN_FORMAT), test_token_int("3", 10),
         test_token("*", TOKEN_STAR), test_token_string("And "),
         test_token("", TOKEN_FORMAT), test_token_int("2", 10),
         test_token("+", TOKEN_PLUS), test_token_int("3", 10),
         test_token("", TOKEN_FORMAT), test_token_string(" is nested"),
-        test_token("", TOKEN_STRING_END), test_token("+", TOKEN_PLUS),
-        test_token_int("2", 10), test_token("", TOKEN_STRING_END),
+        test_token("", TOKEN_STRING_END), test_token("+", TOKEN_PLUS), test_token_int("2", 10),
+        test_token("", TOKEN_STRING_END),
+
         test_token_string("Interpolated raw \\"), test_token("", TOKEN_FORMAT),
-        test_token_int("2", 10), test_token("+", TOKEN_PLUS),
-        test_token_int("3", 10), test_token("", TOKEN_STRING_END),
+        test_token_int("2", 10), test_token("+", TOKEN_PLUS), test_token_int("3", 10),
+        test_token("", TOKEN_STRING_END),
+
         test_token_string(""), test_token("", TOKEN_FORMAT),
         test_token_string(""), test_token("", TOKEN_FORMAT),
         test_token_int("1", 10), test_token("+", TOKEN_PLUS),
         test_token_int("2", 10), test_token("", TOKEN_STRING_END),
         test_token("", TOKEN_FORMAT), test_token_string(" end"),
         test_token("", TOKEN_STRING_END),
+
         test_token_string(" "), test_token("", TOKEN_FORMAT),
         test_token_string(" "), test_token("", TOKEN_FORMAT),
         test_token_int("7", 10), test_token("**", TOKEN_EXPO),
@@ -387,7 +395,14 @@ static void test_lex_string() {
         test_token_string(" "), test_token("", TOKEN_STRING_END),
         test_token("", TOKEN_FORMAT), test_token_string(" "),
         test_token("", TOKEN_STRING_END),
-        test_token_string("unclosed { left curly."), test_token("", TOKEN_STRING_END)
+
+        test_token_string("unclosed { left curly."),
+        test_token("", TOKEN_STRING_END),
+
+        test_token_string(""), test_token("", TOKEN_FORMAT),
+        test_token_string("Empty "), test_token("", TOKEN_FORMAT),
+        test_token_string(""), test_token("", TOKEN_FORMAT), test_token_string("brace."),
+        test_token("", TOKEN_STRING_END)
     );
     ZymuxProgram program = create_zymux_program("testString", false);
     Lexer lexer = create_lexer(&program, source);
