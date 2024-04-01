@@ -5,27 +5,43 @@
 #include "errors.h"
 #include "zymux_program.h"
 
-static char *fixed_source(char *original) {
+/** 
+ * iterates over some source and returns a string copy where every CRLF and CR turns into LF.
+ * 
+ * This is because different systems have different signals for a line break.
+ * 
+ * In windows, a line break is CRLF (\r\n).
+ * In older versions of mac, a line break is CR (\r).
+ * Although newer versions have (\n) which is also what linux uses. It's also Zymux defaults to.
+ */
+static char *alloc_fixed_source(char *source) {
     CharBuffer buffer = create_char_buffer();
     int idx = 0;
-    while (original[idx] != '\0') {
-        if (original[idx] != '\r') {
-            buffer_append_char(&buffer, original[idx++]);
+    while (source[idx] != '\0') {
+        if (source[idx] != '\r') {
+            buffer_append_char(&buffer, source[idx++]);
             continue;
         }
 
         idx++;
-        if (original[idx] == '\n') {
+        if (source[idx] == '\n') {
             idx++;
         }
         buffer_append_char(&buffer, '\n');
     }
-    return buffer.text; // Pass responsibility of freeing buffer's text to user.
+    return buffer.text;
 }
 
+/**
+ * Returns the text of the passed file as an allocated string.
+ * All line breaks are written as "\n" in the returned string, no matter the system.
+ */
 char *alloc_source(const char *fileName) {
     FILE *file = fopen(fileName, "rb");
     if (file == NULL) {
+        // TODO: perhaps change this into a user error, as we don't want to internally error
+        // when the user misspells a file name, since internal errors are reserved for our mistakes
+        // and not the ones the user makes.
         FILE_ERROR("Couldn't open file \"%s\".", fileName);
     }
     if (fseek(file, 0L, SEEK_END) != 0) {
@@ -48,7 +64,7 @@ char *alloc_source(const char *fileName) {
         FILE_ERROR("Failed to close file \"%s\" after reading it.", fileName);
     }
     source[fileLength] = '\0';
-    char *fixedSource = fixed_source(source);
+    char *fixedSource = alloc_fixed_source(source);
     free(source);
     return fixedSource;
 }

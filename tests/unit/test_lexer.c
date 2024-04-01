@@ -12,6 +12,7 @@ char *defaultSource = "float && var (); $'str {2 * 3}' break; 22 44.2"
     "\n// single line\n hey /*muti-\nline*/ end";
 Lexer *defaultLexer;
 
+/** A setup to initialize the defaultLexer. */
 static void setup_default_lexer() {
     ZymuxProgram *program = ZMX_ALLOC(ZymuxProgram);
     *program = create_zymux_program("default", false);
@@ -20,6 +21,7 @@ static void setup_default_lexer() {
     *defaultLexer = create_lexer(program, defaultSource);
 }
 
+/** A teardown for the defaultLexer and the other things it uses. */
 static void teardown_default_lexer() {
     free_zymux_program(defaultLexer->program);
     free(defaultLexer->program);
@@ -27,11 +29,17 @@ static void teardown_default_lexer() {
     free(defaultLexer);
 }
 
+/** Returns a token for testing with minimal parameters (line and column are automatically 0). */
 static Token test_token(char *lexeme, TokenType type) {
-    Token token = create_token(lexeme, 0, 0, type);
+    Token token = {
+        .lexeme = lexeme, .length = strlen(lexeme),
+        .line = 0, .column = 0,
+        .type = type
+    };
     return token;
 }
 
+/** Returns a string literal token where both the stringVal and lexeme are the same. */
 static Token test_token_string(char *lexeme) {
     Token token = create_token(lexeme, 0, 0, TOKEN_STRING_LIT);
     token.stringVal = create_char_buffer();
@@ -39,12 +47,19 @@ static Token test_token_string(char *lexeme) {
     return token;
 }
 
+/**
+ * Creates an integer literal token from a string representation of the number.
+ * 
+ * The lexeme holds the number we want to convert into intVal, and we use base to know
+ * what base we'll parse with strtol.
+ */
 static Token test_token_int(char *lexeme, int base) {
     Token token = create_token(lexeme, 0, 0, TOKEN_INT_LIT);
     token.intVal = strtol(lexeme, NULL, base);
     return token;
 }
 
+/** Appends multiple tokens. The amount is how many tokens are passed to append. */
 static void append_test_tokens(TokenArray *tokens, const int amount, ...) {
     va_list args;
     va_start(args, amount);
@@ -55,7 +70,11 @@ static void append_test_tokens(TokenArray *tokens, const int amount, ...) {
     va_end(args);
 }
 
-static void compare_lexed(Lexer *lexer, TokenArray *expectedArray, bool compareLines) {
+/**
+ * Compares the tokens in the lexer with the passed expectedArray.
+ * If compareSpots is set to true, it'll also compare the the line and column of the tokens.
+ */
+static void compare_lexed(Lexer *lexer, TokenArray *expectedArray, bool compareSpots) {
     const int lexerLength = lexer->tokens.length;
     const int expectedLength = expectedArray->length;
     LUKIP_INT_EQUAL(lexer->tokens.length, expectedArray->length);
@@ -70,13 +89,14 @@ static void compare_lexed(Lexer *lexer, TokenArray *expectedArray, bool compareL
             tokenIdx + 1, lexed.length, lexed.lexeme,
             type_to_string(lexed.type), expected.lexeme, type_to_string(expected.type)
         );
-        if (compareLines) {
+        if (compareSpots) {
             LUKIP_INT_EQUAL(lexed.line, expected.line);
+            // TODO: compare lexed columns.
         }
     }
 }
 
-// TODO: test newlines working.
+/** Tests lex() with a bunch of programs that shouldn't error. */
 static void test_lex_successful_programs() {
     char *sources[] = {
         "",
@@ -137,6 +157,7 @@ static void test_lex_successful_programs() {
     );
 
     for (size_t arrayIdx = 0; arrayIdx < sourcesAmount; arrayIdx++) {
+        // TODO: explicitly check that the lexer didn't error out here.
         ZymuxProgram program = create_zymux_program("testLex", false);
         Lexer lexer = create_lexer(&program, sources[arrayIdx]);
         lex(&lexer);
@@ -151,6 +172,7 @@ static void test_lex_successful_programs() {
     free(tokens2DArray);
 }
 
+/** Tests lex() with a bunch of erroneous programs. */
 static void test_lex_errors() {
     char *sources[] = {
         "SomeIdentifier 'Unterminated string.",
@@ -171,6 +193,7 @@ static void test_lex_errors() {
     }
 }
 
+/** Performs a test on a source code that includes every single token in Zymux. */
 static void test_lex_all_tokens() {
     char *source = "string int float bool list class const let private func if else while for do "
         "return break continue true false null as is in super this init abstract inherits "
@@ -233,15 +256,16 @@ static void test_lex_all_tokens() {
     free_token_array(&allTokens);
 }
 
+/** A test dedicated to ensuring that the lexer keeps track of lines and columns correctly. */
 static void test_lex_lines() {
-    char *source = "line1\n line2 2.2\n\n\n line5 555\n\n";
+    char *source = "line1\n line2 2.2\n\n\n \t line5 555\n\n";
     TokenArray allTokens = create_token_array();
     append_test_tokens(
         &allTokens, 5,
         create_token("line1", 1, 1, TOKEN_IDENTIFIER),
         create_token("line2", 2, 2, TOKEN_IDENTIFIER),
-        create_token("2.2", 2, 2, TOKEN_FLOAT_LIT),
-        create_token("line5", 5, 2, TOKEN_IDENTIFIER),
+        create_token("2.2", 2, 8, TOKEN_FLOAT_LIT),
+        create_token("line5", 5, 4, TOKEN_IDENTIFIER),
         (Token){.lexeme = "555", .length = 3, .line = 5, .type = TOKEN_INT_LIT, .intVal = 555}
     );
     allTokens.tokens[allTokens.length - 1].line = 7; // Set EOF line.
@@ -255,6 +279,11 @@ static void test_lex_lines() {
     free_token_array(&allTokens);
 }
 
+/** 
+ * Tests that the lexer handles all supported numbers in Zymux correctly.
+ * Which includes floats, and integers in decimal, and some other bases like hex.
+ * It also tests that we handle preceding 0s correctly.  
+ */
 static void test_lex_number() {
     char *source = "0x0 0x00ff0 0xea2301 0b0 0b101 0b010 0b00100110111 0o00 0o02707 0o241"
         " 0 0.0 0.010 0013 002.3300 931453229 23.3 3.0";
@@ -287,6 +316,7 @@ static void test_lex_number() {
     free_token_array(&allTokens);
 }
 
+/** Tests that the lexer handles all names (keywords and identifiers) correctly. */
 static void test_lex_name() {
     char *source = "hello returnme break _ notKeyword__ float L2dm3e44 _22_ string _NAME_HERE";
     TokenArray allTokens = create_token_array();
@@ -313,6 +343,10 @@ static void test_lex_name() {
     free_token_array(&allTokens);
 }
 
+/**
+ * Tests that the lexer handles different kinds of strings correctly
+ * This includes normal, interpolated, raw and interpolated + raw as well as some edge cases.
+ */
 static void test_lex_string() {
     char *source = "'Normal\\t string\\\\n w/escapes'"
         "#'This is a\\t raw string.\\n\\\\n'"
@@ -370,6 +404,14 @@ static void test_lex_string() {
     free_token_array(&allTokens);
 }
 
+/**
+ * Ensures that we lex tokens that are written with special characters (like ">=").
+ * We test every single case in the lexer once:
+ *     "<< <= < <" tests all cases in compound_assigns().
+ *     "&= && &" tests all cases in two_or_default().
+ *     ".. ." tests both cases in one_or_default().
+ *     ";" tests that we handle something that can only be a single character correctly.
+ */
 static void test_lex_chars_tokens() {
     char *source = "<<= << <= < &= && & .. . ;";
     TokenArray allTokens = create_token_array();
@@ -412,6 +454,8 @@ static void test_lex_chars_tokens() {
     free_token_array(&allTokens);
 }
 
+
+/** Tests the valid syntax checker. */
 static void test_valid_syntax() {
     LUKIP_IS_TRUE(valid_syntax('<'));
     LUKIP_IS_TRUE(valid_syntax('$'));
@@ -422,6 +466,7 @@ static void test_valid_syntax() {
 }
 
 
+/** Tests the macro helpers that help the lexer in things (like peeking, and advancing). */
 static void test_lexer_macro_helpers() {
     LUKIP_CHAR_EQUAL(PEEK(defaultLexer), 'f');
     LUKIP_CHAR_EQUAL(PEEK_DISTANCE(defaultLexer, 7), '&');
@@ -459,6 +504,7 @@ static void test_lexer_macro_helpers() {
     LUKIP_IS_TRUE(IS_DIGIT('2'));
 }
 
+/** Tests that ignore_whitespace ignores them properly. */
 static void test_handling_whitespace() {
     // There isn't whitespace in the beginning, so peek result shouldn't change.
     char current = PEEK(defaultLexer);
@@ -484,6 +530,7 @@ static void test_handling_whitespace() {
     );
 }
 
+/** Tests the relevant functions related to initializing, appending, and popping off of structs. */
 static void test_lexer_struct_functions() {
     Token stackLexeme = create_token("test", 2, 2, TOKEN_IDENTIFIER);
     Token heapLexeme = create_token("test", 2, 2, TOKEN_IDENTIFIER);
@@ -531,6 +578,7 @@ static void test_lexer_struct_functions() {
     free_token_array(&tokens);
 }
 
+/** Tests that errors are made and appended correctly. */
 static void test_error_functions() {
     append_error_at(defaultLexer, "at", defaultLexer->source + 2, 4, 1, 1);
     Token manualAt = {
@@ -552,6 +600,7 @@ static void test_error_functions() {
     LUKIP_IS_TRUE(tokens_equal(LAST_TOKEN(defaultLexer), manualLexed));
 }
 
+/** Tests the helper functions that return whether something is within a base or not. */
 static void test_base_number_checkers() {
     LUKIP_IS_TRUE(is_bin_digit('1'));
     LUKIP_IS_TRUE(is_bin_digit('0'));
@@ -575,16 +624,19 @@ static void test_base_number_checkers() {
     LUKIP_IS_FALSE(is_hex_digit('u'));
 }
 
+/** Tests if tokens_equal handles equality properly. */
 static void test_tokens_equal() {
     Token equal1 = {.lexeme = "test", .length = 4, .line = 2, .type = TOKEN_IDENTIFIER};
     Token equal2 = {.lexeme = "test", .length = 4, .line = 2, .type = TOKEN_IDENTIFIER};
     LUKIP_IS_TRUE(tokens_equal(equal1, equal2));
+    // TODO: Add a 2 test cases here, one for strings and one for integers.
 
     Token notEqual1 = {.lexeme = "first", .length = 3, .line = 2, .type = TOKEN_IDENTIFIER};
     Token notEqual2 = {.lexeme = "different", .length = 3, .line = 2, .type = TOKEN_IDENTIFIER};
     LUKIP_IS_FALSE(tokens_equal(notEqual1, notEqual2));
 }
 
+/** Tests lexer.c. */
 void test_lexer() {
     TEST(test_tokens_equal);
     TEST(test_base_number_checkers);

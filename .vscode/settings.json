@@ -15,4 +15,7 @@
         "included_sources.h": "c",
         "lukip.h": "c"
     },
+    "cSpell.words": [
+        "Zymux"
+    ],
 }

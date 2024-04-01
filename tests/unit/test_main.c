@@ -10,6 +10,7 @@
 #include "errors.c"
 #include "debug_tokens.c"
 
+/** Main function of the unit tests that calls all file testers. */
 int main() {
     LUKIP_INIT();
     test_file();
@@ -17,5 +18,6 @@ int main() {
     test_zymux_program();
     test_lexer();
     LUKIP_END();
+    
     return 0;
 }

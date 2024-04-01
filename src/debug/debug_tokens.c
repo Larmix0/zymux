@@ -3,6 +3,7 @@
 #include "debug_tokens.h"
 #include "errors.h"
 
+/** Returns the passed type as a string literal in all uppercase. */
 char *type_to_string(const TokenType type) {
     switch (type) {
         case TOKEN_STRING_KW: return "STRING";
@@ -99,6 +100,7 @@ char *type_to_string(const TokenType type) {
     return NULL; // Unreachable error already exits. This is so the compiler doesn't yell.
 }
 
+/** Prints the passed token to the console. */
 static void print_token(const Token token) {
     printf(
         "\tToken(lexeme=\"%.*s\", length=%d, line=%d, column=%d, type=%s",
@@ -115,6 +117,7 @@ static void print_token(const Token token) {
     printf(")");
 }
 
+/** Prints the entire array of tokens. */
 void print_tokens(const TokenArray tokens) {
     printf("Tokens:\n");
     for (int i = 0; i < tokens.length; i++) {

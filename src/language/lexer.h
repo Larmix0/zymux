@@ -6,6 +6,7 @@
 
 #define TOKEN_IS_TYPE(token, expected) (token.type == expected)
 
+/** Every type of token that Zymux supports. */
 typedef enum {
     /** Data type keyword. */
     TOKEN_STRING_KW, TOKEN_INT_KW, TOKEN_FLOAT_KW, TOKEN_BOOL_KW, TOKEN_LIST_KW,
@@ -61,57 +62,94 @@ typedef enum {
     /** Punctuation. */
     TOKEN_SEMICOLON, TOKEN_COMMA, TOKEN_DOT, TOKEN_QUESTION_MARK, TOKEN_COLON,
 
-    /** Related to interpolated strings. */
-    TOKEN_FORMAT, TOKEN_STRING_END,
+    /** Implicitly inserted (without the user writing it themselves). */
+    TOKEN_FORMAT, TOKEN_STRING_END, TOKEN_EOF,
 
     /** Literal. */
     TOKEN_STRING_LIT, TOKEN_INT_LIT, TOKEN_FLOAT_LIT,
 
     /** Miscellaneous token. */
-    TOKEN_EQ, TOKEN_IDENTIFIER, TOKEN_DOT_DOT, TOKEN_EOF, TOKEN_ERROR, TOKEN_NONE
+    TOKEN_EQ, TOKEN_IDENTIFIER, TOKEN_DOT_DOT, TOKEN_ERROR, TOKEN_NONE
 } TokenType;
 
+/** A series of characters from the source code stored as a single unit. */
 typedef struct {
-    char *lexeme;
-    int length;
-    int line;
-    int column;
-    TokenType type;
+    char *lexeme; /** points somewhere in the source at the beginning of the token */
+    int length; /** how long the lexeme is (since lexeme is not terminated). */
+    int line; /** Line of where the token is present in the source code. */
+    int column; /** The column of the first character in the token. */
+    TokenType type; /** What type of token it is. */
+
+    /** Union for special tokens that require extra info like literals and errors. */
     union {
+        /** 
+         * Integer literals can be written in ways other than decimals in Zymux,
+         * which are currently binary (0b), octal (0o) and hexadecimal (0x).
+         * Therefore, in order to know the actual value we have to parse the literal in the source
+         * and store it's integer number in the token, which is intVal.
+         */
         ZmxInt intVal;
+
+        /** 
+         * We lex a given string literal by manually appending characters to a buffer,
+         * This is because escape sequences make the resulting literal potentially different
+         * from what is in the original source code which is unescaped.
+         */
         CharBuffer stringVal;
+
+        /**
+         * When an error occurs, it still points to a lexeme and length in the source, which is
+         * the erroneous token that gets displayed. errorMessage is the message to be printed.
+         */
         char *errorMessage;
     };
 } Token;
 
+/** An array of tokens. */
 typedef struct {
     int length;
     int capacity;
     Token *tokens;
 } TokenArray;
 
+/** A lexer for a given piece of source code to produce its array of tokens for parsing later. */
 typedef struct {
     char *tokenStart;
     int tokenLine;
     int tokenColumn;
+
     char *current;
-    char *source;
-    size_t sourceLength;
     int line;
     int column;
+
+    char *source;
+    size_t sourceLength;
+    
     ZymuxProgram *program;
     TokenArray tokens;
 } Lexer;
 
+/** Returns an initialized TokenArray. */
 TokenArray create_token_array();
+
+/** Appends the passed Token to the TokenArray. */
 void append_token(TokenArray *tokens, Token token);
+
+/** Return a general token (with no union values) from the parameters. */
 Token create_token(char *message, const int line, const int column, const TokenType type);
-Token token_alloc_lexeme(const char *message, const int line, const TokenType type);
-bool tokens_equal(const Token left, const Token right);
+
+/** Frees all the memory the passed TokenArray has used. */
 void free_token_array(TokenArray *tokens);
 
+/** Returns an initialized Lexer. */
 Lexer create_lexer(ZymuxProgram *program, char *source);
-bool lex(Lexer *lexer);
+/** Frees all the memory the lexer has used (including the tokens it generated). */
 void free_lexer(Lexer *lexer);
+
+/** Lexes the passed lexer's source code into its tokens array and returns whether it errored. */
+bool lex(Lexer *lexer);
+
+/** Returns whether or not 2 tokens are considered equal. */
+bool tokens_equal(const Token left, const Token right);
 
 #endif

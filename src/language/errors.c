@@ -6,6 +6,7 @@
 #include <file.h>
 #include "zymux_program.h"
 
+/** Returns whether ch is a whitespace character or not. */
 static bool is_whitespace(const char ch) {
     switch (ch) {
     case ' ':
@@ -18,6 +19,11 @@ static bool is_whitespace(const char ch) {
     }
 }
 
+/** 
+ * To call after iterating through the source and reaching the first character of the errored line.
+ * It skips all preceding whitespace of a line then starts actually printing so indents are skipped.
+ * It then proceeds to print carets when reaching column. The amount of carets is length.
+ */
 static void print_error_line(char *source, int idx, const int column, const int length) {
     int whitespaces = 0;
     char current = source[idx];
@@ -40,6 +46,7 @@ static void print_error_line(char *source, int idx, const int column, const int 
     fputc('\n', stderr);
 }
 
+/** Iterates through the source of the passed file and then prints the errored line when reached. */
 static void show_zmx_error_line(char *file, const int line, const int column, const int length) {
     char *source = alloc_source(file);
     const int sourceLength = strlen(source);
@@ -56,6 +63,7 @@ static void show_zmx_error_line(char *file, const int line, const int column, co
     free(source);
 }
 
+/** An internal error occurred within the Zymux implementation in C itself like a memory error. */
 void internal_error(
     const char *file, const char *func, const int line,
     const int exitCode, const char *errorName, const char *format, ...
@@ -75,6 +83,11 @@ void internal_error(
     exit(exitCode);
 }
 
+/** 
+ * Prints the entire error in the currentFile of program in the line and column passed.
+ * This is reserved for errors that are due to the user's own mistake
+ * like a compiler error or a runtime error.
+ */
 void user_error(
     ZymuxProgram *program, const int line, const int column, const int length,
     const char *errorName, const char *format, ...

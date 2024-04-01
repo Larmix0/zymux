@@ -7,10 +7,12 @@
 #include "lexer.h"
 #include "zymux_program.h"
 
+/** Runs Zymux on a REPL loop. */
 static void repl() {
     // TODO: implement repl.
 }
 
+/** Reads the past file and makes it go through all the stages of Zymux to execute it. */
 static void run_zmx_file(char *file) {
     char *source = alloc_source(file);
     ZymuxProgram program = create_zymux_program(file, true);
@@ -25,6 +27,10 @@ static void run_zmx_file(char *file) {
     free_zymux_program(&program);
 }
 
+/** 
+ * Main entry part of Zymux.
+ * 1 argument means to use REPL, 2 means to read file regular, any other number is an error.
+ */
 int main(const int argc, char **argv) {
     if (argc == 1) {
         repl();

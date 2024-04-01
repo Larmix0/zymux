@@ -3,7 +3,10 @@
 
 #include "lexer.h"
 
+/** Returns the passed token type as a string literal in all uppercase. */
 char *type_to_string(const TokenType type);
+
+/** Prints the passed TokenArray's tokens. */
 void print_tokens(const TokenArray tokens);
 
 #endif
