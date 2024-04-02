@@ -23,13 +23,13 @@ typedef struct {
     char *currentFile;
 } ZymuxProgram;
 
-/**
+/** 
  * Allocates size memory and uses file, func, and line for errors.
  * This is here for the macros, so use those macros instead.
  */
 void *zmx_alloc(const size_t size, const char *file, const char *func, const int line);
 
-/**
+/** 
  * Reallocates oldPointer with size and uses file, func, and line for errors.
  * This is here for the macros, so use those macros instead.
  */

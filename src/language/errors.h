@@ -15,7 +15,7 @@
 #define FILE_ERROR(...) \
     (internal_error(__FILE__, __func__, __LINE__, 1, "File IO error", __VA_ARGS__))
 
-/**
+/** 
  * Reports an error where a part of the implementation that wasn't meant to be executed was reached.
  * An example would be reaching a default case on a switch that should've covered the whole enum.
  * Unlike file errors or memory errors which may be caused by something in the user's computer

@@ -91,7 +91,7 @@ static void compare_lexed(Lexer *lexer, TokenArray *expectedArray, bool compareS
         );
         if (compareSpots) {
             LUKIP_INT_EQUAL(lexed.line, expected.line);
-            // TODO: compare lexed columns.
+            LUKIP_INT_EQUAL(lexed.column, expected.column);
         }
     }
 }
@@ -157,10 +157,10 @@ static void test_lex_successful_programs() {
     );
 
     for (size_t arrayIdx = 0; arrayIdx < sourcesAmount; arrayIdx++) {
-        // TODO: explicitly check that the lexer didn't error out here.
         ZymuxProgram program = create_zymux_program("testLex", false);
         Lexer lexer = create_lexer(&program, sources[arrayIdx]);
         lex(&lexer);
+        LUKIP_IS_FALSE(lexer.program->hasErrored);
 
         compare_lexed(&lexer, &tokens2DArray[arrayIdx], false);
         free_lexer(&lexer);
@@ -256,8 +256,8 @@ static void test_lex_all_tokens() {
     free_token_array(&allTokens);
 }
 
-/** A test dedicated to ensuring that the lexer keeps track of lines and columns correctly. */
-static void test_lex_lines() {
+/** A test for ensuring that the lexer keeps track of lines and columns correctly. */
+static void test_lex_spots() {
     char *source = "line1\n line2 2.2\n\n\n \t line5 555\n\n";
     TokenArray allTokens = create_token_array();
     append_test_tokens(
@@ -266,14 +266,19 @@ static void test_lex_lines() {
         create_token("line2", 2, 2, TOKEN_IDENTIFIER),
         create_token("2.2", 2, 8, TOKEN_FLOAT_LIT),
         create_token("line5", 5, 4, TOKEN_IDENTIFIER),
-        (Token){.lexeme = "555", .length = 3, .line = 5, .type = TOKEN_INT_LIT, .intVal = 555}
+        (Token){
+            .lexeme = "555", .length = 3, .line = 5, .column = 10,
+            .type = TOKEN_INT_LIT, .intVal = 555
+        }
     );
-    allTokens.tokens[allTokens.length - 1].line = 7; // Set EOF line.
+    // Set EOF line and column.
+    allTokens.tokens[allTokens.length - 1].line = 7;
+    allTokens.tokens[allTokens.length - 1].column = 1;
     ZymuxProgram program = create_zymux_program("testLine", false);
     Lexer lexer = create_lexer(&program, source);
     lex(&lexer);
 
-    compare_lexed(&lexer, &allTokens, false);
+    compare_lexed(&lexer, &allTokens, true);
     free_lexer(&lexer);
     free_zymux_program(&program);
     free_token_array(&allTokens);
@@ -499,7 +504,16 @@ static void test_lexer_macro_helpers() {
     LUKIP_INT_EQUAL(CURRENT_TOKEN_LENGTH(defaultLexer), 4);
 
     RETREAT(defaultLexer);
-    LUKIP_CHAR_EQUAL(PEEK(defaultLexer), 'a');
+    RETREAT(defaultLexer);
+    LUKIP_CHAR_EQUAL(PEEK(defaultLexer), 'o');
+
+    LUKIP_IS_FALSE(MATCH(defaultLexer, 'h'));
+    LUKIP_IS_TRUE(MATCH(defaultLexer, 'o'));
+    LUKIP_IS_TRUE(MATCH(defaultLexer, 'a'));
+    
+    LUKIP_IS_TRUE(PEEK(defaultLexer) == 't');
+    LUKIP_IS_FALSE(MATCH(defaultLexer, 'f'));
+    LUKIP_IS_TRUE(PEEK(defaultLexer) == 't');
 
     LUKIP_IS_FALSE(IS_EOF(defaultLexer));
     defaultLexer->current = defaultLexer->source + defaultLexer->sourceLength;
@@ -572,25 +586,24 @@ static void test_lexer_struct_functions() {
     Token keyword = create_token("float", 1, 2, TOKEN_FLOAT_KW);
     LUKIP_IS_TRUE(tokens_equal(LAST_TOKEN(defaultLexer), keyword));
 
-    TokenArray tokens = create_token_array();
-    append_token(&tokens, heapLexeme); // Passes freeing responsibility to token array.
-    LUKIP_IS_TRUE(tokens_equal(tokens.tokens[0], heapLexeme));
+    // Passes freeing responsibility to token array.
+    append_token(&defaultLexer->tokens, heapLexeme);
+    LUKIP_IS_TRUE(tokens_equal(LAST_TOKEN(defaultLexer), heapLexeme));
 
-    append_token(&tokens, implicit_token(defaultLexer, TOKEN_FORMAT));
+    append_implicit(defaultLexer, TOKEN_FORMAT);
     LUKIP_IS_TRUE(tokens_equal(
-        tokens.tokens[1], create_token("", defaultLexer->line, defaultLexer->column, TOKEN_FORMAT)
+        LAST_TOKEN(defaultLexer),
+        create_token("", defaultLexer->line, defaultLexer->column, TOKEN_FORMAT)
     ));
 
     ADVANCE(defaultLexer);
     START_TOKEN(defaultLexer);
     ADVANCE_AMOUNT(defaultLexer, 3);
-    append_token(&tokens, implicit_token(defaultLexer, TOKEN_STRING_END));
+    append_implicit(defaultLexer, TOKEN_STRING_END);
     LUKIP_IS_TRUE(tokens_equal(
-        tokens.tokens[2],
+        LAST_TOKEN(defaultLexer),
         create_token("", defaultLexer->line, defaultLexer->column, TOKEN_STRING_END)
     ));
-
-    free_token_array(&tokens);
 }
 
 /** Tests that errors are made and appended correctly. */
@@ -641,10 +654,27 @@ static void test_base_number_checkers() {
 
 /** Tests if tokens_equal handles equality properly. */
 static void test_tokens_equal() {
-    Token equal1 = {.lexeme = "test", .length = 4, .line = 2, .type = TOKEN_IDENTIFIER};
-    Token equal2 = {.lexeme = "test", .length = 4, .line = 2, .type = TOKEN_IDENTIFIER};
+    Token equal1 = {.lexeme = "test", .length = 4, .type = TOKEN_IDENTIFIER};
+    Token equal2 = {.lexeme = "test", .length = 4, .type = TOKEN_IDENTIFIER};
     LUKIP_IS_TRUE(tokens_equal(equal1, equal2));
-    // TODO: Add a 2 test cases here, one for strings and one for integers.
+
+    CharBuffer str1Buffer = create_char_buffer();
+    buffer_append_string(&str1Buffer, "hello");
+    Token string1 = {
+        .lexeme = "str1", .length = 4, .stringVal = str1Buffer, .type = TOKEN_STRING_LIT
+    };
+    CharBuffer str2Buffer = create_char_buffer();
+    buffer_append_string(&str2Buffer, "hello");
+    Token string2 = {
+        .lexeme = "str2", .length = 4, .stringVal = str2Buffer, .type = TOKEN_STRING_LIT
+    };
+    LUKIP_IS_TRUE(tokens_equal(string1, string2));
+    free_char_buffer(&str1Buffer);
+    free_char_buffer(&str2Buffer);
+
+    Token integer1 = {.lexeme = "10", .length = 2, .intVal = 10, .type = TOKEN_INT_LIT};
+    Token integer2 = {.lexeme = "0xA", .length = 3, .intVal = 10, .type = TOKEN_INT_LIT};
+    LUKIP_IS_TRUE(tokens_equal(integer1, integer2));
 
     Token notEqual1 = {.lexeme = "first", .length = 3, .line = 2, .type = TOKEN_IDENTIFIER};
     Token notEqual2 = {.lexeme = "different", .length = 3, .line = 2, .type = TOKEN_IDENTIFIER};
@@ -672,5 +702,5 @@ void test_lexer() {
     TEST(test_lex_successful_programs);
     TEST(test_lex_errors);
     TEST(test_lex_all_tokens);
-    TEST(test_lex_lines);
+    TEST(test_lex_spots);
 }

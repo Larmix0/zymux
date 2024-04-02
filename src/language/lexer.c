@@ -20,6 +20,8 @@
 #define ADVANCE_PEEK(lexer) ((lexer)->column++, *(lexer)->current++)
 #define ADVANCE(lexer) ((lexer)->column++, (lexer)->current++)
 #define ADVANCE_AMOUNT(lexer, amount) ((lexer)->column += (amount), (lexer)->current += (amount))
+
+#define MATCH(lexer, expected) (PEEK(lexer) == (expected) ? (ADVANCE(lexer), true) : false)
 #define RETREAT(lexer) ((lexer)->column--, (lexer)->current--)
 
 #define LOWERED_CHAR(ch) ((ch) >= 'A' && (ch) <= 'Z' ? (ch) + 32 : (ch))
@@ -99,14 +101,13 @@ Token create_token(char *message, const int line, const int column, const TokenT
     return token;
 }
 
-/**
- * Returns an implicit token, which is empty.
+/** 
+ * Appends an implicit token, which is empty.
  * it's a token of length 0 that the user didn't explicitly write,
  * and is only useful internally in Zymux.
  */
-static Token implicit_token(Lexer *lexer, const TokenType type) {
-    // TODO: make this "append_implicit_token". Could be done as one refactor commit with adding MATCH.
-    return create_token("", lexer->line, lexer->column, type);
+static void append_implicit(Lexer *lexer, const TokenType type) {
+    append_token(&lexer->tokens, create_token("", lexer->line, lexer->column, type));
 }
 
 /** Appends the token we've been lexing as an error with the message. */
@@ -219,8 +220,7 @@ static void multiline_comment(Lexer *lexer) {
             lexer->column = 1;
             break;
         case '*':
-            if (PEEK(lexer) == '/') {
-                ADVANCE(lexer); // Finishes the closing "*/"
+            if (MATCH(lexer, '/')) {
                 return;
             }
             break;
@@ -267,12 +267,11 @@ static void ignore_whitespace(Lexer *lexer) {
 static void one_or_default(
     Lexer *lexer, const TokenType defaultType, const char expected, const TokenType expectedType
 ) {
-    if (PEEK(lexer) == expected) {
-        ADVANCE(lexer);
+    if (MATCH(lexer, expected)) {
         append_lexed(lexer, expectedType);
-        return;
+    } else {
+        append_lexed(lexer, defaultType);
     }
-    append_lexed(lexer, defaultType);
 }
 
 /** 
@@ -283,12 +282,11 @@ static void two_or_default(
     Lexer *lexer, const TokenType defaultType,
     const char expected1, const TokenType type1, const char expected2, const TokenType type2
 ) {
-    if (PEEK(lexer) == expected1) {
-        ADVANCE(lexer);
+    if (MATCH(lexer, expected1)) {
         append_lexed(lexer, type1);
-        return;
+    } else {
+        one_or_default(lexer, defaultType, expected2, type2);
     }
-    one_or_default(lexer, defaultType, expected2, type2);
 }
 
 /** 
@@ -309,9 +307,9 @@ static void two_compound_assigns(
     if (PEEK(lexer) == overloadedChar && PEEK_DISTANCE(lexer, 1) == '=') {
         ADVANCE_AMOUNT(lexer, 2);
         append_lexed(lexer, extendedCompound);
-        return;
+    } else {
+        two_or_default(lexer, original, overloadedChar, extended, '=', originalCompound);
     }
-    two_or_default(lexer, original, overloadedChar, extended, '=', originalCompound);
 }
 
 /** Checks if the thing scanned so far matches with the passed keyword. */
@@ -405,7 +403,7 @@ static void lex_name(Lexer *lexer) {
     append_lexed(lexer, type);
 }
 
-/**
+/** 
  * Appends the lexed integer token.
  * This function is also responsible for passing the literal's actual value to the token.
  * 
@@ -454,19 +452,19 @@ static void lex_base(
 ) {
     ADVANCE_AMOUNT(lexer, 2);
     START_TOKEN(lexer);
-
     if (!is_within_base(PEEK(lexer))) {
         invalid_literal(lexer, errorMessage, true);
         return;
     }
+
     while (is_within_base(PEEK(lexer))) {
         ADVANCE(lexer);
     }
     if (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
         invalid_literal(lexer, errorMessage, true);
-        return;
+    } else {
+        append_lexed_base(lexer, base, true);   
     }
-    append_lexed_base(lexer, base, true);
 }
 
 /** Finishes the lexing of a float after the whole number and dot. */
@@ -476,9 +474,9 @@ static void finish_float(Lexer *lexer) {
     }
     if (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
         invalid_literal(lexer, "Invalid float literal.", false);
-        return;
+    } else {
+        append_lexed(lexer, TOKEN_FLOAT_LIT);
     }
-    append_lexed(lexer, TOKEN_FLOAT_LIT);
 }
 
 /** Lexes and appends a "normal" number, which is a decimal integer or float. */
@@ -529,6 +527,7 @@ static void lex_number(Lexer *lexer) {
         normal_number(lexer);
         return;
     }
+
     // Skip zero padding, except the last one.
     while (PEEK(lexer) == '0' && PEEK_DISTANCE(lexer, 1) == '0') {
         ADVANCE(lexer);
@@ -574,7 +573,7 @@ static bool ignore_interpolation_whitespace(Lexer *lexer) {
     }
 }
 
-/**
+/** 
  * Resets the state after finishing the interpolation.
  *  
  * Resets the StringLexer's interpolation state,
@@ -597,20 +596,15 @@ static void lex_interpolation(Lexer *lexer, StringLexer *string) {
     int exprEndColumn = lexer->column;
     lexer->current = string->interpolationStart + 1;
     lexer->column = string->interpolationColumn + 1;
-
-    if (!ignore_interpolation_whitespace(lexer)) {
-        finish_interpolation(lexer, string, exprEnd, exprEndColumn);
-    }
-    if (PEEK(lexer) == '}') {
+    if (!ignore_interpolation_whitespace(lexer) || PEEK(lexer) == '}') {
+        // Empty/starts with error, don't interpolate anything.
         finish_interpolation(lexer, string, exprEnd, exprEndColumn);
         return;
     }
-    append_token(&lexer->tokens, implicit_token(lexer, TOKEN_FORMAT));
-    while (lexer->current < exprEnd) {
+
+    append_implicit(lexer, TOKEN_FORMAT);
+    while (ignore_interpolation_whitespace(lexer) && lexer->current < exprEnd) {
         lex_token(lexer);
-        if (!ignore_interpolation_whitespace(lexer)) {
-            break;
-        }
     }
     finish_interpolation(lexer, string, exprEnd, exprEndColumn);
 }
@@ -618,16 +612,18 @@ static void lex_interpolation(Lexer *lexer, StringLexer *string) {
 /** 
  * Prepares to start lexing the interpolation's tokens.
  * It does so by appending the current buffer literal then a format beforehand.
+ * Returns whether or not we actually lexed the interpolation.
  */
 static bool interpolate(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
     string->interpolationDepth--;
     if (string->interpolationDepth > 0) {
+        // Not the correct closing brace. Simply append the brace, and keep going.
         buffer_append_char(buffer, ADVANCE_PEEK(lexer));
         return false;
     }
+
     buffer_pop_amount(buffer, lexer->current - string->interpolationStart);
     append_lexed_string(lexer, string, *buffer);
-
     *buffer = create_char_buffer();
     lex_interpolation(lexer, string);
     return true;
@@ -635,11 +631,12 @@ static bool interpolate(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
 
 /** 
  * Finishes an interpolation.
- * It attempts to "interpolate" tokens starting from the open brace until now (closing brace).
- * If it fails to for any reason, it simply returns and continues lexing.
  * 
- * Otherwise, if the interpolation is successful then we'll either append a FORMAT token
- * and then continue lexing the new literal, unless we see a quote (it's finished).
+ * It tries to interpolate, if it succeeds then it'll append a TOKEN_FORMAT and keep going.
+ * There's an edge case if we see the closing token though, indicating the string finished
+ * on the interpolation, in which case we append STRING_END ourselves and return false.
+ * 
+ * Returns whether or not we should keep scanning string characters.
  */
 static bool interpolation_end(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
     if (!interpolate(lexer, string, buffer)) {
@@ -647,14 +644,13 @@ static bool interpolation_end(Lexer *lexer, StringLexer *string, CharBuffer *buf
     }
     
     START_TOKEN(lexer);
-    if (PEEK(lexer) != string->quote) {
-        append_token(&lexer->tokens, implicit_token(lexer, TOKEN_FORMAT));
+    if (MATCH(lexer, string->quote)) {
+        append_implicit(lexer, TOKEN_STRING_END);
+        return false;
+    } else {
+        append_implicit(lexer, TOKEN_FORMAT);
         return true;
     }
-    // interpolation ended the string
-    ADVANCE(lexer); // Skip closing quote.
-    append_token(&lexer->tokens, implicit_token(lexer, TOKEN_STRING_END));
-    return false;
 }
 
 /** 
@@ -675,7 +671,7 @@ static void interpolation_start(Lexer *lexer, StringLexer *string, CharBuffer *b
     buffer_append_char(buffer, ADVANCE_PEEK(lexer));
 }
 
-/**
+/** 
  * Appends and advances over an escape character made up of a backslash and the escaped character.
  * Appends the escaped character by default if it's not a built in sequence in C (like "\t").
  */
@@ -723,32 +719,28 @@ static bool scan_string_char(
 
 /** 
  * Finishes the lexing of a string after the metadata of the StringLexer is fully set.
- * We scan the string character by character until we see EOF or newline.
- * This is because Zymux allows strings to only be within the same line.
+ * We scan the string character by character until we see a closing quote.
+ * 
+ * If it goes right, we append the last literal we had stored in the buffer and a STRING_END token.
  */
 static void finish_string(Lexer *lexer, StringLexer *string) {
     char *quote = lexer->current - 1;
     int quoteColumn = lexer->column - 1;
     CharBuffer buffer = create_char_buffer();
-    while (PEEK(lexer) != string->quote) {
+    while (!MATCH(lexer, string->quote)) {
         if (!scan_string_char(lexer, string, &buffer, quote, quoteColumn)) {
             free_char_buffer(&buffer);
             return;
         }
     }
-    ADVANCE(lexer); // Skip closing quote.
     append_lexed_string(lexer, string, buffer);
-    append_token(&lexer->tokens, implicit_token(lexer, TOKEN_STRING_END));
+    append_implicit(lexer, TOKEN_STRING_END);
 }
 
 /** Read all upcoming metadata characters in a row and report them in one error. */
 static void repeated_metadata_error(Lexer *lexer) {
-    while (!IS_EOF(lexer)) {
-        char current = ADVANCE_PEEK(lexer);
-        if (current != '#' && current != '$') {
-            RETREAT(lexer);
-            break;
-        }
+    while (!IS_EOF(lexer) && (PEEK(lexer) == '#' || PEEK(lexer) == '$')) {
+        ADVANCE(lexer);
     }
     append_lexed_error(lexer, "Can't repeat \"$\" or \"#\" on string.");
 }
@@ -787,7 +779,7 @@ static MetadataStatus set_string_metadata(Lexer *lexer, StringLexer *string) {
         string->quote = PEEK(lexer);
         return METADATA_END;
     default:
-        // Error the character after #/$ then go back so it can be lexed as a separate token.
+        // Error the non-metadata character then go back so it can be lexed normally after.
         START_TOKEN(lexer);
         ADVANCE(lexer);
         append_lexed_error(lexer, "Expected string after \"#\" or \"$\".");
@@ -874,7 +866,7 @@ static bool valid_syntax(const char ch) {
 }
 
 
-/**
+/** 
  * To be called when an invalid piece of syntax is called.
  * It advances until EOF or encountering valid syntax, errors.
  */
@@ -894,7 +886,7 @@ static void unsupported_syntax(Lexer *lexer) {
 static void lex_token(Lexer *lexer) {
     START_TOKEN(lexer);
     if (IS_EOF(lexer)) {
-        append_token(&lexer->tokens, implicit_token(lexer, TOKEN_EOF));
+        append_implicit(lexer, TOKEN_EOF);
         return;
     }
 
@@ -973,9 +965,6 @@ bool lex(Lexer *lexer) {
             break;
         }
     }
-
-    if (lexer->program->hasErrored) {
-        return false;
-    }
-    return true;
+    
+    return !lexer->program->hasErrored;
 }

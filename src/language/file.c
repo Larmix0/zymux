@@ -32,7 +32,7 @@ static char *alloc_fixed_source(char *source) {
     return buffer.text;
 }
 
-/**
+/** 
  * Returns the text of the passed file as an allocated string.
  * All line breaks are written as "\n" in the returned string, no matter the system.
  */

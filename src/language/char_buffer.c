@@ -5,7 +5,7 @@
 #include "char_buffer.h"
 #include "data_structures.h"
 
-/**
+/** 
  * Creates and initializes a char buffer with a NUL character prepended.
  * This is to keep the char buffer terminated at all times, even before usage.
  */
@@ -27,7 +27,7 @@ void buffer_append_string(CharBuffer *buffer, const char *string) {
     buffer->length += length;
 }
 
-/**
+/** 
  * Appends multiple strings with NUL termination at the end.
  * The amount parameter specifies how many strings to be appended.
  */
@@ -49,7 +49,7 @@ void buffer_append_char(CharBuffer *buffer, const char ch) {
     APPEND_DA(buffer->text, buffer->length, buffer->capacity, '\0', char);
 }
 
-/**
+/** 
  * Pops the last character of the buffer.
  * Because the buffer is NUL terminated, we actually pop the last character (NUL),
  * and then replace the new last character (the character to be actually popped) with NUL.
