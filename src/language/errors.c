@@ -84,11 +84,27 @@ void internal_error(
 }
 
 /** 
- * Prints the entire error in the currentFile of program in the line and column passed.
- * This is reserved for errors that are due to the user's own mistake
+ * An error occurred while attempting to perform some operation related to files.
+ * This is specifically for file errors outside of *.zmx programs.
+ * Like running "./zymux x.zmx" where "x.zmx" doesn't exist.
+ */
+void file_error(const int exitCode, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    fprintf(stderr, "File IO error:\n\t");
+    vfprintf(stderr, format, args);
+    va_end(args);
+
+    fputc('\n', stderr);
+    exit(exitCode);
+}
+
+/** 
+ * Prints the error in the currentFile of program in the line and column passed.
+ * This is reserved for errors that are due to the user's own mistake in a *.zmx file,
  * like a compiler error or a runtime error.
  */
-void user_error(
+void zmx_user_error(
     ZymuxProgram *program, const int line, const int column, const int length,
     const char *errorName, const char *format, ...
 ) {

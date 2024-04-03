@@ -13,13 +13,14 @@
 
 /** Reports an internal file-related error where it was called. */
 #define FILE_ERROR(...) \
-    (internal_error(__FILE__, __func__, __LINE__, 1, "File IO error", __VA_ARGS__))
+    (file_error(1, __VA_ARGS__))
 
 /** 
  * Reports an error where a part of the implementation that wasn't meant to be executed was reached.
  * An example would be reaching a default case on a switch that should've covered the whole enum.
  * Unlike file errors or memory errors which may be caused by something in the user's computer
  * (like running out of memory).
+ * 
  * Unreachable errors are never meant to be executed, so when seen they should be fixed immediately.
  */
 #define UNREACHABLE_ERROR() \
@@ -31,21 +32,24 @@
 
 /** A user syntax error. Typically means an error occurred in lexing or parsing. */
 #define SYNTAX_ERROR(program, errorToken) \
-    (user_error( \
+    (zmx_user_error( \
         (program), (errorToken).line, (errorToken).column, \
         (errorToken).length, "Syntax error", (errorToken).errorMessage \
     ))
 
-/** General function for internal errors that occur in the C implementation of Zymux. */
+/** Displays an internal error that occurred in the C implementation of Zymux. */
 void internal_error(
     const char *file, const char *func, const int line,
     const int exitCode, const char *errorName, const char *format, ...
 );
 
-/** General function for errors that happened due to a mistake from the person using Zymux. */
-void user_error(
+/** Displays an error that happened due to a mistake from the person using Zymux in a *.zmx file. */
+void zmx_user_error(
     ZymuxProgram *program, const int line, const int column, const int length,
     const char *errorName, const char *format, ...
 );
+
+/** Displays a file error. */
+void file_error(const int exitCode, const char *format, ...);
 
 #endif
