@@ -6,8 +6,30 @@
 
 /** Tests that get_path_type() correctly determines whether something is a file/directory. */
 static void test_get_path_type() {
-    LUKIP_IS_TRUE(get_path_type("tests/unit/open_file_test.txt") == PATH_FILE);
-    LUKIP_IS_TRUE(get_path_type("tests/unit/open_folder_test") == PATH_DIRECTORY);
+    char delimiter = '/';
+    if (OS == WINDOWS_OS) {
+        delimiter = '\\';
+    }
+
+    CharBuffer filePath = create_char_buffer();
+    buffer_append_string(&filePath, "tests");
+    buffer_append_char(&filePath, delimiter);
+    buffer_append_string(&filePath, "unit");
+    buffer_append_char(&filePath, delimiter);
+    buffer_append_string(&filePath, "open_file_test.txt");
+
+    CharBuffer directoryPath = create_char_buffer();
+    buffer_append_string(&directoryPath, "tests");
+    buffer_append_char(&directoryPath, delimiter);
+    buffer_append_string(&directoryPath, "unit");
+    buffer_append_char(&directoryPath, delimiter);
+    buffer_append_string(&directoryPath, "open_folder_test");
+
+    LUKIP_IS_TRUE(get_path_type(filePath.text) == PATH_FILE);
+    LUKIP_IS_TRUE(get_path_type(directoryPath.text) == PATH_DIRECTORY);
+
+    free_char_buffer(&filePath);
+    free_char_buffer(&directoryPath);
 }
 
 /** Tests if the alloc_fixed_source function correctly resolves different types of line breaks into LF. */
@@ -27,12 +49,25 @@ static void test_fixed_source() {
 static void test_open_file() {
     char *expected = "File to test opening files.\n";
     int expectedLength = strlen(expected);
-    char *source = alloc_source("tests/unit/open_file_test.txt");
+
+    char delimiter = '/';
+    if (OS == WINDOWS_OS) {
+        delimiter = '\\';
+    }
+    CharBuffer sourcePath = create_char_buffer();
+    buffer_append_string(&sourcePath, "tests");
+    buffer_append_char(&sourcePath, delimiter);
+    buffer_append_string(&sourcePath, "unit");
+    buffer_append_char(&sourcePath, delimiter);
+    buffer_append_string(&sourcePath, "open_file_test.txt");
+
+    char *source = alloc_source(sourcePath.text);
     int sourceLength = strlen(source);
 
     LUKIP_INT_EQUAL(sourceLength, expectedLength);
     LUKIP_IS_TRUE(strncmp(source, expected, sourceLength) == 0);
     free(source);
+    free_char_buffer(&sourcePath);
 }
 
 /** Tests file.c. */

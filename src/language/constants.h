@@ -4,6 +4,21 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#define UNKNOWN_OS 0
+#define UNIX_OS 1
+#define WINDOWS_OS 2
+
+#if defined(__unix__) || defined(__unix) || defined(unix) || defined(__APPLE__)
+#define OS UNIX_OS
+
+#elif defined(_WIN32) || defined(__CYGWIN__)
+#define OS WINDOWS_OS
+
+#else
+#define OS UNKNOWN_OS
+
+#endif
+
 #define DEFAULT_COLOR "\033[0m"
 #define RED "\033[31m"
 #define YELLOW "\033[1;33m"

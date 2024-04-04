@@ -32,6 +32,14 @@ static void run_zmx_file(char *file) {
  * 1 argument means to use REPL, 2 means to read file regular, any other number is an error.
  */
 int main(const int argc, char **argv) {
+#if OS == UNKNOWN_OS
+    fprintf(
+        stderr,
+        RED "OS error:\n\t" DEFAULT_COLOR "Your operating system is not supported in Zymux.\n"
+    );
+    exit(1);
+#endif
+
     if (argc == 1) {
         repl();
     } else if (argc == 2) {
