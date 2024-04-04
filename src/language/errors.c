@@ -20,11 +20,16 @@ static bool is_whitespace(const char ch) {
 }
 
 /** 
- * To call after iterating through the source and reaching the first character of the errored line.
+ * To call after iterating through the source and reaching the first character of the
+ * error/warning line.
+ * 
  * It skips all preceding whitespace of a line then starts actually printing so indents are skipped.
  * It then proceeds to print carets when reaching column. The amount of carets is length.
+ * The color is what color the carets and what they're pointing to should be.
  */
-static void print_error_line(char *source, int idx, const int column, const int length) {
+static void print_in_line(
+    char *source, int idx, const int column, const int length, const char *color
+) {
     int whitespaces = 0;
     char current = source[idx];
     while (is_whitespace(current)) {
@@ -32,17 +37,25 @@ static void print_error_line(char *source, int idx, const int column, const int 
         whitespaces++;
     }
     while (current != '\0' && current != '\n') {
+        if (idx == column - 1) {
+            fprintf(stderr, "%s", color);
+        }
         fputc(current, stderr);
         current = source[++idx];
+        if (idx == column + length - 1) {
+            fprintf(stderr, DEFAULT_COLOR);
+        }
     }
     fputc('\n', stderr);
 
     for (int i = 0; i < column - whitespaces - 1; i++) {
         fputc(' ', stderr);
     }
+    fprintf(stderr, RED);
     for (int i = 0; i < length; i++) {
         fputc('^', stderr);
     }
+    fprintf(stderr, DEFAULT_COLOR);
     fputc('\n', stderr);
 }
 
@@ -53,7 +66,7 @@ static void show_zmx_error_line(char *file, const int line, const int column, co
     int sourceLine = 1;
     for (int i = 0; i < sourceLength; i++) {
         if (sourceLine == line) {
-            print_error_line(source, i, column, length);
+            print_in_line(source, i, column, length, RED);
             break;
         }
         if (source[i] == '\n') {
@@ -74,8 +87,7 @@ void internal_error(
 
     va_list args;
     va_start(args, format);
-    fprintf(stderr, "%s", errorName);
-    fprintf(stderr, ": ");
+    fprintf(stderr, RED "%s: " DEFAULT_COLOR, errorName);
     vfprintf(stderr, format, args);
     va_end(args);
 
@@ -91,7 +103,7 @@ void internal_error(
 void file_error(const int exitCode, const char *format, ...) {
     va_list args;
     va_start(args, format);
-    fprintf(stderr, "File IO error:\n\t");
+    fprintf(stderr, RED "File IO error:\n\t" DEFAULT_COLOR);
     vfprintf(stderr, format, args);
     va_end(args);
 
@@ -120,9 +132,12 @@ void zmx_user_error(
     show_zmx_error_line(program->currentFile, line, column, length);
     va_list args;
     va_start(args, format);
-    fprintf(stderr, "line %d in \"%s\":\n\t%s: ", line, program->currentFile, errorName);
+    fprintf(
+        stderr, "line %d in \"%s\":\n\t" RED "%s: " DEFAULT_COLOR,
+        line, program->currentFile, errorName
+    );
     vfprintf(stderr, format, args);
     va_end(args);
-
+    
     fputc('\n', stderr);
 }

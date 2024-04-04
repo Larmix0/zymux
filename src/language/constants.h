@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#define DEFAULT_COLOR "\033[0m"
+#define RED "\033[31m"
+#define YELLOW "\033[1;33m"
+
 #define DEBUG_LEXER 1
 #define DEBUG_PARSER 1
 #define DEBUG_COMPILER 1

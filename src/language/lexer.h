@@ -135,9 +135,6 @@ TokenArray create_token_array();
 /** Appends the passed Token to the TokenArray. */
 void append_token(TokenArray *tokens, Token token);
 
-/** Return a general token (with no union values) from the parameters. */
-Token create_token(char *message, const int line, const int column, const TokenType type);
-
 /** Frees all the memory the passed TokenArray has used. */
 void free_token_array(TokenArray *tokens);
 
@@ -148,6 +145,9 @@ void free_lexer(Lexer *lexer);
 
 /** Lexes the passed lexer's source code into its tokens array and returns whether it errored. */
 bool lex(Lexer *lexer);
+
+/** Return a general token (with no union values) from the parameters. */
+Token create_token(char *message, const int line, const int column, const TokenType type);
 
 /** Returns whether or not 2 tokens are considered equal. */
 bool tokens_equal(const Token left, const Token right);
