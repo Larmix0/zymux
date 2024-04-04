@@ -47,7 +47,7 @@ static Token test_token_string(char *lexeme) {
     return token;
 }
 
-/**
+/** 
  * Creates an integer literal token from a string representation of the number.
  * 
  * The lexeme holds the number we want to convert into intVal, and we use base to know
@@ -70,7 +70,7 @@ static void append_test_tokens(TokenArray *tokens, const int amount, ...) {
     va_end(args);
 }
 
-/**
+/** 
  * Compares the tokens in the lexer with the passed expectedArray.
  * If compareSpots is set to true, it'll also compare the the line and column of the tokens.
  */
@@ -181,7 +181,8 @@ static void test_lex_errors() {
         "23 + 0x",
         "@\\@@ invalidSyntax.",
         "#$",
-        "#$###$#$'Repeated.'"
+        "#$###$#$'Repeated.'",
+        "$'Unclosed { in interpolated.'"
     }; 
     const size_t sourcesAmount = sizeof(sources) / sizeof(char *);
     for (size_t i = 0; i < sourcesAmount; i++) {
@@ -189,6 +190,7 @@ static void test_lex_errors() {
         Lexer lexer = create_lexer(&program, sources[i]);
         lex(&lexer);
         LUKIP_IS_TRUE(lexer.program->hasErrored);
+        
         free_lexer(&lexer);
     }
 }
@@ -349,7 +351,7 @@ static void test_lex_name() {
     free_token_array(&allTokens);
 }
 
-/**
+/** 
  * Tests that the lexer handles different kinds of strings correctly
  * This includes normal, interpolated, raw and interpolated + raw as well as some edge cases.
  */
@@ -360,7 +362,7 @@ static void test_lex_string() {
         "$#'Interpolated raw \\{2 + 3}'"
         "$'{$\"{1 + 2}\"} end'"
         "$' { $\" { 7 ** 23 } \" } '"
-        "$'unclosed { left curly.'"
+        "'unclosed { left curly, but not interpolated.'"
         "$'{\t}Empty {}{\t}brace.{ }'";
 
     TokenArray allTokens = create_token_array();
@@ -401,7 +403,7 @@ static void test_lex_string() {
         test_token("", TOKEN_FORMAT), test_token_string(" "),
         test_token("", TOKEN_STRING_END),
 
-        test_token_string("unclosed { left curly."),
+        test_token_string("unclosed { left curly, but not interpolated."),
         test_token("", TOKEN_STRING_END),
 
         test_token_string(""), test_token("", TOKEN_FORMAT),
@@ -424,7 +426,7 @@ static void test_lex_string() {
     free_token_array(&allTokens);
 }
 
-/**
+/** 
  * Ensures that we lex tokens that are written with special characters (like ">=").
  * We test every single case in the lexer once:
  *     "<< <= < <" tests all cases in compound_assigns().

@@ -733,6 +733,13 @@ static void finish_string(Lexer *lexer, StringLexer *string) {
             return;
         }
     }
+
+    if (string->interpolationDepth != 0) {
+        append_error_at(
+            lexer, "Unclosed \"{\" in interpolated string.",
+            string->interpolationStart, 1, lexer->line, string->interpolationColumn
+        );
+    }
     append_lexed_string(lexer, string, buffer);
     append_implicit(lexer, TOKEN_STRING_END);
 }
