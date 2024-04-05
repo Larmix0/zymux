@@ -6,10 +6,11 @@
 
 /** Tests that get_path_type() correctly determines whether something is a file/directory. */
 static void test_get_path_type() {
+#if OS == WINDOWS_OS
+    char delimiter = '\\';
+#else
     char delimiter = '/';
-    if (OS == WINDOWS_OS) {
-        delimiter = '\\';
-    }
+#endif
 
     CharBuffer filePath = create_char_buffer();
     buffer_append_string(&filePath, "tests");
@@ -47,13 +48,15 @@ static void test_fixed_source() {
 
 /** Tests if we can properly open and read files with alloc_source(). */
 static void test_open_file() {
+#if OS == WINDOWS_OS
+    char delimiter = '\\';
+#else
+    char delimiter = '/';
+#endif
+
     char *expected = "File to test opening files.\n";
     int expectedLength = strlen(expected);
 
-    char delimiter = '/';
-    if (OS == WINDOWS_OS) {
-        delimiter = '\\';
-    }
     CharBuffer sourcePath = create_char_buffer();
     buffer_append_string(&sourcePath, "tests");
     buffer_append_char(&sourcePath, delimiter);

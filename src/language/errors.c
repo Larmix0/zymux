@@ -76,23 +76,40 @@ static void show_zmx_error_line(char *file, const int line, const int column, co
     free(source);
 }
 
-/** An internal error occurred within the Zymux implementation in C itself like a memory error. */
-void internal_error(
-    const char *file, const char *func, const int line,
-    const int exitCode, const char *errorName, const char *format, ...
-) {
-    fprintf(
-        stderr, "Zymux implementation [file=\"%s\", func=%s(), line=%d]:\n\t", file, func, line
-    );
+/**
+ * Prints an error for an issue regarding the user's operating system.
+ * Like an operating system that isn't supported in Zymux.
+ */
+void os_error(const char *format, ...) {
+    fprintf(stderr, RED "OS error:\n\t" DEFAULT_COLOR);
 
     va_list args;
     va_start(args, format);
-    fprintf(stderr, RED "%s: " DEFAULT_COLOR, errorName);
     vfprintf(stderr, format, args);
     va_end(args);
 
     fputc('\n', stderr);
-    exit(exitCode);
+    exit(EXIT_FAILURE);
+}
+
+/** An internal error occurred within the Zymux implementation in C itself like a memory error. */
+void internal_error(
+    const char *file, const char *func, const int line,
+    const char *errorName, const char *format, ...
+) {
+    fprintf(
+        stderr,
+        "Zymux implementation [file=\"%s\", func=%s(), line=%d]:\n\t" RED "%s: " DEFAULT_COLOR,
+        file, func, line, errorName
+    );
+
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+
+    fputc('\n', stderr);
+    exit(EXIT_FAILURE);
 }
 
 /** 
@@ -100,15 +117,16 @@ void internal_error(
  * This is specifically for file errors outside of *.zmx programs.
  * Like running "./zymux x.zmx" where "x.zmx" doesn't exist.
  */
-void file_error(const int exitCode, const char *format, ...) {
+void file_error(const char *format, ...) {
+    fprintf(stderr, RED "File IO error:\n\t" DEFAULT_COLOR);
+
     va_list args;
     va_start(args, format);
-    fprintf(stderr, RED "File IO error:\n\t" DEFAULT_COLOR);
     vfprintf(stderr, format, args);
     va_end(args);
 
     fputc('\n', stderr);
-    exit(exitCode);
+    exit(EXIT_FAILURE);
 }
 
 /** 
@@ -130,12 +148,13 @@ void zmx_user_error(
         fputc('\n', stderr);
     }
     show_zmx_error_line(program->currentFile, line, column, length);
-    va_list args;
-    va_start(args, format);
     fprintf(
         stderr, "line %d in \"%s\":\n\t" RED "%s: " DEFAULT_COLOR,
         line, program->currentFile, errorName
     );
+
+    va_list args;
+    va_start(args, format);
     vfprintf(stderr, format, args);
     va_end(args);
     

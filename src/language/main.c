@@ -12,16 +12,19 @@ static void repl() {
     // TODO: implement repl.
 }
 
-/** Reads the past file and makes it go through all the stages of Zymux to execute it. */
+/** Reads the passed file and makes it go through all the stages of Zymux to execute it. */
 static void run_zmx_file(char *file) {
     char *source = alloc_source(file);
     ZymuxProgram program = create_zymux_program(file, true);
     Lexer lexer = create_lexer(&program, source);
-
     if (!lex(&lexer)) {
-        printf("SYNTAX ERROR, EXITING.\n");
+        printf("SYNTAX ERROR.\n");
     }
+
+#if DEBUG_LEXER
     print_tokens(lexer.tokens);
+#endif
+
     free_lexer(&lexer);
     free(source);
     free_zymux_program(&program);
@@ -33,11 +36,7 @@ static void run_zmx_file(char *file) {
  */
 int main(const int argc, char **argv) {
 #if OS == UNKNOWN_OS
-    fprintf(
-        stderr,
-        RED "OS error:\n\t" DEFAULT_COLOR "Your operating system is not supported in Zymux.\n"
-    );
-    exit(1);
+    OS_ERROR("Your operating system is not supported in Zymux.");
 #endif
 
     if (argc == 1) {
@@ -47,5 +46,5 @@ int main(const int argc, char **argv) {
     } else {
         FILE_ERROR("Invalid amount of arguments.");
     }
-    return 0;
+    return EXIT_SUCCESS;
 }

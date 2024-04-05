@@ -12,6 +12,10 @@
 
 /** Main function of the unit tests that calls all file testers. */
 int main() {
+#if OS == UNKNOWN_OS
+    OS_ERROR("Your operating system is not supported in Zymux.");
+#endif
+
     LUKIP_INIT();
     test_file();
     test_char_buffer();
@@ -19,5 +23,5 @@ int main() {
     test_lexer();
     LUKIP_END();
     
-    return 0;
+    return EXIT_SUCCESS;
 }
