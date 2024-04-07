@@ -12,25 +12,19 @@ static void test_get_path_type() {
     char delimiter = '/';
 #endif
 
-    CharBuffer filePath = create_char_buffer();
-    buffer_append_string(&filePath, "tests");
-    buffer_append_char(&filePath, delimiter);
-    buffer_append_string(&filePath, "unit");
-    buffer_append_char(&filePath, delimiter);
-    buffer_append_string(&filePath, "open_file_test.txt");
+    CharBuffer path = create_char_buffer();
+    buffer_append_string(&path, "tests");
+    buffer_append_char(&path, delimiter);
+    buffer_append_string(&path, "unit");
+    buffer_append_char(&path, delimiter);
+    buffer_append_string(&path, "test_open_dir");
+    LUKIP_IS_TRUE(get_path_type(path.text) == PATH_DIRECTORY);
 
-    CharBuffer directoryPath = create_char_buffer();
-    buffer_append_string(&directoryPath, "tests");
-    buffer_append_char(&directoryPath, delimiter);
-    buffer_append_string(&directoryPath, "unit");
-    buffer_append_char(&directoryPath, delimiter);
-    buffer_append_string(&directoryPath, "open_folder_test");
+    buffer_append_char(&path, delimiter);
+    buffer_append_string(&path, "file_test.txt");
+    LUKIP_IS_TRUE(get_path_type(path.text) == PATH_FILE);
 
-    LUKIP_IS_TRUE(get_path_type(filePath.text) == PATH_FILE);
-    LUKIP_IS_TRUE(get_path_type(directoryPath.text) == PATH_DIRECTORY);
-
-    free_char_buffer(&filePath);
-    free_char_buffer(&directoryPath);
+    free_char_buffer(&path);
 }
 
 /** Tests if the alloc_fixed_source function correctly resolves different types of line breaks into LF. */
@@ -62,7 +56,9 @@ static void test_open_file() {
     buffer_append_char(&sourcePath, delimiter);
     buffer_append_string(&sourcePath, "unit");
     buffer_append_char(&sourcePath, delimiter);
-    buffer_append_string(&sourcePath, "open_file_test.txt");
+    buffer_append_string(&sourcePath, "test_open_dir");
+    buffer_append_char(&sourcePath, delimiter);
+    buffer_append_string(&sourcePath, "file_test.txt");
 
     char *source = alloc_source(sourcePath.text);
     int sourceLength = strlen(source);
