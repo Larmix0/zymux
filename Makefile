@@ -1,9 +1,15 @@
 CC = gcc
 
 # TODO: add -Werror to CFLAGS later.
-CFLAGS = -Wall -Wextra -Wpedantic -g 
-CFLAGS += -Isrc/data_structures -Isrc/debug -Isrc/language -Itests/language
-CFLAGS += -Itests/unit -Itests/unit/lukip/include
+CFLAGS = -Wall -Wextra -Wpedantic -g
+
+ifeq ($(OS), Windows_NT)
+	CFLAGS += -Isrc\data_structures -Isrc\debug -Isrc\language -Itests\language
+	CFLAGS += -Itests\unit -Itests\unit\lukip\include
+else
+	CFLAGS += -Isrc/data_structures -Isrc/debug -Isrc/language -Itests/language
+	CFLAGS += -Itests/unit -Itests/unit/lukip/include
+endif
 
 SRC_DIR = src
 TEST_DIR = tests
@@ -21,8 +27,12 @@ SRCS := $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/*/*.c $(SRC_DIR)/*/*/*.c)
 UNIT_SRCS := $(wildcard $(UNIT_DIR)/*.c)
 LANG_SRCS := $(wildcard $(LANG_DIR)/*.zmx $(LANG_DIR)/*/*.zmx $(LANG_DIR)/*/*/*.zmx)
 
-# TODO: Do we need to convert slash to backslash for windows? Some do, but not sure if it's all.
 ifeq ($(OS), Windows_NT)
+	UNIT_DIR = tests\unit
+	LANG_DIR = tests\language
+	LUKIP_DIR = $(UNIT_DIR)\lukip
+	LUKIP_LIB = $(LUKIP_DIR)\liblukip.a
+
 	ZYMUX_EXE = zymux.exe
 	UNIT_EXE = unittest.exe
 	SRCS := $(subst /,\,$(SRCS))
@@ -39,11 +49,11 @@ define newline
 
 endef
 
-.PHONY: all test langtest unittest clean
+.PHONY: all tests langtest unittest clean
 
 all: $(ZYMUX_EXE) 
 
-test: unittest langtest
+tests: unittest langtest
 
 langtest: $(BIN_DIR) $(ZYMUX_EXE)
 ifeq ($(OS), Windows_NT)
@@ -53,7 +63,6 @@ else
 endif
 
 unittest: $(BIN_DIR) $(SRC_OBJS) $(UNIT_OBJS) $(LUKIP_LIB)
-	$(CC) -o $</$(UNIT_EXE) $(UNIT_OBJS) $(LUKIP_LIB)
 ifeq ($(OS), Windows_NT)
 	$(CC) -o $<\$(UNIT_EXE) $(UNIT_OBJS) $(LUKIP_LIB)
 	.\$(BIN_DIR)\$(UNIT_EXE)
