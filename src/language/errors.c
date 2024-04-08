@@ -27,22 +27,22 @@ static bool is_whitespace(const char ch) {
  * It then proceeds to print carets when reaching column. The amount of carets is length.
  * The color is what color the carets and what they're pointing to should be.
  */
-static void print_in_line(
-    char *source, int idx, const int column, const int length, const char *color
+static void print_line(
+    char *current, const int column, const int length, const char *color
 ) {
-    int whitespaces = 0;
-    char current = source[idx];
-    while (is_whitespace(current)) {
-        current = source[++idx];
+    int whitespaces = 0, lineIdx = 0;
+    while (is_whitespace(*current)) {
+        current++;
+        lineIdx++;
         whitespaces++;
     }
-    while (current != '\0' && current != '\n') {
-        if (idx == column - 1) {
+    while (*current != '\0' && *current != '\n') {
+        if (lineIdx == column - 1) {
             fprintf(stderr, "%s", color);
         }
-        fputc(current, stderr);
-        current = source[++idx];
-        if (idx == column + length - 1) {
+        fputc(*current++, stderr);
+        lineIdx++;
+        if (lineIdx == column + length - 1) {
             fprintf(stderr, DEFAULT_COLOR);
         }
     }
@@ -66,7 +66,7 @@ static void show_zmx_error_line(char *file, const int line, const int column, co
     int sourceLine = 1;
     for (int i = 0; i < sourceLength; i++) {
         if (sourceLine == line) {
-            print_in_line(source, i, column, length, RED);
+            print_line(&source[i], column, length, RED);
             break;
         }
         if (source[i] == '\n') {
