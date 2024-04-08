@@ -40,7 +40,7 @@ static Token test_token(char *lexeme, TokenType type) {
 }
 
 /** Returns a string literal token where both the stringVal and lexeme are the same. */
-static Token test_token_string(char *lexeme) {
+static Token test_string_token(char *lexeme) {
     Token token = create_token(lexeme, 0, 0, TOKEN_STRING_LIT);
     token.stringVal = create_char_buffer();
     buffer_append_string(&token.stringVal, lexeme);
@@ -53,9 +53,16 @@ static Token test_token_string(char *lexeme) {
  * The lexeme holds the number we want to convert into intVal, and we use base to know
  * what base we'll parse with strtol.
  */
-static Token test_token_int(char *lexeme, int base) {
+static Token test_int_token(char *lexeme, int base) {
     Token token = create_token(lexeme, 0, 0, TOKEN_INT_LIT);
-    token.intVal = strtol(lexeme, NULL, base);
+    token.intVal = strtoll(lexeme, NULL, base);
+    return token;
+}
+
+/** Returns a float literal token from the lexeme. */
+static Token test_float_token(char *lexeme) {
+    Token token = create_token(lexeme, 0, 0, TOKEN_FLOAT_LIT);
+    token.floatVal = strtod(lexeme, NULL);
     return token;
 }
 
@@ -119,13 +126,13 @@ static void test_lex_successful_programs() {
     append_test_tokens(&tokens2DArray[0], 0);
     append_test_tokens(
         &tokens2DArray[1], 14,
-        test_token("(", TOKEN_LPAR), test_token_int("2", 10),
-        test_token("+", TOKEN_PLUS), test_token_int("3", 10),
+        test_token("(", TOKEN_LPAR), test_int_token("2", 10),
+        test_token("+", TOKEN_PLUS), test_int_token("3", 10),
         test_token(")", TOKEN_RPAR), test_token("*", TOKEN_STAR), 
-        test_token_int("30", 10), test_token("**", TOKEN_EXPO),
-        test_token_int("2", 10), test_token("/", TOKEN_SLASH),
-        test_token("1.5", TOKEN_FLOAT_LIT), test_token("-", TOKEN_MINUS),
-        test_token("0.2", TOKEN_FLOAT_LIT), test_token(";", TOKEN_SEMICOLON)
+        test_int_token("30", 10), test_token("**", TOKEN_EXPO),
+        test_int_token("2", 10), test_token("/", TOKEN_SLASH),
+        test_float_token("1.5"), test_token("-", TOKEN_MINUS),
+        test_float_token("0.2"), test_token(";", TOKEN_SEMICOLON)
     );
     append_test_tokens(&tokens2DArray[2], 1, test_token("<<=", TOKEN_LSHIFT_EQ));
     append_test_tokens(&tokens2DArray[3], 0);
@@ -147,12 +154,12 @@ static void test_lex_successful_programs() {
     );
     append_test_tokens(
         &tokens2DArray[9], 3,
-        test_token_int("345", 10), test_token("-", TOKEN_MINUS),
-        test_token_int("234", 10)
+        test_int_token("345", 10), test_token("-", TOKEN_MINUS),
+        test_int_token("234", 10)
     );
     append_test_tokens(
         &tokens2DArray[10], 4,
-        test_token("ide", TOKEN_IDENTIFIER), test_token_string("Bare string."),
+        test_token("ide", TOKEN_IDENTIFIER), test_string_token("Bare string."),
         test_token("", TOKEN_STRING_END), test_token("end", TOKEN_IDENTIFIER)
     );
 
@@ -242,10 +249,10 @@ static void test_lex_all_tokens() {
         test_token("{", TOKEN_LCURLY), test_token("}", TOKEN_RCURLY),
         test_token(";", TOKEN_SEMICOLON), test_token(",", TOKEN_COMMA),
         test_token(".", TOKEN_DOT), test_token("?", TOKEN_QUESTION_MARK),
-        test_token(":", TOKEN_COLON), test_token_string("str literal "),
-        test_token("", TOKEN_FORMAT), test_token_int("100", 10),
-        test_token("", TOKEN_STRING_END), test_token_int("22", 10),
-        test_token("44.2", TOKEN_FLOAT_LIT), test_token("=", TOKEN_EQ),
+        test_token(":", TOKEN_COLON), test_string_token("str literal "),
+        test_token("", TOKEN_FORMAT), test_int_token("100", 10),
+        test_token("", TOKEN_STRING_END), test_int_token("22", 10),
+        test_float_token("44.2"), test_token("=", TOKEN_EQ),
         test_token("variable", TOKEN_IDENTIFIER), test_token("..", TOKEN_DOT_DOT)
     );
     ZymuxProgram program = create_zymux_program("testAll", false);
@@ -260,13 +267,13 @@ static void test_lex_all_tokens() {
 
 /** A test for ensuring that the lexer keeps track of lines and columns correctly. */
 static void test_lex_spots() {
-    char *source = "line1\n line2 2.2\n\n\n \t line5 555\n\n";
+    char *source = "line1\n line2 break\n\n\n \t line5 555\n\n";
     TokenArray allTokens = create_token_array();
     append_test_tokens(
         &allTokens, 5,
         create_token("line1", 1, 1, TOKEN_IDENTIFIER),
         create_token("line2", 2, 2, TOKEN_IDENTIFIER),
-        create_token("2.2", 2, 8, TOKEN_FLOAT_LIT),
+        create_token("break", 2, 8, TOKEN_BREAK_KW),
         create_token("line5", 5, 4, TOKEN_IDENTIFIER),
         (Token){
             .lexeme = "555", .length = 3, .line = 5, .column = 10,
@@ -298,16 +305,16 @@ static void test_lex_number() {
     TokenArray allTokens = create_token_array();
     append_test_tokens(
         &allTokens, 20,
-        test_token_int("0", 16), test_token_int("ff0", 16),
-        test_token_int("ea2301", 16), test_token_int("0", 2),
-        test_token_int("101", 2), test_token_int("10", 2),
-        test_token_int("100110111", 2), test_token_int("0", 8),
-        test_token_int("2707", 8), test_token_int("241", 8),
-        test_token_int("0", 16), test_token_int("77", 8),
-        test_token_int("0", 10), test_token("0.0", TOKEN_FLOAT_LIT),
-        test_token("0.010", TOKEN_FLOAT_LIT), test_token_int("13", 10),
-        test_token("2.3300", TOKEN_FLOAT_LIT), test_token_int("931453229", 10),
-        test_token("23.3", TOKEN_FLOAT_LIT), test_token("3.0", TOKEN_FLOAT_LIT)
+        test_int_token("0", 16), test_int_token("ff0", 16),
+        test_int_token("ea2301", 16), test_int_token("0", 2),
+        test_int_token("101", 2), test_int_token("10", 2),
+        test_int_token("100110111", 2), test_int_token("0", 8),
+        test_int_token("2707", 8), test_int_token("241", 8),
+        test_int_token("0", 16), test_int_token("77", 8),
+        test_int_token("0", 10), test_float_token("0.0"),
+        test_float_token("0.010"), test_int_token("13", 10),
+        test_float_token("2.3300"), test_int_token("931453229", 10),
+        test_float_token("23.3"), test_float_token("3.0")
     );
     ZymuxProgram program = create_zymux_program("testNumber", false);
     Lexer lexer = create_lexer(&program, source);
@@ -369,46 +376,46 @@ static void test_lex_string() {
         append_test_tokens(
         &allTokens, 59,
 
-        test_token_string("Normal\t string\\n w/escapes"),
+        test_string_token("Normal\t string\\n w/escapes"),
         test_token("", TOKEN_STRING_END),
 
-        test_token_string("This is a\\t raw string.\\n\\\\n"),
+        test_string_token("This is a\\t raw string.\\n\\\\n"),
         test_token("", TOKEN_STRING_END),
 
-        test_token_string("Interpolated { <- escaped "),
-        test_token("", TOKEN_FORMAT), test_token_int("3", 10),
-        test_token("*", TOKEN_STAR), test_token_string("And "),
-        test_token("", TOKEN_FORMAT), test_token_int("2", 10),
-        test_token("+", TOKEN_PLUS), test_token_int("3", 10),
-        test_token("", TOKEN_FORMAT), test_token_string(" is nested"),
-        test_token("", TOKEN_STRING_END), test_token("+", TOKEN_PLUS), test_token_int("2", 10),
+        test_string_token("Interpolated { <- escaped "),
+        test_token("", TOKEN_FORMAT), test_int_token("3", 10),
+        test_token("*", TOKEN_STAR), test_string_token("And "),
+        test_token("", TOKEN_FORMAT), test_int_token("2", 10),
+        test_token("+", TOKEN_PLUS), test_int_token("3", 10),
+        test_token("", TOKEN_FORMAT), test_string_token(" is nested"),
+        test_token("", TOKEN_STRING_END), test_token("+", TOKEN_PLUS), test_int_token("2", 10),
         test_token("", TOKEN_STRING_END),
 
-        test_token_string("Interpolated raw \\"), test_token("", TOKEN_FORMAT),
-        test_token_int("2", 10), test_token("+", TOKEN_PLUS), test_token_int("3", 10),
+        test_string_token("Interpolated raw \\"), test_token("", TOKEN_FORMAT),
+        test_int_token("2", 10), test_token("+", TOKEN_PLUS), test_int_token("3", 10),
         test_token("", TOKEN_STRING_END),
 
-        test_token_string(""), test_token("", TOKEN_FORMAT),
-        test_token_string(""), test_token("", TOKEN_FORMAT),
-        test_token_int("1", 10), test_token("+", TOKEN_PLUS),
-        test_token_int("2", 10), test_token("", TOKEN_STRING_END),
-        test_token("", TOKEN_FORMAT), test_token_string(" end"),
+        test_string_token(""), test_token("", TOKEN_FORMAT),
+        test_string_token(""), test_token("", TOKEN_FORMAT),
+        test_int_token("1", 10), test_token("+", TOKEN_PLUS),
+        test_int_token("2", 10), test_token("", TOKEN_STRING_END),
+        test_token("", TOKEN_FORMAT), test_string_token(" end"),
         test_token("", TOKEN_STRING_END),
 
-        test_token_string(" "), test_token("", TOKEN_FORMAT),
-        test_token_string(" "), test_token("", TOKEN_FORMAT),
-        test_token_int("7", 10), test_token("**", TOKEN_EXPO),
-        test_token_int("23", 10), test_token("", TOKEN_FORMAT),
-        test_token_string(" "), test_token("", TOKEN_STRING_END),
-        test_token("", TOKEN_FORMAT), test_token_string(" "),
+        test_string_token(" "), test_token("", TOKEN_FORMAT),
+        test_string_token(" "), test_token("", TOKEN_FORMAT),
+        test_int_token("7", 10), test_token("**", TOKEN_EXPO),
+        test_int_token("23", 10), test_token("", TOKEN_FORMAT),
+        test_string_token(" "), test_token("", TOKEN_STRING_END),
+        test_token("", TOKEN_FORMAT), test_string_token(" "),
         test_token("", TOKEN_STRING_END),
 
-        test_token_string("unclosed { left curly, but not interpolated."),
+        test_string_token("unclosed { left curly, but not interpolated."),
         test_token("", TOKEN_STRING_END),
 
-        test_token_string(""), test_token("", TOKEN_FORMAT),
-        test_token_string("Empty "), test_token("", TOKEN_FORMAT),
-        test_token_string(""), test_token("", TOKEN_FORMAT), test_token_string("brace."),
+        test_string_token(""), test_token("", TOKEN_FORMAT),
+        test_string_token("Empty "), test_token("", TOKEN_FORMAT),
+        test_string_token(""), test_token("", TOKEN_FORMAT), test_string_token("brace."),
         test_token("", TOKEN_STRING_END)
     );
     ZymuxProgram program = create_zymux_program("testString", false);
@@ -677,6 +684,10 @@ static void test_tokens_equal() {
     Token integer1 = {.lexeme = "10", .length = 2, .intVal = 10, .type = TOKEN_INT_LIT};
     Token integer2 = {.lexeme = "0xA", .length = 3, .intVal = 10, .type = TOKEN_INT_LIT};
     LUKIP_IS_TRUE(tokens_equal(integer1, integer2));
+
+    Token float1 = {.lexeme = "2.30", .length = 4, .floatVal = 2.30, .type = TOKEN_FLOAT_LIT};
+    Token float2 = {.lexeme = "2.3", .length = 3, .floatVal = 2.3, .type = TOKEN_FLOAT_LIT};
+    LUKIP_IS_TRUE(tokens_equal(float1, float2));
 
     Token notEqual1 = {.lexeme = "first", .length = 3, .line = 2, .type = TOKEN_IDENTIFIER};
     Token notEqual2 = {.lexeme = "different", .length = 3, .line = 2, .type = TOKEN_IDENTIFIER};

@@ -107,12 +107,12 @@ static void print_token(const Token token) {
         token.length, token.lexeme, token.length,
         token.line, token.column, type_to_string(token.type)
     );
-    if (token.type == TOKEN_STRING_LIT) {
-        printf(", string=\"%s\"", token.stringVal.text);
-    } else if (token.type == TOKEN_INT_LIT) {
-        printf(", integer=" ZMX_INT_FMT, token.intVal);
-    } else if (token.type == TOKEN_ERROR) {
-        printf(", error=\"%s\"", token.errorMessage);
+    switch (token.type) {
+        case TOKEN_INT_LIT: printf(", integer=" ZMX_INT_FMT, token.intVal); break;
+        case TOKEN_FLOAT_LIT: printf(", float=" ZMX_FLOAT_FMT, token.floatVal); break;
+        case TOKEN_STRING_LIT: printf(", string=\"%s\"", token.stringVal.text); break;
+        case TOKEN_ERROR: printf(", error=\"%s\"", token.errorMessage); break;
+        default: break;
     }
     printf(")");
 }

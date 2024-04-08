@@ -91,6 +91,16 @@ static StringLexer create_string_lexer() {
     return string;
 }
 
+/** Allocates and returns the current token's lexeme in a NUL terminated heap string. */
+static char *alloc_token_lexeme(Lexer *lexer) {
+    const int length = lexer->current - lexer->tokenStart;
+    char *string = ZMX_ARRAY_ALLOC(length + 1, char);
+    
+    strncpy(string, lexer->tokenStart, length);
+    string[length] = '\0';
+    return string;
+}
+
 /** Return a token with no union values set. The fields are set from the parameters. */
 Token create_token(char *message, const int line, const int column, const TokenType type) {
     Token token = {
@@ -145,12 +155,22 @@ static void append_lexed(Lexer *lexer, const TokenType type) {
     append_token(&lexer->tokens, token);
 }
 
-/** Appends an integer that was lexed and sets its intVal to the already parsed literal value. */
+/** Appends an integer that was lexed and sets its intVal to the passed literal value. */
 static void append_lexed_int(Lexer *lexer, ZmxInt integer) {
     Token token = {
         .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
         .line = lexer->tokenLine, lexer->tokenColumn,
         .type = TOKEN_INT_LIT, .intVal = integer
+    };
+    append_token(&lexer->tokens, token);
+}
+
+/** Appends a float that was lexed and sets its floatVal to the passed literal value. */
+static void append_lexed_float(Lexer *lexer, ZmxFloat floatVal) {
+    Token token = {
+        .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
+        .line = lexer->tokenLine, lexer->tokenColumn,
+        .type = TOKEN_FLOAT_LIT, .floatVal = floatVal
     };
     append_token(&lexer->tokens, token);
 }
@@ -179,6 +199,9 @@ bool tokens_equal(const Token left, const Token right) {
     
     if (left.type == TOKEN_INT_LIT) {
         return left.intVal == right.intVal;
+    }
+    if (left.type == TOKEN_FLOAT_LIT) {
+        return left.floatVal == right.floatVal;
     }
     if (left.type == TOKEN_STRING_LIT) {
         if (left.stringVal.length != right.stringVal.length) {
@@ -417,17 +440,15 @@ static void lex_name(Lexer *lexer) {
  * which is 16, so if it was hex (A0) then that would be 160.
  */
 static void append_lexed_base(Lexer *lexer, const int base, bool hasPrefix) {
-    ZmxInt sum = 0;
-    for (int i = 0; i < CURRENT_TOKEN_LENGTH(lexer); i++) {
-        char place = PEEK_DISTANCE(lexer, -i - 1);
-        ZmxInt placeValue = IS_DIGIT(place) ? place - '0' : LOWERED_CHAR(place) - 'a' + 10;
-        sum += zmx_power(base, i) * placeValue;
-    }
+    char *terminatedLexeme = alloc_token_lexeme(lexer);
+    ZmxInt integer = strtoll(terminatedLexeme, NULL, base);
+    free(terminatedLexeme);
+
     if (hasPrefix) {
         lexer->tokenStart -= 2;
         lexer->tokenColumn -= 2;
     }
-    append_lexed_int(lexer, sum);
+    append_lexed_int(lexer, integer);
 }
 
 /** Errors a number literal covering the number until next isn't alphabetical or numerical. */
@@ -475,7 +496,10 @@ static void finish_float(Lexer *lexer) {
     if (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
         invalid_literal(lexer, "Invalid float literal.", false);
     } else {
-        append_lexed(lexer, TOKEN_FLOAT_LIT);
+        char *terminatedLexeme = alloc_token_lexeme(lexer);
+        ZmxFloat floatVal = strtod(terminatedLexeme, NULL);
+        free(terminatedLexeme);
+        append_lexed_float(lexer, floatVal);
     }
 }
 

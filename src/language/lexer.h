@@ -91,6 +91,13 @@ typedef struct {
         ZmxInt intVal;
 
         /** 
+         * Floats are literals, so their value are also directly parsed during lexing.
+         * This is mostly just for uniformity with integers and strings that actually require
+         * parsing at lex time.
+         */
+        ZmxFloat floatVal;
+
+        /** 
          * We lex a given string literal by manually appending characters to a buffer,
          * This is because escape sequences make the resulting literal potentially different
          * from what is in the original source code which is unescaped.
