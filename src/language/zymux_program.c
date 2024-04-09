@@ -2,17 +2,32 @@
 #include <string.h>
 
 #include "errors.h"
+#include "parser.h"
 #include "zymux_program.h"
 
 /** Returns an initialized ZymuxProgram with the file and whether or not to show errors. */
 ZymuxProgram create_zymux_program(char *file, bool showErrors) {
-    ZymuxProgram program = {.hasErrored = false, .currentFile = file, .showErrors = showErrors};
+    ZymuxProgram program = {
+        .hasErrored = false, .showErrors = showErrors, .currentFile = file, .allNodes = NULL
+    };
     return program;
+}
+
+static void free_all_nodes(ZymuxProgram *program) {
+    AstNode *current = program->allNodes;
+    AstNode *next = current->next;
+    while (current != NULL) {
+        free(current);
+        current = next;
+        if (next != NULL) {
+            next = next->next;
+        }
+    }
 }
 
 /** Frees all the memory the passed ZymuxProgram owns. */
 void free_zymux_program(ZymuxProgram *program) {
-    // TODO: implement freeing when the program holds heap-allocated things.
+    free_all_nodes(program);
 }
 
 /** 

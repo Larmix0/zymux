@@ -5,6 +5,7 @@
 #include "errors.h"
 #include "file.h"
 #include "lexer.h"
+#include "parser.h"
 #include "zymux_program.h"
 
 /** Runs Zymux on a REPL loop. */
@@ -20,12 +21,17 @@ static void run_zmx_file(char *file) {
     if (!lex(&lexer)) {
         printf("SYNTAX ERROR.\n");
     }
-
 #if DEBUG_LEXER
     print_tokens(lexer.tokens);
 #endif
 
+    Parser parser = create_parser(&program, lexer.tokens);
+    if (!parse(&parser)) {
+        printf("PARSING ERROR.\n");
+    }
+
     free_lexer(&lexer);
+    free_parser(&parser);
     free(source);
     free_zymux_program(&program);
 }

@@ -5,22 +5,27 @@
 
 #include "constants.h"
 
-/** To be used whenever Zymux allocates a piece of memory. */
-#define ZMX_ALLOC(type) (zmx_alloc(sizeof(type), __FILE__, __func__, __LINE__))
+/** To be used for generally allocating a number of bytes. */
+#define ZMX_ALLOC_BYTES(amount) (zmx_alloc((amount), __FILE__, __func__, __LINE__))
+
+/** To be used whenever Zymux allocates memory for a specific type. */
+#define ZMX_ALLOC(type) (ZMX_ALLOC_BYTES(sizeof(type)))
 
 /** To be used whenever Zymux allocates an array of a certain type. */
-#define ZMX_ARRAY_ALLOC(length, type) \
-    (zmx_alloc((length) * sizeof(type), __FILE__, __func__, __LINE__))
+#define ZMX_ARRAY_ALLOC(length, type) (ZMX_ALLOC_BYTES((length) * sizeof(type)))
 
 /** To be used whenever Zymux needs to reallocate any block of memory. */
 #define ZMX_REALLOC(oldPointer, amount, type) \
     (zmx_realloc((oldPointer), (amount) * sizeof(type), __FILE__, __func__, __LINE__))
+
+typedef struct AstNode AstNode;
 
 /** Stores the state of Zymux throughout the entire execution of the program. */
 typedef struct {
     bool hasErrored;
     bool showErrors;
     char *currentFile;
+    AstNode *allNodes;
 } ZymuxProgram;
 
 /** 
