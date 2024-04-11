@@ -15,6 +15,10 @@ ZymuxProgram create_zymux_program(char *file, bool showErrors) {
 
 /** Frees all nodes that were allocated and placed inside the passed program. */
 void free_all_nodes(ZymuxProgram *program) {
+    if (program->allNodes == NULL) {
+        return;
+    }
+
     AstNode *current = program->allNodes;
     AstNode *next = current->next;
     while (current != NULL) {
