@@ -12,7 +12,7 @@ static void test_zmx_power() {
     LUKIP_INT_EQUAL(zmx_power(-6, 3), -216);
 }
 
-/** Tests that we can properly create an initialized ZymuxProgram from create_zymux_program(). */
+/** Tests that we can properly create an initialized Zymux program from create_zymux_program(). */
 static void test_create_zymux_program() {
     ZymuxProgram program = create_zymux_program("zymux", false);
     LUKIP_STRING_EQUAL(program.currentFile, "zymux");
@@ -22,26 +22,39 @@ static void test_create_zymux_program() {
 
 /** Tests that all the allocation abstractions of Zymux work and allocate memory properly. */
 static void test_zmx_allocators() {
-    int *single = ZMX_ALLOC(int);
-    *single = 2147483647;
-    LUKIP_INT_EQUAL(*single, 2147483647);
+    int *singleInt = ZMX_TYPE_ALLOC(int);
+    *singleInt = 2147483647;
+    LUKIP_INT_EQUAL(*singleInt, 2147483647);
 
-    int *array = ZMX_ARRAY_ALLOC(3, int);
+    i32 *single32 = ZMX_ALLOC(sizeof(i32));
+    *single32 = 1844465920;
+    LUKIP_INT_EQUAL(*single32, 1844465920);
+
+    u8 *array = ZMX_ARRAY_ALLOC(3, u8);
     for (int i = 3; i < 6; i++) {
         array[i - 3] = i * i;
     }
     for (int i = 3; i < 6; i++) {
-        LUKIP_INT_EQUAL(array[i - 3], i * i);
+        LUKIP_UINT8_EQUAL(array[i - 3], i * i);
     }
 
-    array = ZMX_REALLOC(array, 5, sizeof(int));
+    array = ZMX_REALLOC_ARRAY(array, 5, sizeof(u8));
     for (int i = 6; i < 8; i++) {
         array[i - 3] = i * i;
     }
-    for (int i = 3; i < 6; i++) {
-        LUKIP_INT_EQUAL(array[i - 3], i * i);
+    for (int i = 6; i < 8; i++) {
+        LUKIP_UINT8_EQUAL(array[i - 3], i * i);
     }
-    free(single);
+
+    array = ZMX_REALLOC(array, 7);
+    for (int i = 8; i < 10; i++) {
+        array[i - 3] = i * i;
+    }
+    for (int i = 8; i < 10; i++) {
+        LUKIP_UINT8_EQUAL(array[i - 3], i * i);
+    }
+    free(singleInt);
+    free(single32);
     free(array);
 }
 

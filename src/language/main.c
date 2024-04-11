@@ -38,7 +38,9 @@ static void run_zmx_file(char *file) {
 
 /** 
  * Main entry part of Zymux.
- * 1 argument means to use REPL, 2 means to read file regular, any other number is an error.
+ * 
+ * 1 argument means to use REPL, 2 means to read file regular, any other number is an error for now.
+ * We'll later hopefully add other options. Like one for displaying bytecode for example.
  */
 int main(const int argc, char **argv) {
 #if OS == UNKNOWN_OS

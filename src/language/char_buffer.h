@@ -1,12 +1,14 @@
 #ifndef CHAR_BUFFER_H
 #define CHAR_BUFFER_H
 
-/** An array of characters that is always NUL terminated (the NUL counts towards length). */
-typedef struct {
-    int capacity;
-    int length;
-    char *text;
-} CharBuffer;
+#include "data_structures.h"
+
+/**
+ * An array of characters that is always NUL terminated (the NUL counts towards length).
+ * 
+ * The buffer's length always takes into account NUL.
+ */
+DECLARE_DA_STRUCT(CharBuffer, char);
 
 /** Returns an initialized CharBuffer. */
 CharBuffer create_char_buffer();

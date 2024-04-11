@@ -15,7 +15,7 @@ typedef enum {
     PATH_OTHER
 } PathType;
 
-/** Returns what path is. File, directory, or something else. */
+/** Returns what path is. Like a file or directory for example. */
 static PathType get_path_type(const char *path) {
     struct stat statBuffer;
     if (stat(path, &statBuffer) != 0) {
@@ -55,11 +55,12 @@ static char *alloc_fixed_source(char *source) {
         }
         buffer_append_char(&buffer, '\n');
     }
-    return buffer.text;
+    return buffer.data;
 }
 
 /** 
  * Returns the text of the passed file as an allocated string.
+ * 
  * All line breaks are written as "\n" in the returned string, no matter the system.
  */
 char *alloc_source(const char *path) {

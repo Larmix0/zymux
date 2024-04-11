@@ -6,22 +6,21 @@
 /** Reports an error relating to the user's operating system.*/
 #define OS_ERROR(...) (os_error(__VA_ARGS__))
 
-/** Reports an internal memory-related error with the C implementation info manually passed. */
+/** Reports a memory-related error with the C implementation info manually passed. */
 #define MEMORY_ERROR_ARGS(file, func, line, ...) \
     (internal_error((file), (func), (line), "Memory error", __VA_ARGS__))
 
-/** Reports an internal memory-related error where it was called. */
+/** Reports a memory-related error where it was called. */
 #define MEMORY_ERROR(...) (MEMORY_ERROR_ARGS(__FILE__, __func__, __LINE__, __VA_ARGS__))
 
 /** 
- * Reports an internal error where a part of the implementation
- * that wasn't meant to be executed was reached.
+ * Reports an error where a part of the implementation that wasn't meant to be executed was reached.
  * 
- * An example would be reaching a default case on a switch that should've covered the whole enum.
+ * An example would be reaching a default case on a switch that should've covered a whole enum.
+ * 
  * Unlike file errors or memory errors which may be caused by something in the user's computer
- * (like running out of memory).
- * 
- * Unreachable errors are never meant to be executed, so when seen they should be fixed immediately.
+ * (like running out of memory), unreachable errors are never ever meant to be executed,
+ * so when seen they should be fixed immediately.
  */
 #define UNREACHABLE_ERROR() \
     (internal_error( \

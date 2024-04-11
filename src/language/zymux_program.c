@@ -5,7 +5,7 @@
 #include "parser.h"
 #include "zymux_program.h"
 
-/** Returns an initialized ZymuxProgram with the file and whether or not to show errors. */
+/** Returns an initialized Zymux program with the file and whether or not to show errors. */
 ZymuxProgram create_zymux_program(char *file, bool showErrors) {
     ZymuxProgram program = {
         .hasErrored = false, .showErrors = showErrors, .currentFile = file, .allNodes = NULL
@@ -13,7 +13,8 @@ ZymuxProgram create_zymux_program(char *file, bool showErrors) {
     return program;
 }
 
-static void free_all_nodes(ZymuxProgram *program) {
+/** Frees all nodes that were allocated and placed inside the passed program. */
+void free_all_nodes(ZymuxProgram *program) {
     AstNode *current = program->allNodes;
     AstNode *next = current->next;
     while (current != NULL) {
@@ -25,13 +26,13 @@ static void free_all_nodes(ZymuxProgram *program) {
     }
 }
 
-/** Frees all the memory the passed ZymuxProgram owns. */
+/** Frees all the memory the passed program owns. */
 void free_zymux_program(ZymuxProgram *program) {
-    free_all_nodes(program);
+    // Doesn't free nodes, as this should be manually done after compiling and before executing VM.
 }
 
 /** 
- * Allocates a block of memory size.
+ * Allocates a block of memory using size.
  * 
  * The file, func, and line are manually passed from the caller so that in the case of a 
  * memory error, we point the user to the line of Zymux that called the allocator instead.
@@ -45,7 +46,7 @@ void *zmx_alloc(const size_t size, const char *file, const char *func, const int
 }
 
 /** 
- * Reallocated oldPointer and returns a new block from newSize.
+ * Reallocates oldPointer and returns a new block from newSize.
  * 
  * The file, func, and line are manually passed from the caller so that in the case of a 
  * memory error, we point the user to the line of Zymux that called the allocator instead.

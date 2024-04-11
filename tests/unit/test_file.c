@@ -18,11 +18,11 @@ static void test_get_path_type() {
     buffer_append_string(&path, "unit");
     buffer_append_char(&path, delimiter);
     buffer_append_string(&path, "test_open_dir");
-    LUKIP_IS_TRUE(get_path_type(path.text) == PATH_DIRECTORY);
+    LUKIP_IS_TRUE(get_path_type(path.data) == PATH_DIRECTORY);
 
     buffer_append_char(&path, delimiter);
     buffer_append_string(&path, "file_test.txt");
-    LUKIP_IS_TRUE(get_path_type(path.text) == PATH_FILE);
+    LUKIP_IS_TRUE(get_path_type(path.data) == PATH_FILE);
 
     free_char_buffer(&path);
 }
@@ -60,7 +60,7 @@ static void test_open_file() {
     buffer_append_char(&sourcePath, delimiter);
     buffer_append_string(&sourcePath, "file_test.txt");
 
-    char *source = alloc_source(sourcePath.text);
+    char *source = alloc_source(sourcePath.data);
     int sourceLength = strlen(source);
 
     LUKIP_INT_EQUAL(sourceLength, expectedLength);

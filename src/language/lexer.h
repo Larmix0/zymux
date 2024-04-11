@@ -74,8 +74,8 @@ typedef enum {
 
 /** A series of characters from the source code stored as a single unit. */
 typedef struct {
-    char *lexeme; /** points somewhere in the source at the beginning of the token */
-    int length; /** how long the lexeme is (since lexeme is not terminated). */
+    char *lexeme; /** Points somewhere in the source at the beginning of the token. */
+    int length; /** How long the lexeme is (since lexeme is not terminated). */
     int line; /** Line of where the token is present in the source code. */
     int column; /** The column of the first character in the token. */
     TokenType type; /** What type of token it is. */
@@ -83,15 +83,14 @@ typedef struct {
     /** Union for special tokens that require extra info like literals and errors. */
     union {
         /** 
-         * Integer literals can be written in ways other than decimals in Zymux,
-         * which are currently binary (0b), octal (0o) and hexadecimal (0x).
+         * Integer literals can be written in ways other than decimals (like binary or hexadecimal).
          * Therefore, in order to know the actual value we have to parse the literal in the source
-         * and store it's integer number in the token, which is intVal.
+         * and store its integer number in the token, which is intVal.
          */
         ZmxInt intVal;
 
         /** 
-         * Floats are literals, so their value are also directly parsed during lexing.
+         * Floats are literals, so their values are also directly parsed during lexing.
          * This is mostly just for uniformity with integers and strings that actually require
          * parsing at lex time.
          */
@@ -113,11 +112,7 @@ typedef struct {
 } Token;
 
 /** An array of tokens. */
-typedef struct {
-    int length;
-    int capacity;
-    Token *tokens;
-} TokenArray;
+DECLARE_DA_STRUCT(TokenArray, Token);
 
 /** A lexer for a given piece of source code to produce its array of tokens for parsing later. */
 typedef struct {
@@ -136,17 +131,9 @@ typedef struct {
     TokenArray tokens;
 } Lexer;
 
-/** Returns an initialized TokenArray. */
-TokenArray create_token_array();
-
-/** Appends the passed Token to the TokenArray. */
-void append_token(TokenArray *tokens, Token token);
-
-/** Frees all the memory the passed TokenArray has used. */
-void free_token_array(TokenArray *tokens);
-
-/** Returns an initialized Lexer. */
+/** Returns an initialized lexer. */
 Lexer create_lexer(ZymuxProgram *program, char *source);
+
 /** Frees all the memory the lexer has used (including the tokens it generated). */
 void free_lexer(Lexer *lexer);
 

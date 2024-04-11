@@ -1,12 +1,14 @@
 #include "lukip.h"
 
 #include "test_char_buffer.h"
+#include "test_dynamic_array.h"
 #include "test_file.h"
 #include "test_lexer.h"
 #include "test_zymux_program.h"
 
-// Since every source must be manually included somewhere once and only once,
-// all sources that aren't use by other test modules are here for the sake of linking.
+// Since every source must be manually included somewhere for testing once and only once,
+// all sources that aren't used by other test modules (except main.c)
+// are here for the sake of linking.
 #include "errors.c"
 #include "debug_tokens.c"
 
@@ -17,6 +19,7 @@ int main() {
 #endif
 
     LUKIP_INIT();
+    test_dynamic_array();
     test_file();
     test_char_buffer();
     test_zymux_program();

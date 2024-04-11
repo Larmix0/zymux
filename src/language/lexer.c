@@ -54,45 +54,34 @@ Lexer create_lexer(ZymuxProgram *program, char *source) {
         .program = program,
         .line = 1, .column = 1,
         .tokenLine = 1, .tokenColumn = 1,
-        .tokens = create_token_array()
+        .tokens = CREATE_DA()
     };
     return lexer;
 }
 
-/** Frees all the memory the lexing stage of Zymux has used. */
-void free_lexer(Lexer *lexer) {
-    free_token_array(&lexer->tokens);
-}
-
-/** Returns an initialized TokenArray. */
-TokenArray create_token_array() {
-    TokenArray tokens = {0};
-    return tokens;
-}
-
-/** Appends a token to a TokenArray. */
-void append_token(TokenArray *tokens, Token token) {
-    APPEND_DA(tokens->tokens, tokens->length, tokens->capacity, token, Token);
-}
-
-/** Frees all memory that a TokenArray has used. */
-void free_token_array(TokenArray *tokens) {
+/** Frees any allocated contents in any of the tokens in the passed token array. */
+static void free_tokens_contents(TokenArray *tokens) {
     for (int i = 0; i < tokens->length; i++) {
-        if (tokens->tokens[i].type == TOKEN_STRING_LIT) {
-            free_char_buffer(&tokens->tokens[i].stringVal);
+        if (tokens->data[i].type == TOKEN_STRING_LIT) {
+            free_char_buffer(&tokens->data[i].stringVal);
         }
     }
-    free(tokens->tokens);
 }
 
-/** Returns an initialized StringLexer. */
+/** Frees all the memory the lexing stage of Zymux has used. */
+void free_lexer(Lexer *lexer) {
+    free_tokens_contents(&lexer->tokens);
+    FREE_DA(&lexer->tokens);
+}
+
+/** Returns an initialized string lexer. */
 static StringLexer create_string_lexer() {
     StringLexer string = {0};
     return string;
 }
 
 /** Allocates and returns the current token's lexeme in a NUL terminated heap string. */
-static char *alloc_token_lexeme(Lexer *lexer) {
+static char *alloc_current_lexeme(Lexer *lexer) {
     const int length = lexer->current - lexer->tokenStart;
     char *string = ZMX_ARRAY_ALLOC(length + 1, char);
     
@@ -112,22 +101,23 @@ Token create_token(char *message, const int line, const int column, const TokenT
 }
 
 /** 
- * Appends an implicit token, which is empty.
- * it's a token of length 0 that the user didn't explicitly write,
- * and is only useful internally in Zymux.
+ * Appends an implicit token.
+ * 
+ * it's an empty token of length 0 that the user didn't explicitly write,
+ * and is only useful internally.
  */
 static void append_implicit(Lexer *lexer, const TokenType type) {
-    append_token(&lexer->tokens, create_token("", lexer->line, lexer->column, type));
+    APPEND_DA(&lexer->tokens, create_token("", lexer->line, lexer->column, type));
 }
 
-/** Appends the token we've been lexing as an error with the message. */
+/** Appends the token we've been lexing as an error with the passed message. */
 static void append_lexed_error(Lexer *lexer, char *message) {
     Token errorToken = {
         .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
         .line = lexer->tokenLine, .column = lexer->tokenColumn,
         .errorMessage = message, .type = TOKEN_ERROR,
     };
-    append_token(&lexer->tokens, errorToken);
+    APPEND_DA(&lexer->tokens, errorToken);
     SYNTAX_ERROR(lexer->program, errorToken);
 }
 
@@ -141,41 +131,41 @@ static void append_error_at(
         .line = line, .column = column,
         .errorMessage = message, .type = TOKEN_ERROR,
     };
-    append_token(&lexer->tokens, errorToken);
+    APPEND_DA(&lexer->tokens, errorToken);
     SYNTAX_ERROR(lexer->program, errorToken);
 }
 
-/** Appends a token that was lexed and advanced over of the passed type. */
+/** Appends a token that was lexed (advanced over) of the passed type. */
 static void append_lexed(Lexer *lexer, const TokenType type) {
     Token token = {
         .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
         .line = lexer->tokenLine, .column = lexer->tokenColumn,
         .type = type
     };
-    append_token(&lexer->tokens, token);
+    APPEND_DA(&lexer->tokens, token);
 }
 
-/** Appends an integer that was lexed and sets its intVal to the passed literal value. */
+/** Appends an integer that was lexed and sets its integer union to the passed literal value. */
 static void append_lexed_int(Lexer *lexer, ZmxInt integer) {
     Token token = {
         .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
         .line = lexer->tokenLine, lexer->tokenColumn,
         .type = TOKEN_INT_LIT, .intVal = integer
     };
-    append_token(&lexer->tokens, token);
+    APPEND_DA(&lexer->tokens, token);
 }
 
-/** Appends a float that was lexed and sets its floatVal to the passed literal value. */
+/** Appends a float that was lexed and sets its float union to the passed literal value. */
 static void append_lexed_float(Lexer *lexer, ZmxFloat floatVal) {
     Token token = {
         .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
         .line = lexer->tokenLine, lexer->tokenColumn,
         .type = TOKEN_FLOAT_LIT, .floatVal = floatVal
     };
-    append_token(&lexer->tokens, token);
+    APPEND_DA(&lexer->tokens, token);
 }
 
-/** Appends a string that was lexed by creating the stringVal from the passed buffer. */
+/** Appends a string that was lexed by making the string union the passed buffer. */
 static void append_lexed_string(Lexer *lexer, StringLexer *string, CharBuffer buffer) {
     Token token = {
         .lexeme = lexer->tokenStart, 
@@ -183,14 +173,15 @@ static void append_lexed_string(Lexer *lexer, StringLexer *string, CharBuffer bu
         .line = lexer->tokenLine, lexer->tokenColumn,
         .type = TOKEN_STRING_LIT, .stringVal = buffer
     };
-    append_token(&lexer->tokens, token);
+    APPEND_DA(&lexer->tokens, token);
 }
 
 /** 
- * Compares if 2 tokens are considered equal
- * Tokens must be of equal type and have the same lexeme.
+ * Compares if 2 tokens are considered equal.
  * 
- * Integers and strings an exception as their literal value within the tokens is compared instead.
+ * Tokens must be of equal type and have the same lexeme.
+ * Literals are an exception as their literal value within the tokens is
+ * compared instead of the lexeme.
  */
 bool tokens_equal(const Token left, const Token right) {
     if (left.type != right.type) {
@@ -207,7 +198,7 @@ bool tokens_equal(const Token left, const Token right) {
         if (left.stringVal.length != right.stringVal.length) {
             return false;
         }
-        return strncmp(left.stringVal.text, right.stringVal.text, left.stringVal.length) == 0;
+        return strncmp(left.stringVal.data, right.stringVal.data, left.stringVal.length) == 0;
     }
 
     if (left.length != right.length) {
@@ -299,7 +290,7 @@ static void one_or_default(
 
 /** 
  * Appends a token which is either a default one, or a one of 2 other possibilities.
- * The other 2 are lexed if their expected character is found.
+ * The other 2 possibilities are lexed if their expected character is found.
  */
 static void two_or_default(
     Lexer *lexer, const TokenType defaultType,
@@ -320,7 +311,7 @@ static void two_or_default(
  * Example:
  *     "*" and "*=" can be "**" and "**=" because the first character is repeated.
  *     "*" is overloadedChar, TOKEN_STAR is original, TOKEN_STAR_EQUAL is originalCompound,
- *     TOKEN_EXPONENT would be extended, and TOKEN_EXPONENT_EQUAL is extendedCompound.
+ *     TOKEN_EXPONENT is extended, and TOKEN_EXPONENT_EQUAL is extendedCompound.
  */
 static void two_compound_assigns(
     Lexer *lexer, const char overloadedChar, 
@@ -426,21 +417,10 @@ static void lex_name(Lexer *lexer) {
     append_lexed(lexer, type);
 }
 
-/** 
- * Appends the lexed integer token.
- * This function is also responsible for passing the literal's actual value to the token.
- * 
- * We parse the number by iterating through the token right to left,
- * then parse the value of the place we're on by subtracting the ASCII value.
- * If the number is over '9' ASCII and we start going through the alphabet,
- * then we add 10 because alphabetical characters start at 10 (A in hex is 10, not 0).
- * 
- * We multiply the place's value by the base to the power of which place it is.
- * So if it's a hexadecimal number and it's the third place then multiply by 16^2 (i starts at 0),
- * which is 16, so if it was hex (A0) then that would be 160.
- */
+/** Appends the lexed integer token. */
 static void append_lexed_base(Lexer *lexer, const int base, bool hasPrefix) {
-    char *terminatedLexeme = alloc_token_lexeme(lexer);
+    // Create a terminated version of the lexeme to use strtoll on it.
+    char *terminatedLexeme = alloc_current_lexeme(lexer);
     ZmxInt integer = strtoll(terminatedLexeme, NULL, base);
     free(terminatedLexeme);
 
@@ -465,7 +445,7 @@ static void invalid_literal(Lexer *lexer, char *message, bool hasPrefix) {
 
 /** 
  * Finishes lexing an arbitrary integer base.
- * It advances through characters as long as they return true on a BaseCheckFunc,
+ * It advances through characters as long as they return true on an is_within_base call,
  * then appends the lexed base.
  */
 static void lex_base(
@@ -488,7 +468,10 @@ static void lex_base(
     }
 }
 
-/** Finishes the lexing of a float after the whole number and dot. */
+/**
+ * Finishes the lexing of a float after the whole number and dot.
+ * 
+ */
 static void finish_float(Lexer *lexer) {
     while (IS_DIGIT(PEEK(lexer))) {
         ADVANCE(lexer);
@@ -496,7 +479,8 @@ static void finish_float(Lexer *lexer) {
     if (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
         invalid_literal(lexer, "Invalid float literal.", false);
     } else {
-        char *terminatedLexeme = alloc_token_lexeme(lexer);
+        // Create a terminated version of the lexeme to use strtod on it.
+        char *terminatedLexeme = alloc_current_lexeme(lexer);
         ZmxFloat floatVal = strtod(terminatedLexeme, NULL);
         free(terminatedLexeme);
         append_lexed_float(lexer, floatVal);
@@ -523,17 +507,17 @@ static void normal_number(Lexer *lexer) {
     append_lexed_base(lexer, 10, false);
 }
 
-/** Returns whether the passed ch is a binary number or not. */
+/** Returns whether or not ch is binary. */
 static bool is_bin_digit(const char ch) {
     return ch == '0' || ch == '1';
 }
 
-/** Returns whether the passed ch is an octal number or not. */
+/** Returns whether or not ch is octal. */
 static bool is_oct_digit(const char ch) {
     return ch >= '0' && ch <= '7';
 }
 
-/** Returns whether the passed ch is a hexadecimal number or not. */
+/** Returns whether or not ch is hexadecimal. */
 static bool is_hex_digit(const char ch) {
     const char lowered = LOWERED_CHAR(ch);
     return IS_DIGIT(lowered) || (lowered >= 'a' && lowered <= 'f');
@@ -600,8 +584,9 @@ static bool ignore_interpolation_whitespace(Lexer *lexer) {
 /** 
  * Resets the state after finishing the interpolation.
  *  
- * Resets the StringLexer's interpolation state,
- * and sets the lexer to start scanning after the closing brace. */
+ * Resets the string lexer's interpolation state,
+ * and sets the lexer to start scanning after the closing brace.
+ */
 static void finish_interpolation(
     Lexer *lexer, StringLexer *string, char *closingBrace, int closingBraceColumn
 ) {
@@ -621,7 +606,7 @@ static void lex_interpolation(Lexer *lexer, StringLexer *string) {
     lexer->current = string->interpolationStart + 1;
     lexer->column = string->interpolationColumn + 1;
     if (!ignore_interpolation_whitespace(lexer) || PEEK(lexer) == '}') {
-        // Empty/starts with error, don't interpolate anything.
+        // Empty/starts with whitespace error, don't interpolate anything.
         finish_interpolation(lexer, string, exprEnd, exprEndColumn);
         return;
     }
@@ -635,13 +620,14 @@ static void lex_interpolation(Lexer *lexer, StringLexer *string) {
 
 /** 
  * Prepares to start lexing the interpolation's tokens.
+ * 
  * It does so by appending the current buffer literal then a format beforehand.
  * Returns whether or not we actually lexed the interpolation.
  */
 static bool interpolate(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
     string->interpolationDepth--;
     if (string->interpolationDepth > 0) {
-        // Not the correct closing brace. Simply append the brace, and keep going.
+        // Not the correct closing brace. Simply append the brace, then keep going.
         buffer_append_char(buffer, ADVANCE_PEEK(lexer));
         return false;
     }
@@ -657,8 +643,8 @@ static bool interpolate(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
  * Finishes an interpolation.
  * 
  * It tries to interpolate, if it succeeds then it'll append a TOKEN_FORMAT and keep going.
- * There's an edge case if we see the closing token though, indicating the string finished
- * on the interpolation, in which case we append STRING_END ourselves and return false.
+ * There's an edge case if we see the closing quote though, indicating the string finished
+ * on the interpolation, in which case we append STRING_END ourselves and return false to stop.
  * 
  * Returns whether or not we should keep scanning string characters.
  */
@@ -678,7 +664,7 @@ static bool interpolation_end(Lexer *lexer, StringLexer *string, CharBuffer *buf
 }
 
 /** 
- * Starts preparing the StringLexer's state for a closing brace to interpolate.
+ * Starts preparing the string lexer's state for a closing brace to interpolate.
  * It stores where the open brace is at so when we encounter the closing brace,
  * we can set the lexer to start scanning non-string tokens after the opening brace.
  * 
@@ -695,10 +681,7 @@ static void interpolation_start(Lexer *lexer, StringLexer *string, CharBuffer *b
     buffer_append_char(buffer, ADVANCE_PEEK(lexer));
 }
 
-/** 
- * Appends and advances over an escape character made up of a backslash and the escaped character.
- * Appends the escaped character by default if it's not a built in sequence in C (like "\t").
- */
+/** Appends and advances over an escape character made up of a backslash and another character. */
 static void escape_character(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
     switch (PEEK_DISTANCE(lexer, 1)) {
         case 'n': buffer_append_char(buffer, '\n'); break;
@@ -716,7 +699,7 @@ static void escape_character(Lexer *lexer, StringLexer *string, CharBuffer *buff
  * It may call other scanning helpers if it sees a specific character while some metadata is set.
  * It could also error if it encounters a newline or EOF.
  * 
- * Return whether or not the StringLexer should continue scanning characters.
+ * Return whether or not we should continue scanning characters.
  */
 static bool scan_string_char(
     Lexer *lexer, StringLexer *string, CharBuffer *buffer, char *quote, int quoteColumn
@@ -742,7 +725,7 @@ static bool scan_string_char(
 }
 
 /** 
- * Finishes the lexing of a string after the metadata of the StringLexer is fully set.
+ * Finishes the lexing of a string after the metadata of the string is fully set.
  * We scan the string character by character until we see a closing quote.
  * 
  * If it goes right, we append the last literal we had stored in the buffer and a STRING_END token.
@@ -785,9 +768,10 @@ typedef enum {
 } MetadataStatus;
 
 /** 
- * Sets a piece of metadata on the string lexer.
+ * Sets a piece of metadata on the passed string lexer.
+ * 
  * The metadata is expected to be the current character in the lexer.
- * It returns a status of how it went.
+ * It returns a status of how setting the metadata went.
  */
 static MetadataStatus set_string_metadata(Lexer *lexer, StringLexer *string) {
     switch (PEEK(lexer)) {
@@ -899,7 +883,8 @@ static bool valid_syntax(const char ch) {
 
 /** 
  * To be called when an invalid piece of syntax is called.
- * It advances until EOF or encountering valid syntax, errors.
+ * 
+ * It advances until EOF or encountering valid syntax, then errors.
  */
 static void unsupported_syntax(Lexer *lexer) {
     while (!IS_EOF(lexer) && !valid_syntax(PEEK(lexer))) {
@@ -985,13 +970,13 @@ static void lex_token(Lexer *lexer) {
 
 /** 
  * Lex tokens from the lexer's source while ignoring whitespaces until EOF.
- * The lexed tokens are appended to the lexer's TokenArray with an EOF token always at the end. 
+ * The lexed tokens are appended to the lexer's token array with an EOF token always at the end. 
  */
 bool lex(Lexer *lexer) {
     while (true) {
         ignore_whitespace(lexer);
         lex_token(lexer);
-        Token lastToken = lexer->tokens.tokens[lexer->tokens.length - 1];
+        Token lastToken = lexer->tokens.data[lexer->tokens.length - 1];
         if (TOKEN_IS_TYPE(lastToken, TOKEN_EOF)) {
             break;
         }

@@ -18,36 +18,36 @@ static void buffer_teardown() {
 
 /** Tests the creation of a char buffer. */
 static void test_char_buffer_create() {
-    LUKIP_STRING_EQUAL(defaultBuffer.text, "");
+    LUKIP_STRING_EQUAL(defaultBuffer.data, "");
 }
 
 /** Tests the char buffer's appending functions. */
 static void test_char_buffer_appenders() {
     buffer_append_char(&defaultBuffer, 'J');
-    LUKIP_STRING_EQUAL(defaultBuffer.text, "J");
+    LUKIP_STRING_EQUAL(defaultBuffer.data, "J");
     buffer_append_string(&defaultBuffer, "ack");
     
-    LUKIP_STRING_EQUAL(defaultBuffer.text, "Jack");
+    LUKIP_STRING_EQUAL(defaultBuffer.data, "Jack");
     buffer_append_char(&defaultBuffer, ',');
     buffer_append_char(&defaultBuffer, ' ');
     buffer_append_strings(&defaultBuffer, 5, "Sam", ", ", "Liam,", " ", "and John");
-    LUKIP_STRING_EQUAL(defaultBuffer.text, "Jack, Sam, Liam, and John");
+    LUKIP_STRING_EQUAL(defaultBuffer.data, "Jack, Sam, Liam, and John");
 }
 
 /** Tests the char buffer's popping functions. */
 static void test_char_buffer_poppers() {
     buffer_append_string(&defaultBuffer, "Hello, world!");
     buffer_pop(&defaultBuffer);
-    LUKIP_STRING_EQUAL(defaultBuffer.text, "Hello, world");
+    LUKIP_STRING_EQUAL(defaultBuffer.data, "Hello, world");
     buffer_pop_amount(&defaultBuffer, 6);
 
-    LUKIP_STRING_EQUAL(defaultBuffer.text, "Hello,");
+    LUKIP_STRING_EQUAL(defaultBuffer.data, "Hello,");
     buffer_append_char(&defaultBuffer, ' ');
     buffer_append_string(&defaultBuffer, "mom");
     buffer_pop(&defaultBuffer);
     buffer_pop(&defaultBuffer);
     buffer_append_char(&defaultBuffer, 'e');
-    LUKIP_STRING_EQUAL(defaultBuffer.text, "Hello, me");
+    LUKIP_STRING_EQUAL(defaultBuffer.data, "Hello, me");
 }
 
 /** Tests char_buffer.c. */

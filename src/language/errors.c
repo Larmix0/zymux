@@ -20,12 +20,12 @@ static bool is_whitespace(const char ch) {
 }
 
 /** 
- * To call after iterating through the source and reaching the first character of the
- * error/warning line.
+ * To call after reaching the first character of the error/warning line in a source.
  * 
  * It skips all preceding whitespace of a line then starts actually printing so indents are skipped.
  * It then proceeds to print carets when reaching column. The amount of carets is length.
- * The color is what color the carets and what they're pointing to should be.
+ * Current is the first character in the source after the newline. The color is what color
+ * the carets and what they're pointing to should be.
  */
 static void print_line(
     char *current, const int column, const int length, const char *color
@@ -76,10 +76,7 @@ static void show_zmx_error_line(char *file, const int line, const int column, co
     free(source);
 }
 
-/**
- * Prints an error for an issue regarding the user's operating system.
- * Like an operating system that isn't supported in Zymux.
- */
+/** Prints an error for an issue regarding the user's operating system. */
 void os_error(const char *format, ...) {
     fprintf(stderr, RED "OS error:\n\t" DEFAULT_COLOR);
 
@@ -114,6 +111,7 @@ void internal_error(
 
 /** 
  * An error occurred while attempting to perform some operation related to files.
+ * 
  * This is specifically for file errors outside of *.zmx programs.
  * Like running "./zymux x.zmx" where "x.zmx" doesn't exist.
  */
@@ -131,8 +129,9 @@ void file_error(const char *format, ...) {
 
 /** 
  * Prints the error in the currentFile of program in the line and column passed.
- * This is reserved for errors that are due to the user's own mistake in a *.zmx file,
- * like a compiler error or a runtime error.
+ * 
+ * This is reserved for errors that are due to the user's own mistake in a *.zmx file.
+ * Like a compiler error or a runtime error.
  */
 void zmx_user_error(
     ZymuxProgram *program, const int line, const int column, const int length,

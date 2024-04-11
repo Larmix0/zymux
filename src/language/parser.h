@@ -14,11 +14,7 @@ typedef struct AstNode {
     AstType type;
 } AstNode;
 
-typedef struct {
-    int length;
-    int capacity;
-    AstNode **nodes;
-} NodeArray;
+DECLARE_DA_STRUCT(NodeArray, AstNode *);
 
 typedef struct {
     AstNode node;

@@ -110,18 +110,18 @@ static void print_token(const Token token) {
     switch (token.type) {
         case TOKEN_INT_LIT: printf(", integer=" ZMX_INT_FMT, token.intVal); break;
         case TOKEN_FLOAT_LIT: printf(", float=" ZMX_FLOAT_FMT, token.floatVal); break;
-        case TOKEN_STRING_LIT: printf(", string=\"%s\"", token.stringVal.text); break;
+        case TOKEN_STRING_LIT: printf(", string=\"%s\"", token.stringVal.data); break;
         case TOKEN_ERROR: printf(", error=\"%s\"", token.errorMessage); break;
         default: break;
     }
     printf(")");
 }
 
-/** Prints the entire array of tokens. */
+/** Prints an entire array of tokens. */
 void print_tokens(const TokenArray tokens) {
     printf("Tokens:\n");
     for (int i = 0; i < tokens.length; i++) {
-        print_token(tokens.tokens[i]);
+        print_token(tokens.data[i]);
         printf("\n");
     }
 }

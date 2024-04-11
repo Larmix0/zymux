@@ -5,10 +5,10 @@ CFLAGS = -Wall -Wextra -Wpedantic -g
 
 ifeq ($(OS), Windows_NT)
 	CFLAGS += -Isrc\data_structures -Isrc\debug -Isrc\language -Itests\language
-	CFLAGS += -Itests\unit -Itests\unit\lukip\include
+	CFLAGS += -Itests\unit -Itests\unit\lukip\include -Itests\unit\test_data_structures
 else
 	CFLAGS += -Isrc/data_structures -Isrc/debug -Isrc/language -Itests/language
-	CFLAGS += -Itests/unit -Itests/unit/lukip/include
+	CFLAGS += -Itests/unit -Itests/unit/lukip/include -Itests/unit/test_data_structures
 endif
 
 SRC_DIR = src
@@ -24,7 +24,10 @@ ZYMUX_EXE = zymux
 UNIT_EXE = unittest
 
 SRCS := $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/*/*.c $(SRC_DIR)/*/*/*.c)
-UNIT_SRCS := $(wildcard $(UNIT_DIR)/*.c)
+
+# Must manually add directories nested inside tests/unit so lukip's sources aren't included.
+# TODO: move Lukip inside a lib directory flat on the project so we don't have to hardcore this.
+UNIT_SRCS := $(wildcard $(UNIT_DIR)/*.c $(UNIT_DIR)/test_data_structures/*.c )
 LANG_SRCS := $(wildcard $(LANG_DIR)/*.zmx $(LANG_DIR)/*/*.zmx $(LANG_DIR)/*/*/*.zmx)
 
 ifeq ($(OS), Windows_NT)
