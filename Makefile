@@ -3,37 +3,28 @@ CC = gcc
 # TODO: add -Werror to CFLAGS later.
 CFLAGS = -Wall -Wextra -Wpedantic -g
 
-ifeq ($(OS), Windows_NT)
-	CFLAGS += -Isrc\data_structures -Isrc\debug -Isrc\language -Itests\language
-	CFLAGS += -Itests\unit -Itests\unit\lukip\include -Itests\unit\test_data_structures
-else
-	CFLAGS += -Isrc/data_structures -Isrc/debug -Isrc/language -Itests/language
-	CFLAGS += -Itests/unit -Itests/unit/lukip/include -Itests/unit/test_data_structures
-endif
-
+LIB_DIR = lib
 SRC_DIR = src
 TEST_DIR = tests
-UNIT_DIR = tests/unit
-LANG_DIR = tests/language
 BIN_DIR = bin
 
-LUKIP_DIR = $(UNIT_DIR)/lukip
+UNIT_DIR = $(TEST_DIR)/unit
+LANG_DIR = $(TEST_DIR)/language
+
+LUKIP_DIR = $(LIB_DIR)/lukip
 LUKIP_LIB = $(LUKIP_DIR)/liblukip.a
 
 ZYMUX_EXE = zymux
 UNIT_EXE = unittest
 
 SRCS := $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/*/*.c $(SRC_DIR)/*/*/*.c)
-
-# Must manually add directories nested inside tests/unit so lukip's sources aren't included.
-# TODO: move Lukip inside a lib directory flat on the project so we don't have to hardcore this.
-UNIT_SRCS := $(wildcard $(UNIT_DIR)/*.c $(UNIT_DIR)/test_data_structures/*.c )
+UNIT_SRCS := $(wildcard $(UNIT_DIR)/*.c $(UNIT_DIR)/*/*.c $(UNIT_DIR)/*/*/*.c)
 LANG_SRCS := $(wildcard $(LANG_DIR)/*.zmx $(LANG_DIR)/*/*.zmx $(LANG_DIR)/*/*/*.zmx)
 
 ifeq ($(OS), Windows_NT)
-	UNIT_DIR = tests\unit
-	LANG_DIR = tests\language
-	LUKIP_DIR = $(UNIT_DIR)\lukip
+	UNIT_DIR = $(TEST_DIR)\unit
+	LANG_DIR = $(TEST_DIR)\language
+	LUKIP_DIR = $(LIB_DIR)\lukip
 	LUKIP_LIB = $(LUKIP_DIR)\liblukip.a
 
 	ZYMUX_EXE = zymux.exe
@@ -41,6 +32,14 @@ ifeq ($(OS), Windows_NT)
 	SRCS := $(subst /,\,$(SRCS))
 	UNIT_SRCS := $(subst /,\,$(UNIT_SRCS))
 	LANG := $(subst /,\,$(LANG))
+
+	CFLAGS += -I$(SRC_DIR)\data_structures -I$(SRC_DIR)\debug -I$(SRC_DIR)\language
+	CFLAGS += -I$(TEST_DIR)\language -I$(TEST_DIR)\unit -I$(TEST_DIR)\unit\test_data_structures
+	CFLAGS += -I$(LIB_DIR)\lukip\include
+else
+	CFLAGS += -I$(SRC_DIR)/data_structures -I$(SRC_DIR)/debug -I$(SRC_DIR)/language
+	CFLAGS += -I$(TEST_DIR)/language -I$(TEST_DIR)/unit -I$(TEST_DIR)/unit/test_data_structures
+	CFLAGS += -I$(LIB_DIR)/lukip/include
 endif
 
 SRC_OBJS = $(SRCS:.c=.o)

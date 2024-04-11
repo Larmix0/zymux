@@ -1,3 +1,3 @@
-[submodule "tests/unit/lukip"]
-	path = tests/unit/lukip
+[submodule "lib/lukip"]
+	path = lib/lukip
 	url = https://github.com/Larmix0/lukip.git
