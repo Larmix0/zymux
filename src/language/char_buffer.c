@@ -43,6 +43,9 @@ void buffer_append_strings(CharBuffer *buffer, const int amount, ...) {
  * It does so by merely replacing the old NUL with the character and then appending a new NUL.
  */
 void buffer_append_char(CharBuffer *buffer, const char ch) {
+    if (ch == '\0') {
+        return; // Don't append more NULs as char buffer automatically does that.
+    }
     buffer->data[buffer->length - 1] = ch;
     APPEND_DA(buffer, '\0');
 }
