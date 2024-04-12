@@ -1,7 +1,5 @@
 #include "lukip.h"
 
-#include "zymux_program.h"
-
 #include "char_buffer.c"
 
 CharBuffer defaultBuffer;

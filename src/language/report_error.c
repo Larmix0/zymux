@@ -1,10 +1,12 @@
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <file.h>
-#include "zymux_program.h"
+#include "constants.h"
+#include "file.h"
+#include "report_error.h"
 
 /** Returns whether ch is a whitespace character or not. */
 static bool is_whitespace(const char ch) {
@@ -134,7 +136,7 @@ void file_error(const char *format, ...) {
  * Like a compiler error or a runtime error.
  */
 void zmx_user_error(
-    ZymuxProgram *program, const int line, const int column, const int length,
+    ZmxProgram *program, const int line, const int column, const int length,
     const char *errorName, const char *format, ...
 ) {
     bool hasErrored = program->hasErrored;

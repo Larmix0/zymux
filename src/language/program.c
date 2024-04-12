@@ -1,20 +1,20 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "errors.h"
 #include "parser.h"
-#include "zymux_program.h"
+#include "program.h"
+#include "report_error.h"
 
 /** Returns an initialized Zymux program with the file and whether or not to show errors. */
-ZymuxProgram create_zymux_program(char *file, bool showErrors) {
-    ZymuxProgram program = {
+ZmxProgram create_zmx_program(char *file, bool showErrors) {
+    ZmxProgram program = {
         .hasErrored = false, .showErrors = showErrors, .currentFile = file, .allNodes = NULL
     };
     return program;
 }
 
 /** Frees all nodes that were allocated and placed inside the passed program. */
-void free_all_nodes(ZymuxProgram *program) {
+void free_all_nodes(ZmxProgram *program) {
     if (program->allNodes == NULL) {
         return;
     }
@@ -31,7 +31,7 @@ void free_all_nodes(ZymuxProgram *program) {
 }
 
 /** Frees all the memory the passed program owns. */
-void free_zymux_program(ZymuxProgram *program) {
+void free_zmx_program(ZmxProgram *program) {
     // Doesn't free nodes, as this should be manually done after compiling and before executing VM.
 }
 

@@ -2,7 +2,7 @@
 #define LEXER_H
 
 #include "char_buffer.h"
-#include "zymux_program.h"
+#include "program.h"
 
 #define TOKEN_IS_TYPE(token, expected) (token.type == expected)
 
@@ -127,12 +127,12 @@ typedef struct {
     char *source;
     size_t sourceLength;
     
-    ZymuxProgram *program;
+    ZmxProgram *program;
     TokenArray tokens;
 } Lexer;
 
 /** Returns an initialized lexer. */
-Lexer create_lexer(ZymuxProgram *program, char *source);
+Lexer create_lexer(ZmxProgram *program, char *source);
 
 /** Frees all the memory the lexer has used (including the tokens it generated). */
 void free_lexer(Lexer *lexer);

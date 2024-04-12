@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "lexer.h"
 #include "data_structures.h"
-#include "errors.h"
+#include "lexer.h"
+#include "report_error.h"
 
 #define CURRENT_TOKEN_LENGTH(lexer) ((lexer)->current - (lexer)->tokenStart)
 #define START_TOKEN(lexer) \
@@ -47,7 +47,7 @@ typedef struct {
 static void lex_token(Lexer *lexer);
 
 /** Returns an initialized lexer with the source code passed. */
-Lexer create_lexer(ZymuxProgram *program, char *source) {
+Lexer create_lexer(ZmxProgram *program, char *source) {
     Lexer lexer = {
         .current = source, .tokenStart = source, .source = source,
         .sourceLength = strlen(source),

@@ -11,7 +11,7 @@
     ((actualType *)new_node(program, astType, sizeof(actualType)))
 
 /** Allocates a new node of the passed type. */
-static AstNode *new_node(ZymuxProgram *program, AstType type, const size_t size) {
+static AstNode *new_node(ZmxProgram *program, AstType type, const size_t size) {
     AstNode *node = ZMX_ALLOC(size);
     node->type = type;    
 
@@ -21,7 +21,7 @@ static AstNode *new_node(ZymuxProgram *program, AstType type, const size_t size)
 }
 
 /** Returns an initialized parser. */
-Parser create_parser(ZymuxProgram *program, TokenArray tokens) {
+Parser create_parser(ZmxProgram *program, TokenArray tokens) {
     Parser parser = {
         .ast = CREATE_DA(), .program = program,
         .tokens = tokens, .current = tokens.data
@@ -35,14 +35,14 @@ void free_parser(Parser *parser) {
 }
 
 /** Allocates a new literal node which just holds the literal value token. */
-static AstNode *new_literal_node(ZymuxProgram *program, Token value) {
+static AstNode *new_literal_node(ZmxProgram *program, Token value) {
     LiteralNode *literal = NEW_NODE(program, AST_LITERAL, LiteralNode);
     literal->value = value;
     return AS_NODE(literal, AstNode);
 }
 
 /** Returns an erroneous node which holds the invalid token and a message. */
-static AstNode *new_error_node(ZymuxProgram *program, Token erroredToken, char *message) {
+static AstNode *new_error_node(ZmxProgram *program, Token erroredToken, char *message) {
     ErrorNode *error = NEW_NODE(program, AST_ERROR, ErrorNode);
     error->erroredToken = erroredToken;
     error->message = message;

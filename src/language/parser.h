@@ -2,7 +2,7 @@
 #define PARSER_H
 
 #include "lexer.h"
-#include "zymux_program.h"
+#include "program.h"
 
 typedef enum {
     AST_ERROR,
@@ -28,14 +28,14 @@ typedef struct {
 } LiteralNode;
 
 typedef struct {
-    ZymuxProgram *program;
+    ZmxProgram *program;
     TokenArray tokens;
     Token *current;
     NodeArray ast;
 } Parser;
 
 /** Returns an initialized parser with the passed tokens and the program. */
-Parser create_parser(ZymuxProgram *program, TokenArray tokens);
+Parser create_parser(ZmxProgram *program, TokenArray tokens);
 
 /** Frees all the memory the parser owns. */
 void free_parser(Parser *parser);

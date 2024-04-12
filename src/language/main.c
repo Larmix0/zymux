@@ -2,11 +2,11 @@
 #include <stdlib.h>
 
 #include "debug_tokens.h"
-#include "errors.h"
 #include "file.h"
 #include "lexer.h"
 #include "parser.h"
-#include "zymux_program.h"
+#include "program.h"
+#include "report_error.h"
 
 /** Runs Zymux on a REPL loop. */
 static void repl() {
@@ -16,7 +16,7 @@ static void repl() {
 /** Reads the passed file and makes it go through all the stages of Zymux to execute it. */
 static void run_zmx_file(char *file) {
     char *source = alloc_source(file);
-    ZymuxProgram program = create_zymux_program(file, true);
+    ZmxProgram program = create_zmx_program(file, true);
     Lexer lexer = create_lexer(&program, source);
     if (!lex(&lexer)) {
         printf("SYNTAX ERROR.\n");
@@ -32,8 +32,9 @@ static void run_zmx_file(char *file) {
 
     free_lexer(&lexer);
     free_parser(&parser);
+    free_all_nodes(&program);
     free(source);
-    free_zymux_program(&program);
+    free_zmx_program(&program);
 }
 
 /** 

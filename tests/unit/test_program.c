@@ -1,6 +1,6 @@
 #include "lukip.h"
 
-#include "zymux_program.c"
+#include "program.c"
 
 /** Tests that zmx_power properly implements exponentiation. */
 static void test_zmx_power() {
@@ -12,12 +12,12 @@ static void test_zmx_power() {
     LUKIP_INT_EQUAL(zmx_power(-6, 3), -216);
 }
 
-/** Tests that we can properly create an initialized Zymux program from create_zymux_program(). */
-static void test_create_zymux_program() {
-    ZymuxProgram program = create_zymux_program("zymux", false);
+/** Tests that we can properly create an initialized Zymux program from create_zmx_program(). */
+static void test_create_zmx_program() {
+    ZmxProgram program = create_zmx_program("zymux", false);
     LUKIP_STRING_EQUAL(program.currentFile, "zymux");
     LUKIP_IS_FALSE(program.showErrors);
-    free_zymux_program(&program);
+    free_zmx_program(&program);
 }
 
 /** Tests that all the allocation abstractions of Zymux work and allocate memory properly. */
@@ -58,9 +58,9 @@ static void test_zmx_allocators() {
     free(array);
 }
 
-/** Tests zymux_program.c. */
-void test_zymux_program() {
+/** Tests zmx_program.c. */
+void test_program() {
     TEST(test_zmx_power);
-    TEST(test_create_zymux_program);
+    TEST(test_create_zmx_program);
     TEST(test_zmx_allocators);
 }

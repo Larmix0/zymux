@@ -5,8 +5,8 @@
 #include <sys/stat.h>
 
 #include "char_buffer.h"
-#include "errors.h"
-#include "zymux_program.h"
+#include "program.h"
+#include "report_error.h"
 
 /** The different types of paths we expect to get. */
 typedef enum {

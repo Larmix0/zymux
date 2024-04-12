@@ -1,7 +1,7 @@
 #include <stdio.h>
 
+#include "report_error.h"
 #include "debug_tokens.h"
-#include "errors.h"
 
 /** Returns the passed type as a string literal in all uppercase. */
 char *type_to_string(const TokenType type) {

@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "lukip.h"
+
 #include "debug_tokens.h"
 
 #include "lexer.c"
@@ -14,8 +15,8 @@ Lexer *defaultLexer;
 
 /** A setup to initialize the default lexer. */
 static void setup_default_lexer() {
-    ZymuxProgram *program = ZMX_TYPE_ALLOC(ZymuxProgram);
-    *program = create_zymux_program("default", false);
+    ZmxProgram *program = ZMX_TYPE_ALLOC(ZmxProgram);
+    *program = create_zmx_program("default", false);
 
     defaultLexer = ZMX_TYPE_ALLOC(Lexer);
     *defaultLexer = create_lexer(program, defaultSource);
@@ -23,7 +24,7 @@ static void setup_default_lexer() {
 
 /** A teardown for the default lexer and the other things it uses. */
 static void teardown_default_lexer() {
-    free_zymux_program(defaultLexer->program);
+    free_zmx_program(defaultLexer->program);
     free(defaultLexer->program);
     free_lexer(defaultLexer);
     free(defaultLexer);
@@ -167,14 +168,14 @@ static void test_lex_successful_programs() {
     );
 
     for (size_t arrayIdx = 0; arrayIdx < sourcesAmount; arrayIdx++) {
-        ZymuxProgram program = create_zymux_program("testLex", false);
+        ZmxProgram program = create_zmx_program("testLex", false);
         Lexer lexer = create_lexer(&program, sources[arrayIdx]);
         lex(&lexer);
         LUKIP_IS_FALSE(lexer.program->hasErrored);
 
         compare_lexed(&lexer, &tokens2DArray[arrayIdx], false);
         free_lexer(&lexer);
-        free_zymux_program(&program);
+        free_zmx_program(&program);
     }
     for (size_t i = 0; i < sourcesAmount; i++) {
         free_tokens_contents(&tokens2DArray[i]);
@@ -197,7 +198,7 @@ static void test_lex_errors() {
     }; 
     const size_t sourcesAmount = sizeof(sources) / sizeof(char *);
     for (size_t i = 0; i < sourcesAmount; i++) {
-        ZymuxProgram program = create_zymux_program("testError", false);
+        ZmxProgram program = create_zmx_program("testError", false);
         Lexer lexer = create_lexer(&program, sources[i]);
         lex(&lexer);
         LUKIP_IS_TRUE(lexer.program->hasErrored);
@@ -259,13 +260,13 @@ static void test_lex_all_tokens() {
         test_float_token("44.2"), test_token("=", TOKEN_EQ),
         test_token("variable", TOKEN_IDENTIFIER), test_token("..", TOKEN_DOT_DOT)
     );
-    ZymuxProgram program = create_zymux_program("testAll", false);
+    ZmxProgram program = create_zmx_program("testAll", false);
     Lexer lexer = create_lexer(&program, source);
     lex(&lexer);
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
-    free_zymux_program(&program);
+    free_zmx_program(&program);
 
     free_tokens_contents(&allTokens);
     FREE_DA(&allTokens);
@@ -289,13 +290,13 @@ static void test_lex_spots() {
     // Set EOF line and column.
     allTokens.data[allTokens.length - 1].line = 7;
     allTokens.data[allTokens.length - 1].column = 1;
-    ZymuxProgram program = create_zymux_program("testLine", false);
+    ZmxProgram program = create_zmx_program("testLine", false);
     Lexer lexer = create_lexer(&program, source);
     lex(&lexer);
 
     compare_lexed(&lexer, &allTokens, true);
     free_lexer(&lexer);
-    free_zymux_program(&program);
+    free_zmx_program(&program);
 
     free_tokens_contents(&allTokens);
     FREE_DA(&allTokens);
@@ -324,7 +325,7 @@ static void test_lex_number() {
         test_float_token("2.3300"), test_int_token("931453229", 10),
         test_float_token("23.3"), test_float_token("3.0")
     );
-    ZymuxProgram program = create_zymux_program("testNumber", false);
+    ZmxProgram program = create_zmx_program("testNumber", false);
     Lexer lexer = create_lexer(&program, source);
     while (!IS_EOF(&lexer)) {
         START_TOKEN(&lexer);
@@ -335,7 +336,7 @@ static void test_lex_number() {
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
-    free_zymux_program(&program);
+    free_zmx_program(&program);
 
     free_tokens_contents(&allTokens);
     FREE_DA(&allTokens);
@@ -353,7 +354,7 @@ static void test_lex_name() {
         test_token("L2dm3e44", TOKEN_IDENTIFIER), test_token("_22_", TOKEN_IDENTIFIER),
         test_token("string", TOKEN_STRING_KW), test_token("_NAME_HERE", TOKEN_IDENTIFIER)
     );
-    ZymuxProgram program = create_zymux_program("testName", false);
+    ZmxProgram program = create_zmx_program("testName", false);
     Lexer lexer = create_lexer(&program, source);
     while (!IS_EOF(&lexer)) {
         START_TOKEN(&lexer);
@@ -364,7 +365,7 @@ static void test_lex_name() {
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
-    free_zymux_program(&program);
+    free_zmx_program(&program);
 
     free_tokens_contents(&allTokens);
     FREE_DA(&allTokens);
@@ -430,7 +431,7 @@ static void test_lex_string() {
         test_string_token(""), test_token("", TOKEN_FORMAT), test_string_token("brace."),
         test_token("", TOKEN_STRING_END)
     );
-    ZymuxProgram program = create_zymux_program("testString", false);
+    ZmxProgram program = create_zmx_program("testString", false);
     Lexer lexer = create_lexer(&program, source);
     while (!IS_EOF(&lexer)) {
         START_TOKEN(&lexer);
@@ -441,7 +442,7 @@ static void test_lex_string() {
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
-    free_zymux_program(&program);
+    free_zmx_program(&program);
 
     free_tokens_contents(&allTokens);
     FREE_DA(&allTokens);
@@ -466,7 +467,7 @@ static void test_lex_chars_tokens() {
         test_token("&", TOKEN_AMPER), test_token("..", TOKEN_DOT_DOT),
         test_token(".", TOKEN_DOT), test_token(";", TOKEN_SEMICOLON)
     );
-    ZymuxProgram program = create_zymux_program("testString", false);
+    ZmxProgram program = create_zmx_program("testString", false);
     Lexer lexer = create_lexer(&program, source);
     for (int i = 0; i < 4; i++) {
         START_TOKEN(&lexer);
@@ -493,7 +494,7 @@ static void test_lex_chars_tokens() {
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
-    free_zymux_program(&program);
+    free_zmx_program(&program);
 
     free_tokens_contents(&allTokens);
     FREE_DA(&allTokens);

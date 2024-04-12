@@ -1,5 +1,5 @@
-#ifndef ZYMUX_PROGRAM_H
-#define ZYMUX_PROGRAM_H
+#ifndef PROGRAM_H
+#define PROGRAM_H
 
 #include <stdbool.h>
 
@@ -30,7 +30,7 @@ typedef struct {
     bool showErrors;
     char *currentFile;
     AstNode *allNodes;
-} ZymuxProgram;
+} ZmxProgram;
 
 /** 
  * Allocates size memory and uses file, func, and line for errors.
@@ -50,12 +50,12 @@ void *zmx_realloc(
 i64 zmx_power(const int base, const int exponent);
 
 /** Returns an initialized zymux program with the parameters. */
-ZymuxProgram create_zymux_program(char *file, bool showErrors);
+ZmxProgram create_zmx_program(char *file, bool showErrors);
 
-/** Frees all the nodes of the program. */
-void free_all_nodes(ZymuxProgram *program);
+/** Frees all the nodes of program. */
+void free_all_nodes(ZmxProgram *program);
 
-/** Frees generally everything held by the program. */
-void free_zymux_program(ZymuxProgram *program);
+/** Frees generally everything held by program. */
+void free_zmx_program(ZmxProgram *program);
 
 #endif

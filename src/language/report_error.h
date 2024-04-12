@@ -1,7 +1,7 @@
-#ifndef ERRORS_H
-#define ERRORS_H
+#ifndef REPORT_ERROR_H
+#define REPORT_ERROR_H
 
-#include "zymux_program.h"
+#include "program.h"
 
 /** Reports an error relating to the user's operating system.*/
 #define OS_ERROR(...) (os_error(__VA_ARGS__))
@@ -53,7 +53,7 @@ void file_error(const char *format, ...);
 
 /** Displays an error that happened due to a mistake from the person using Zymux in a *.zmx file. */
 void zmx_user_error(
-    ZymuxProgram *program, const int line, const int column, const int length,
+    ZmxProgram *program, const int line, const int column, const int length,
     const char *errorName, const char *format, ...
 );
 

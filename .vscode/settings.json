@@ -13,7 +13,11 @@
         "string_buffer.h": "c",
         "data_structures.h": "c",
         "included_sources.h": "c",
-        "lukip.h": "c"
+        "lukip.h": "c",
+        "zmx_error.h": "c",
+        "zmx_program.h": "c",
+        "file.h": "c",
+        "report_error.h": "c"
     },
     "cSpell.words": [
         "Zymux"

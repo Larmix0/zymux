@@ -1,8 +1,8 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-#include <stdint.h>
 #include <inttypes.h>
+#include <stdint.h>
 
 #define UNKNOWN_OS 0
 #define UNIX_OS 1
