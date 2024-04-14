@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "debug_tokens.h"
+#include "debug_ast.h"
 #include "file.h"
 #include "lexer.h"
 #include "parser.h"
@@ -29,6 +30,9 @@ static void run_zmx_file(char *file) {
     if (!parse(&parser)) {
         printf("PARSING ERROR.\n");
     }
+#if DEBUG_PARSER
+    print_ast(&parser.ast);
+#endif
 
     free_lexer(&lexer);
     free_parser(&parser);

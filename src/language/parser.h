@@ -18,8 +18,6 @@ DECLARE_DA_STRUCT(NodeArray, AstNode *);
 
 typedef struct {
     AstNode node;
-    Token erroredToken;
-    char *message;
 } ErrorNode;
 
 typedef struct {
@@ -28,6 +26,8 @@ typedef struct {
 } LiteralNode;
 
 typedef struct {
+    bool isPanicking;
+
     ZmxProgram *program;
     TokenArray tokens;
     Token *current;

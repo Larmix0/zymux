@@ -33,11 +33,8 @@
 #define FILE_ERROR(...) (file_error(__VA_ARGS__))
 
 /** A user syntax error. Typically means an error occurred in lexing or parsing. */
-#define SYNTAX_ERROR(program, errorToken) \
-    (zmx_user_error( \
-        (program), (errorToken).line, (errorToken).column, \
-        (errorToken).length, "Syntax error", (errorToken).errorMessage \
-    ))
+#define SYNTAX_ERROR(program, line, column, length, message) \
+    (zmx_user_error((program), (line), (column), (length), "Syntax error", (message)))
 
 /** Displays an error relating to the user's operating system. */
 void os_error(const char *format, ...);

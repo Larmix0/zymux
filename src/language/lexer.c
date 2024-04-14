@@ -112,13 +112,13 @@ static void append_implicit(Lexer *lexer, const TokenType type) {
 
 /** Appends the token we've been lexing as an error with the passed message. */
 static void append_lexed_error(Lexer *lexer, char *message) {
-    Token errorToken = {
+    Token error = {
         .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
         .line = lexer->tokenLine, .column = lexer->tokenColumn,
         .errorMessage = message, .type = TOKEN_ERROR,
     };
-    APPEND_DA(&lexer->tokens, errorToken);
-    SYNTAX_ERROR(lexer->program, errorToken);
+    APPEND_DA(&lexer->tokens, error);
+    SYNTAX_ERROR(lexer->program, error.line, error.column, error.length,error.errorMessage);
 }
 
 /** Appends an error token in a specific place in the source code with the message. */
@@ -126,13 +126,13 @@ static void append_error_at(
     Lexer *lexer, char *message, char *errorStart, const int length,
     const int line, const int column
 ) {
-    Token errorToken = {
+    Token error = {
         .lexeme = errorStart, .length = length,
         .line = line, .column = column,
         .errorMessage = message, .type = TOKEN_ERROR,
     };
-    APPEND_DA(&lexer->tokens, errorToken);
-    SYNTAX_ERROR(lexer->program, errorToken);
+    APPEND_DA(&lexer->tokens, error);
+    SYNTAX_ERROR(lexer->program, error.line, error.column, error.length, error.errorMessage);
 }
 
 /** Appends a token that was lexed (advanced over) of the passed type. */

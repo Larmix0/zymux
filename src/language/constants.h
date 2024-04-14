@@ -20,8 +20,9 @@
 #endif
 
 #define DEFAULT_COLOR "\033[0m"
+#define GREEN "\033[32"
 #define RED "\033[31m"
-#define YELLOW "\033[1;33m"
+#define YELLOW "\033[33m"
 
 #define DEBUG_LEXER 1
 #define DEBUG_PARSER 1
@@ -41,6 +42,9 @@
 
 #define ZMX_INT_FMT "%" PRId64
 #define ZMX_FLOAT_FMT "%lf"
+
+/** Converts something to a pointer of type. */
+#define AS_PTR(node, type) ((type *)node)
 
 typedef int8_t i8;
 typedef int16_t i16;

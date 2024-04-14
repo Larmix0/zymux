@@ -29,8 +29,8 @@ static bool is_whitespace(const char ch) {
  * Current is the first character in the source after the newline. The color is what color
  * the carets and what they're pointing to should be.
  */
-static void print_line(
-    char *current, const int column, const int length, const char *color
+static void print_error_line(
+    char *current, const int column, const int length
 ) {
     int whitespaces = 0, lineIdx = 0;
     while (is_whitespace(*current)) {
@@ -40,7 +40,7 @@ static void print_line(
     }
     while (*current != '\0' && *current != '\n') {
         if (lineIdx == column - 1) {
-            fprintf(stderr, "%s", color);
+            fprintf(stderr, "%s", RED);
         }
         fputc(*current++, stderr);
         lineIdx++;
@@ -54,9 +54,10 @@ static void print_line(
         fputc(' ', stderr);
     }
     fprintf(stderr, RED);
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i < length - 1; i++) {
         fputc('^', stderr);
     }
+    fputc('^', stderr); // Always output at least one for things like something missing at EOL.
     fprintf(stderr, DEFAULT_COLOR);
     fputc('\n', stderr);
 }
@@ -68,7 +69,7 @@ static void show_zmx_error_line(char *file, const int line, const int column, co
     int sourceLine = 1;
     for (int i = 0; i < sourceLength; i++) {
         if (sourceLine == line) {
-            print_line(&source[i], column, length, RED);
+            print_error_line(&source[i], column, length);
             break;
         }
         if (source[i] == '\n') {
@@ -141,13 +142,13 @@ void zmx_user_error(
 ) {
     bool hasErrored = program->hasErrored;
     program->hasErrored = true;
-
     if (!program->showErrors) {
         return;
     }
     if (hasErrored) {
         fputc('\n', stderr);
     }
+
     show_zmx_error_line(program->currentFile, line, column, length);
     fprintf(
         stderr, "line %d in \"%s\":\n\t" RED "%s: " DEFAULT_COLOR,
