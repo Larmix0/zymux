@@ -27,7 +27,6 @@ typedef struct {
 
 typedef struct {
     bool isPanicking;
-
     ZmxProgram *program;
     TokenArray tokens;
     Token *current;

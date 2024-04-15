@@ -4,16 +4,14 @@
 #include "parser.h"
 #include "report_error.h"
 
-// All macros which change a parser's current token stop changing if we're on panic mode.
-
 #define CHECK(parser, expected) (PEEK((parser)).type == (expected))
 #define PEEK(parser) (*(parser)->current)
 #define PEEK_PREVIOUS(parser) (*((parser)->current - 1))
 
+// All macros which change a parser's current token stop changing if we're on panic mode.
+
 #define ADVANCE_PEEK(parser) (!(parser)->isPanicking ? *(parser)->current++ : *(parser)->current)
 #define ADVANCE(parser) (!(parser)->isPanicking ? (parser)->current++ : (parser)->current)
-#define ADVANCE_AMOUNT(parser, amount) \
-    (!(parser)->isPanicking ? (parser)->current += (amount) : (parser)->current)
 #define RETREAT(parser) (!(parser)->isPanicking ? (parser)->current-- : (parser)->current)
 
 #define MATCH(parser, expected) \
@@ -21,7 +19,8 @@
 #define CONSUME(parser, expected, message) \
     (CHECK((parser), (expected)) \
         ? ADVANCE_PEEK((parser)) \
-        : (raise_parser_error_missing((parser), PEEK_PREVIOUS((parser)), (message)), PEEK(parser)))
+        : (raise_parser_error_missing((parser), PEEK_PREVIOUS((parser)), (message)), \
+            PEEK(parser)))
 
 #define IS_EOF(parser) (CHECK((parser), TOKEN_EOF))
 
@@ -62,7 +61,7 @@ static void raise_parser_error_at(Parser *parser, Token erroredToken, const char
     parser->isPanicking = true;
 
     SYNTAX_ERROR(
-        parser->program, erroredToken.line, erroredToken.column, erroredToken.length, message
+        parser->program, erroredToken.pos, message
     );
 }
 
@@ -82,9 +81,10 @@ static void raise_parser_error_missing(Parser *parser, Token beforeMissing, cons
     parser->isPanicking = true;
 
     // Errors the character after the token located before the missing one.
-    SYNTAX_ERROR(
-        parser->program, beforeMissing.line, beforeMissing.column + beforeMissing.length, 1, message
-    );   
+    SourcePosition errorPos = create_src_pos(
+        beforeMissing.pos.line, beforeMissing.pos.column + beforeMissing.pos.length, 1
+    );
+    SYNTAX_ERROR(parser->program, errorPos, message);
 }
 
 /** Allocates a new literal node which just holds the literal value token. */
@@ -207,5 +207,6 @@ bool parse(Parser *parser) {
     while (!IS_EOF(parser)) {
         APPEND_DA(&parser->ast, declaration(parser));
     }
-    return true;
+
+    return !parser->program->hasErrored;
 }

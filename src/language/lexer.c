@@ -4,24 +4,21 @@
 
 #include "data_structures.h"
 #include "lexer.h"
-#include "report_error.h"
 
 #define CURRENT_TOKEN_LENGTH(lexer) ((lexer)->current - (lexer)->tokenStart)
 #define START_TOKEN(lexer) \
     ((lexer)->tokenStart = (lexer)->current, \
-    (lexer)->tokenLine = (lexer)->line, \
     (lexer)->tokenColumn = (lexer)->column)
 
 #define PEEK(lexer) (*(lexer)->current)
-#define PEEK_DISTANCE(lexer, distance) \
-    ((lexer)->current + (distance) >= (lexer)->source + (lexer)->sourceLength \
-        ? '\0' : (lexer)->current[(distance)])
+#define PEEK_NEXT(lexer) \
+    ((lexer)->current + 1 >= (lexer)->source + (lexer)->sourceLength ? '\0' : (lexer)->current[1])
 
 #define ADVANCE_PEEK(lexer) ((lexer)->column++, *(lexer)->current++)
 #define ADVANCE(lexer) ((lexer)->column++, (lexer)->current++)
-#define ADVANCE_AMOUNT(lexer, amount) ((lexer)->column += (amount), (lexer)->current += (amount))
+#define ADVANCE_DOUBLE(lexer) ((lexer)->column += 2, (lexer)->current += 2)
 
-#define MATCH(lexer, expected) (PEEK(lexer) == (expected) ? (ADVANCE(lexer), true) : false)
+#define MATCH(lexer, expected) (PEEK((lexer)) == (expected) ? (ADVANCE((lexer)), true) : false)
 #define RETREAT(lexer) ((lexer)->column--, (lexer)->current--)
 
 #define LOWERED_CHAR(ch) ((ch) >= 'A' && (ch) <= 'Z' ? (ch) + 32 : (ch))
@@ -49,11 +46,10 @@ static void lex_token(Lexer *lexer);
 /** Returns an initialized lexer with the source code passed. */
 Lexer create_lexer(ZmxProgram *program, char *source) {
     Lexer lexer = {
-        .current = source, .tokenStart = source, .source = source,
-        .sourceLength = strlen(source),
+        .source = source, .sourceLength = strlen(source),
+        .current = source, .line = 1, .column = 1,
+        .tokenStart = source, .tokenColumn = 1,
         .program = program,
-        .line = 1, .column = 1,
-        .tokenLine = 1, .tokenColumn = 1,
         .tokens = CREATE_DA()
     };
     return lexer;
@@ -63,7 +59,7 @@ Lexer create_lexer(ZmxProgram *program, char *source) {
 static void free_tokens_contents(TokenArray *tokens) {
     for (int i = 0; i < tokens->length; i++) {
         if (tokens->data[i].type == TOKEN_STRING_LIT) {
-            free_char_buffer(&tokens->data[i].stringVal);
+            free(tokens->data[i].stringVal.text);
         }
     }
 }
@@ -91,11 +87,9 @@ static char *alloc_current_lexeme(Lexer *lexer) {
 }
 
 /** Return a token with no union values set. The fields are set from the parameters. */
-Token create_token(char *message, const int line, const int column, const TokenType type) {
+static Token create_token(char *lexeme, const int line, const int column, const TokenType type) {
     Token token = {
-        .lexeme = message, .length = strlen(message),
-        .line = line, .column = column,
-        .type = type
+        .lexeme = lexeme, .pos = create_src_pos(line, column, strlen(lexeme)), .type = type
     };
     return token;
 }
@@ -113,33 +107,31 @@ static void append_implicit(Lexer *lexer, const TokenType type) {
 /** Appends the token we've been lexing as an error with the passed message. */
 static void append_lexed_error(Lexer *lexer, char *message) {
     Token error = {
-        .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
-        .line = lexer->tokenLine, .column = lexer->tokenColumn,
+        .lexeme = lexer->tokenStart,
+        .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .errorMessage = message, .type = TOKEN_ERROR,
     };
     APPEND_DA(&lexer->tokens, error);
-    SYNTAX_ERROR(lexer->program, error.line, error.column, error.length,error.errorMessage);
+    SYNTAX_ERROR(lexer->program, error.pos, error.errorMessage);
 }
 
-/** Appends an error token in a specific place in the source code with the message. */
+/** Appends an error token in a specific position in the source code with the message. */
 static void append_error_at(
-    Lexer *lexer, char *message, char *errorStart, const int length,
-    const int line, const int column
+    Lexer *lexer, char *message, char *errorStart, SourcePosition pos
 ) {
     Token error = {
-        .lexeme = errorStart, .length = length,
-        .line = line, .column = column,
+        .lexeme = errorStart, .pos = pos,
         .errorMessage = message, .type = TOKEN_ERROR,
     };
     APPEND_DA(&lexer->tokens, error);
-    SYNTAX_ERROR(lexer->program, error.line, error.column, error.length, error.errorMessage);
+    SYNTAX_ERROR(lexer->program, error.pos, error.errorMessage);
 }
 
 /** Appends a token that was lexed (advanced over) of the passed type. */
 static void append_lexed(Lexer *lexer, const TokenType type) {
     Token token = {
-        .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
-        .line = lexer->tokenLine, .column = lexer->tokenColumn,
+        .lexeme = lexer->tokenStart,
+        .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .type = type
     };
     APPEND_DA(&lexer->tokens, token);
@@ -148,8 +140,8 @@ static void append_lexed(Lexer *lexer, const TokenType type) {
 /** Appends an integer that was lexed and sets its integer union to the passed literal value. */
 static void append_lexed_int(Lexer *lexer, ZmxInt integer) {
     Token token = {
-        .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
-        .line = lexer->tokenLine, lexer->tokenColumn,
+        .lexeme = lexer->tokenStart,
+        .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .type = TOKEN_INT_LIT, .intVal = integer
     };
     APPEND_DA(&lexer->tokens, token);
@@ -158,8 +150,8 @@ static void append_lexed_int(Lexer *lexer, ZmxInt integer) {
 /** Appends a float that was lexed and sets its float union to the passed literal value. */
 static void append_lexed_float(Lexer *lexer, ZmxFloat floatVal) {
     Token token = {
-        .lexeme = lexer->tokenStart, .length = CURRENT_TOKEN_LENGTH(lexer),
-        .line = lexer->tokenLine, lexer->tokenColumn,
+        .lexeme = lexer->tokenStart,
+        .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .type = TOKEN_FLOAT_LIT, .floatVal = floatVal
     };
     APPEND_DA(&lexer->tokens, token);
@@ -169,9 +161,11 @@ static void append_lexed_float(Lexer *lexer, ZmxFloat floatVal) {
 static void append_lexed_string(Lexer *lexer, StringLexer *string, CharBuffer buffer) {
     Token token = {
         .lexeme = lexer->tokenStart, 
-        .length = buffer.length + string->escapes - 1, // -1 because CharBuffer counts NULL.
-        .line = lexer->tokenLine, lexer->tokenColumn,
-        .type = TOKEN_STRING_LIT, .stringVal = buffer
+        .pos = create_src_pos(
+            lexer->line, lexer->tokenColumn,
+            buffer.length + string->escapes - 1 // -1 because CharBuffer counts NULL.
+        ),
+        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer.length, .text = buffer.data}
     };
     APPEND_DA(&lexer->tokens, token);
 }
@@ -198,18 +192,18 @@ bool tokens_equal(const Token left, const Token right) {
         if (left.stringVal.length != right.stringVal.length) {
             return false;
         }
-        return strncmp(left.stringVal.data, right.stringVal.data, left.stringVal.length) == 0;
+        return strncmp(left.stringVal.text, right.stringVal.text, left.stringVal.length) == 0;
     }
 
-    if (left.length != right.length) {
+    if (left.pos.length != right.pos.length) {
         return false;
     }
-    return strncmp(left.lexeme, right.lexeme, left.length) == 0;
+    return strncmp(left.lexeme, right.lexeme, left.pos.length) == 0;
 }
 
 /** One line comments, which start with 2 slashes then ignore everything until EOF or newline. */
 static void comment(Lexer *lexer) {
-    ADVANCE_AMOUNT(lexer, 2);
+    ADVANCE_DOUBLE(lexer);
     while (!IS_EOF(lexer) && PEEK(lexer) != '\n') {
         ADVANCE(lexer);
     }
@@ -218,14 +212,14 @@ static void comment(Lexer *lexer) {
 /** Starts with slash-asterisk and skips characters until EOF or a closing asterisk-slash. */
 static void multiline_comment(Lexer *lexer) {
     START_TOKEN(lexer);
-    ADVANCE_AMOUNT(lexer, 2);
+    ADVANCE_DOUBLE(lexer);
 
     while (true) {
         switch (ADVANCE_PEEK(lexer)) {
         case '\0':
             append_error_at(
-                lexer, "Unterminated multiline comment.", lexer->tokenStart, 2,
-                lexer->tokenLine, lexer->tokenColumn
+                lexer, "Unterminated multiline comment.", lexer->tokenStart,
+                create_src_pos(lexer->line, lexer->tokenColumn, 2)
             );
             RETREAT(lexer);
             return;
@@ -259,11 +253,11 @@ static void ignore_whitespace(Lexer *lexer) {
             lexer->column = 1;
             break;
         case '/':
-            if (PEEK_DISTANCE(lexer, 1) == '/') {
+            if (PEEK_NEXT(lexer) == '/') {
                 comment(lexer);
                 break;
             }
-            if (PEEK_DISTANCE(lexer, 1) == '*') {
+            if (PEEK_NEXT(lexer) == '*') {
                 multiline_comment(lexer);
                 break;
             }
@@ -318,8 +312,8 @@ static void two_compound_assigns(
     const TokenType original, const TokenType originalCompound,
     const TokenType extended, const TokenType extendedCompound
 ) {
-    if (PEEK(lexer) == overloadedChar && PEEK_DISTANCE(lexer, 1) == '=') {
-        ADVANCE_AMOUNT(lexer, 2);
+    if (PEEK(lexer) == overloadedChar && PEEK_NEXT(lexer) == '=') {
+        ADVANCE_DOUBLE(lexer);
         append_lexed(lexer, extendedCompound);
     } else {
         two_or_default(lexer, original, overloadedChar, extended, '=', originalCompound);
@@ -381,6 +375,7 @@ static TokenType get_name_type(Lexer *lexer) {
         break;
     case 'm':
         if (is_keyword(lexer, "match")) return TOKEN_MATCH_KW;
+        if (is_keyword(lexer, "map")) return TOKEN_MAP_KW;
         break;
     case 'n':
         if (is_keyword(lexer, "null")) return TOKEN_NULL_KW;
@@ -451,7 +446,7 @@ static void invalid_literal(Lexer *lexer, char *message, bool hasPrefix) {
 static void lex_base(
     Lexer *lexer, const BaseCheckFunc is_within_base, const int base, char *errorMessage
 ) {
-    ADVANCE_AMOUNT(lexer, 2);
+    ADVANCE_DOUBLE(lexer);
     START_TOKEN(lexer);
     if (!is_within_base(PEEK(lexer))) {
         invalid_literal(lexer, errorMessage, true);
@@ -494,8 +489,8 @@ static void normal_number(Lexer *lexer) {
         ADVANCE(lexer);
     }
     
-    if (PEEK(lexer) == '.' && IS_DIGIT(PEEK_DISTANCE(lexer, 1))) {
-        ADVANCE_AMOUNT(lexer, 2);
+    if (PEEK(lexer) == '.' && IS_DIGIT(PEEK_NEXT(lexer))) {
+        ADVANCE_DOUBLE(lexer);
         finish_float(lexer);
         return;
     }
@@ -537,16 +532,16 @@ static void lex_number(Lexer *lexer) {
     }
 
     // Skip zero padding, except the last one.
-    while (PEEK(lexer) == '0' && PEEK_DISTANCE(lexer, 1) == '0') {
+    while (PEEK(lexer) == '0' && PEEK_NEXT(lexer) == '0') {
         ADVANCE(lexer);
     }
-    switch (LOWERED_CHAR(PEEK_DISTANCE(lexer, 1))) {
+    switch (LOWERED_CHAR(PEEK_NEXT(lexer))) {
     case 'b': lex_base(lexer, is_bin_digit, 2, "invalid binary literal."); break;
     case 'o': lex_base(lexer, is_oct_digit, 8, "invalid octal literal."); break;
     case 'x': lex_base(lexer, is_hex_digit, 16, "invalid hexadecimal literal."); break;
     default:
         // Skip last zero if it's not the only thing in the whole number.
-        if (PEEK(lexer) == '0' && IS_DIGIT(PEEK_DISTANCE(lexer, 1))) {
+        if (PEEK(lexer) == '0' && IS_DIGIT(PEEK_NEXT(lexer))) {
             ADVANCE(lexer);
         }
         normal_number(lexer); break;
@@ -567,10 +562,10 @@ static bool ignore_interpolation_whitespace(Lexer *lexer) {
             UNREACHABLE_ERROR();
             return false;
         case '/':
-            if (PEEK_DISTANCE(lexer, 1) == '/' || PEEK_DISTANCE(lexer, 1) == '*') {
+            if (PEEK_NEXT(lexer) == '/' || PEEK_NEXT(lexer) == '*') {
                 append_error_at(
-                    lexer, "Can't have comment inside string interpolation.",
-                    lexer->tokenStart, 2, lexer->tokenLine, lexer->tokenColumn
+                    lexer, "Can't have comment inside string interpolation.", lexer->tokenStart,
+                    create_src_pos(lexer->line, lexer->tokenColumn, 2)
                 );
                 return false;
             }
@@ -683,15 +678,15 @@ static void interpolation_start(Lexer *lexer, StringLexer *string, CharBuffer *b
 
 /** Appends and advances over an escape character made up of a backslash and another character. */
 static void escape_character(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
-    switch (PEEK_DISTANCE(lexer, 1)) {
+    switch (PEEK_NEXT(lexer)) {
         case 'n': buffer_append_char(buffer, '\n'); break;
         case 't': buffer_append_char(buffer, '\t'); break;
         case 'r': buffer_append_char(buffer, '\r'); break;
         case 'b': buffer_append_char(buffer, '\b'); break;
-        default: buffer_append_char(buffer, PEEK_DISTANCE(lexer, 1)); break;
+        default: buffer_append_char(buffer, PEEK_NEXT(lexer)); break;
     }
     string->escapes++;
-    ADVANCE_AMOUNT(lexer, 2);
+    ADVANCE_DOUBLE(lexer);
 }
 
 /** 
@@ -717,7 +712,9 @@ static bool scan_string_char(
         return interpolation_end(lexer, string, buffer);
     }
     if (IS_EOF(lexer) || current == '\n') {
-        append_error_at(lexer, "Unterminated string.", quote, 1, lexer->line, quoteColumn);
+        append_error_at(
+            lexer, "Unterminated string.", quote, create_src_pos(lexer->line, quoteColumn, 1)
+        );
         return false;
     }
     buffer_append_char(buffer, ADVANCE_PEEK(lexer));
@@ -743,8 +740,8 @@ static void finish_string(Lexer *lexer, StringLexer *string) {
 
     if (string->interpolationDepth != 0) {
         append_error_at(
-            lexer, "Unclosed \"{\" in interpolated string.",
-            string->interpolationStart, 1, lexer->line, string->interpolationColumn
+            lexer, "Unclosed \"{\" in interpolated string.", string->interpolationStart,
+            create_src_pos(lexer->line, string->interpolationColumn, 1)
         );
     }
     append_lexed_string(lexer, string, buffer);

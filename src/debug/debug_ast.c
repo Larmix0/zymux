@@ -10,7 +10,7 @@ static void print_error() {
 
 /** Print a literal's value. */
 static void print_literal(LiteralNode *node) {
-    printf("%.*s", node->value.length, node->value.lexeme);
+    printf("%.*s", node->value.pos.length, node->value.lexeme);
 }
 
 /** Calls the appropriate print function for the passed node. */

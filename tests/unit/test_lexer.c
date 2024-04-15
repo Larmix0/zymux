@@ -33,9 +33,7 @@ static void teardown_default_lexer() {
 /** Returns a token for testing with minimal parameters (line and column are automatically 0). */
 static Token test_token(char *lexeme, TokenType type) {
     Token token = {
-        .lexeme = lexeme, .length = strlen(lexeme),
-        .line = 0, .column = 0,
-        .type = type
+        .lexeme = lexeme, .pos = create_src_pos(0, 0, strlen(lexeme)), .type = type
     };
     return token;
 }
@@ -43,8 +41,10 @@ static Token test_token(char *lexeme, TokenType type) {
 /** Returns a string literal token where both the stringVal and lexeme are the same. */
 static Token test_string_token(char *lexeme) {
     Token token = create_token(lexeme, 0, 0, TOKEN_STRING_LIT);
-    token.stringVal = create_char_buffer();
-    buffer_append_string(&token.stringVal, lexeme);
+    CharBuffer buffer = create_char_buffer();
+    buffer_append_string(&buffer, lexeme);
+    token.stringVal.length = buffer.length;
+    token.stringVal.text = buffer.data;
     return token;
 }
 
@@ -97,12 +97,12 @@ static void compare_lexed(Lexer *lexer, TokenArray *expectedArray, bool compareS
         LUKIP_CUSTOM(
             tokens_equal(lexed, expected),
             "Token %d (lexeme=\"%.*s\" type=%s) != (lexeme=\"%s\", type=%s)",
-            tokenIdx + 1, lexed.length, lexed.lexeme,
+            tokenIdx + 1, lexed.pos.length, lexed.lexeme,
             type_to_string(lexed.type), expected.lexeme, type_to_string(expected.type)
         );
         if (compareSpots) {
-            LUKIP_INT_EQUAL(lexed.line, expected.line);
-            LUKIP_INT_EQUAL(lexed.column, expected.column);
+            LUKIP_INT_EQUAL(lexed.pos.line, expected.pos.line);
+            LUKIP_INT_EQUAL(lexed.pos.column, expected.pos.column);
         }
     }
 }
@@ -209,56 +209,53 @@ static void test_lex_errors() {
 
 /** Performs a test on a source code that includes every single token in Zymux. */
 static void test_lex_all_tokens() {
-    char *source = "string int float bool list class const let private func if else while for do "
-        "return break continue true false null as is in super this init abstract inherits "
+    char *source = "string int float bool list map class const let private func if else while for "
+        "do return break continue true false null as is in super this init abstract inherits "
         "match case default from import && || ! & | ^ << >> ~ += -= *= /= %= **= &= |= <<= >>= ~= "
         "+-*/%** == != > >= < <= ()[]{} ; , . ?: $'str literal {100}' 22 44.2 = variable ..";
     TokenArray allTokens = CREATE_DA();
     append_test_tokens(
-        &allTokens, 86,
+        &allTokens, 87,
         test_token("string", TOKEN_STRING_KW), test_token("int", TOKEN_INT_KW),
         test_token("float", TOKEN_FLOAT_KW), test_token("bool", TOKEN_BOOL_KW),
-        test_token("list", TOKEN_LIST_KW), test_token("class", TOKEN_CLASS_KW),
-        test_token("const", TOKEN_CONST_KW), test_token("let", TOKEN_LET_KW),
-        test_token("private", TOKEN_PRIVATE_KW), test_token("func", TOKEN_FUNC_KW),
-        test_token("if", TOKEN_IF_KW), test_token("else", TOKEN_ELSE_KW),
-        test_token("while", TOKEN_WHILE_KW), test_token("for", TOKEN_FOR_KW),
-        test_token("do", TOKEN_DO_KW), test_token("return", TOKEN_RETURN_KW),
-        test_token("break", TOKEN_BREAK_KW), test_token("continue", TOKEN_CONTINUE_KW),
-        test_token("true", TOKEN_TRUE_KW), test_token("false", TOKEN_FALSE_KW),
-        test_token("null", TOKEN_NULL_KW), test_token("as", TOKEN_AS_KW),
-        test_token("is", TOKEN_IS_KW), test_token("in", TOKEN_IN_KW),
+        test_token("list", TOKEN_LIST_KW), test_token("map", TOKEN_MAP_KW),
+        test_token("class", TOKEN_CLASS_KW), test_token("const", TOKEN_CONST_KW),
+        test_token("let", TOKEN_LET_KW), test_token("private", TOKEN_PRIVATE_KW),
+        test_token("func", TOKEN_FUNC_KW), test_token("if", TOKEN_IF_KW),
+        test_token("else", TOKEN_ELSE_KW), test_token("while", TOKEN_WHILE_KW),
+        test_token("for", TOKEN_FOR_KW), test_token("do", TOKEN_DO_KW),
+        test_token("return", TOKEN_RETURN_KW), test_token("break", TOKEN_BREAK_KW),
+        test_token("continue", TOKEN_CONTINUE_KW), test_token("true", TOKEN_TRUE_KW),
+        test_token("false", TOKEN_FALSE_KW), test_token("null", TOKEN_NULL_KW),
+        test_token("as", TOKEN_AS_KW), test_token("is", TOKEN_IS_KW), test_token("in", TOKEN_IN_KW),
         test_token("super", TOKEN_SUPER_KW), test_token("this", TOKEN_THIS_KW),
         test_token("init", TOKEN_INIT_KW), test_token("abstract", TOKEN_ABSTRACT_KW),
         test_token("inherits", TOKEN_INHERITS_KW), test_token("match", TOKEN_MATCH_KW),
         test_token("case", TOKEN_CASE_KW), test_token("default", TOKEN_DEFAULT_KW),
         test_token("from", TOKEN_FROM_KW), test_token("import", TOKEN_IMPORT_KW),
         test_token("&&", TOKEN_AMPER_AMPER), test_token("||", TOKEN_BAR_BAR),
-        test_token("!", TOKEN_BANG), test_token("&", TOKEN_AMPER),
-        test_token("|", TOKEN_BAR), test_token("^", TOKEN_CARET),
-        test_token("<<", TOKEN_LSHIFT), test_token(">>", TOKEN_RSHIFT),
-        test_token("~", TOKEN_TILDE), test_token("+=", TOKEN_PLUS_EQ),
-        test_token("-=", TOKEN_MINUS_EQ), test_token("*=", TOKEN_STAR_EQ),
-        test_token("/=", TOKEN_SLASH_EQ), test_token("%=", TOKEN_MODULO_EQ),
-        test_token("**=", TOKEN_EXPO_EQ), test_token("&=", TOKEN_AMPER_EQ),
-        test_token("|=", TOKEN_BAR_EQ), test_token("<<=", TOKEN_LSHIFT_EQ),
-        test_token(">>=", TOKEN_RSHIFT_EQ), test_token("~=", TOKEN_TILDE_EQ),
-        test_token("+", TOKEN_PLUS), test_token("-", TOKEN_MINUS),
-        test_token("*", TOKEN_STAR), test_token("/", TOKEN_SLASH),
-        test_token("%", TOKEN_MODULO), test_token("**", TOKEN_EXPO),
-        test_token("==", TOKEN_EQ_EQ), test_token("!=", TOKEN_BANG_EQ),
-        test_token(">", TOKEN_GREATER), test_token(">=", TOKEN_GREATER_EQ),
-        test_token("<", TOKEN_LESS), test_token("<=", TOKEN_LESS_EQ),
-        test_token("(", TOKEN_LPAR), test_token(")", TOKEN_RPAR),
+        test_token("!", TOKEN_BANG), test_token("&", TOKEN_AMPER), test_token("|", TOKEN_BAR),
+         test_token("^", TOKEN_CARET), test_token("<<", TOKEN_LSHIFT),
+        test_token(">>", TOKEN_RSHIFT), test_token("~", TOKEN_TILDE),
+        test_token("+=", TOKEN_PLUS_EQ), test_token("-=", TOKEN_MINUS_EQ),
+        test_token("*=", TOKEN_STAR_EQ), test_token("/=", TOKEN_SLASH_EQ),
+        test_token("%=", TOKEN_MODULO_EQ), test_token("**=", TOKEN_EXPO_EQ),
+        test_token("&=", TOKEN_AMPER_EQ), test_token("|=", TOKEN_BAR_EQ),
+        test_token("<<=", TOKEN_LSHIFT_EQ), test_token(">>=", TOKEN_RSHIFT_EQ),
+        test_token("~=", TOKEN_TILDE_EQ), test_token("+", TOKEN_PLUS),
+        test_token("-", TOKEN_MINUS), test_token("*", TOKEN_STAR),
+        test_token("/", TOKEN_SLASH), test_token("%", TOKEN_MODULO),
+        test_token("**", TOKEN_EXPO), test_token("==", TOKEN_EQ_EQ), test_token("!=", TOKEN_BANG_EQ),
+        test_token(">", TOKEN_GREATER), test_token(">=", TOKEN_GREATER_EQ), test_token("<", TOKEN_LESS),
+        test_token("<=", TOKEN_LESS_EQ), test_token("(", TOKEN_LPAR), test_token(")", TOKEN_RPAR),
         test_token("[", TOKEN_LSQUARE), test_token("]", TOKEN_RSQUARE),
         test_token("{", TOKEN_LCURLY), test_token("}", TOKEN_RCURLY),
-        test_token(";", TOKEN_SEMICOLON), test_token(",", TOKEN_COMMA),
-        test_token(".", TOKEN_DOT), test_token("?", TOKEN_QUESTION_MARK),
-        test_token(":", TOKEN_COLON), test_string_token("str literal "),
-        test_token("", TOKEN_FORMAT), test_int_token("100", 10),
-        test_token("", TOKEN_STRING_END), test_int_token("22", 10),
-        test_float_token("44.2"), test_token("=", TOKEN_EQ),
-        test_token("variable", TOKEN_IDENTIFIER), test_token("..", TOKEN_DOT_DOT)
+        test_token(";", TOKEN_SEMICOLON), test_token(",", TOKEN_COMMA), test_token(".", TOKEN_DOT),
+        test_token("?", TOKEN_QUESTION_MARK), test_token(":", TOKEN_COLON),
+        test_string_token("str literal "), test_token("", TOKEN_FORMAT), test_int_token("100", 10),
+        test_token("", TOKEN_STRING_END), test_int_token("22", 10), test_float_token("44.2"),
+        test_token("=", TOKEN_EQ), test_token("variable", TOKEN_IDENTIFIER),
+        test_token("..", TOKEN_DOT_DOT)
     );
     ZmxProgram program = create_zmx_program("testAll", false);
     Lexer lexer = create_lexer(&program, source);
@@ -283,13 +280,12 @@ static void test_lex_spots() {
         create_token("break", 2, 8, TOKEN_BREAK_KW),
         create_token("line5", 5, 4, TOKEN_IDENTIFIER),
         (Token){
-            .lexeme = "555", .length = 3, .line = 5, .column = 10,
+            .lexeme = "555", .pos = create_src_pos(5, 10, 3),
             .type = TOKEN_INT_LIT, .intVal = 555
         }
     );
-    // Set EOF line and column.
-    allTokens.data[allTokens.length - 1].line = 7;
-    allTokens.data[allTokens.length - 1].column = 1;
+    // Set EOF position manually.
+    allTokens.data[allTokens.length - 1].pos = create_src_pos(7, 1, 0);
     ZmxProgram program = create_zmx_program("testLine", false);
     Lexer lexer = create_lexer(&program, source);
     lex(&lexer);
@@ -515,7 +511,7 @@ static void test_valid_syntax() {
 /** Tests the macro helpers that help the lexer in things (like peeking and advancing). */
 static void test_lexer_macro_helpers() {
     LUKIP_CHAR_EQUAL(PEEK(defaultLexer), 'f');
-    LUKIP_CHAR_EQUAL(PEEK_DISTANCE(defaultLexer, 7), '&');
+    LUKIP_CHAR_EQUAL(PEEK_NEXT(defaultLexer), 'l');
 
     char advanced = ADVANCE_PEEK(defaultLexer);
     LUKIP_CHAR_EQUAL(advanced, 'f');
@@ -524,12 +520,12 @@ static void test_lexer_macro_helpers() {
     LUKIP_INT_EQUAL(CURRENT_TOKEN_LENGTH(defaultLexer), 2);
     LUKIP_CHAR_EQUAL(PEEK(defaultLexer), 'o');
 
-    ADVANCE_AMOUNT(defaultLexer, 2);
+    ADVANCE_DOUBLE(defaultLexer);
     LUKIP_CHAR_EQUAL(PEEK(defaultLexer), 't');
-    LUKIP_CHAR_EQUAL(PEEK_DISTANCE(defaultLexer, -1), 'a');
     LUKIP_INT_EQUAL(CURRENT_TOKEN_LENGTH(defaultLexer), 4);
 
     RETREAT(defaultLexer);
+    LUKIP_CHAR_EQUAL(PEEK_NEXT(defaultLexer), 't');
     RETREAT(defaultLexer);
     LUKIP_CHAR_EQUAL(PEEK(defaultLexer), 'o');
 
@@ -610,11 +606,11 @@ static void test_handling_whitespace() {
 static void test_lexer_struct_functions() {
     Token created = create_token("test", 2, 2, TOKEN_IDENTIFIER);
     Token manual = {
-        .lexeme = "test", .length = 4, .line = 2, .column = 2, .type = TOKEN_IDENTIFIER
+        .lexeme = "test", .pos = create_src_pos(2, 2, 4), .type = TOKEN_IDENTIFIER
     };
     LUKIP_IS_TRUE(tokens_equal(manual, created));
-    LUKIP_INT_EQUAL(manual.line, created.line);
-    LUKIP_INT_EQUAL(manual.column, created.column);
+    LUKIP_INT_EQUAL(manual.pos.line, created.pos.line);
+    LUKIP_INT_EQUAL(manual.pos.column, created.pos.column);
 
     // The setup already uses create_lexer(), so just test it on it.
     LUKIP_STRING_EQUAL(defaultLexer->program->currentFile, "default");
@@ -641,7 +637,8 @@ static void test_lexer_struct_functions() {
 
     ADVANCE(defaultLexer);
     START_TOKEN(defaultLexer);
-    ADVANCE_AMOUNT(defaultLexer, 3);
+    ADVANCE_DOUBLE(defaultLexer);
+    ADVANCE(defaultLexer);
     append_implicit(defaultLexer, TOKEN_STRING_END);
     LUKIP_IS_TRUE(tokens_equal(
         LAST_TOKEN(defaultLexer),
@@ -651,10 +648,9 @@ static void test_lexer_struct_functions() {
 
 /** Tests that errors are made and appended correctly. */
 static void test_error_functions() {
-    append_error_at(defaultLexer, "at", defaultLexer->source + 2, 4, 1, 1);
+    append_error_at(defaultLexer, "at", defaultLexer->source + 2, create_src_pos(1, 1, 4));
     Token manualAt = {
-        .lexeme = defaultLexer->source + 2, .length = 4,
-        .line = 1, .column = 1,
+        .lexeme = defaultLexer->source + 2, .pos = create_src_pos(1, 1, 4),
         .errorMessage = "lexed", .type = TOKEN_ERROR,
     };
     LUKIP_IS_TRUE(tokens_equal(LAST_TOKEN(defaultLexer), manualAt));
@@ -664,8 +660,7 @@ static void test_error_functions() {
     }
     append_lexed_error(defaultLexer, "lexed");
     Token manualLexed = {
-        .lexeme = defaultLexer->source, .length = 5,
-        .line = 1, .column = 1,
+        .lexeme = defaultLexer->source, .pos = create_src_pos(1, 1, 5),
         .errorMessage = "lexed", .type = TOKEN_ERROR,
     };
     LUKIP_IS_TRUE(tokens_equal(LAST_TOKEN(defaultLexer), manualLexed));
@@ -697,34 +692,48 @@ static void test_base_number_checkers() {
 
 /** Tests if tokens_equal handles equality properly. */
 static void test_tokens_equal() {
-    Token equal1 = {.lexeme = "test", .length = 4, .type = TOKEN_IDENTIFIER};
-    Token equal2 = {.lexeme = "test", .length = 4, .type = TOKEN_IDENTIFIER};
+    Token equal1 = {.lexeme = "test", .pos = create_src_pos(1, 1, 4), .type = TOKEN_IDENTIFIER};
+    Token equal2 = {.lexeme = "test", .pos = create_src_pos(1, 1, 4), .type = TOKEN_IDENTIFIER};
     LUKIP_IS_TRUE(tokens_equal(equal1, equal2));
 
-    CharBuffer str1Buffer = create_char_buffer();
-    buffer_append_string(&str1Buffer, "hello");
+    CharBuffer buffer1 = create_char_buffer();
+    buffer_append_string(&buffer1, "hello");
     Token string1 = {
-        .lexeme = "str1", .length = 4, .stringVal = str1Buffer, .type = TOKEN_STRING_LIT
+        .lexeme = "str1", .pos = create_src_pos(1, 1, 4),
+        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer1.length, .text = buffer1.data}
     };
-    CharBuffer str2Buffer = create_char_buffer();
-    buffer_append_string(&str2Buffer, "hello");
+    CharBuffer buffer2 = create_char_buffer();
+    buffer_append_string(&buffer2, "hello");
     Token string2 = {
-        .lexeme = "str2", .length = 4, .stringVal = str2Buffer, .type = TOKEN_STRING_LIT
+        .lexeme = "str2", .pos = create_src_pos(1, 1, 4),
+        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer2.length, .text = buffer2.data}
     };
     LUKIP_IS_TRUE(tokens_equal(string1, string2));
-    free_char_buffer(&str1Buffer);
-    free_char_buffer(&str2Buffer);
+    free_char_buffer(&buffer1);
+    free_char_buffer(&buffer2);
 
-    Token integer1 = {.lexeme = "10", .length = 2, .intVal = 10, .type = TOKEN_INT_LIT};
-    Token integer2 = {.lexeme = "0xA", .length = 3, .intVal = 10, .type = TOKEN_INT_LIT};
+    Token integer1 = {
+        .lexeme = "10", .pos = create_src_pos(1, 1, 2), .intVal = 10, .type = TOKEN_INT_LIT
+    };
+    Token integer2 = {
+        .lexeme = "0xA", .pos = create_src_pos(1, 1, 3), .intVal = 10, .type = TOKEN_INT_LIT
+    };
     LUKIP_IS_TRUE(tokens_equal(integer1, integer2));
 
-    Token float1 = {.lexeme = "2.30", .length = 4, .floatVal = 2.30, .type = TOKEN_FLOAT_LIT};
-    Token float2 = {.lexeme = "2.3", .length = 3, .floatVal = 2.3, .type = TOKEN_FLOAT_LIT};
+    Token float1 = {
+        .lexeme = "2.30", .pos = create_src_pos(1, 1, 4), .floatVal = 2.30, .type = TOKEN_FLOAT_LIT
+    };
+    Token float2 = {
+        .lexeme = "2.3", .pos = create_src_pos(1, 1, 3), .floatVal = 2.3, .type = TOKEN_FLOAT_LIT
+    };
     LUKIP_IS_TRUE(tokens_equal(float1, float2));
 
-    Token notEqual1 = {.lexeme = "first", .length = 3, .line = 2, .type = TOKEN_IDENTIFIER};
-    Token notEqual2 = {.lexeme = "different", .length = 3, .line = 2, .type = TOKEN_IDENTIFIER};
+    Token notEqual1 = {
+        .lexeme = "first", .pos = create_src_pos(1, 1, 3), .type = TOKEN_IDENTIFIER
+    };
+    Token notEqual2 = {
+        .lexeme = "different", .pos = create_src_pos(1, 1, 3), .type = TOKEN_IDENTIFIER
+    };
     LUKIP_IS_FALSE(tokens_equal(notEqual1, notEqual2));
 }
 

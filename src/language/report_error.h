@@ -33,8 +33,18 @@
 #define FILE_ERROR(...) (file_error(__VA_ARGS__))
 
 /** A user syntax error. Typically means an error occurred in lexing or parsing. */
-#define SYNTAX_ERROR(program, line, column, length, message) \
-    (zmx_user_error((program), (line), (column), (length), "Syntax error", (message)))
+#define SYNTAX_ERROR(program, pos, message) \
+    (zmx_user_error((program), (pos), "Syntax error", (message)))
+
+/** Represents a position in some source code. */
+typedef struct {
+    int line; /** Which line the position starts. */
+    int column; /** Which column of the given line the position starts. */
+    int length; /** How many consecutive characters the position covers. */
+} SourcePosition;
+
+/** Returns a position in the source code created from the parameters */
+SourcePosition create_src_pos(int line, int column, int length);
 
 /** Displays an error relating to the user's operating system. */
 void os_error(const char *format, ...);
@@ -50,8 +60,7 @@ void file_error(const char *format, ...);
 
 /** Displays an error that happened due to a mistake from the person using Zymux in a *.zmx file. */
 void zmx_user_error(
-    ZmxProgram *program, const int line, const int column, const int length,
-    const char *errorName, const char *format, ...
+    ZmxProgram *program, SourcePosition pos, const char *errorName, const char *format, ...
 );
 
 #endif

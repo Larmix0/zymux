@@ -8,6 +8,12 @@
 #include "file.h"
 #include "report_error.h"
 
+/** Returns a position in a source code from the parameters. */
+SourcePosition create_src_pos(int line, int column, int length) {
+    SourcePosition position = {.line = line, .column = column, .length = length};
+    return position;
+}
+
 /** Returns whether ch is a whitespace character or not. */
 static bool is_whitespace(const char ch) {
     switch (ch) {
@@ -24,14 +30,14 @@ static bool is_whitespace(const char ch) {
 /** 
  * To call after reaching the first character of the error/warning line in a source.
  * 
- * It skips all preceding whitespace of a line then starts actually printing so indents are skipped.
- * It then proceeds to print carets when reaching column. The amount of carets is length.
- * Current is the first character in the source after the newline. The color is what color
- * the carets and what they're pointing to should be.
+ * Using the passed pos, we skip all preceding whitespace of a line,
+ * then start actually printing so indents are skipped.
+ * We then proceed to print carets when reaching column of pos.
+ * The amount of carets is length in pos.
+ * 
+ * Current is the first character in the source after the newline.
  */
-static void print_error_line(
-    char *current, const int column, const int length
-) {
+static void print_error_line(char *current, SourcePosition pos) {
     int whitespaces = 0, lineIdx = 0;
     while (is_whitespace(*current)) {
         current++;
@@ -39,22 +45,22 @@ static void print_error_line(
         whitespaces++;
     }
     while (*current != '\0' && *current != '\n') {
-        if (lineIdx == column - 1) {
+        if (lineIdx == pos.column - 1) {
             fprintf(stderr, "%s", RED);
         }
         fputc(*current++, stderr);
         lineIdx++;
-        if (lineIdx == column + length - 1) {
+        if (lineIdx == pos.column + pos.length - 1) {
             fprintf(stderr, DEFAULT_COLOR);
         }
     }
     fputc('\n', stderr);
 
-    for (int i = 0; i < column - whitespaces - 1; i++) {
+    for (int i = 0; i < pos.column - whitespaces - 1; i++) {
         fputc(' ', stderr);
     }
     fprintf(stderr, RED);
-    for (int i = 0; i < length - 1; i++) {
+    for (int i = 0; i < pos.length - 1; i++) {
         fputc('^', stderr);
     }
     fputc('^', stderr); // Always output at least one for things like something missing at EOL.
@@ -63,13 +69,13 @@ static void print_error_line(
 }
 
 /** Iterates through the source of the passed file and then prints the errored line when reached. */
-static void show_zmx_error_line(char *file, const int line, const int column, const int length) {
+static void show_zmx_error_line(char *file, SourcePosition pos) {
     char *source = alloc_source(file);
     const int sourceLength = strlen(source);
     int sourceLine = 1;
     for (int i = 0; i < sourceLength; i++) {
-        if (sourceLine == line) {
-            print_error_line(&source[i], column, length);
+        if (sourceLine == pos.line) {
+            print_error_line(&source[i], pos);
             break;
         }
         if (source[i] == '\n') {
@@ -131,14 +137,13 @@ void file_error(const char *format, ...) {
 }
 
 /** 
- * Prints the error in the currentFile of program in the line and column passed.
+ * Prints the error in the currentFile of program in the line and column of the passed pos.
  * 
  * This is reserved for errors that are due to the user's own mistake in a *.zmx file.
  * Like a compiler error or a runtime error.
  */
 void zmx_user_error(
-    ZmxProgram *program, const int line, const int column, const int length,
-    const char *errorName, const char *format, ...
+    ZmxProgram *program, SourcePosition pos, const char *errorName, const char *format, ...
 ) {
     bool hasErrored = program->hasErrored;
     program->hasErrored = true;
@@ -149,10 +154,10 @@ void zmx_user_error(
         fputc('\n', stderr);
     }
 
-    show_zmx_error_line(program->currentFile, line, column, length);
+    show_zmx_error_line(program->currentFile, pos);
     fprintf(
         stderr, "line %d in \"%s\":\n\t" RED "%s: " DEFAULT_COLOR,
-        line, program->currentFile, errorName
+        pos.line, program->currentFile, errorName
     );
 
     va_list args;

@@ -11,6 +11,7 @@ char *type_to_string(const TokenType type) {
         case TOKEN_FLOAT_KW: return "FLOAT";
         case TOKEN_BOOL_KW: return "BOOL";
         case TOKEN_LIST_KW: return "LIST";
+        case TOKEN_MAP_KW: return "MAP";
         case TOKEN_CLASS_KW: return "CLASS";
         case TOKEN_CONST_KW: return "CONST";
         case TOKEN_LET_KW: return "LET";
@@ -94,7 +95,6 @@ char *type_to_string(const TokenType type) {
         case TOKEN_DOT_DOT: return "DOT_DOT";
         case TOKEN_EOF: return "EOF";
         case TOKEN_ERROR: return "ERROR";
-        case TOKEN_NONE: return "UNKNOWN";
     }
     UNREACHABLE_ERROR();
     return NULL; // Unreachable error already exits. This is so the compiler doesn't yell.
@@ -104,13 +104,13 @@ char *type_to_string(const TokenType type) {
 static void print_token(const Token token) {
     printf(
         "\tToken(lexeme=\"%.*s\", length=%d, line=%d, column=%d, type=%s",
-        token.length, token.lexeme, token.length,
-        token.line, token.column, type_to_string(token.type)
+        token.pos.length, token.lexeme, token.pos.length,
+        token.pos.line, token.pos.column, type_to_string(token.type)
     );
     switch (token.type) {
         case TOKEN_INT_LIT: printf(", integer=" ZMX_INT_FMT, token.intVal); break;
         case TOKEN_FLOAT_LIT: printf(", float=" ZMX_FLOAT_FMT, token.floatVal); break;
-        case TOKEN_STRING_LIT: printf(", string=\"%s\"", token.stringVal.data); break;
+        case TOKEN_STRING_LIT: printf(", string=\"%s\"", token.stringVal.text); break;
         case TOKEN_ERROR: printf(", error=\"%s\"", token.errorMessage); break;
         default: break;
     }
