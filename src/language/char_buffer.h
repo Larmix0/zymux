@@ -13,6 +13,9 @@ DECLARE_DA_STRUCT(CharBuffer, char);
 /** Returns an initialized CharBuffer. */
 CharBuffer create_char_buffer();
 
+/** Appends the length amount of characters in strings to buffer. */
+void buffer_append_string_len(CharBuffer *buffer, const char *string, const int length);
+
 /** Appends the passed string to the buffer. */
 void buffer_append_string(CharBuffer *buffer, const char *string);
 
@@ -21,6 +24,9 @@ void buffer_append_char(CharBuffer *buffer, const char ch);
 
 /** Appends a variable number of strings to the buffer. The number is amount parameter. */
 void buffer_append_strings(CharBuffer *buffer, const int amount, ...);
+
+/** Appends a number of strings (amount) with debug delimiters between them. */
+void buffer_append_debug(CharBuffer *buffer, const int amount, ...);
 
 /** Pops a single character off of the buffer. */
 char buffer_pop(CharBuffer *buffer);

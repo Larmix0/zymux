@@ -4,13 +4,15 @@
 #include "test_dynamic_array.h"
 #include "test_file.h"
 #include "test_lexer.h"
+#include "test_parser.h"
 #include "test_program.h"
 
 // Since every source must be manually included somewhere for testing once and only once,
 // all sources that aren't used by other test modules (except main.c)
 // are here for the sake of linking.
-#include "report_error.c"
+#include "debug_ast.c"
 #include "debug_tokens.c"
+#include "report_error.c"
 
 /** Main function of the unit tests that calls all file testers. */
 int main() {
@@ -24,6 +26,7 @@ int main() {
     test_char_buffer();
     test_program();
     test_lexer();
+    test_parser();
     LUKIP_END();
     
     return EXIT_SUCCESS;

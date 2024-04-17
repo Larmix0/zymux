@@ -4,9 +4,9 @@
 #include "parser.h"
 #include "report_error.h"
 
-#define CHECK(parser, expected) (PEEK((parser)).type == (expected))
 #define PEEK(parser) (*(parser)->current)
 #define PEEK_PREVIOUS(parser) (*((parser)->current - 1))
+#define CHECK(parser, expected) (PEEK((parser)).type == (expected))
 
 // All macros which change a parser's current token stop changing if we're on panic mode.
 
@@ -87,17 +87,34 @@ static void raise_parser_error_missing(Parser *parser, Token beforeMissing, cons
     SYNTAX_ERROR(parser->program, errorPos, message);
 }
 
-/** Allocates a new literal node which just holds the literal value token. */
-static AstNode *new_literal_node(ZmxProgram *program, Token value) {
-    LiteralNode *literal = NEW_NODE(program, AST_LITERAL, LiteralNode);
-    literal->value = value;
-    return AS_PTR(literal, AstNode);
-}
-
 /** Returns an erroneous node which serves as a placeholder for returning a valid token. */
 static AstNode *new_error_node(ZmxProgram *program) {
-    ErrorNode *error = NEW_NODE(program, AST_ERROR, ErrorNode);
-    return AS_PTR(error, AstNode);
+    ErrorNode *node = NEW_NODE(program, AST_ERROR, ErrorNode);
+    return AS_PTR(node, AstNode);
+}
+
+/** Allocates a new literal node which just holds the literal value. */
+static AstNode *new_literal_node(ZmxProgram *program, Token value) {
+    LiteralNode *node = NEW_NODE(program, AST_LITERAL, LiteralNode);
+    node->value = value;
+    return AS_PTR(node, AstNode);
+}
+
+/** Allocates a unary node, which is something that has one operation done on it. */
+static AstNode *new_unary_node(ZmxProgram *program, Token operation, AstNode *rhs) {
+    UnaryNode *node = NEW_NODE(program, AST_UNARY, UnaryNode);
+    node->operation = operation;
+    node->rhs = rhs;
+    return AS_PTR(node, AstNode);
+}
+
+/** Allocates a binary node, which holds information of an operation done between 2 operands. */
+static AstNode *new_binary_node(ZmxProgram *program, AstNode *lhs, Token operation, AstNode *rhs) {
+    BinaryNode *node = NEW_NODE(program, AST_BINARY, BinaryNode);
+    node->lhs = lhs;
+    node->operation = operation;
+    node->rhs = rhs;
+    return AS_PTR(node, AstNode);
 }
 
 /** 
@@ -109,14 +126,59 @@ static AstNode *primary(Parser *parser) {
     switch (ADVANCE_PEEK(parser).type) {
     case TOKEN_INT_LIT: return new_literal_node(parser->program, PEEK_PREVIOUS(parser));
     default:
-        raise_parser_error_at(parser, PEEK_PREVIOUS(parser), "Invalid syntax usage.");
+        raise_parser_error_at(parser, PEEK_PREVIOUS(parser), "Invalid expression.");
         return new_error_node(parser->program);
     }
 }
 
+/** A unary is just a primary with a some operation to the left of it. */
+static AstNode *unary(Parser *parser) {
+    if (CHECK(parser, TOKEN_MINUS) || CHECK(parser, TOKEN_BANG)) {
+        Token operation = ADVANCE_PEEK(parser);
+        return new_unary_node(parser->program, operation, unary(parser));
+    } else {
+        return primary(parser);
+    }    
+}
+
+/** Handles the precedence of exponents, which is tighter than terms and factors. */
+static AstNode *exponent(Parser *parser) {
+    AstNode *expr = unary(parser);
+    while (CHECK(parser, TOKEN_EXPO)) {
+        Token operation = ADVANCE_PEEK(parser);
+        AstNode *rhs = unary(parser);
+        expr = new_binary_node(parser->program, expr, operation, rhs);
+    }
+    return expr;
+}
+
+/** A factor in Zymux is multiplication, division, or modulo. */
+static AstNode *factor(Parser *parser) {
+    AstNode *expr = exponent(parser);
+    while (CHECK(parser, TOKEN_STAR) || CHECK(parser, TOKEN_SLASH) || CHECK(parser, TOKEN_MODULO)) {
+        Token operation = ADVANCE_PEEK(parser);
+        AstNode *rhs = exponent(parser);
+        expr = new_binary_node(parser->program, expr, operation, rhs);
+    }
+    return expr;
+}
+
+/** A term encapsulates the + and - in precedence. */
+static AstNode *term(Parser *parser) {
+    AstNode *expr = factor(parser);
+    while (CHECK(parser, TOKEN_PLUS) || CHECK(parser, TOKEN_MINUS)) {
+        Token operation = ADVANCE_PEEK(parser);
+        AstNode *rhs = factor(parser);
+        expr = new_binary_node(parser->program, expr, operation, rhs);
+    }
+    return expr;
+}
+
+// TODO: find out if compound assignment is just underneath normal assignments in precedence.
+
 /** Parses and returns an expression. */
 static AstNode *expression(Parser *parser) {
-    return primary(parser);
+    return term(parser);
 }
 
 /** A statement which only holds an expression inside it. */

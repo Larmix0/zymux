@@ -12,16 +12,19 @@ CharBuffer create_char_buffer() {
     return buffer;
 }
 
-/** Appends the passed string to the buffer. Done with strncat to ensure it's NUL terminated. */
-void buffer_append_string(CharBuffer *buffer, const char *string) {
-    const int length = strlen(string);
-
+/** Appends a string of length with strncat. */
+void buffer_append_string_len(CharBuffer *buffer, const char *string, const int length) {
     if (buffer->length + length + 1 > buffer->capacity) {
         buffer->capacity += length * 2;
         buffer->data = ZMX_REALLOC_ARRAY(buffer->data, buffer->capacity, sizeof(char));
     }
     strncat(buffer->data, string, length);
     buffer->length += length;
+}
+
+/** Appends the passed string to the buffer. Wrapper around the length version. */
+void buffer_append_string(CharBuffer *buffer, const char *string) {
+    buffer_append_string_len(buffer, string, strlen(string));
 }
 
 /** 
@@ -32,6 +35,34 @@ void buffer_append_strings(CharBuffer *buffer, const int amount, ...) {
     va_list args;
     va_start(args, amount);
     for (int i = 0; i < amount; i++) {
+        buffer_append_string(buffer, va_arg(args, char *));
+    }
+    va_end(args);
+}
+
+/**
+ * Appends debug strings separated by the debug delimiter defined in constants.
+ * 
+ * A lot of times in unit testing we want to compare a stage like the lexer, parser, etc.,
+ * with some expected result. Instead of manually building the "expected" AST for example,
+ * we typically use this function to append some string that is written in the same format
+ * as the one that the stage's debugger uses.
+ * Which is by using the debug delimiter constant between each piece (like a lexer's token,
+ * or parser's statement)
+ * 
+ * This allows us to just run the debugger on the code, copy and paste a string
+ * that represents the whole structure, and append its pieces one by one
+ * instead of manually building up the structure.
+ * Finally, just compare the pre-built/copy-pasted string with the one the debugger returned
+ * on the tested unit.
+ */
+void buffer_append_debug(CharBuffer *buffer, const int amount, ...) {
+    va_list args;
+    va_start(args, amount);
+    for (int i = 0; i < amount; i++) {
+        if (i != 0) {
+            buffer_append_string(buffer, DEBUG_DELIMITER);
+        }
         buffer_append_string(buffer, va_arg(args, char *));
     }
     va_end(args);
