@@ -1,6 +1,8 @@
 #ifndef DATA_STRUCTURES_H
 #define DATA_STRUCTURES_H
 
+#include "stdlib.h"
+
 #include "program.h"
 
 /** Declares the struct of a dynamic array typedef'd with name and an array/pointer of type. */

@@ -10,12 +10,15 @@
 
 #if defined(__unix__) || defined(__unix) || defined(unix) || defined(__APPLE__)
 #define OS UNIX_OS
+#define PATH_DELIMITER '/'
 
 #elif defined(_WIN32) || defined(__CYGWIN__)
 #define OS WINDOWS_OS
+#define PATH_DELIMITER '\\'
 
 #else
 #define OS UNKNOWN_OS
+#define PATH_DELIMITER '\0'
 
 #endif
 
@@ -43,11 +46,8 @@
 #define ZMX_INT_FMT "%" PRId64
 #define ZMX_FLOAT_FMT "%lf"
 
-/** Serves as a delimiter when grabbing the char buffer from a debugger instead of newlines. */
-#define DEBUG_DELIMITER "|-|"
-
-/** Converts something to a pointer of type. */
-#define AS_PTR(node, type) ((type *)node)
+/** Converts the passed pointer to a pointer to the passed type. */
+#define AS_PTR(value, type) ((type *)value)
 
 typedef int8_t i8;
 typedef int16_t i16;

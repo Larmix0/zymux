@@ -1,7 +1,7 @@
-#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "report_error.h"
-#include "debug_tokens.h"
+#include "token.h"
 
 /** Returns the passed type as a string literal in all uppercase. */
 char *type_to_string(const TokenType type) {
@@ -100,28 +100,42 @@ char *type_to_string(const TokenType type) {
     return NULL; // Unreachable error already exits. This is so the compiler doesn't yell.
 }
 
-/** Prints the passed token to the console. */
-static void print_token(const Token token) {
-    printf(
-        "\tToken(lexeme=\"%.*s\", length=%d, line=%d, column=%d, type=%s",
-        token.pos.length, token.lexeme, token.pos.length,
-        token.pos.line, token.pos.column, type_to_string(token.type)
-    );
-    switch (token.type) {
-        case TOKEN_INT_LIT: printf(", integer=" ZMX_INT_FMT, token.intVal); break;
-        case TOKEN_FLOAT_LIT: printf(", float=" ZMX_FLOAT_FMT, token.floatVal); break;
-        case TOKEN_STRING_LIT: printf(", string=\"%s\"", token.stringVal.text); break;
-        case TOKEN_ERROR: printf(", error=\"%s\"", token.errorMessage); break;
-        default: break;
+/** Frees any allocated contents in the passed token array, which is usually a union values. */
+void free_tokens_contents(TokenArray *tokens) {
+    for (int i = 0; i < tokens->length; i++) {
+        if (tokens->data[i].type == TOKEN_STRING_LIT) {
+            free(tokens->data[i].stringVal.text);
+        }
     }
-    printf(")");
 }
 
-/** Prints an entire array of tokens. */
-void print_tokens(const TokenArray tokens) {
-    printf("Tokens:\n");
-    for (int i = 0; i < tokens.length; i++) {
-        print_token(tokens.data[i]);
-        printf("\n");
+/** 
+ * Compares if 2 tokens are considered equal.
+ * 
+ * Tokens must be of equal type and have the same lexeme.
+ * Literals are an exception as their literal value within the tokens is
+ * compared instead of the lexeme.
+ */
+bool equal_token(const Token left, const Token right) {
+    if (left.type != right.type) {
+        return false;
     }
+    
+    if (left.type == TOKEN_INT_LIT) {
+        return left.intVal == right.intVal;
+    }
+    if (left.type == TOKEN_FLOAT_LIT) {
+        return left.floatVal == right.floatVal;
+    }
+    if (left.type == TOKEN_STRING_LIT) {
+        if (left.stringVal.length != right.stringVal.length) {
+            return false;
+        }
+        return strncmp(left.stringVal.text, right.stringVal.text, left.stringVal.length) == 0;
+    }
+
+    if (left.pos.length != right.pos.length) {
+        return false;
+    }
+    return strncmp(left.lexeme, right.lexeme, left.pos.length) == 0;
 }

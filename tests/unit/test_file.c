@@ -6,22 +6,11 @@
 
 /** Tests that get_path_type() correctly determines whether something is a file/directory. */
 static void test_get_path_type() {
-#if OS == WINDOWS_OS
-    char delimiter = '\\';
-#else
-    char delimiter = '/';
-#endif
-
     CharBuffer path = create_char_buffer();
-    buffer_append_string(&path, "tests");
-    buffer_append_char(&path, delimiter);
-    buffer_append_string(&path, "unit");
-    buffer_append_char(&path, delimiter);
-    buffer_append_string(&path, "test_open_dir");
+    buffer_append_format(&path, "tests%cunit%ctest_open_dir", PATH_DELIMITER, PATH_DELIMITER);
     LUKIP_IS_TRUE(get_path_type(path.data) == PATH_DIRECTORY);
-
-    buffer_append_char(&path, delimiter);
-    buffer_append_string(&path, "file_test.txt");
+    
+    buffer_append_format(&path, "%cfile_test.txt", PATH_DELIMITER);
     LUKIP_IS_TRUE(get_path_type(path.data) == PATH_FILE);
 
     free_char_buffer(&path);
@@ -32,7 +21,7 @@ static void test_fixed_source() {
     char *fixed = alloc_fixed_source("hello \n \r\n middle\n\r \r\nend\r\r");
     LUKIP_STRING_EQUAL(fixed, "hello \n \n middle\n\n \nend\n\n");
 
-    char *noFix = "hello; this shouldn't \n\n be fixed as it only uses\n.\n";
+    const char *noFix = "hello; this shouldn't \n\n be fixed as it only uses\n.\n";
     char *noFixAfter = alloc_fixed_source(noFix);
     LUKIP_STRING_EQUAL(noFixAfter, noFix);
 
@@ -42,26 +31,16 @@ static void test_fixed_source() {
 
 /** Tests if we can properly open and read files with alloc_source(). */
 static void test_open_file() {
-#if OS == WINDOWS_OS
-    char delimiter = '\\';
-#else
-    char delimiter = '/';
-#endif
-
-    char *expected = "File to test opening files.\n";
-    int expectedLength = strlen(expected);
+    const char *expected = "File to test opening files.\n";
+    const int expectedLength = strlen(expected);
 
     CharBuffer sourcePath = create_char_buffer();
-    buffer_append_string(&sourcePath, "tests");
-    buffer_append_char(&sourcePath, delimiter);
-    buffer_append_string(&sourcePath, "unit");
-    buffer_append_char(&sourcePath, delimiter);
-    buffer_append_string(&sourcePath, "test_open_dir");
-    buffer_append_char(&sourcePath, delimiter);
-    buffer_append_string(&sourcePath, "file_test.txt");
-
+    buffer_append_format(
+        &sourcePath, "tests%cunit%ctest_open_dir%cfile_test.txt",
+        PATH_DELIMITER, PATH_DELIMITER, PATH_DELIMITER
+    );
     char *source = alloc_source(sourcePath.data);
-    int sourceLength = strlen(source);
+    const int sourceLength = strlen(source);
 
     LUKIP_INT_EQUAL(sourceLength, expectedLength);
     LUKIP_IS_TRUE(strncmp(source, expected, sourceLength) == 0);

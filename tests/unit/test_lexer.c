@@ -3,8 +3,6 @@
 
 #include "lukip.h"
 
-#include "debug_tokens.h"
-
 #include "lexer.c"
 
 #define LAST_TOKEN(lexer) ((lexer)->tokens.data[(lexer)->tokens.length - 1])
@@ -30,17 +28,23 @@ static void teardown_default_lexer() {
     free(defaultLexer);
 }
 
-/** Returns a token for testing with minimal parameters (line and column are automatically 0). */
-static Token test_token(char *lexeme, TokenType type) {
+static Token test_token_pos(
+    char *lexeme, const int line, const int column, const TokenType type
+) {
     Token token = {
-        .lexeme = lexeme, .pos = create_src_pos(0, 0, strlen(lexeme)), .type = type
+        .lexeme = lexeme, .pos = create_src_pos(line, column, strlen(lexeme)), .type = type
     };
     return token;
 }
 
+/** Returns a token for testing with minimal parameters (line and column are automatically 0). */
+static Token test_token(char *lexeme, const TokenType type) {
+    return test_token_pos(lexeme, 0, 0, type);
+}
+
 /** Returns a string literal token where both the stringVal and lexeme are the same. */
 static Token test_string_token(char *lexeme) {
-    Token token = create_token(lexeme, 0, 0, TOKEN_STRING_LIT);
+    Token token = test_token(lexeme, TOKEN_STRING_LIT);
     CharBuffer buffer = create_char_buffer();
     buffer_append_string(&buffer, lexeme);
     token.stringVal.length = buffer.length;
@@ -55,14 +59,14 @@ static Token test_string_token(char *lexeme) {
  * what base we'll parse.
  */
 static Token test_int_token(char *lexeme, int base) {
-    Token token = create_token(lexeme, 0, 0, TOKEN_INT_LIT);
+    Token token = test_token(lexeme, TOKEN_INT_LIT);
     token.intVal = strtoll(lexeme, NULL, base);
     return token;
 }
 
 /** Returns a float literal token from the lexeme. */
 static Token test_float_token(char *lexeme) {
-    Token token = create_token(lexeme, 0, 0, TOKEN_FLOAT_LIT);
+    Token token = test_token(lexeme, TOKEN_FLOAT_LIT);
     token.floatVal = strtod(lexeme, NULL);
     return token;
 }
@@ -95,7 +99,7 @@ static void compare_lexed(Lexer *lexer, TokenArray *expectedArray, bool compareS
         Token lexed = lexer->tokens.data[tokenIdx];
         Token expected = expectedArray->data[tokenIdx];
         LUKIP_CUSTOM(
-            tokens_equal(lexed, expected),
+            equal_token(lexed, expected),
             "Token %d (lexeme=\"%.*s\" type=%s) != (lexeme=\"%s\", type=%s)",
             tokenIdx + 1, lexed.pos.length, lexed.lexeme,
             type_to_string(lexed.type), expected.lexeme, type_to_string(expected.type)
@@ -275,10 +279,10 @@ static void test_lex_spots() {
     TokenArray allTokens = CREATE_DA();
     append_test_tokens(
         &allTokens, 5,
-        create_token("line1", 1, 1, TOKEN_IDENTIFIER),
-        create_token("line2", 2, 2, TOKEN_IDENTIFIER),
-        create_token("break", 2, 8, TOKEN_BREAK_KW),
-        create_token("line5", 5, 4, TOKEN_IDENTIFIER),
+        test_token_pos("line1", 1, 1, TOKEN_IDENTIFIER),
+        test_token_pos("line2", 2, 2, TOKEN_IDENTIFIER),
+        test_token_pos("break", 2, 8, TOKEN_BREAK_KW),
+        test_token_pos("line5", 5, 4, TOKEN_IDENTIFIER),
         (Token){
             .lexeme = "555", .pos = create_src_pos(5, 10, 3),
             .type = TOKEN_INT_LIT, .intVal = 555
@@ -593,22 +597,22 @@ static void test_handling_whitespace() {
     ignore_whitespace(defaultLexer);
     lex_token(defaultLexer);
     LUKIP_IS_TRUE(
-        tokens_equal(LAST_TOKEN(defaultLexer), create_token("hey", 3, 2, TOKEN_IDENTIFIER))
+        equal_token(LAST_TOKEN(defaultLexer), test_token("hey", TOKEN_IDENTIFIER))
     );
     ignore_whitespace(defaultLexer);
     lex_token(defaultLexer);
     LUKIP_IS_TRUE(
-        tokens_equal(LAST_TOKEN(defaultLexer), create_token("end", 3, 8, TOKEN_IDENTIFIER))
+        equal_token(LAST_TOKEN(defaultLexer), test_token("end", TOKEN_IDENTIFIER))
     );
 }
 
 /** Tests the relevant functions related to structs. */
 static void test_lexer_struct_functions() {
-    Token created = create_token("test", 2, 2, TOKEN_IDENTIFIER);
+    Token created = test_token_pos("test", 2, 2, TOKEN_IDENTIFIER);
     Token manual = {
         .lexeme = "test", .pos = create_src_pos(2, 2, 4), .type = TOKEN_IDENTIFIER
     };
-    LUKIP_IS_TRUE(tokens_equal(manual, created));
+    LUKIP_IS_TRUE(equal_token(manual, created));
     LUKIP_INT_EQUAL(manual.pos.line, created.pos.line);
     LUKIP_INT_EQUAL(manual.pos.column, created.pos.column);
 
@@ -626,13 +630,13 @@ static void test_lexer_struct_functions() {
         ADVANCE(defaultLexer);
     }
     append_lexed(defaultLexer, TOKEN_FLOAT_KW);
-    Token keyword = create_token("float", 1, 2, TOKEN_FLOAT_KW);
-    LUKIP_IS_TRUE(tokens_equal(LAST_TOKEN(defaultLexer), keyword));
+    Token keyword = test_token_pos("float", 1, 2, TOKEN_FLOAT_KW);
+    LUKIP_IS_TRUE(equal_token(LAST_TOKEN(defaultLexer), keyword));
 
     append_implicit(defaultLexer, TOKEN_FORMAT);
-    LUKIP_IS_TRUE(tokens_equal(
+    LUKIP_IS_TRUE(equal_token(
         LAST_TOKEN(defaultLexer),
-        create_token("", defaultLexer->line, defaultLexer->column, TOKEN_FORMAT)
+        test_token_pos("", defaultLexer->line, defaultLexer->column, TOKEN_FORMAT)
     ));
 
     ADVANCE(defaultLexer);
@@ -640,9 +644,9 @@ static void test_lexer_struct_functions() {
     ADVANCE_DOUBLE(defaultLexer);
     ADVANCE(defaultLexer);
     append_implicit(defaultLexer, TOKEN_STRING_END);
-    LUKIP_IS_TRUE(tokens_equal(
+    LUKIP_IS_TRUE(equal_token(
         LAST_TOKEN(defaultLexer),
-        create_token("", defaultLexer->line, defaultLexer->column, TOKEN_STRING_END)
+        test_token_pos("", defaultLexer->line, defaultLexer->column, TOKEN_STRING_END)
     ));
 }
 
@@ -653,7 +657,7 @@ static void test_error_functions() {
         .lexeme = defaultLexer->source + 2, .pos = create_src_pos(1, 1, 4),
         .errorMessage = "lexed", .type = TOKEN_ERROR,
     };
-    LUKIP_IS_TRUE(tokens_equal(LAST_TOKEN(defaultLexer), manualAt));
+    LUKIP_IS_TRUE(equal_token(LAST_TOKEN(defaultLexer), manualAt));
     
     while (!IS_EOF(defaultLexer) && PEEK(defaultLexer) != ' ') {
         ADVANCE(defaultLexer);
@@ -663,7 +667,7 @@ static void test_error_functions() {
         .lexeme = defaultLexer->source, .pos = create_src_pos(1, 1, 5),
         .errorMessage = "lexed", .type = TOKEN_ERROR,
     };
-    LUKIP_IS_TRUE(tokens_equal(LAST_TOKEN(defaultLexer), manualLexed));
+    LUKIP_IS_TRUE(equal_token(LAST_TOKEN(defaultLexer), manualLexed));
 }
 
 /** Tests the helper functions that return whether something is within a base or not. */
@@ -690,59 +694,10 @@ static void test_base_number_checkers() {
     LUKIP_IS_FALSE(is_hex_digit('u'));
 }
 
-/** Tests if tokens_equal handles equality properly. */
-static void test_tokens_equal() {
-    Token equal1 = {.lexeme = "test", .pos = create_src_pos(1, 1, 4), .type = TOKEN_IDENTIFIER};
-    Token equal2 = {.lexeme = "test", .pos = create_src_pos(1, 1, 4), .type = TOKEN_IDENTIFIER};
-    LUKIP_IS_TRUE(tokens_equal(equal1, equal2));
-
-    CharBuffer buffer1 = create_char_buffer();
-    buffer_append_string(&buffer1, "hello");
-    Token string1 = {
-        .lexeme = "str1", .pos = create_src_pos(1, 1, 4),
-        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer1.length, .text = buffer1.data}
-    };
-    CharBuffer buffer2 = create_char_buffer();
-    buffer_append_string(&buffer2, "hello");
-    Token string2 = {
-        .lexeme = "str2", .pos = create_src_pos(1, 1, 4),
-        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer2.length, .text = buffer2.data}
-    };
-    LUKIP_IS_TRUE(tokens_equal(string1, string2));
-    free_char_buffer(&buffer1);
-    free_char_buffer(&buffer2);
-
-    Token integer1 = {
-        .lexeme = "10", .pos = create_src_pos(1, 1, 2), .intVal = 10, .type = TOKEN_INT_LIT
-    };
-    Token integer2 = {
-        .lexeme = "0xA", .pos = create_src_pos(1, 1, 3), .intVal = 10, .type = TOKEN_INT_LIT
-    };
-    LUKIP_IS_TRUE(tokens_equal(integer1, integer2));
-
-    Token float1 = {
-        .lexeme = "2.30", .pos = create_src_pos(1, 1, 4), .floatVal = 2.30, .type = TOKEN_FLOAT_LIT
-    };
-    Token float2 = {
-        .lexeme = "2.3", .pos = create_src_pos(1, 1, 3), .floatVal = 2.3, .type = TOKEN_FLOAT_LIT
-    };
-    LUKIP_IS_TRUE(tokens_equal(float1, float2));
-
-    Token notEqual1 = {
-        .lexeme = "first", .pos = create_src_pos(1, 1, 3), .type = TOKEN_IDENTIFIER
-    };
-    Token notEqual2 = {
-        .lexeme = "different", .pos = create_src_pos(1, 1, 3), .type = TOKEN_IDENTIFIER
-    };
-    LUKIP_IS_FALSE(tokens_equal(notEqual1, notEqual2));
-}
-
 /** Tests lexer.c. */
 void test_lexer() {
-    TEST(test_tokens_equal);
-    TEST(test_base_number_checkers);
-
     MAKE_TEST_FIXTURE(setup_default_lexer, teardown_default_lexer);
+    TEST(test_base_number_checkers);
     TEST(test_valid_syntax);
     TEST(test_handling_whitespace);
     TEST(test_alloc_lexeme);

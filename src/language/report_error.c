@@ -6,6 +6,7 @@
 
 #include "constants.h"
 #include "file.h"
+#include "program.h"
 #include "report_error.h"
 
 /** Returns a position in a source code from the parameters. */
@@ -37,7 +38,7 @@ static bool is_whitespace(const char ch) {
  * 
  * Current is the first character in the source after the newline.
  */
-static void print_error_line(char *current, SourcePosition pos) {
+static void print_error_line(char *current, const SourcePosition pos) {
     int whitespaces = 0, lineIdx = 0;
     while (is_whitespace(*current)) {
         current++;
@@ -69,7 +70,7 @@ static void print_error_line(char *current, SourcePosition pos) {
 }
 
 /** Iterates through the source of the passed file and then prints the errored line when reached. */
-static void show_zmx_error_line(char *file, SourcePosition pos) {
+static void show_zmx_error_line(char *file, const SourcePosition pos) {
     char *source = alloc_source(file);
     const int sourceLength = strlen(source);
     int sourceLine = 1;
@@ -99,14 +100,11 @@ void os_error(const char *format, ...) {
 }
 
 /** An internal error occurred within the Zymux implementation in C itself like a memory error. */
-void internal_error(
-    const char *file, const char *func, const int line,
-    const char *errorName, const char *format, ...
-) {
+void internal_error(SourceInfo info, const char *errorName, const char *format, ...) {
     fprintf(
         stderr,
         "Zymux implementation [file=\"%s\", func=%s(), line=%d]:\n\t" RED "%s: " DEFAULT_COLOR,
-        file, func, line, errorName
+        info.file, info.func, info.line, errorName
     );
 
     va_list args;
@@ -143,7 +141,7 @@ void file_error(const char *format, ...) {
  * Like a compiler error or a runtime error.
  */
 void zmx_user_error(
-    ZmxProgram *program, SourcePosition pos, const char *errorName, const char *format, ...
+    ZmxProgram *program, const SourcePosition pos, const char *errorName, const char *format, ...
 ) {
     bool hasErrored = program->hasErrored;
     program->hasErrored = true;

@@ -1,5 +1,3 @@
-#include <stdlib.h>
-
 #include "data_structures.h"
 #include "parser.h"
 #include "report_error.h"
@@ -24,20 +22,6 @@
 
 #define IS_EOF(parser) (CHECK((parser), TOKEN_EOF))
 
-/** Allocates a new node of actualType. */
-#define NEW_NODE(program, astType, actualType) \
-    ((actualType *)new_node(program, astType, sizeof(actualType)))
-
-/** Allocates a new node of the passed type. */
-static AstNode *new_node(ZmxProgram *program, AstType type, const size_t size) {
-    AstNode *node = ZMX_ALLOC(size);
-    node->type = type;    
-
-    node->next = program->allNodes;
-    program->allNodes = node;
-    return node;
-}
-
 /** Returns an initialized parser. */
 Parser create_parser(ZmxProgram *program, TokenArray tokens) {
     Parser parser = {
@@ -54,12 +38,11 @@ void free_parser(Parser *parser) {
 }
 
 /** Reports a parsing error on a specific, erroneous token, then starts panicking. */
-static void raise_parser_error_at(Parser *parser, Token erroredToken, const char *message) {
+static void raise_parser_error_at(Parser *parser, const Token erroredToken, const char *message) {
     if (parser->isPanicking) {
         return;
     }
     parser->isPanicking = true;
-
     SYNTAX_ERROR(
         parser->program, erroredToken.pos, message
     );
@@ -74,47 +57,19 @@ static void raise_parser_error_at(Parser *parser, Token erroredToken, const char
  * It errors the missing character by showing
  * the character after the token located before the missing one (which is what beforeMissing is).
  */
-static void raise_parser_error_missing(Parser *parser, Token beforeMissing, const char *message) {
+static void raise_parser_error_missing(
+    Parser *parser, const Token beforeMissing, const char *message
+) {
     if (parser->isPanicking) {
         return;
     }
     parser->isPanicking = true;
 
-    // Errors the character after the token located before the missing one.
+    // Errors out the character after the token located before the missing one.
     SourcePosition errorPos = create_src_pos(
         beforeMissing.pos.line, beforeMissing.pos.column + beforeMissing.pos.length, 1
     );
     SYNTAX_ERROR(parser->program, errorPos, message);
-}
-
-/** Returns an erroneous node which serves as a placeholder for returning a valid token. */
-static AstNode *new_error_node(ZmxProgram *program) {
-    ErrorNode *node = NEW_NODE(program, AST_ERROR, ErrorNode);
-    return AS_PTR(node, AstNode);
-}
-
-/** Allocates a new literal node which just holds the literal value. */
-static AstNode *new_literal_node(ZmxProgram *program, Token value) {
-    LiteralNode *node = NEW_NODE(program, AST_LITERAL, LiteralNode);
-    node->value = value;
-    return AS_PTR(node, AstNode);
-}
-
-/** Allocates a unary node, which is something that has one operation done on it. */
-static AstNode *new_unary_node(ZmxProgram *program, Token operation, AstNode *rhs) {
-    UnaryNode *node = NEW_NODE(program, AST_UNARY, UnaryNode);
-    node->operation = operation;
-    node->rhs = rhs;
-    return AS_PTR(node, AstNode);
-}
-
-/** Allocates a binary node, which holds information of an operation done between 2 operands. */
-static AstNode *new_binary_node(ZmxProgram *program, AstNode *lhs, Token operation, AstNode *rhs) {
-    BinaryNode *node = NEW_NODE(program, AST_BINARY, BinaryNode);
-    node->lhs = lhs;
-    node->operation = operation;
-    node->rhs = rhs;
-    return AS_PTR(node, AstNode);
 }
 
 /** 
@@ -263,7 +218,9 @@ static AstNode *declaration(Parser *parser) {
 
 /**
  * Parses the array of tokens in the parser.
+ * 
  * Places the parsed nodes inside the passed parser's ast field.
+ * Returns whether or not the parsing was successful.
  */
 bool parse(Parser *parser) {
     while (!IS_EOF(parser)) {

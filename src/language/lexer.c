@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "char_buffer.h"
 #include "data_structures.h"
 #include "lexer.h"
 
@@ -34,9 +35,11 @@ typedef bool (*BaseCheckFunc)(const char ch);
 typedef struct {
     bool isRaw;
     bool isInterpolated;
+    
     char *interpolationStart;
     int interpolationColumn;
     int interpolationDepth;
+
     int escapes;
     char quote;
 } StringLexer;
@@ -53,15 +56,6 @@ Lexer create_lexer(ZmxProgram *program, char *source) {
         .tokens = CREATE_DA()
     };
     return lexer;
-}
-
-/** Frees any allocated contents in any of the tokens in the passed token array. */
-static void free_tokens_contents(TokenArray *tokens) {
-    for (int i = 0; i < tokens->length; i++) {
-        if (tokens->data[i].type == TOKEN_STRING_LIT) {
-            free(tokens->data[i].stringVal.text);
-        }
-    }
 }
 
 /** Frees all the memory the lexing stage of Zymux has used. */
@@ -86,14 +80,6 @@ static char *alloc_current_lexeme(Lexer *lexer) {
     return string;
 }
 
-/** Return a token with no union values set. The fields are set from the parameters. */
-static Token create_token(char *lexeme, const int line, const int column, const TokenType type) {
-    Token token = {
-        .lexeme = lexeme, .pos = create_src_pos(line, column, strlen(lexeme)), .type = type
-    };
-    return token;
-}
-
 /** 
  * Appends an implicit token.
  * 
@@ -101,7 +87,10 @@ static Token create_token(char *lexeme, const int line, const int column, const 
  * and is only useful internally.
  */
 static void append_implicit(Lexer *lexer, const TokenType type) {
-    APPEND_DA(&lexer->tokens, create_token("", lexer->line, lexer->column, type));
+    Token implicit = {
+        .lexeme = "", .pos = create_src_pos(lexer->line, lexer->column, 0), .type = type
+    };
+    APPEND_DA(&lexer->tokens, implicit);
 }
 
 /** Appends the token we've been lexing as an error with the passed message. */
@@ -168,37 +157,6 @@ static void append_lexed_string(Lexer *lexer, StringLexer *string, CharBuffer bu
         .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer.length, .text = buffer.data}
     };
     APPEND_DA(&lexer->tokens, token);
-}
-
-/** 
- * Compares if 2 tokens are considered equal.
- * 
- * Tokens must be of equal type and have the same lexeme.
- * Literals are an exception as their literal value within the tokens is
- * compared instead of the lexeme.
- */
-bool tokens_equal(const Token left, const Token right) {
-    if (left.type != right.type) {
-        return false;
-    }
-    
-    if (left.type == TOKEN_INT_LIT) {
-        return left.intVal == right.intVal;
-    }
-    if (left.type == TOKEN_FLOAT_LIT) {
-        return left.floatVal == right.floatVal;
-    }
-    if (left.type == TOKEN_STRING_LIT) {
-        if (left.stringVal.length != right.stringVal.length) {
-            return false;
-        }
-        return strncmp(left.stringVal.text, right.stringVal.text, left.stringVal.length) == 0;
-    }
-
-    if (left.pos.length != right.pos.length) {
-        return false;
-    }
-    return strncmp(left.lexeme, right.lexeme, left.pos.length) == 0;
 }
 
 /** One line comments, which start with 2 slashes then ignore everything until EOF or newline. */
@@ -967,7 +925,9 @@ static void lex_token(Lexer *lexer) {
 
 /** 
  * Lex tokens from the lexer's source while ignoring whitespaces until EOF.
- * The lexed tokens are appended to the lexer's token array with an EOF token always at the end. 
+ * The lexed tokens are appended to the lexer's token array with an EOF token always at the end.
+ * 
+ * Returns whether or not lexing was successful.
  */
 bool lex(Lexer *lexer) {
     while (true) {

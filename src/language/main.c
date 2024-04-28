@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "debug_tokens.h"
+#include "debug_token.h"
 #include "debug_ast.h"
 #include "file.h"
 #include "lexer.h"

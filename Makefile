@@ -45,7 +45,7 @@ endif
 SRC_OBJS = $(SRCS:.c=.o)
 UNIT_OBJS = $(UNIT_SRCS:.c=.o)
 
-# Defines a variable "\n" which resolves to an actual escape newline sequence (hence endef is down).
+# Defines a newline var which resolves to an actual escaped (\n), hence endef is a line down.
 define newline
 
 

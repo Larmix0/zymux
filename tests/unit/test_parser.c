@@ -7,6 +7,34 @@
 
 #include "parser.c"
 
+/**
+ * Appends debug strings separated by the debug delimiter defined in constants.
+ * 
+ * A lot of times in unit testing we want to compare a stage like the lexer, parser, etc.,
+ * with some expected result. Instead of manually building the "expected" AST for example,
+ * we typically use this function to append some string that is written in the same format
+ * as the one that the stage's debugger uses.
+ * Which is by using the debug delimiter constant between each piece (like a lexer's token,
+ * or parser's statement)
+ * 
+ * This allows us to just run the debugger on the code, copy and paste a string
+ * that represents the whole structure, and append its pieces one by one
+ * instead of manually building up the structure.
+ * Finally, just compare the pre-built/copy-pasted string with the one the debugger returned
+ * on the tested unit.
+ */
+void buffer_append_ast_strings(CharBuffer *buffer, const int amount, ...) {
+    va_list args;
+    va_start(args, amount);
+    for (int i = 0; i < amount; i++) {
+        if (i != 0) {
+            buffer_append_string(buffer, AST_DEBUG_DELIMITER);
+        }
+        buffer_append_string(buffer, va_arg(args, char *));
+    }
+    va_end(args);
+}
+
 /** Lexes and parses the passed source, then returns the AST debugger's string representation. */
 static CharBuffer source_to_ast_string(char *source) {
     ZmxProgram program = create_zmx_program("test", false);
@@ -16,7 +44,7 @@ static CharBuffer source_to_ast_string(char *source) {
     Parser parser = create_parser(&program, lexer.tokens);
     LUKIP_IS_TRUE(parse(&parser));
 
-    CharBuffer astString = allocate_ast_string(&parser.ast);
+    CharBuffer astString = get_ast_string(&parser.ast);
     free_lexer(&lexer);
     free_parser(&parser);
     free_zmx_program(&program);
@@ -30,7 +58,7 @@ static void test_parser_expression() {
         "232; 3 ** 2; 10 --10; 2 * 10 ** 5 / 4 - 9; 0 * 0xff ** ----0 % 0;"
     );
     CharBuffer expected = create_char_buffer();
-    buffer_append_debug(
+    buffer_append_ast_strings(
         &expected, 5,
         "232", "(** 3 2)", "(- 10 (- 10))", "(- (/ (* 2 (** 10 5)) 4) 9)",
         "(% (* 0 (** 0xff (- (- (- (- 0)))))) 0)"

@@ -17,7 +17,8 @@
         "zmx_error.h": "c",
         "zmx_program.h": "c",
         "file.h": "c",
-        "report_error.h": "c"
+        "report_error.h": "c",
+        "program.h": "c"
     },
     "cSpell.words": [
         "Zymux"

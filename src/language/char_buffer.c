@@ -1,9 +1,8 @@
-#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "char_buffer.h"
-#include "data_structures.h"
 
 /** Creates and initializes a char buffer with a NUL terminator already appended. */
 CharBuffer create_char_buffer() {
@@ -40,32 +39,23 @@ void buffer_append_strings(CharBuffer *buffer, const int amount, ...) {
     va_end(args);
 }
 
-/**
- * Appends debug strings separated by the debug delimiter defined in constants.
- * 
- * A lot of times in unit testing we want to compare a stage like the lexer, parser, etc.,
- * with some expected result. Instead of manually building the "expected" AST for example,
- * we typically use this function to append some string that is written in the same format
- * as the one that the stage's debugger uses.
- * Which is by using the debug delimiter constant between each piece (like a lexer's token,
- * or parser's statement)
- * 
- * This allows us to just run the debugger on the code, copy and paste a string
- * that represents the whole structure, and append its pieces one by one
- * instead of manually building up the structure.
- * Finally, just compare the pre-built/copy-pasted string with the one the debugger returned
- * on the tested unit.
- */
-void buffer_append_debug(CharBuffer *buffer, const int amount, ...) {
-    va_list args;
-    va_start(args, amount);
-    for (int i = 0; i < amount; i++) {
-        if (i != 0) {
-            buffer_append_string(buffer, DEBUG_DELIMITER);
-        }
-        buffer_append_string(buffer, va_arg(args, char *));
+/** Appends a formatted string into the buffer by using vsnprintf (twice to tell the length). */
+void buffer_append_format(CharBuffer *buffer, const char *format, ...) {
+    va_list argsForLength, args;
+    va_start(args, format);
+    va_copy(argsForLength, args);
+
+    const int formatLength = vsnprintf(NULL, 0, format, argsForLength);
+    if (buffer->length + formatLength + 1 > buffer->capacity) {
+        buffer->capacity += formatLength * 2;
+        buffer->data = ZMX_REALLOC_ARRAY(buffer->data, buffer->capacity, sizeof(char));
     }
+    // -1 because char buffer's take NUL into account. +1 to length of format is for writing NUL.
+    vsnprintf(buffer->data + buffer->length - 1, formatLength + 1, format, args);
+    buffer->length += formatLength;
+
     va_end(args);
+    va_end(argsForLength);
 }
 
 /** 

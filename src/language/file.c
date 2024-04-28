@@ -40,7 +40,7 @@ static PathType get_path_type(const char *path) {
  * In older versions of mac, a line break is CR (\r).
  * Although newer versions have (\n) which is also what linux uses. It's also Zymux defaults to.
  */
-static char *alloc_fixed_source(char *source) {
+static char *alloc_fixed_source(const char *source) {
     CharBuffer buffer = create_char_buffer();
     int idx = 0;
     while (source[idx] != '\0') {
@@ -71,7 +71,7 @@ char *alloc_source(const char *path) {
         );
     }
 
-    PathType type = get_path_type(path);
+    const PathType type = get_path_type(path);
     if (type == PATH_DIRECTORY) {
         FILE_ERROR("Expected file, but \"%s\" is a directory.", path);
     } else if (type == PATH_OTHER) {
@@ -82,7 +82,7 @@ char *alloc_source(const char *path) {
         FILE_ERROR("Couldn't seek to the end of file \"%s\" to view its length.", path);
     }
     
-    long fileLength = ftell(file);
+    const long fileLength = ftell(file);
     if (fileLength == -1) {
         FILE_ERROR("Failed to read length of file \"%s\".", path);
     }

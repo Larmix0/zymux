@@ -24,15 +24,18 @@ static void test_char_buffer_appenders() {
     buffer_append_string(&defaultBuffer, "");
     buffer_append_char(&defaultBuffer, 'J');
     LUKIP_STRING_EQUAL(defaultBuffer.data, "J");
-    buffer_append_string(&defaultBuffer, "ack");
+    buffer_append_string_len(&defaultBuffer, "ack", strlen("ack"));
     buffer_append_char(&defaultBuffer, '\0');
-    
+
     LUKIP_STRING_EQUAL(defaultBuffer.data, "Jack");
     buffer_append_string(&defaultBuffer, "");
     buffer_append_char(&defaultBuffer, ',');
     buffer_append_char(&defaultBuffer, ' ');
     buffer_append_strings(&defaultBuffer, 7, "", "Sam", ", ", "Liam,", "", " ", "and John");
     LUKIP_STRING_EQUAL(defaultBuffer.data, "Jack, Sam, Liam, and John");
+
+    buffer_append_format(&defaultBuffer, ". Also, %s who is %d", "Sean", 23);
+    LUKIP_STRING_EQUAL(defaultBuffer.data, "Jack, Sam, Liam, and John. Also, Sean who is 23");
 }
 
 /** Tests the char buffer's popping functions. */

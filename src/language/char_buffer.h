@@ -1,6 +1,8 @@
 #ifndef CHAR_BUFFER_H
 #define CHAR_BUFFER_H
 
+#include <stdarg.h>
+
 #include "data_structures.h"
 
 /**
@@ -25,8 +27,8 @@ void buffer_append_char(CharBuffer *buffer, const char ch);
 /** Appends a variable number of strings to the buffer. The number is amount parameter. */
 void buffer_append_strings(CharBuffer *buffer, const int amount, ...);
 
-/** Appends a number of strings (amount) with debug delimiters between them. */
-void buffer_append_debug(CharBuffer *buffer, const int amount, ...);
+/** Appends a formatted string. */
+void buffer_append_format(CharBuffer *buffer, const char *format, ...);
 
 /** Pops a single character off of the buffer. */
 char buffer_pop(CharBuffer *buffer);
