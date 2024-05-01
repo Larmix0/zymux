@@ -12,7 +12,7 @@ char *defaultSource = "float && var (); $'str {2 * 3}' break; 22 44.2"
 Lexer *defaultLexer;
 
 /** A setup to initialize the default lexer. */
-static void setup_default_lexer() {
+TEST_FIXTURE(setup_default_lexer) {
     ZmxProgram *program = ZMX_TYPE_ALLOC(ZmxProgram);
     *program = create_zmx_program("default", false);
 
@@ -21,7 +21,7 @@ static void setup_default_lexer() {
 }
 
 /** A teardown for the default lexer and the other things it uses. */
-static void teardown_default_lexer() {
+TEST_FIXTURE(teardown_default_lexer) {
     free_zmx_program(defaultLexer->program);
     free(defaultLexer->program);
     free_lexer(defaultLexer);
@@ -92,27 +92,27 @@ static void append_test_tokens(TokenArray *tokens, const int amount, ...) {
 static void compare_lexed(Lexer *lexer, TokenArray *expectedArray, bool compareSpots) {
     const int lexerLength = lexer->tokens.length;
     const int expectedLength = expectedArray->length;
-    LUKIP_INT_EQUAL(lexer->tokens.length, expectedArray->length);
+    ASSERT_INT_EQUAL(lexer->tokens.length, expectedArray->length);
 
     const int shortest = lexerLength > expectedLength ? expectedLength : lexerLength;
     for (int tokenIdx = 0; tokenIdx < shortest; tokenIdx++) {
         Token lexed = lexer->tokens.data[tokenIdx];
         Token expected = expectedArray->data[tokenIdx];
-        LUKIP_CUSTOM(
+        ASSERT_CUSTOM(
             equal_token(lexed, expected),
             "Token %d (lexeme=\"%.*s\" type=%s) != (lexeme=\"%s\", type=%s)",
             tokenIdx + 1, lexed.pos.length, lexed.lexeme,
             type_to_string(lexed.type), expected.lexeme, type_to_string(expected.type)
         );
         if (compareSpots) {
-            LUKIP_INT_EQUAL(lexed.pos.line, expected.pos.line);
-            LUKIP_INT_EQUAL(lexed.pos.column, expected.pos.column);
+            ASSERT_INT_EQUAL(lexed.pos.line, expected.pos.line);
+            ASSERT_INT_EQUAL(lexed.pos.column, expected.pos.column);
         }
     }
 }
 
 /** Tests lex() with a bunch of programs that shouldn't error. */
-static void test_lex_successful_programs() {
+PRIVATE_TEST_CASE(test_lex_successful_programs) {
     char *sources[] = {
         "",
         "(2 + 3) * 30 ** 2 / 1.5 - 0.2;",
@@ -175,7 +175,7 @@ static void test_lex_successful_programs() {
         ZmxProgram program = create_zmx_program("testLex", false);
         Lexer lexer = create_lexer(&program, sources[arrayIdx]);
         lex(&lexer);
-        LUKIP_IS_FALSE(lexer.program->hasErrored);
+        ASSERT_FALSE(lexer.program->hasErrored);
 
         compare_lexed(&lexer, &tokens2DArray[arrayIdx], false);
         free_lexer(&lexer);
@@ -189,7 +189,7 @@ static void test_lex_successful_programs() {
 }
 
 /** Tests lex() with a bunch of erroneous programs. */
-static void test_lex_errors() {
+PRIVATE_TEST_CASE(test_lex_errors) {
     char *sources[] = {
         "SomeIdentifier 'Unterminated string.",
         "/* Unterminated multiline comment.",
@@ -205,14 +205,14 @@ static void test_lex_errors() {
         ZmxProgram program = create_zmx_program("testError", false);
         Lexer lexer = create_lexer(&program, sources[i]);
         lex(&lexer);
-        LUKIP_IS_TRUE(lexer.program->hasErrored);
+        ASSERT_TRUE(lexer.program->hasErrored);
         
         free_lexer(&lexer);
     }
 }
 
 /** Performs a test on a source code that includes every single token in Zymux. */
-static void test_lex_all_tokens() {
+PRIVATE_TEST_CASE(test_lex_all_tokens) {
     char *source = "string int float bool list map class const let private func if else while for "
         "do return break continue true false null as is in super this init abstract inherits "
         "match case default from import && || ! & | ^ << >> ~ += -= *= /= %= **= &= |= <<= >>= ~= "
@@ -274,7 +274,7 @@ static void test_lex_all_tokens() {
 }
 
 /** A test for ensuring that the lexer keeps track of lines and columns correctly. */
-static void test_lex_spots() {
+PRIVATE_TEST_CASE(test_lex_spots) {
     char *source = "line1\n line2 break\n\n\n \t line5 555\n\n";
     TokenArray allTokens = CREATE_DA();
     append_test_tokens(
@@ -307,7 +307,7 @@ static void test_lex_spots() {
  * Which includes floats and integers in decimal, as well as some other bases like hexadecimal.
  * It also tests that we handle preceding 0s correctly.  
  */
-static void test_lex_number() {
+PRIVATE_TEST_CASE(test_lex_number) {
     char *source = "0x0 0x00ff0 0xea2301 0b0 0b101 0b010 0b00100110111 0o00 0o02707 0o241 "
         "000x000 00o77 0 0.0 0.010 0013 002.3300 931453229 23.3 3.0";
 
@@ -343,7 +343,7 @@ static void test_lex_number() {
 }
 
 /** Tests that the lexer handles all names (keywords and identifiers) correctly. */
-static void test_lex_name() {
+PRIVATE_TEST_CASE(test_lex_name) {
     char *source = "hello returnme break _ notKeyword__ float L2dm3e44 _22_ string _NAME_HERE";
     TokenArray allTokens = CREATE_DA();
     append_test_tokens(
@@ -375,7 +375,7 @@ static void test_lex_name() {
  * Tests that the lexer handles different kinds of strings correctly
  * This includes normal, interpolated, raw and interpolated + raw as well as some edge cases.
  */
-static void test_lex_string() {
+PRIVATE_TEST_CASE(test_lex_string) {
     char *source = "'Normal\\t string\\\\n w/escapes'"
         "#'This is a\\t raw string.\\n\\\\n'"
         "$'Interpolated \\{ <- escaped {3 * $\"And {2 + 3} is nested\" + 2}'"
@@ -456,7 +456,7 @@ static void test_lex_string() {
  *     ".. ." tests both cases in one_or_default().
  *     ";" tests that we handle something that can only be a single character correctly.
  */
-static void test_lex_chars_tokens() {
+PRIVATE_TEST_CASE(test_lex_chars_tokens) {
     char *source = "<<= << <= < &= && & .. . ;";
     TokenArray allTokens = CREATE_DA();
     append_test_tokens(
@@ -502,78 +502,78 @@ static void test_lex_chars_tokens() {
 
 
 /** Tests the valid syntax checker. */
-static void test_valid_syntax() {
-    LUKIP_IS_TRUE(valid_syntax('<'));
-    LUKIP_IS_TRUE(valid_syntax('$'));
-    LUKIP_IS_FALSE(valid_syntax('@'));
-    LUKIP_IS_TRUE(valid_syntax('3'));
-    LUKIP_IS_TRUE(valid_syntax('a'));
-    LUKIP_IS_TRUE(valid_syntax('_'));
+PRIVATE_TEST_CASE(test_valid_syntax) {
+    ASSERT_TRUE(valid_syntax('<'));
+    ASSERT_TRUE(valid_syntax('$'));
+    ASSERT_FALSE(valid_syntax('@'));
+    ASSERT_TRUE(valid_syntax('3'));
+    ASSERT_TRUE(valid_syntax('a'));
+    ASSERT_TRUE(valid_syntax('_'));
 }
 
 
 /** Tests the macro helpers that help the lexer in things (like peeking and advancing). */
-static void test_lexer_macro_helpers() {
-    LUKIP_CHAR_EQUAL(PEEK(defaultLexer), 'f');
-    LUKIP_CHAR_EQUAL(PEEK_NEXT(defaultLexer), 'l');
+PRIVATE_TEST_CASE(test_lexer_macro_helpers) {
+    ASSERT_CHAR_EQUAL(PEEK(defaultLexer), 'f');
+    ASSERT_CHAR_EQUAL(PEEK_NEXT(defaultLexer), 'l');
 
     char advanced = ADVANCE_PEEK(defaultLexer);
-    LUKIP_CHAR_EQUAL(advanced, 'f');
+    ASSERT_CHAR_EQUAL(advanced, 'f');
 
     ADVANCE(defaultLexer);
-    LUKIP_INT_EQUAL(CURRENT_TOKEN_LENGTH(defaultLexer), 2);
-    LUKIP_CHAR_EQUAL(PEEK(defaultLexer), 'o');
+    ASSERT_INT_EQUAL(CURRENT_TOKEN_LENGTH(defaultLexer), 2);
+    ASSERT_CHAR_EQUAL(PEEK(defaultLexer), 'o');
 
     ADVANCE_DOUBLE(defaultLexer);
-    LUKIP_CHAR_EQUAL(PEEK(defaultLexer), 't');
-    LUKIP_INT_EQUAL(CURRENT_TOKEN_LENGTH(defaultLexer), 4);
+    ASSERT_CHAR_EQUAL(PEEK(defaultLexer), 't');
+    ASSERT_INT_EQUAL(CURRENT_TOKEN_LENGTH(defaultLexer), 4);
 
     RETREAT(defaultLexer);
-    LUKIP_CHAR_EQUAL(PEEK_NEXT(defaultLexer), 't');
+    ASSERT_CHAR_EQUAL(PEEK_NEXT(defaultLexer), 't');
     RETREAT(defaultLexer);
-    LUKIP_CHAR_EQUAL(PEEK(defaultLexer), 'o');
+    ASSERT_CHAR_EQUAL(PEEK(defaultLexer), 'o');
 
-    LUKIP_IS_FALSE(MATCH(defaultLexer, 'h'));
-    LUKIP_IS_TRUE(MATCH(defaultLexer, 'o'));
-    LUKIP_IS_TRUE(MATCH(defaultLexer, 'a'));
+    ASSERT_FALSE(MATCH(defaultLexer, 'h'));
+    ASSERT_TRUE(MATCH(defaultLexer, 'o'));
+    ASSERT_TRUE(MATCH(defaultLexer, 'a'));
     
-    LUKIP_IS_TRUE(PEEK(defaultLexer) == 't');
-    LUKIP_IS_FALSE(MATCH(defaultLexer, 'f'));
-    LUKIP_IS_TRUE(PEEK(defaultLexer) == 't');
+    ASSERT_TRUE(PEEK(defaultLexer) == 't');
+    ASSERT_FALSE(MATCH(defaultLexer, 'f'));
+    ASSERT_TRUE(PEEK(defaultLexer) == 't');
 
-    LUKIP_IS_FALSE(IS_EOF(defaultLexer));
+    ASSERT_FALSE(IS_EOF(defaultLexer));
     defaultLexer->current = defaultLexer->source + defaultLexer->sourceLength;
-    LUKIP_IS_TRUE(IS_EOF(defaultLexer));
+    ASSERT_TRUE(IS_EOF(defaultLexer));
 
-    LUKIP_CHAR_EQUAL(LOWERED_CHAR('d'), 'd');
-    LUKIP_CHAR_EQUAL(LOWERED_CHAR('T'), 't');
-    LUKIP_CHAR_EQUAL(LOWERED_CHAR('='), '=');
+    ASSERT_CHAR_EQUAL(LOWERED_CHAR('d'), 'd');
+    ASSERT_CHAR_EQUAL(LOWERED_CHAR('T'), 't');
+    ASSERT_CHAR_EQUAL(LOWERED_CHAR('='), '=');
 
-    LUKIP_IS_TRUE(IS_ALPHA('G'));
-    LUKIP_IS_FALSE(IS_ALPHA('$'));
-    LUKIP_IS_TRUE(IS_ALPHA('_'));
-    LUKIP_IS_TRUE(IS_ALPHA('v'));
+    ASSERT_TRUE(IS_ALPHA('G'));
+    ASSERT_FALSE(IS_ALPHA('$'));
+    ASSERT_TRUE(IS_ALPHA('_'));
+    ASSERT_TRUE(IS_ALPHA('v'));
 
-    LUKIP_IS_TRUE(IS_DIGIT('4'));
-    LUKIP_IS_FALSE(IS_DIGIT('v'));
-    LUKIP_IS_TRUE(IS_DIGIT('2'));
+    ASSERT_TRUE(IS_DIGIT('4'));
+    ASSERT_FALSE(IS_DIGIT('v'));
+    ASSERT_TRUE(IS_DIGIT('2'));
 }
 
 /** Tests that alloc_current_lexeme() properly allocates and terminates the current lexeme. */
-static void test_alloc_lexeme() {
+PRIVATE_TEST_CASE(test_alloc_lexeme) {
     START_TOKEN(defaultLexer);
     char *emptyStart = alloc_current_lexeme(defaultLexer);
-    LUKIP_STRING_EQUAL(emptyStart, "");
+    ASSERT_STRING_EQUAL(emptyStart, "");
 
     while (PEEK(defaultLexer) != ' ') {
         ADVANCE(defaultLexer);
     }
     char *floatKeyword = alloc_current_lexeme(defaultLexer);
-    LUKIP_STRING_EQUAL(floatKeyword, "float");
+    ASSERT_STRING_EQUAL(floatKeyword, "float");
 
     START_TOKEN(defaultLexer);
     char *emptyMiddle = alloc_current_lexeme(defaultLexer);
-    LUKIP_STRING_EQUAL(emptyMiddle, "");
+    ASSERT_STRING_EQUAL(emptyMiddle, "");
 
     free(emptyStart);
     free(floatKeyword);
@@ -581,60 +581,60 @@ static void test_alloc_lexeme() {
 }
 
 /** Tests that ignore_whitespace ignores them properly. */
-static void test_handling_whitespace() {
+PRIVATE_TEST_CASE(test_handling_whitespace) {
     // There isn't whitespace in the beginning, so peek result shouldn't change.
     char current = PEEK(defaultLexer);
     ignore_whitespace(defaultLexer);
-    LUKIP_CHAR_EQUAL(current, PEEK(defaultLexer)); 
+    ASSERT_CHAR_EQUAL(current, PEEK(defaultLexer)); 
 
     while (PEEK(defaultLexer) != '\n') {
         ADVANCE(defaultLexer);
     }
-    LUKIP_INT_EQUAL(defaultLexer->line, 1);
+    ASSERT_INT_EQUAL(defaultLexer->line, 1);
     ignore_whitespace(defaultLexer);
-    LUKIP_INT_EQUAL(defaultLexer->line, 3);
+    ASSERT_INT_EQUAL(defaultLexer->line, 3);
 
     ignore_whitespace(defaultLexer);
     lex_token(defaultLexer);
-    LUKIP_IS_TRUE(
+    ASSERT_TRUE(
         equal_token(LAST_TOKEN(defaultLexer), test_token("hey", TOKEN_IDENTIFIER))
     );
     ignore_whitespace(defaultLexer);
     lex_token(defaultLexer);
-    LUKIP_IS_TRUE(
+    ASSERT_TRUE(
         equal_token(LAST_TOKEN(defaultLexer), test_token("end", TOKEN_IDENTIFIER))
     );
 }
 
 /** Tests the relevant functions related to structs. */
-static void test_lexer_struct_functions() {
+PRIVATE_TEST_CASE(test_lexer_struct_functions) {
     Token created = test_token_pos("test", 2, 2, TOKEN_IDENTIFIER);
     Token manual = {
         .lexeme = "test", .pos = create_src_pos(2, 2, 4), .type = TOKEN_IDENTIFIER
     };
-    LUKIP_IS_TRUE(equal_token(manual, created));
-    LUKIP_INT_EQUAL(manual.pos.line, created.pos.line);
-    LUKIP_INT_EQUAL(manual.pos.column, created.pos.column);
+    ASSERT_TRUE(equal_token(manual, created));
+    ASSERT_INT_EQUAL(manual.pos.line, created.pos.line);
+    ASSERT_INT_EQUAL(manual.pos.column, created.pos.column);
 
     // The setup already uses create_lexer(), so just test it on it.
-    LUKIP_STRING_EQUAL(defaultLexer->program->currentFile, "default");
-    LUKIP_STRING_EQUAL(defaultLexer->source, defaultSource);
-    LUKIP_IS_TRUE(
+    ASSERT_STRING_EQUAL(defaultLexer->program->currentFile, "default");
+    ASSERT_STRING_EQUAL(defaultLexer->source, defaultSource);
+    ASSERT_TRUE(
         defaultLexer->source == defaultLexer->current
         && defaultLexer->current == defaultLexer->tokenStart
     );
-    LUKIP_INT_EQUAL(defaultLexer->line, 1);
-    LUKIP_INT_EQUAL(defaultLexer->sourceLength, strlen(defaultSource));
+    ASSERT_INT_EQUAL(defaultLexer->line, 1);
+    ASSERT_INT_EQUAL(defaultLexer->sourceLength, strlen(defaultSource));
 
     while (PEEK(defaultLexer) != ' ') {
         ADVANCE(defaultLexer);
     }
     append_lexed(defaultLexer, TOKEN_FLOAT_KW);
     Token keyword = test_token_pos("float", 1, 2, TOKEN_FLOAT_KW);
-    LUKIP_IS_TRUE(equal_token(LAST_TOKEN(defaultLexer), keyword));
+    ASSERT_TRUE(equal_token(LAST_TOKEN(defaultLexer), keyword));
 
     append_implicit(defaultLexer, TOKEN_FORMAT);
-    LUKIP_IS_TRUE(equal_token(
+    ASSERT_TRUE(equal_token(
         LAST_TOKEN(defaultLexer),
         test_token_pos("", defaultLexer->line, defaultLexer->column, TOKEN_FORMAT)
     ));
@@ -644,20 +644,20 @@ static void test_lexer_struct_functions() {
     ADVANCE_DOUBLE(defaultLexer);
     ADVANCE(defaultLexer);
     append_implicit(defaultLexer, TOKEN_STRING_END);
-    LUKIP_IS_TRUE(equal_token(
+    ASSERT_TRUE(equal_token(
         LAST_TOKEN(defaultLexer),
         test_token_pos("", defaultLexer->line, defaultLexer->column, TOKEN_STRING_END)
     ));
 }
 
 /** Tests that errors are made and appended correctly. */
-static void test_error_functions() {
+PRIVATE_TEST_CASE(test_error_functions) {
     append_error_at(defaultLexer, "at", defaultLexer->source + 2, create_src_pos(1, 1, 4));
     Token manualAt = {
         .lexeme = defaultLexer->source + 2, .pos = create_src_pos(1, 1, 4),
         .errorMessage = "lexed", .type = TOKEN_ERROR,
     };
-    LUKIP_IS_TRUE(equal_token(LAST_TOKEN(defaultLexer), manualAt));
+    ASSERT_TRUE(equal_token(LAST_TOKEN(defaultLexer), manualAt));
     
     while (!IS_EOF(defaultLexer) && PEEK(defaultLexer) != ' ') {
         ADVANCE(defaultLexer);
@@ -667,31 +667,31 @@ static void test_error_functions() {
         .lexeme = defaultLexer->source, .pos = create_src_pos(1, 1, 5),
         .errorMessage = "lexed", .type = TOKEN_ERROR,
     };
-    LUKIP_IS_TRUE(equal_token(LAST_TOKEN(defaultLexer), manualLexed));
+    ASSERT_TRUE(equal_token(LAST_TOKEN(defaultLexer), manualLexed));
 }
 
 /** Tests the helper functions that return whether something is within a base or not. */
-static void test_base_number_checkers() {
-    LUKIP_IS_TRUE(is_bin_digit('1'));
-    LUKIP_IS_TRUE(is_bin_digit('0'));
-    LUKIP_IS_FALSE(is_bin_digit('3'));
-    LUKIP_IS_FALSE(is_bin_digit('f'));
+PRIVATE_TEST_CASE(test_base_number_checkers) {
+    ASSERT_TRUE(is_bin_digit('1'));
+    ASSERT_TRUE(is_bin_digit('0'));
+    ASSERT_FALSE(is_bin_digit('3'));
+    ASSERT_FALSE(is_bin_digit('f'));
 
-    LUKIP_IS_TRUE(is_oct_digit('0'));
-    LUKIP_IS_TRUE(is_oct_digit('7'));
-    LUKIP_IS_TRUE(is_oct_digit('4'));
-    LUKIP_IS_FALSE(is_oct_digit('8'));
-    LUKIP_IS_FALSE(is_oct_digit('9'));
-    LUKIP_IS_FALSE(is_oct_digit('T'));
+    ASSERT_TRUE(is_oct_digit('0'));
+    ASSERT_TRUE(is_oct_digit('7'));
+    ASSERT_TRUE(is_oct_digit('4'));
+    ASSERT_FALSE(is_oct_digit('8'));
+    ASSERT_FALSE(is_oct_digit('9'));
+    ASSERT_FALSE(is_oct_digit('T'));
     
-    LUKIP_IS_TRUE(is_hex_digit('0'));
-    LUKIP_IS_TRUE(is_hex_digit('5'));
-    LUKIP_IS_TRUE(is_hex_digit('9'));
-    LUKIP_IS_TRUE(is_hex_digit('a'));
-    LUKIP_IS_TRUE(is_hex_digit('e'));
-    LUKIP_IS_TRUE(is_hex_digit('F'));
-    LUKIP_IS_FALSE(is_hex_digit('T'));
-    LUKIP_IS_FALSE(is_hex_digit('u'));
+    ASSERT_TRUE(is_hex_digit('0'));
+    ASSERT_TRUE(is_hex_digit('5'));
+    ASSERT_TRUE(is_hex_digit('9'));
+    ASSERT_TRUE(is_hex_digit('a'));
+    ASSERT_TRUE(is_hex_digit('e'));
+    ASSERT_TRUE(is_hex_digit('F'));
+    ASSERT_FALSE(is_hex_digit('T'));
+    ASSERT_FALSE(is_hex_digit('u'));
 }
 
 /** Tests lexer.c. */

@@ -30,7 +30,5 @@ int main() {
     test_lexer();
     test_node();
     test_parser();
-    LUKIP_END();
-    
     return EXIT_SUCCESS;
 }

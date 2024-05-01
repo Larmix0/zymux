@@ -39,10 +39,10 @@ void buffer_append_ast_strings(CharBuffer *buffer, const int amount, ...) {
 static CharBuffer source_to_ast_string(char *source) {
     ZmxProgram program = create_zmx_program("test", false);
     Lexer lexer = create_lexer(&program, source);
-    LUKIP_IS_TRUE(lex(&lexer));
+    ASSERT_TRUE(lex(&lexer));
 
     Parser parser = create_parser(&program, lexer.tokens);
-    LUKIP_IS_TRUE(parse(&parser));
+    ASSERT_TRUE(parse(&parser));
 
     CharBuffer astString = get_ast_string(&parser.ast);
     free_lexer(&lexer);
@@ -53,7 +53,7 @@ static CharBuffer source_to_ast_string(char *source) {
 }
 
 /** Tests that the parser handles expressions correctly. */
-static void test_parser_expression() {
+PRIVATE_TEST_CASE(test_parser_expression) {
     CharBuffer actual = source_to_ast_string(
         "232; 3 ** 2; 10 --10; 2 * 10 ** 5 / 4 - 9; 0 * 0xff ** ----0 % 0;"
     );
@@ -63,7 +63,7 @@ static void test_parser_expression() {
         "232", "(** 3 2)", "(- 10 (- 10))", "(- (/ (* 2 (** 10 5)) 4) 9)",
         "(% (* 0 (** 0xff (- (- (- (- 0)))))) 0)"
     );
-    LUKIP_STRING_EQUAL(actual.data, expected.data);
+    ASSERT_STRING_EQUAL(actual.data, expected.data);
     free_char_buffer(&actual);
     free_char_buffer(&expected);
 }
