@@ -15,10 +15,11 @@
  */
 typedef struct {
     bool isPanicking; /** Denotes whether or not the parser's panicking. */
-    ZmxProgram *program;
-    TokenArray tokens;
-    Token *current;
-    NodeArray ast;
+    ZmxProgram *program; /** Information about the Zymux program. */
+    TokenArray tokens; /** Lexed tokens we're parsing. */
+    Token *current; /** The token we're currently parsing on. */
+    Token *syncSpot; /** Pointer to the token we should start synching from in case of an error. */
+    NodeArray ast; /** The array of nested nodes that were parsed. */
 } Parser;
 
 /** Returns an initialized parser with the passed tokens and the program. */

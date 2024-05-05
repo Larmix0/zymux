@@ -8,16 +8,15 @@
 
 // All macros which change a parser's current token stop changing if we're on panic mode.
 
-#define ADVANCE_PEEK(parser) (!(parser)->isPanicking ? *(parser)->current++ : *(parser)->current)
-#define ADVANCE(parser) (!(parser)->isPanicking ? (parser)->current++ : (parser)->current)
-#define RETREAT(parser) (!(parser)->isPanicking ? (parser)->current-- : (parser)->current)
+#define ADVANCE_PEEK(parser) (*(parser)->current++)
+#define ADVANCE(parser) ((parser)->current++)
+#define RETREAT(parser) ((parser)->current--)
 
-#define MATCH(parser, expected) \
-    (!(parser)->isPanicking && CHECK((parser), (expected)) ? (ADVANCE((parser)), true) : false)
+#define MATCH(parser, expected) (CHECK((parser), (expected)) ? (ADVANCE((parser)), true) : false)
 #define CONSUME(parser, expected, message) \
     (CHECK((parser), (expected)) \
         ? ADVANCE_PEEK((parser)) \
-        : (raise_parser_error_missing((parser), PEEK_PREVIOUS((parser)), (message)), \
+        : (raise_parser_error_missing((parser), &PEEK_PREVIOUS((parser)), (message)), \
             PEEK(parser)))
 
 #define IS_EOF(parser) (CHECK((parser), TOKEN_EOF))
@@ -25,9 +24,8 @@
 /** Returns an initialized parser. */
 Parser create_parser(ZmxProgram *program, TokenArray tokens) {
     Parser parser = {
-        .isPanicking = false,
-        .ast = CREATE_DA(), .program = program,
-        .tokens = tokens, .current = tokens.data
+        .isPanicking = false, .ast = CREATE_DA(), .program = program,
+        .tokens = tokens, .current = tokens.data, .syncSpot = NULL
     };
     return parser;
 }
@@ -38,13 +36,14 @@ void free_parser(Parser *parser) {
 }
 
 /** Reports a parsing error on a specific, erroneous token, then starts panicking. */
-static void raise_parser_error_at(Parser *parser, const Token erroredToken, const char *message) {
+static void raise_parser_error_at(Parser *parser, Token *erroredToken, const char *message) {
     if (parser->isPanicking) {
         return;
     }
     parser->isPanicking = true;
+    parser->syncSpot = erroredToken;
     SYNTAX_ERROR(
-        parser->program, erroredToken.pos, message
+        parser->program, erroredToken->pos, message
     );
 }
 
@@ -57,17 +56,16 @@ static void raise_parser_error_at(Parser *parser, const Token erroredToken, cons
  * It errors the missing character by showing
  * the character after the token located before the missing one (which is what beforeMissing is).
  */
-static void raise_parser_error_missing(
-    Parser *parser, const Token beforeMissing, const char *message
-) {
+static void raise_parser_error_missing(Parser *parser, Token *beforeMissing, const char *message) {
     if (parser->isPanicking) {
         return;
     }
     parser->isPanicking = true;
+    parser->syncSpot = beforeMissing;
 
     // Errors out the character after the token located before the missing one.
     SourcePosition errorPos = create_src_pos(
-        beforeMissing.pos.line, beforeMissing.pos.column + beforeMissing.pos.length, 1
+        beforeMissing->pos.line, beforeMissing->pos.column + beforeMissing->pos.length, 1
     );
     SYNTAX_ERROR(parser->program, errorPos, message);
 }
@@ -81,7 +79,7 @@ static AstNode *primary(Parser *parser) {
     switch (ADVANCE_PEEK(parser).type) {
     case TOKEN_INT_LIT: return new_literal_node(parser->program, PEEK_PREVIOUS(parser));
     default:
-        raise_parser_error_at(parser, PEEK_PREVIOUS(parser), "Invalid expression.");
+        raise_parser_error_at(parser, &PEEK_PREVIOUS(parser), "Invalid expression.");
         return new_error_node(parser->program);
     }
 }
@@ -164,6 +162,8 @@ static AstNode *statement(Parser *parser) {
  */
 static void synchronize(Parser *parser) {
     parser->isPanicking = false;
+    parser->current = parser->syncSpot;
+    parser->syncSpot = NULL;
 
     while (!IS_EOF(parser)) {
         switch (PEEK(parser).type) {

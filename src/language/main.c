@@ -32,7 +32,6 @@ static void run_zmx_file(char *file) {
     Parser parser = create_parser(&program, lexer.tokens);
     if (!parse(&parser)) {
         printf("PARSING ERROR.\n");
-        exit(1);
     }
 #if DEBUG_PARSER
     print_ast(&parser.ast);
