@@ -1,0 +1,40 @@
+This file is documentation for each one of Zymux's operation codes (opcodes) for the VM.
+
+----------------------------------------------------------------------------------------------------
+
+Math opcodes:
+    Each one of these opcodes pops a first object from the stack, then a second one.
+    After that, applies an operation where the second popped object is the left operand,
+    and the first popped object is the right operand.
+    Finally, the result of the operation is pushed to the top of the stack.
+
+    Includes:
+        OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE, OP_MODULO, OP_EXPONENT
+
+    Example:
+        OP_DIVIDE first pops obj1, then obj2. The result of obj2 / obj1 is pushed to the stack.
+
+----------------------------------------------------------------------------------------------------
+
+Unary opcodes:
+    Pops the top object in the stack, then creates a new object that is the same as the popped one,
+    but with the unary operation applied on it.
+
+    Includes:
+        OP_MINUS, OP_NOT
+
+----------------------------------------------------------------------------------------------------
+
+Miscellaneous:
+    OP_LOAD_CONST:
+        Loads an object into the stack from the constant object pool.
+
+        Expects a number index after it in the bytecode which is used to index an object from the 
+        constant object pool that is currently being used.
+        It loads that object into the top of the stack.
+
+    OP_POP:
+        Simply pops one object from the stack and disposes of it.
+
+    OP_END:
+        Ends the currently executing VM.
