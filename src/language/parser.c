@@ -226,7 +226,7 @@ bool parse(Parser *parser) {
     while (!IS_EOF(parser)) {
         APPEND_DA(&parser->ast, declaration(parser));
     }
-    APPEND_DA(&parser->ast, new_eof_node(parser->program, PEEK(parser).pos)); // EOF.
+    APPEND_DA(&parser->ast, new_eof_node(parser->program, PEEK(parser).pos));
 
     return !parser->program->hasErrored;
 }

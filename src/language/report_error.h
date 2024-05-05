@@ -57,6 +57,9 @@ typedef struct {
 /** Returns a position in the source code created from the parameters */
 SourcePosition create_src_pos(int line, int column, int length);
 
+/** Checks whether pos1 and pos2 are the same. */
+bool equal_position(SourcePosition pos1, SourcePosition pos2);
+
 /** Displays an error relating to the user's operating system. */
 void os_error(const char *format, ...);
 

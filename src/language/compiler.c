@@ -77,6 +77,7 @@ static void compile_expr_stmt(Compiler *compiler, ExprStmtNode *node) {
     emit(compiler, OP_POP, get_node_pos(node->expr));
 }
 
+/** Compiles an EOF node. */
 static void compile_eof(Compiler *compiler, EofNode *node) {
     emit(compiler, OP_END, node->pos);
 }

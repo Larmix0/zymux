@@ -3,6 +3,7 @@
 
 #include "constants.h"
 #include "data_structures.h"
+#include "object.h"
 #include "report_error.h"
 
 typedef struct Compiler Compiler;

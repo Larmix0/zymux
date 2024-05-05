@@ -63,7 +63,7 @@ typedef struct {
     AstNode *expr;
 } ExprStmtNode;
 
-/** Node that simply represents EOF and holds the position of it. */
+/** Node that simply represents EOF and holds the its position. */
 typedef struct {
     AstNode node;
     SourcePosition pos;

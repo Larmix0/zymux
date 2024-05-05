@@ -5,11 +5,8 @@
 
 #include "node.c"
 
-static bool equal_position(SourcePosition pos1, SourcePosition pos2) {
-    return pos1.column == pos2.column && pos1.line == pos2.line && pos1.length == pos2.length;
-}
-
-PRIVATE_TEST_CASE(test_get_node_line) {
+/** Tests that we can get the position of a node correctly. */
+PRIVATE_TEST_CASE(test_get_node_pos) {
     ZmxProgram program = create_zmx_program("no_file", false);
 
     AstNode *leftLiteral = new_literal_node(&program, (Token){.pos = create_src_pos(3, 12, 4)});
@@ -30,6 +27,7 @@ PRIVATE_TEST_CASE(test_get_node_line) {
     free_zmx_program(&program);
 }
 
+/** Tests that we can generally create new nodes correctly. */
 PRIVATE_TEST_CASE(test_new_node) {
     ZmxProgram program = create_zmx_program("no_file", false);
     BinaryNode *binary = NEW_NODE(&program, AST_BINARY, BinaryNode);
@@ -41,7 +39,8 @@ PRIVATE_TEST_CASE(test_new_node) {
     free_zmx_program(&program);
 }
 
+/** Tests node.c. */
 void test_node() {
     TEST(test_new_node);
-    TEST(test_get_node_line);
+    TEST(test_get_node_pos);
 }

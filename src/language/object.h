@@ -55,7 +55,7 @@ typedef struct {
 /** Returns a new allocated int object from the passed integer. */
 IntObj *new_int_obj(ZmxProgram *program, ZmxInt integer);
 
-/** TODO: will need to change this as FuncObj gets more parameters. */
+/** TODO: will need to change this as FuncObj gets more parameters that'll need to be passed. */
 FuncObj *new_func_obj(ZmxProgram *program);
 
 /** Prints the passed object to the console. */

@@ -15,6 +15,11 @@ SourcePosition create_src_pos(int line, int column, int length) {
     return position;
 }
 
+/** Checks whether pos1 and pos2 are the same. */
+bool equal_position(SourcePosition pos1, SourcePosition pos2) {
+    return pos1.column == pos2.column && pos1.line == pos2.line && pos1.length == pos2.length;
+}
+
 /** Returns whether ch is a whitespace character or not. */
 static bool is_whitespace(const char ch) {
     switch (ch) {
