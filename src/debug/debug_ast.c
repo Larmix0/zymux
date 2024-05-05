@@ -35,19 +35,32 @@ static void append_binary_node(CharBuffer *astString, const BinaryNode *node) {
     eval_node(astString, node->rhs);
 }
 
+/** Appends an expression statement, which is just an expression that ends in semicolon. */
+static void append_expr_stmt_node(CharBuffer *astString, const ExprStmtNode *node) {
+    eval_node(astString, node->expr);
+}
+
+/** Appends an EOF string to the AST string. */
+static void append_eof_node(CharBuffer *astString) {
+    buffer_append_string(astString, "EOF");
+    buffer_append_char(astString, ' ');
+}
+
 /** Calls the appropriate append function for the passed node. */
 static void eval_node(CharBuffer *astString, const AstNode *node) {
-    // Literals don't get wrapped in parenthesis.
     if (node->type == AST_LITERAL) {
+        // Literals don't get wrapped in parenthesis.
         append_literal_node(astString, AS_PTR(node, LiteralNode));
         return;
     }
 
     buffer_append_char(astString, '(');
     switch (node->type) {
+    case AST_ERROR: append_error_node(astString); break;
     case AST_UNARY: append_unary_node(astString, AS_PTR(node, UnaryNode)); break;
     case AST_BINARY: append_binary_node(astString, AS_PTR(node, BinaryNode)); break;
-    case AST_ERROR: append_error_node(astString); break;
+    case AST_EXPR_STMT: append_expr_stmt_node(astString, AS_PTR(node, ExprStmtNode)); break;
+    case AST_EOF: append_eof_node(astString); break;
     default: UNREACHABLE_ERROR();
     }
     // Ensures string never has whitespace before closing parenthesis.

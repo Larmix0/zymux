@@ -140,7 +140,7 @@ static AstNode *expression(Parser *parser) {
 static AstNode *expression_stmt(Parser *parser) {
     AstNode *node = expression(parser);
     CONSUME(parser, TOKEN_SEMICOLON, "Expected \";\" after expression.");
-    return node;
+    return new_expr_stmt_node(parser->program, node);
 }
 
 /** Parses and returns a statement or expression-statement. */
@@ -226,6 +226,7 @@ bool parse(Parser *parser) {
     while (!IS_EOF(parser)) {
         APPEND_DA(&parser->ast, declaration(parser));
     }
+    APPEND_DA(&parser->ast, new_eof_node(parser->program, PEEK(parser).pos)); // EOF.
 
     return !parser->program->hasErrored;
 }

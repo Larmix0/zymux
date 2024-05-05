@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "debug_token.h"
 #include "debug_ast.h"
+#include "debug_bytecode.h"
+#include "debug_token.h"
+
+#include "compiler.h"
 #include "file.h"
 #include "lexer.h"
 #include "parser.h"
@@ -29,16 +32,26 @@ static void run_zmx_file(char *file) {
     Parser parser = create_parser(&program, lexer.tokens);
     if (!parse(&parser)) {
         printf("PARSING ERROR.\n");
+        exit(1);
     }
 #if DEBUG_PARSER
     print_ast(&parser.ast);
 #endif
 
+    Compiler compiler = create_compiler(&program, parser.ast, true);
+    if (!compile(&compiler)) {
+        printf("COMPILING ERROR.\n");
+    }
+#if DEBUG_COMPILER
+    print_bytecode(compiler.func);
+#endif
+
     free_lexer(&lexer);
     free_parser(&parser);
     free_all_nodes(&program);
-    free(source);
+    free_compiler(&compiler);
     free_zmx_program(&program);
+    free(source);
 }
 
 /** 

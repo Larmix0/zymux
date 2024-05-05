@@ -24,6 +24,7 @@ TEST_FIXTURE(setup_default_lexer) {
 TEST_FIXTURE(teardown_default_lexer) {
     free_zmx_program(defaultLexer->program);
     free(defaultLexer->program);
+
     free_lexer(defaultLexer);
     free(defaultLexer);
 }
@@ -208,6 +209,7 @@ PRIVATE_TEST_CASE(test_lex_errors) {
         ASSERT_TRUE(lexer.program->hasErrored);
         
         free_lexer(&lexer);
+        free_zmx_program(&program);
     }
 }
 

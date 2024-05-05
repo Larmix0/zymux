@@ -4,16 +4,14 @@
 #include "data_structures.h"
 #include "token.h"
 
-/** Allocates a new node of actualType. */
-#define NEW_NODE(program, astType, actualType) \
-    ((actualType *)new_node(program, astType, sizeof(actualType)))
-
 /** An enum to represent different types of AST nodes. */
 typedef enum {
     AST_ERROR,
     AST_LITERAL,
     AST_UNARY,
-    AST_BINARY
+    AST_BINARY,
+    AST_EXPR_STMT,
+    AST_EOF
 } AstType;
 
 /** Generic AST node struct for type punning. */
@@ -55,11 +53,21 @@ typedef struct {
     AstNode *rhs;
 } BinaryNode;
 
-/** Frees all the nodes allocated in the program. */
-void free_all_nodes(ZmxProgram *program);
+/**
+ * An expression statement is a statement that just holds an expression followed by a semicolon.
+ * 
+ * This is needed so the compiler knows to throw some extra opcodes after (like a pop).
+ */
+typedef struct {
+    AstNode node;
+    AstNode *expr;
+} ExprStmtNode;
 
-/** Allocates a new node of the passed type. Prefer to use the macro over this.*/
-AstNode *new_node(ZmxProgram *program, const AstType type, const size_t size);
+/** Node that simply represents EOF and holds the position of it. */
+typedef struct {
+    AstNode node;
+    SourcePosition pos;
+} EofNode;
 
 /** Returns an erroneous node which serves as a placeholder for returning a valid token. */
 AstNode *new_error_node(ZmxProgram *program);
@@ -72,5 +80,17 @@ AstNode *new_unary_node(ZmxProgram *program, Token operation, AstNode *rhs);
 
 /** Allocates a binary node, which holds information of an operation done between 2 operands. */
 AstNode *new_binary_node(ZmxProgram *program, AstNode *lhs, Token operation, AstNode *rhs);
+
+/** Allocates an expression statement node, which just holds an expression. */
+AstNode *new_expr_stmt_node(ZmxProgram *program, AstNode *expr);
+
+/** Returns a node which holds the position an EOF token. */
+AstNode *new_eof_node(ZmxProgram *program, SourcePosition eofPos);
+
+/** Returns the source position of an arbitrary node. */
+SourcePosition get_node_pos(AstNode *node);
+
+/** Frees all the nodes allocated in the program. */
+void free_all_nodes(ZmxProgram *program);
 
 #endif

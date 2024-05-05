@@ -27,11 +27,10 @@ void buffer_append_ast_strings(CharBuffer *buffer, const int amount, ...) {
     va_list args;
     va_start(args, amount);
     for (int i = 0; i < amount; i++) {
-        if (i != 0) {
-            buffer_append_string(buffer, AST_DEBUG_DELIMITER);
-        }
         buffer_append_string(buffer, va_arg(args, char *));
+        buffer_append_string(buffer, AST_DEBUG_DELIMITER);
     }
+    buffer_append_string(buffer, "(EOF)");
     va_end(args);
 }
 
@@ -60,8 +59,8 @@ PRIVATE_TEST_CASE(test_parser_expression) {
     CharBuffer expected = create_char_buffer();
     buffer_append_ast_strings(
         &expected, 5,
-        "232", "(** 3 2)", "(- 10 (- 10))", "(- (/ (* 2 (** 10 5)) 4) 9)",
-        "(% (* 0 (** 0xff (- (- (- (- 0)))))) 0)"
+        "(232)", "((** 3 2))", "((- 10 (- 10)))", "((- (/ (* 2 (** 10 5)) 4) 9))",
+        "((% (* 0 (** 0xff (- (- (- (- 0)))))) 0))"
     );
     ASSERT_STRING_EQUAL(actual.data, expected.data);
     free_char_buffer(&actual);

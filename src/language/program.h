@@ -24,6 +24,7 @@
     (ZMX_REALLOC((oldPointer), (amount) * sizeof(type)))
 
 typedef struct AstNode AstNode;
+typedef struct Obj Obj;
 
 /** Stores the state of Zymux throughout the entire execution of the program. */
 typedef struct ZmxProgram {
@@ -31,6 +32,7 @@ typedef struct ZmxProgram {
     bool showErrors;
     char *currentFile;
     AstNode *allNodes;
+    Obj *allObjs;
 } ZmxProgram;
 
 /** 

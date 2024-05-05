@@ -13,7 +13,12 @@
 // all sources other than main.c that aren't used by other test modules are here for linking.
 #include "debug_ast.c"
 #include "debug_token.c"
+#include "debug_bytecode.c"
+
 #include "report_error.c"
+#include "compiler.c"
+#include "emitter.c"
+#include "object.c"
 
 /** Main function of the unit tests that calls all file testers. */
 int main() {

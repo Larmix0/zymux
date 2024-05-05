@@ -2,20 +2,26 @@
 #include <string.h>
 
 #include "node.h"
+#include "object.h"
 #include "program.h"
 
 /** Returns an initialized Zymux program with the file and whether or not to show errors. */
 ZmxProgram create_zmx_program(char *file, bool showErrors) {
     ZmxProgram program = {
-        .hasErrored = false, .showErrors = showErrors, .currentFile = file, .allNodes = NULL
+        .hasErrored = false, .showErrors = showErrors, .currentFile = file,
+        .allNodes = NULL, .allObjs = NULL
     };
     return program;
 }
 
-/** Frees all the memory the passed program owns. */
+/** 
+ * Frees all the memory the passed program owns which is freed after the VM's execution.
+ * 
+ * This means it doesn't free nodes or tokens, as they should be manually freed
+ * after compiling and before executing the VM for runtime memory efficiency.
+ */
 void free_zmx_program(ZmxProgram *program) {
-    // Doesn't free nodes or tokens,
-    // as this should be manually done after compiling and before executing the VM.
+    free_all_objs(program);
 }
 
 /** 
