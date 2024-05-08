@@ -3,6 +3,9 @@
 
 #include "data_structures.h"
 #include "token.h"
+#include "program.h"
+
+typedef struct AstNode AstNode; // So an AST node can have other AST nodes inside it.
 
 /** An enum to represent different types of AST nodes. */
 typedef enum {

@@ -1,6 +1,7 @@
 #include "lukip.h"
 
 #include "compiler.h"
+#include "data_structures.h"
 
 #include "emitter.c"
 
@@ -9,17 +10,18 @@
 Compiler *defaultCompiler; /** Default compiler for testing the bytecode emitters. */
 
 /** A setup to initialize the default compiler. */
-TEST_FIXTURE(setup_default_compiler) {
+PRIVATE_DECLARE_SETUP(setup_default_compiler) {
     ZmxProgram *program = ZMX_TYPE_ALLOC(ZmxProgram);
     *program = create_zmx_program("default", false);
     NodeArray defaultAst = CREATE_DA();
+
 
     defaultCompiler = ZMX_TYPE_ALLOC(Compiler);
     *defaultCompiler = create_compiler(program, defaultAst, true);
 }
 
 /** A teardown for the default compiler and other things it uses. */
-TEST_FIXTURE(teardown_default_compiler) {
+PRIVATE_DECLARE_TEARDOWN(teardown_default_compiler) {
     free_all_nodes(defaultCompiler->program);
     FREE_DA(&defaultCompiler->ast);
 
@@ -82,8 +84,8 @@ PRIVATE_TEST_CASE(test_emit_const) {
 
 /** Tests emitter.c. */
 void test_emitter() {
-    MAKE_TEST_FIXTURE(setup_default_compiler, teardown_default_compiler);
+    MAKE_FIXTURE(setup_default_compiler, teardown_default_compiler);
     TEST(test_emit);
     TEST(test_emit_const);
-    RESET_TEST_FIXTURE();
+    RESET_FIXTURE();
 }

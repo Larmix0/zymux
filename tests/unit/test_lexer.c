@@ -12,7 +12,7 @@ char *defaultSource = "float && var (); $'str {2 * 3}' break; 22 44.2"
 Lexer *defaultLexer;
 
 /** A setup to initialize the default lexer. */
-TEST_FIXTURE(setup_default_lexer) {
+PRIVATE_DECLARE_SETUP(setup_default_lexer) {
     ZmxProgram *program = ZMX_TYPE_ALLOC(ZmxProgram);
     *program = create_zmx_program("default", false);
 
@@ -21,7 +21,7 @@ TEST_FIXTURE(setup_default_lexer) {
 }
 
 /** A teardown for the default lexer and the other things it uses. */
-TEST_FIXTURE(teardown_default_lexer) {
+PRIVATE_DECLARE_TEARDOWN(teardown_default_lexer) {
     free_zmx_program(defaultLexer->program);
     free(defaultLexer->program);
 
@@ -698,7 +698,7 @@ PRIVATE_TEST_CASE(test_base_number_checkers) {
 
 /** Tests lexer.c. */
 void test_lexer() {
-    MAKE_TEST_FIXTURE(setup_default_lexer, teardown_default_lexer);
+    MAKE_FIXTURE(setup_default_lexer, teardown_default_lexer);
     TEST(test_base_number_checkers);
     TEST(test_valid_syntax);
     TEST(test_handling_whitespace);
@@ -706,7 +706,7 @@ void test_lexer() {
     TEST(test_lexer_macro_helpers);
     TEST(test_lexer_struct_functions);
     TEST(test_error_functions);
-    RESET_TEST_FIXTURE();
+    RESET_FIXTURE();
 
     TEST(test_lex_number);
     TEST(test_lex_name);

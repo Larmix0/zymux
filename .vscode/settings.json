@@ -20,7 +20,8 @@
         "report_error.h": "c",
         "program.h": "c",
         "node.h": "c",
-        "test_dynamic_array.h": "c"
+        "test_dynamic_array.h": "c",
+        "regex": "c"
     },
     "cSpell.words": [
         "Zymux"

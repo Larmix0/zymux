@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "char_buffer.h"
+#include "program.h"
 
 /** Creates and initializes a char buffer with a NUL terminator already appended. */
 CharBuffer create_char_buffer() {

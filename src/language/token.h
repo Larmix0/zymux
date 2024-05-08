@@ -3,6 +3,7 @@
 
 #include "constants.h"
 #include "data_structures.h"
+#include "report_error.h"
 
 #define TOKEN_IS_TYPE(token, expected) (token.type == expected)
 

@@ -5,12 +5,12 @@
 CharBuffer defaultBuffer;
 
 /** Setup to automatically create a default buffer that is only initialized. */
-TEST_FIXTURE(buffer_setup) {
+PRIVATE_DECLARE_SETUP(buffer_setup) {
     defaultBuffer = create_char_buffer();
 }
 
 /** Teardown for the default empty buffer. */
-TEST_FIXTURE(buffer_teardown) {
+PRIVATE_DECLARE_TEARDOWN(buffer_teardown) {
     free_char_buffer(&defaultBuffer);
 }
 
@@ -58,9 +58,9 @@ PRIVATE_TEST_CASE(test_char_buffer_poppers) {
 
 /** Tests char_buffer.c. */
 void test_char_buffer() {
-    MAKE_TEST_FIXTURE(buffer_setup, buffer_teardown);
+    MAKE_FIXTURE(buffer_setup, buffer_teardown);
     TEST(test_char_buffer_create);
     TEST(test_char_buffer_appenders);
     TEST(test_char_buffer_poppers);
-    RESET_TEST_FIXTURE();
+    RESET_FIXTURE();
 }
