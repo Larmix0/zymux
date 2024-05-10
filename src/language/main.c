@@ -11,6 +11,7 @@
 #include "parser.h"
 #include "program.h"
 #include "report_error.h"
+#include "vm.h"
 
 /** Runs Zymux on a REPL loop. */
 static void repl() {
@@ -45,10 +46,16 @@ static void run_zmx_file(char *file) {
     print_bytecode(compiler.func);
 #endif
 
+    Vm vm = create_vm(&program, compiler.func);
+    if (!interpret(&vm)) {
+        printf("INTERPRETING ERROR.\n");
+    }
+
     free_lexer(&lexer);
     free_parser(&parser);
     free_all_nodes(&program);
     free_compiler(&compiler);
+    free_vm(&vm);
     free_zmx_program(&program);
     free(source);
 }

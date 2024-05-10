@@ -17,7 +17,10 @@
 #include "debug_ast.c"
 #include "debug_token.c"
 #include "debug_bytecode.c"
+#include "debug_runtime.c"
 #include "report_error.c"
+
+#include "vm.c" // TODO: this is temporary, VM will later be tested.
 
 /** Main function of the unit tests that calls all file testers. */
 int main() {

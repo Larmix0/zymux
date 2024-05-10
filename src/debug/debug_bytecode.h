@@ -3,6 +3,15 @@
 
 #include "object.h"
 
+typedef enum {
+    INSTR_NO_LINE_OR_PAD,
+    INSTR_NO_LINE,
+    INSTR_NORMAL
+} InstrFormat;
+
+/** Prints a single instruction depending on format, and modifies idx's value accordingly. */
+int print_instr(FuncObj *function, int idx, InstrFormat format);
+
 /**
  * Prints all of the bytecode stored inside function.
  * 

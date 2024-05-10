@@ -29,27 +29,35 @@ static void print_const_instr(
     putchar(')');
 }
 
-/** Prints a single instruction and modifies idx's value accordingly. */
-static void print_instr(FuncObj *function, int *idx) {
-    if (HAS_POS_INFO(function)) {
-        printf("%-10d", function->positions.data[*idx].line);
+/** Prints a single instruction depending on format, and modifies idx's value accordingly. */
+int print_instr(FuncObj *function, int idx, InstrFormat format) {
+    switch (format) {
+    case INSTR_NORMAL:
+        printf("%-10d", function->positions.data[idx].line);
+        printf("%11d   ", idx);
+        break;
+    case INSTR_NO_LINE:
+        printf("%11d   ", idx);
+        break;
+    case INSTR_NO_LINE_OR_PAD:
+        printf("%d ", idx);
     }
-    printf("%11d   ", *idx);
 
-    switch (function->bytecode.data[*idx]) {
-    case OP_LOAD_CONST: print_const_instr("LOAD_CONST", function, idx); break;
-    case OP_ADD: print_bare_instr("ADD", idx); break;
-    case OP_SUBTRACT: print_bare_instr("SUBTRACT", idx); break;
-    case OP_MULTIPLY: print_bare_instr("MULTIPLY", idx); break;
-    case OP_DIVIDE: print_bare_instr("DIVIDE", idx); break;
-    case OP_MODULO: print_bare_instr("MODULO", idx); break;
-    case OP_EXPONENT: print_bare_instr("EXPONENT", idx); break;
-    case OP_MINUS: print_bare_instr("MINUS", idx); break;
-    case OP_NOT: print_bare_instr("NOT", idx); break;
-    case OP_POP: print_bare_instr("POP", idx); break;
-    case OP_END: print_bare_instr("END", idx); break;
+    switch (function->bytecode.data[idx]) {
+    case OP_LOAD_CONST: print_const_instr("LOAD_CONST", function, &idx); break;
+    case OP_ADD: print_bare_instr("ADD", &idx); break;
+    case OP_SUBTRACT: print_bare_instr("SUBTRACT", &idx); break;
+    case OP_MULTIPLY: print_bare_instr("MULTIPLY", &idx); break;
+    case OP_DIVIDE: print_bare_instr("DIVIDE", &idx); break;
+    case OP_MODULO: print_bare_instr("MODULO", &idx); break;
+    case OP_EXPONENT: print_bare_instr("EXPONENT", &idx); break;
+    case OP_MINUS: print_bare_instr("MINUS", &idx); break;
+    case OP_NOT: print_bare_instr("NOT", &idx); break;
+    case OP_POP: print_bare_instr("POP", &idx); break;
+    case OP_END: print_bare_instr("END", &idx); break;
     }
     putchar('\n');
+    return idx;
 }
 
 /** 
@@ -69,10 +77,10 @@ void print_bytecode(FuncObj *function) {
     if (HAS_POS_INFO(function)) {
         printf("----------");
     }
-    printf("----------------------\n");
+    printf("--------------------\n");
 
-    // Loop doesn't increment the index, as print_instr() does that instead.
+    // Loop doesn't increment the index, as print_instr()'s return does that instead.
     for (int idx = 0; idx < function->bytecode.length;) {
-        print_instr(function, &idx);
+        idx = print_instr(function, idx, HAS_POS_INFO(function) ? INSTR_NORMAL : INSTR_NO_LINE);
     }
 }
