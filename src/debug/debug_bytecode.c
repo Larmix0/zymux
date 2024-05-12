@@ -45,12 +45,20 @@ int print_instr(FuncObj *function, int idx, InstrFormat format) {
 
     switch (function->bytecode.data[idx]) {
     case OP_LOAD_CONST: print_const_instr("LOAD_CONST", function, &idx); break;
+    case OP_TRUE: print_bare_instr("TRUE", &idx); break;
+    case OP_FALSE: print_bare_instr("FALSE", &idx); break;
     case OP_ADD: print_bare_instr("ADD", &idx); break;
     case OP_SUBTRACT: print_bare_instr("SUBTRACT", &idx); break;
     case OP_MULTIPLY: print_bare_instr("MULTIPLY", &idx); break;
     case OP_DIVIDE: print_bare_instr("DIVIDE", &idx); break;
     case OP_MODULO: print_bare_instr("MODULO", &idx); break;
     case OP_EXPONENT: print_bare_instr("EXPONENT", &idx); break;
+    case OP_EQ: print_bare_instr("EQUAL", &idx); break;
+    case OP_NOT_EQ: print_bare_instr("NOT_EQUAL", &idx); break;
+    case OP_GREATER: print_bare_instr("GREATER", &idx); break;
+    case OP_GREATER_EQ: print_bare_instr("GREATER_EQUAL", &idx); break;
+    case OP_LESS: print_bare_instr("LESS", &idx); break;
+    case OP_LESS_EQ: print_bare_instr("LESS_EQUAL", &idx); break;
     case OP_MINUS: print_bare_instr("MINUS", &idx); break;
     case OP_NOT: print_bare_instr("NOT", &idx); break;
     case OP_POP: print_bare_instr("POP", &idx); break;

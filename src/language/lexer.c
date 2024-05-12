@@ -878,7 +878,7 @@ static void lex_token(Lexer *lexer) {
     case '-': one_or_default(lexer, TOKEN_MINUS, '=', TOKEN_MINUS_EQ); break;
     case '/': one_or_default(lexer, TOKEN_SLASH, '=', TOKEN_SLASH_EQ); break;
     case '%': one_or_default(lexer, TOKEN_MODULO, '=', TOKEN_MODULO_EQ); break;
-    case '=': one_or_default(lexer, TOKEN_EQ, '=', TOKEN_EQ_EQ); break;
+    case '=': one_or_default(lexer, TOKEN_ASSIGN, '=', TOKEN_EQ_EQ); break;
     case '!': one_or_default(lexer, TOKEN_BANG, '=', TOKEN_BANG_EQ); break;
     case '^': one_or_default(lexer, TOKEN_CARET, '=', TOKEN_CARET_EQ); break;
     case '~': one_or_default(lexer, TOKEN_TILDE, '=', TOKEN_TILDE_EQ); break;

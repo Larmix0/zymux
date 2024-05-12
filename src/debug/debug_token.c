@@ -9,7 +9,7 @@ static void print_token(const Token token) {
     printf(
         "Token(lexeme=\"%.*s\", length=%d, line=%d, column=%d, type=%s",
         token.pos.length, token.lexeme, token.pos.length,
-        token.pos.line, token.pos.column, type_to_string(token.type)
+        token.pos.line, token.pos.column, token_type_as_string(token.type)
     );
     switch (token.type) {
         case TOKEN_INT_LIT:

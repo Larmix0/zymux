@@ -53,9 +53,9 @@ PRIVATE_TEST_CASE(test_equal_token) {
 
 /** Tests if converting a token type to a string literal works properly. */
 PRIVATE_TEST_CASE(test_type_to_string) {
-    ASSERT_STRING_EQUAL(type_to_string(TOKEN_LIST_KW), "LIST");
-    ASSERT_STRING_EQUAL(type_to_string(TOKEN_GREATER), "GREATER");
-    ASSERT_STRING_EQUAL(type_to_string(TOKEN_IDENTIFIER), "IDENTIFIER");
+    ASSERT_STRING_EQUAL(token_type_as_string(TOKEN_LIST_KW), "LIST");
+    ASSERT_STRING_EQUAL(token_type_as_string(TOKEN_GREATER), "GREATER");
+    ASSERT_STRING_EQUAL(token_type_as_string(TOKEN_IDENTIFIER), "IDENTIFIER");
 }
 
 /** Tests token.c. */

@@ -80,6 +80,10 @@ static AstNode *primary(Parser *parser) {
     case TOKEN_INT_LIT:
     case TOKEN_FLOAT_LIT:
         return new_literal_node(parser->program, PEEK_PREVIOUS(parser));
+
+    case TOKEN_TRUE_KW:
+    case TOKEN_FALSE_KW:
+        return new_keyword_node(parser->program, PEEK_PREVIOUS(parser));
     default:
         raise_parser_error_at(parser, &PEEK_PREVIOUS(parser), "Invalid expression.");
         return new_error_node(parser->program);
@@ -129,11 +133,34 @@ static AstNode *term(Parser *parser) {
     return expr;
 }
 
+/** Comparisons handle any comparison operations other than equal and unequal. */
+static AstNode *comparison(Parser *parser) {
+    AstNode *expr = term(parser);
+    while (CHECK(parser, TOKEN_GREATER) || CHECK(parser, TOKEN_GREATER_EQ)
+            || CHECK(parser, TOKEN_LESS) || CHECK(parser, TOKEN_LESS_EQ)) {
+        Token operation = ADVANCE_PEEK(parser);
+        AstNode *rhs = term(parser);
+        expr = new_binary_node(parser->program, expr, operation, rhs);
+    }
+    return expr;
+}
+
+/** Handles equal and not equal's precedence (which are executed after other comparisons). */
+static AstNode *equality(Parser *parser) {
+    AstNode *expr = comparison(parser);
+    while (CHECK(parser, TOKEN_EQ_EQ) || CHECK(parser, TOKEN_BANG_EQ)) {
+        Token operation = ADVANCE_PEEK(parser);
+        AstNode *rhs = comparison(parser);
+        expr = new_binary_node(parser->program, expr, operation, rhs);
+    }
+    return expr;
+}
+
 // TODO: find out if compound assignment is just underneath normal assignments in precedence.
 
 /** Parses and returns an expression. */
 static AstNode *expression(Parser *parser) {
-    return term(parser);
+    return equality(parser);
 }
 
 /** A statement which only holds an expression inside it. */

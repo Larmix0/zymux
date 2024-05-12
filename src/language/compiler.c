@@ -31,10 +31,18 @@ static void compile_literal(Compiler *compiler, LiteralNode *node) {
         literalAsObj = AS_PTR(new_float_obj(compiler->program, value.floatVal), Obj);
         break;
     case TOKEN_STRING_LIT: // TODO: implement string literals.
-    default:
-        UNREACHABLE_ERROR();
+    default: UNREACHABLE_ERROR();
     }
     emit_const(compiler, OP_LOAD_CONST, literalAsObj, node->value.pos);
+}
+
+/** Compiles a keyword node, which is one that holds a bare keyword and it's position. */
+static void compile_keyword(Compiler *compiler, KeywordNode *node) {
+    switch (node->keyword) {
+    case TOKEN_TRUE_KW: emit(compiler, OP_TRUE, node->pos); break;
+    case TOKEN_FALSE_KW: emit(compiler, OP_FALSE, node->pos); break;
+    default: UNREACHABLE_ERROR();
+    }
 }
 
 /** Compiles a unary node. */
@@ -64,6 +72,12 @@ static void compile_binary(Compiler *compiler, BinaryNode *node) {
     case TOKEN_SLASH: binaryOp = OP_DIVIDE; break;
     case TOKEN_MODULO: binaryOp = OP_MODULO; break;
     case TOKEN_EXPO: binaryOp = OP_EXPONENT; break;
+    case TOKEN_EQ_EQ: binaryOp = OP_EQ; break;
+    case TOKEN_BANG_EQ: binaryOp = OP_NOT_EQ; break;
+    case TOKEN_GREATER: binaryOp = OP_GREATER; break;
+    case TOKEN_GREATER_EQ: binaryOp = OP_GREATER_EQ; break;
+    case TOKEN_LESS: binaryOp = OP_LESS; break;
+    case TOKEN_LESS_EQ: binaryOp = OP_LESS_EQ; break;
     default: UNREACHABLE_ERROR();
     }
     emit(compiler, binaryOp, node->operation.pos);
@@ -87,6 +101,7 @@ static void compile_eof(Compiler *compiler, EofNode *node) {
 static void compile_node(Compiler *compiler, AstNode *node) {
     switch (node->type) {
         case AST_LITERAL: compile_literal(compiler, AS_PTR(node, LiteralNode)); break;
+        case AST_KEYWORD: compile_keyword(compiler, AS_PTR(node, KeywordNode)); break;
         case AST_UNARY: compile_unary(compiler, AS_PTR(node, UnaryNode)); break;
         case AST_BINARY: compile_binary(compiler, AS_PTR(node, BinaryNode)); break;
         case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(node, ExprStmtNode)); break;

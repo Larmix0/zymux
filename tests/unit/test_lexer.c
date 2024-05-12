@@ -103,7 +103,7 @@ static void compare_lexed(Lexer *lexer, TokenArray *expectedArray, bool compareS
             equal_token(lexed, expected),
             "Token %d (lexeme=\"%.*s\" type=%s) != (lexeme=\"%s\", type=%s)",
             tokenIdx + 1, lexed.pos.length, lexed.lexeme,
-            type_to_string(lexed.type), expected.lexeme, type_to_string(expected.type)
+            token_type_as_string(lexed.type), expected.lexeme, token_type_as_string(expected.type)
         );
         if (compareSpots) {
             ASSERT_INT_EQUAL(lexed.pos.line, expected.pos.line);
@@ -260,7 +260,7 @@ PRIVATE_TEST_CASE(test_lex_all_tokens) {
         test_token("?", TOKEN_QUESTION_MARK), test_token(":", TOKEN_COLON),
         test_string_token("str literal "), test_token("", TOKEN_FORMAT), test_int_token("100", 10),
         test_token("", TOKEN_STRING_END), test_int_token("22", 10), test_float_token("44.2"),
-        test_token("=", TOKEN_EQ), test_token("variable", TOKEN_IDENTIFIER),
+        test_token("=", TOKEN_ASSIGN), test_token("variable", TOKEN_IDENTIFIER),
         test_token("..", TOKEN_DOT_DOT)
     );
     ZmxProgram program = create_zmx_program("testAll", false);

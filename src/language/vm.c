@@ -5,7 +5,7 @@
 #include "emitter.h"
 #include "vm.h"
 
-#define MIN_STACK_SIZE 256
+#define MIN_STACK_SIZE 16
 
 /** Reads the current instruction and increments IP to prepare for the next one. */
 #define NEXT_INSTRUCTION(vm) (*(vm)->frame->ip++)
@@ -64,6 +64,16 @@
             DROP_AMOUNT((vm), 2); \
             PUSH(vm, AS_PTR(result, Obj)); \
         } \
+    } while (false)
+
+/** Binary operation that pops the last 2 values and pushes the resulting bool value from op. */
+#define BIN_OP_BOOL(vm, op) \
+    do { \
+        BoolObj *result = new_bool_obj( \
+            vm->program, NUM_VAL(BIN_LEFT((vm))) op NUM_VAL(BIN_RIGHT((vm))) \
+        ); \
+        DROP_AMOUNT((vm), 2); \
+        PUSH(vm, AS_PTR(result, Obj)); \
     } while (false)
 
 /** 
@@ -125,6 +135,8 @@ bool interpret(Vm *vm) {
         case OP_LOAD_CONST:
             PUSH(vm, READ_CONST(vm));
             break;
+        case OP_TRUE: PUSH(vm, AS_PTR(new_bool_obj(vm->program, true), Obj)); break;
+        case OP_FALSE: PUSH(vm, AS_PTR(new_bool_obj(vm->program, false), Obj)); break;
         case OP_ADD: BIN_OP(vm, +); break;
         case OP_SUBTRACT: BIN_OP(vm, -); break;
         case OP_MULTIPLY: BIN_OP(vm, *); break;
@@ -162,6 +174,22 @@ bool interpret(Vm *vm) {
             }
             break;
         }
+        case OP_EQ: {
+            BoolObj *result = new_bool_obj(vm->program, equal_obj(BIN_LEFT(vm), BIN_RIGHT(vm)));
+            DROP_AMOUNT(vm, 2);
+            PUSH(vm, AS_PTR(result, Obj));
+            break;
+        }
+        case OP_NOT_EQ: {
+            BoolObj *result = new_bool_obj(vm->program, !equal_obj(BIN_LEFT(vm), BIN_RIGHT(vm)));
+            DROP_AMOUNT(vm, 2);
+            PUSH(vm, AS_PTR(result, Obj));
+            break;
+        }
+        case OP_GREATER: BIN_OP_BOOL(vm, >); break;
+        case OP_GREATER_EQ: BIN_OP_BOOL(vm, >=); break;
+        case OP_LESS: BIN_OP_BOOL(vm, <); break;
+        case OP_LESS_EQ: BIN_OP_BOOL(vm, <=); break;
         case OP_MINUS:
             if (PEEK(vm)->type == OBJ_INT) {
                 ZmxInt negated = -AS_PTR(POP(vm), IntObj)->number;
@@ -171,7 +199,11 @@ bool interpret(Vm *vm) {
                 PUSH(vm, AS_PTR(new_float_obj(vm->program, negated), Obj));
             }
             break;
-        // case OP_NOT: print_bare_instr("NOT", &idx); break;
+        case OP_NOT: {
+            BoolObj *afterNot = new_bool_obj(vm->program, !obj_as_bool(POP(vm)));
+            PUSH(vm, AS_PTR(afterNot, Obj));
+            break;
+        }
         case OP_POP:
             DROP(vm);
             break;

@@ -22,6 +22,11 @@ static void append_literal_node(CharBuffer *astString, const LiteralNode *node) 
     buffer_append_token(astString, node->value);
 }
 
+/** Appends a bare keyword using token_type_as_string. */
+static void append_keyword_node(CharBuffer *astString, const KeywordNode *node) {
+    buffer_append_string(astString, token_type_as_string(node->keyword));
+}
+
 /** Appends a unary node's information. */
 static void append_unary_node(CharBuffer *astString, const UnaryNode *node) {
     buffer_append_token(astString, node->operation);
@@ -57,6 +62,7 @@ static void eval_node(CharBuffer *astString, const AstNode *node) {
     buffer_append_char(astString, '(');
     switch (node->type) {
     case AST_ERROR: append_error_node(astString); break;
+    case AST_KEYWORD: append_keyword_node(astString, AS_PTR(node, KeywordNode)); break;
     case AST_UNARY: append_unary_node(astString, AS_PTR(node, UnaryNode)); break;
     case AST_BINARY: append_binary_node(astString, AS_PTR(node, BinaryNode)); break;
     case AST_EXPR_STMT: append_expr_stmt_node(astString, AS_PTR(node, ExprStmtNode)); break;

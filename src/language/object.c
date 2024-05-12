@@ -32,6 +32,13 @@ FloatObj *new_float_obj(ZmxProgram *program, ZmxFloat number) {
     return object;
 }
 
+/** Returns a new allocated boolean object from the passed bool. TODO: intern booleans. */
+BoolObj *new_bool_obj(ZmxProgram *program, bool boolean) {
+    BoolObj *object = NEW_OBJ(program, OBJ_BOOL, BoolObj);
+    object->boolean = boolean;
+    return object;
+}
+
 /** TODO: change the implementation here too once function objects get more members. */
 FuncObj *new_func_obj(ZmxProgram *program) {
     FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);
@@ -41,11 +48,42 @@ FuncObj *new_func_obj(ZmxProgram *program) {
     return object;
 }
 
+/** Returns whether or not 2 objects are considered equal. */
+bool equal_obj(const Obj *left, const Obj *right) {
+    if (left->type != right->type) {
+        return false;
+    }
+
+    switch (left->type) {
+    case OBJ_INT: return AS_PTR(left, IntObj)->number == AS_PTR(right, IntObj)->number;
+    case OBJ_FLOAT: return AS_PTR(left, FloatObj)->number == AS_PTR(right, FloatObj)->number;
+    case OBJ_BOOL: return AS_PTR(left, BoolObj)->boolean == AS_PTR(right, BoolObj)->boolean;
+    case OBJ_FUNC: return left == right; // Compare addresses directly.
+
+    default: UNREACHABLE_ERROR(); return false; // Return to not have compiler warnings.
+    }
+}
+
+/** Returns whether the value of the passed object is "truthy" or "falsy" in a C boolean. */
+bool obj_as_bool(Obj *object) {
+    switch (object->type) {
+    case OBJ_INT: return AS_PTR(object, IntObj)->number != 0;
+    case OBJ_FLOAT: return AS_PTR(object, FloatObj)->number != 0.0;
+    case OBJ_BOOL: return AS_PTR(object, BoolObj)->boolean;
+
+    case OBJ_FUNC:
+        return true; // Always considered "truthy".
+
+    default: UNREACHABLE_ERROR(); return false;
+    }
+}
+
 /** Prints the passed object to the console. */
-void print_obj(Obj *object) {
+void print_obj(const Obj *object) {
     switch (object->type) {
         case OBJ_INT: printf(ZMX_INT_FMT, AS_PTR(object, IntObj)->number); break;
         case OBJ_FLOAT: printf(ZMX_FLOAT_FMT, AS_PTR(object, FloatObj)->number); break;
+        case OBJ_BOOL: printf("%s", AS_PTR(object, BoolObj)->boolean ? "true" : "false"); break;
         case OBJ_FUNC: // TODO: Implement function print when we add strings. 
         default: UNREACHABLE_ERROR();
     }
@@ -62,6 +100,7 @@ static void free_obj_contents(Obj *obj) {
     switch (obj->type) {
         case OBJ_INT:
         case OBJ_FLOAT:
+        case OBJ_BOOL:
             return;
 
         case OBJ_FUNC: {

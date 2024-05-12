@@ -31,6 +31,15 @@ AstNode *new_literal_node(ZmxProgram *program, Token value) {
     return AS_PTR(node, AstNode);
 }
 
+
+/** Returns a keyword node that is denoted by the token type. */
+AstNode *new_keyword_node(ZmxProgram *program, Token keyword) {
+    KeywordNode *node = NEW_NODE(program, AST_KEYWORD, KeywordNode);
+    node->keyword = keyword.type;
+    node->pos = keyword.pos;
+    return AS_PTR(node, AstNode);
+}
+
 /** Allocates a unary node, which is something that has one operation done on it. */
 AstNode *new_unary_node(ZmxProgram *program, Token operation, AstNode *rhs) {
     UnaryNode *node = NEW_NODE(program, AST_UNARY, UnaryNode);
@@ -73,6 +82,7 @@ SourcePosition get_node_pos(AstNode *node) {
     switch (node->type) {
     case AST_ERROR: return create_src_pos(0, 0, 0);
     case AST_LITERAL: return AS_PTR(node, LiteralNode)->value.pos;
+    case AST_KEYWORD: return AS_PTR(node, KeywordNode)->pos;
     case AST_UNARY: return AS_PTR(node, UnaryNode)->operation.pos;
     case AST_BINARY: return AS_PTR(node, BinaryNode)->operation.pos;
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(node, ExprStmtNode)->expr);

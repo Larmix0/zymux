@@ -11,6 +11,7 @@ typedef struct AstNode AstNode; // So an AST node can have other AST nodes insid
 typedef enum {
     AST_ERROR,
     AST_LITERAL,
+    AST_KEYWORD,
     AST_UNARY,
     AST_BINARY,
     AST_EXPR_STMT,
@@ -36,6 +37,13 @@ typedef struct {
     AstNode node;
     Token value;
 } LiteralNode;
+
+/** Represents a keyword that is parsed as alone like true, false, null, super, etc. */
+typedef struct {
+    AstNode node;
+    TokenType keyword;
+    SourcePosition pos;
+} KeywordNode;
 
 /**
  * A unary with an operation and a node as the RHS.
@@ -77,6 +85,9 @@ AstNode *new_error_node(ZmxProgram *program);
 
 /** Allocates a new literal node which just holds the literal value. */
 AstNode *new_literal_node(ZmxProgram *program, Token value);
+
+/** Returns a keyword node that is denoted by the token type. */
+AstNode *new_keyword_node(ZmxProgram *program, Token keyword);
 
 /** Allocates a unary node, which is something that has one operation done on it. */
 AstNode *new_unary_node(ZmxProgram *program, Token operation, AstNode *rhs);

@@ -70,7 +70,7 @@ typedef enum {
     TOKEN_STRING_LIT, TOKEN_INT_LIT, TOKEN_FLOAT_LIT,
 
     /** Miscellaneous token. */
-    TOKEN_EQ, TOKEN_IDENTIFIER, TOKEN_DOT_DOT, TOKEN_ERROR
+    TOKEN_ASSIGN, TOKEN_IDENTIFIER, TOKEN_DOT_DOT, TOKEN_ERROR
 } TokenType;
 
 /** A series of characters from the source code stored as a single unit. */
@@ -125,6 +125,6 @@ void free_tokens_contents(TokenArray *tokens);
 bool equal_token(const Token left, const Token right);
 
 /** Returns the passed token type as a string literal in all uppercase. */
-char *type_to_string(const TokenType type);
+char *token_type_as_string(const TokenType type);
 
 #endif

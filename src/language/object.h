@@ -11,6 +11,7 @@ typedef struct Obj Obj; // So Obj can have other Objs inside it.
 typedef enum {
     OBJ_INT,
     OBJ_FLOAT,
+    OBJ_BOOL,
     OBJ_FUNC
 } ObjType;
 
@@ -41,6 +42,12 @@ typedef struct {
     ZmxFloat number;
 } FloatObj;
 
+/** Represents a boolean (true or false) object. */
+typedef struct {
+    Obj obj;
+    bool boolean;
+} BoolObj;
+
 /**
  * TODO: this is a primitive version of the function object for the purposes of storing bytecode,
  * later on it'll have more stuff inside it, like its name.
@@ -65,11 +72,20 @@ IntObj *new_int_obj(ZmxProgram *program, ZmxInt number);
 /** Returns a new allocated float object from the passed floating number. */
 FloatObj *new_float_obj(ZmxProgram *program, ZmxFloat number);
 
+/** Returns a new allocated boolean object from the passed bool. */
+BoolObj *new_bool_obj(ZmxProgram *program, bool boolean);
+
 /** TODO: will need to change this as FuncObj gets more parameters that'll need to be passed. */
 FuncObj *new_func_obj(ZmxProgram *program);
 
+/** Returns whether or not 2 objects are considered equal. */
+bool equal_obj(const Obj *left, const Obj *right);
+
+/** Returns whether the value of the passed object is "truthy" or "falsy" in a C boolean. */
+bool obj_as_bool(Obj *object);
+
 /** Prints the passed object to the console. */
-void print_obj(Obj *object);
+void print_obj(const Obj *object);
 
 /** Frees all allocated objects stored in the passed program. */
 void free_all_objs(ZmxProgram *program);

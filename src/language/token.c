@@ -4,7 +4,7 @@
 #include "token.h"
 
 /** Returns the passed type as a string literal in all uppercase. */
-char *type_to_string(const TokenType type) {
+char *token_type_as_string(const TokenType type) {
     switch (type) {
         case TOKEN_STRING_KW: return "STRING";
         case TOKEN_INT_KW: return "INT";
@@ -90,7 +90,7 @@ char *type_to_string(const TokenType type) {
         case TOKEN_STRING_LIT: return "STRING_LITERAL";
         case TOKEN_INT_LIT: return "INTEGER_LITERAL";
         case TOKEN_FLOAT_LIT: return "FLOAT_LITERAL";
-        case TOKEN_EQ: return "EQUAL";
+        case TOKEN_ASSIGN: return "EQUAL";
         case TOKEN_IDENTIFIER: return "IDENTIFIER";
         case TOKEN_DOT_DOT: return "DOT_DOT";
         case TOKEN_EOF: return "EOF";
