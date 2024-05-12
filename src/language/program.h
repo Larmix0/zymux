@@ -48,7 +48,13 @@ void *zmx_alloc(const size_t size, const SourceInfo info);
 void *zmx_realloc(void *oldPointer, const size_t newSize, const SourceInfo info);
 
 /** Returns the number result of base to the power of exponent. */
-i64 zmx_power(const int base, const int exponent);
+ZmxInt zmx_int_power(const ZmxInt base, const ZmxInt exponent);
+
+/** Returns the base to the power of exponent (float). */
+ZmxFloat zmx_float_power(const ZmxFloat base, const ZmxFloat exponent);
+
+/** Returns the float result of dividend modulo divisor (both floats). */
+ZmxFloat zmx_float_modulo(ZmxFloat dividend, const ZmxFloat divisor);
 
 /** Returns an initialized zymux program with the parameters. */
 ZmxProgram create_zmx_program(char *file, bool showErrors);

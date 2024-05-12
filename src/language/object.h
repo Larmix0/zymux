@@ -10,6 +10,7 @@ typedef struct Obj Obj; // So Obj can have other Objs inside it.
 /** Represents all the different types of objects in Zymux in an enum. */
 typedef enum {
     OBJ_INT,
+    OBJ_FLOAT,
     OBJ_FUNC
 } ObjType;
 
@@ -31,8 +32,14 @@ DECLARE_DA_STRUCT(SourcePositionArray, SourcePosition);
 /** An integer object. */
 typedef struct {
     Obj obj;
-    ZmxInt integer;
+    ZmxInt number;
 } IntObj;
+
+/** A floating number object. */
+typedef struct {
+    Obj obj;
+    ZmxFloat number;
+} FloatObj;
 
 /**
  * TODO: this is a primitive version of the function object for the purposes of storing bytecode,
@@ -53,7 +60,10 @@ typedef struct {
 } FuncObj;
 
 /** Returns a new allocated int object from the passed integer. */
-IntObj *new_int_obj(ZmxProgram *program, ZmxInt integer);
+IntObj *new_int_obj(ZmxProgram *program, ZmxInt number);
+
+/** Returns a new allocated float object from the passed floating number. */
+FloatObj *new_float_obj(ZmxProgram *program, ZmxFloat number);
 
 /** TODO: will need to change this as FuncObj gets more parameters that'll need to be passed. */
 FuncObj *new_func_obj(ZmxProgram *program);

@@ -27,9 +27,10 @@ static void compile_literal(Compiler *compiler, LiteralNode *node) {
     case TOKEN_INT_LIT:
         literalAsObj = AS_PTR(new_int_obj(compiler->program, value.intVal), Obj);
         break;
-    // TODO: implement string and float literals.
     case TOKEN_FLOAT_LIT:
-    case TOKEN_STRING_LIT:
+        literalAsObj = AS_PTR(new_float_obj(compiler->program, value.floatVal), Obj);
+        break;
+    case TOKEN_STRING_LIT: // TODO: implement string literals.
     default:
         UNREACHABLE_ERROR();
     }

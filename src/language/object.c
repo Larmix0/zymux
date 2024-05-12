@@ -19,9 +19,16 @@ static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) 
 }
 
 /** Allocates an int object from the passed integer. */
-IntObj *new_int_obj(ZmxProgram *program, ZmxInt integer) {
+IntObj *new_int_obj(ZmxProgram *program, ZmxInt number) {
     IntObj *object = NEW_OBJ(program, OBJ_INT, IntObj);
-    object->integer = integer;
+    object->number = number;
+    return object;
+}
+
+/** Returns a new allocated float object from the passed floating number. */
+FloatObj *new_float_obj(ZmxProgram *program, ZmxFloat number) {
+    FloatObj *object = NEW_OBJ(program, OBJ_FLOAT, FloatObj);
+    object->number = number;
     return object;
 }
 
@@ -37,7 +44,8 @@ FuncObj *new_func_obj(ZmxProgram *program) {
 /** Prints the passed object to the console. */
 void print_obj(Obj *object) {
     switch (object->type) {
-        case OBJ_INT: printf(ZMX_INT_FMT, AS_PTR(object, IntObj)->integer); break;
+        case OBJ_INT: printf(ZMX_INT_FMT, AS_PTR(object, IntObj)->number); break;
+        case OBJ_FLOAT: printf(ZMX_FLOAT_FMT, AS_PTR(object, FloatObj)->number); break;
         case OBJ_FUNC: // TODO: Implement function print when we add strings. 
         default: UNREACHABLE_ERROR();
     }
@@ -53,6 +61,7 @@ void print_obj(Obj *object) {
 static void free_obj_contents(Obj *obj) {
     switch (obj->type) {
         case OBJ_INT:
+        case OBJ_FLOAT:
             return;
 
         case OBJ_FUNC: {

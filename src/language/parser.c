@@ -77,7 +77,9 @@ static void raise_parser_error_missing(Parser *parser, Token *beforeMissing, con
  */
 static AstNode *primary(Parser *parser) {
     switch (ADVANCE_PEEK(parser).type) {
-    case TOKEN_INT_LIT: return new_literal_node(parser->program, PEEK_PREVIOUS(parser));
+    case TOKEN_INT_LIT:
+    case TOKEN_FLOAT_LIT:
+        return new_literal_node(parser->program, PEEK_PREVIOUS(parser));
     default:
         raise_parser_error_at(parser, &PEEK_PREVIOUS(parser), "Invalid expression.");
         return new_error_node(parser->program);
