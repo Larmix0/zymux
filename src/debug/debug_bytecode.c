@@ -90,6 +90,13 @@ int print_instr(FuncObj *func, int idx, InstrFormat format) {
     return idx;
 }
 
+static void print_separator(FuncObj *func) {
+    if (HAS_POS_INFO(func)) {
+        printf("----------");
+    }
+    printf("--------------------\n");
+}
+
 /** 
  * Prints all the bytecode in the passed func.
  * 
@@ -98,16 +105,15 @@ int print_instr(FuncObj *func, int idx, InstrFormat format) {
  * but in that the loop won't end up triggering and printing anything anyways.
  */
 void print_bytecode(FuncObj *func) {
-    // TODO: show the name of the func when printing once string objects are added.
+    print_separator(func);
+    print_obj(AS_PTR(func, Obj), true);
+    putchar('\n');
+    print_separator(func);
     if (HAS_POS_INFO(func)) {
         printf("Line    | ");
     }
     printf("Instruction | OpCode\n");
-
-    if (HAS_POS_INFO(func)) {
-        printf("----------");
-    }
-    printf("--------------------\n");
+    print_separator(func);
 
     // Loop doesn't increment the index, as print_instr()'s return does that instead.
     for (int idx = 0; idx < func->bytecode.length;) {

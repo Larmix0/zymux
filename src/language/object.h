@@ -57,13 +57,18 @@ typedef struct {
 } StringObj;
 
 /**
- * TODO: this is a primitive version of the function object for the purposes of storing bytecode,
- * later on it'll have more stuff inside it, like its name.
- * Also, add documentation that mentions Zymux uses FuncObj to store top-level/global bytecode too.
+ * Represents an object that holds some bytecode, its positions and a constant pool for them.
+ * 
+ * It's a function object because it's a function/method most of the time.
+ * However, this is also used for the top-level bytecode and constant pool
+ * to achieve uniformity across the VM.
  */
 typedef struct {
     Obj obj;
-    
+
+    /** Name of the function. It gets a special name if it's the top-level code. */
+    StringObj *name;
+
     /** Stores the emitted bytecode of the function. */
     ByteArray bytecode;
 
@@ -86,8 +91,8 @@ BoolObj *new_bool_obj(ZmxProgram *program, bool boolean);
 /** Returns a new allocated string object. */
 StringObj *new_string_obj(ZmxProgram *program, char *string);
 
-/** TODO: will need to change this as FuncObj gets more parameters that'll need to be passed. */
-FuncObj *new_func_obj(ZmxProgram *program);
+/** Returns a new allocated function object. */
+FuncObj *new_func_obj(ZmxProgram *program, StringObj *name);
 
 /** Returns whether or not 2 objects are considered equal. */
 bool equal_obj(const Obj *left, const Obj *right);

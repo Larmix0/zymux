@@ -56,9 +56,10 @@ StringObj *new_string_obj(ZmxProgram *program, char *string) {
     return object;
 }
 
-/** TODO: change the implementation here too once function objects get more members. */
-FuncObj *new_func_obj(ZmxProgram *program) {
+/** Returns a new allocated function object with a name to it and its members initialized. */
+FuncObj *new_func_obj(ZmxProgram *program, StringObj *name) {
     FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);
+    object->name = name;
     INIT_DA(&object->bytecode);
     INIT_DA(&object->positions);
     INIT_DA(&object->constPool);
@@ -105,7 +106,7 @@ StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringO
 }
 
 // TODO: objects which can error during conversion can simply change the program's hasErrored
-// and/or return NULL.
+// and/or return NULL?
 
 /** Returns the passed object as a string value. */
 StringObj *as_string(ZmxProgram *program, Obj *object) {
@@ -125,11 +126,14 @@ StringObj *as_string(ZmxProgram *program, Obj *object) {
         snprintf(string, length + 1, ZMX_FLOAT_FMT, value);
         break;
     }
-    case OBJ_STRING: return AS_PTR(object, StringObj);
+    case OBJ_FUNC:
+        string = ZMX_ARRAY_ALLOC(AS_PTR(object, FuncObj)->name->length, char);
+        break;
     case OBJ_BOOL:
         // No need to allocate since it's only true or false.
         return new_string_obj(program, AS_PTR(object, BoolObj)->boolean ? "true" : "false");
-    case OBJ_FUNC: // TODO: if name of function is "add" then make the resulting string "<func add>"
+    case OBJ_STRING:
+        return AS_PTR(object, StringObj);
     default: UNREACHABLE_ERROR();
     }
     StringObj *result = new_string_obj(program, string);
@@ -164,14 +168,12 @@ void print_obj(const Obj *object, const bool debugPrint) {
     case OBJ_BOOL: printf("%s", AS_PTR(object, BoolObj)->boolean ? "true" : "false"); break;
     case OBJ_STRING:
         if (debugPrint) {
-            printf("\"");
-        }
-        printf("%s", AS_PTR(object, StringObj)->string);
-        if (debugPrint) {
-            printf("\"");
+            printf("\"%s\"", AS_PTR(object, StringObj)->string);
+        } else {
+            printf("%s", AS_PTR(object, StringObj)->string);
         }
         break;
-    case OBJ_FUNC: // TODO: Implement function print when we add strings. 
+    case OBJ_FUNC: printf("<func \"%s\">", AS_PTR(object, FuncObj)->name->string); break;
     default: UNREACHABLE_ERROR();
     }
 }

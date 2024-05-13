@@ -10,7 +10,8 @@
 /** Reads the current instruction and increments IP to prepare for the next one. */
 #define NEXT_INSTRUCTION(vm) (*(vm)->frame->ip++)
 
-// TODO: turn read_number to a macro for performance.
+// TODO: turn the read_number function fully to a macro for performance?
+// Pretty considerable since it's also used by the const reader.
 /** Reads the upcoming number in the bytecode. Prefer this over the function in the VM. */
 #define READ_NUMBER(vm) \
     (read_number((vm)->frame->func, (vm)->frame->ip++ - (vm)->frame->func->bytecode.data))

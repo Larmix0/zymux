@@ -7,7 +7,7 @@ static void compile_node(Compiler *compiler, AstNode *node);
 Compiler create_compiler(ZmxProgram *program, NodeArray ast, bool isDebugging) {
     Compiler compiler = {
         .program = program, .ast = ast, .isDebugging = isDebugging,
-        .func = new_func_obj(program)
+        .func = new_func_obj(program, new_string_obj(program, "<global>"))
     };
     return compiler;
 }
