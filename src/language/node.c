@@ -31,6 +31,13 @@ AstNode *new_literal_node(ZmxProgram *program, Token value) {
     return AS_PTR(node, AstNode);
 }
 
+/** Returns a string node: An array of nodes that alternate between string literals and exprs. */
+AstNode *new_string_node(ZmxProgram *program, NodeArray exprs) {
+    StringNode *node = NEW_NODE(program, AST_STRING, StringNode);
+    node->exprs = exprs;
+    return AS_PTR(node, AstNode);
+}
+
 
 /** Returns a keyword node that is denoted by the token type. */
 AstNode *new_keyword_node(ZmxProgram *program, Token keyword) {
@@ -85,12 +92,31 @@ SourcePosition get_node_pos(AstNode *node) {
     case AST_KEYWORD: return AS_PTR(node, KeywordNode)->pos;
     case AST_UNARY: return AS_PTR(node, UnaryNode)->operation.pos;
     case AST_BINARY: return AS_PTR(node, BinaryNode)->operation.pos;
+    case AST_STRING: return get_node_pos(AS_PTR(node, StringNode)->exprs.data[0]);
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(node, ExprStmtNode)->expr);
     case AST_EOF: return AS_PTR(node, EofNode)->pos;
     
     default: UNREACHABLE_ERROR(); return create_src_pos(0, 0, 0);
     }
 }
+
+/** Frees all the contents of the passed node. */
+static void free_node_contents(AstNode *node) {
+    switch (node->type) {
+    case AST_ERROR:
+    case AST_LITERAL:
+    case AST_KEYWORD:
+    case AST_UNARY:
+    case AST_BINARY:
+    case AST_EXPR_STMT:
+    case AST_EOF:
+        break; // Nothing to free.
+
+    case AST_STRING: FREE_DA(&AS_PTR(node, StringNode)->exprs); break;
+    default: UNREACHABLE_ERROR();
+    }
+}
+
 
 /** Frees all nodes that were allocated and placed inside the passed program. */
 void free_all_nodes(ZmxProgram *program) {
@@ -101,6 +127,7 @@ void free_all_nodes(ZmxProgram *program) {
     AstNode *current = program->allNodes;
     AstNode *next = current->next;
     while (current != NULL) {
+        free_node_contents(current);
         free(current);
         current = next;
         if (next != NULL) {

@@ -564,7 +564,7 @@ static void lex_interpolation(Lexer *lexer, StringLexer *string) {
         return;
     }
 
-    append_implicit(lexer, TOKEN_FORMAT);
+    append_implicit(lexer, TOKEN_INTERPOLATE);
     while (ignore_interpolation_whitespace(lexer) && lexer->current < exprEnd) {
         lex_token(lexer);
     }
@@ -595,7 +595,7 @@ static bool interpolate(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
 /** 
  * Finishes an interpolation.
  * 
- * It tries to interpolate, if it succeeds then it'll append a TOKEN_FORMAT and keep going.
+ * It tries to interpolate, if it succeeds then it'll append a TOKEN_INTERPOLATE and keep going.
  * There's an edge case if we see the closing quote though, indicating the string finished
  * on the interpolation, in which case we append STRING_END ourselves and return false to stop.
  * 
@@ -611,7 +611,7 @@ static bool interpolation_end(Lexer *lexer, StringLexer *string, CharBuffer *buf
         append_implicit(lexer, TOKEN_STRING_END);
         return false;
     } else {
-        append_implicit(lexer, TOKEN_FORMAT);
+        append_implicit(lexer, TOKEN_INTERPOLATE);
         return true;
     }
 }

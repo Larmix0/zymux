@@ -1,5 +1,6 @@
-#include "stdio.h"
-#include "stdlib.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "object.h"
 #include "program.h"
@@ -39,6 +40,22 @@ BoolObj *new_bool_obj(ZmxProgram *program, bool boolean) {
     return object;
 }
 
+/** 
+ * Returns a new allocated string object.
+ * 
+ * This function manually allocates a copy of the passed string, so the responsibility
+ * of potentially having to free the passed string is not passed to the string object.
+ */
+StringObj *new_string_obj(ZmxProgram *program, char *string) {
+    StringObj *object = NEW_OBJ(program, OBJ_STRING, StringObj);
+    object->length = strlen(string);
+
+    object->string = ZMX_ARRAY_ALLOC(object->length + 1, char);
+    strncpy(object->string, string, object->length);
+    object->string[object->length] = '\0';
+    return object;
+}
+
 /** TODO: change the implementation here too once function objects get more members. */
 FuncObj *new_func_obj(ZmxProgram *program) {
     FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);
@@ -58,34 +75,104 @@ bool equal_obj(const Obj *left, const Obj *right) {
     case OBJ_INT: return AS_PTR(left, IntObj)->number == AS_PTR(right, IntObj)->number;
     case OBJ_FLOAT: return AS_PTR(left, FloatObj)->number == AS_PTR(right, FloatObj)->number;
     case OBJ_BOOL: return AS_PTR(left, BoolObj)->boolean == AS_PTR(right, BoolObj)->boolean;
-    case OBJ_FUNC: return left == right; // Compare addresses directly.
+    case OBJ_STRING:
+        // TODO: this is temporary. Once interning is added, do an address equality check.
+        if (AS_PTR(left, StringObj)->length != AS_PTR(right, StringObj)->length) {
+            return false;
+        }
+        return strncmp(
+            AS_PTR(left, StringObj)->string,
+            AS_PTR(right, StringObj)->string,
+            AS_PTR(left, StringObj)->length
+        );
+    case OBJ_FUNC:
+        return left == right; // Compare addresses directly.
 
     default: UNREACHABLE_ERROR(); return false; // Return to not have compiler warnings.
     }
 }
 
-/** Returns whether the value of the passed object is "truthy" or "falsy" in a C boolean. */
-bool obj_as_bool(Obj *object) {
-    switch (object->type) {
-    case OBJ_INT: return AS_PTR(object, IntObj)->number != 0;
-    case OBJ_FLOAT: return AS_PTR(object, FloatObj)->number != 0.0;
-    case OBJ_BOOL: return AS_PTR(object, BoolObj)->boolean;
+/** Returns a new string object that is formed from concatenating left with right. */
+StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringObj *right) {
+    char *concatenated = ZMX_ARRAY_ALLOC(left->length + right->length + 1, char);
+    strncpy(concatenated, left->string, left->length);
+    strncpy(concatenated + left->length, right->string, right->length);
+    concatenated[left->length + right->length] = '\0';
 
-    case OBJ_FUNC:
-        return true; // Always considered "truthy".
-
-    default: UNREACHABLE_ERROR(); return false;
-    }
+    StringObj *result = new_string_obj(program, concatenated);
+    free(concatenated);
+    return result;
 }
 
-/** Prints the passed object to the console. */
-void print_obj(const Obj *object) {
+// TODO: objects which can error during conversion can simply change the program's hasErrored
+// and/or return NULL.
+
+/** Returns the passed object as a string value. */
+StringObj *as_string(ZmxProgram *program, Obj *object) {
+    char *string;
     switch (object->type) {
-        case OBJ_INT: printf(ZMX_INT_FMT, AS_PTR(object, IntObj)->number); break;
-        case OBJ_FLOAT: printf(ZMX_FLOAT_FMT, AS_PTR(object, FloatObj)->number); break;
-        case OBJ_BOOL: printf("%s", AS_PTR(object, BoolObj)->boolean ? "true" : "false"); break;
-        case OBJ_FUNC: // TODO: Implement function print when we add strings. 
-        default: UNREACHABLE_ERROR();
+    case OBJ_INT: {
+        ZmxInt value = AS_PTR(object, IntObj)->number;
+        const int length = snprintf(NULL, 0, ZMX_INT_FMT, value);
+        string = ZMX_ARRAY_ALLOC(length + 1, char);
+        snprintf(string, length + 1, ZMX_INT_FMT, value);
+        break;
+    }
+    case OBJ_FLOAT: {
+        ZmxFloat value = AS_PTR(object, FloatObj)->number;
+        const int length = snprintf(NULL, 0, ZMX_FLOAT_FMT, value);
+        string = ZMX_ARRAY_ALLOC(length + 1, char);
+        snprintf(string, length + 1, ZMX_FLOAT_FMT, value);
+        break;
+    }
+    case OBJ_STRING: return AS_PTR(object, StringObj);
+    case OBJ_BOOL:
+        // No need to allocate since it's only true or false.
+        return new_string_obj(program, AS_PTR(object, BoolObj)->boolean ? "true" : "false");
+    case OBJ_FUNC: // TODO: if name of function is "add" then make the resulting string "<func add>"
+    default: UNREACHABLE_ERROR();
+    }
+    StringObj *result = new_string_obj(program, string);
+    free(string);
+    return result;
+}
+
+/** Returns the passed object's boolean (whether it's considered "truthy" or "falsy"). */
+BoolObj *as_bool(ZmxProgram *program, Obj *object) {
+    bool result;
+    switch (object->type) {
+    case OBJ_FUNC:
+        // Always considered "truthy".
+        result = true;
+        break;
+
+    case OBJ_INT: result = AS_PTR(object, IntObj)->number != 0; break;
+    case OBJ_FLOAT: result = AS_PTR(object, FloatObj)->number != 0.0; break;
+    case OBJ_BOOL: result = AS_PTR(object, BoolObj)->boolean; break;
+    case OBJ_STRING: result = AS_PTR(object, StringObj)->length != 0; break;
+    default: UNREACHABLE_ERROR(); result = false; break;
+    }
+    return new_bool_obj(program, result);
+}
+
+/** 
+ * Prints the passed object to the console. The output depends on whether to debugPrint or not. */
+void print_obj(const Obj *object, const bool debugPrint) {
+    switch (object->type) {
+    case OBJ_INT: printf(ZMX_INT_FMT, AS_PTR(object, IntObj)->number); break;
+    case OBJ_FLOAT: printf(ZMX_FLOAT_FMT, AS_PTR(object, FloatObj)->number); break;
+    case OBJ_BOOL: printf("%s", AS_PTR(object, BoolObj)->boolean ? "true" : "false"); break;
+    case OBJ_STRING:
+        if (debugPrint) {
+            printf("\"");
+        }
+        printf("%s", AS_PTR(object, StringObj)->string);
+        if (debugPrint) {
+            printf("\"");
+        }
+        break;
+    case OBJ_FUNC: // TODO: Implement function print when we add strings. 
+    default: UNREACHABLE_ERROR();
     }
 }
 
@@ -96,15 +183,16 @@ void print_obj(const Obj *object) {
  * shouldn't free that object, as it was already stored in a Zymux program struct,
  * which will free it later anyways.
  */
-static void free_obj_contents(Obj *obj) {
-    switch (obj->type) {
+static void free_obj_contents(Obj *object) {
+    switch (object->type) {
         case OBJ_INT:
         case OBJ_FLOAT:
         case OBJ_BOOL:
             return;
 
+        case OBJ_STRING: free(AS_PTR(object, StringObj)->string); break;
         case OBJ_FUNC: {
-            FuncObj *func = AS_PTR(obj, FuncObj);
+            FuncObj *func = AS_PTR(object, FuncObj);
             FREE_DA(&func->bytecode);
             FREE_DA(&func->constPool);
             FREE_DA(&func->positions);

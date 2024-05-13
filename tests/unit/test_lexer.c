@@ -251,17 +251,18 @@ PRIVATE_TEST_CASE(test_lex_all_tokens) {
         test_token("~=", TOKEN_TILDE_EQ), test_token("+", TOKEN_PLUS),
         test_token("-", TOKEN_MINUS), test_token("*", TOKEN_STAR),
         test_token("/", TOKEN_SLASH), test_token("%", TOKEN_MODULO),
-        test_token("**", TOKEN_EXPO), test_token("==", TOKEN_EQ_EQ), test_token("!=", TOKEN_BANG_EQ),
-        test_token(">", TOKEN_GREATER), test_token(">=", TOKEN_GREATER_EQ), test_token("<", TOKEN_LESS),
+        test_token("**", TOKEN_EXPO), test_token("==", TOKEN_EQ_EQ),
+        test_token("!=", TOKEN_BANG_EQ), test_token(">", TOKEN_GREATER),
+        test_token(">=", TOKEN_GREATER_EQ), test_token("<", TOKEN_LESS),
         test_token("<=", TOKEN_LESS_EQ), test_token("(", TOKEN_LPAR), test_token(")", TOKEN_RPAR),
         test_token("[", TOKEN_LSQUARE), test_token("]", TOKEN_RSQUARE),
         test_token("{", TOKEN_LCURLY), test_token("}", TOKEN_RCURLY),
         test_token(";", TOKEN_SEMICOLON), test_token(",", TOKEN_COMMA), test_token(".", TOKEN_DOT),
         test_token("?", TOKEN_QUESTION_MARK), test_token(":", TOKEN_COLON),
-        test_string_token("str literal "), test_token("", TOKEN_FORMAT), test_int_token("100", 10),
-        test_token("", TOKEN_STRING_END), test_int_token("22", 10), test_float_token("44.2"),
-        test_token("=", TOKEN_ASSIGN), test_token("variable", TOKEN_IDENTIFIER),
-        test_token("..", TOKEN_DOT_DOT)
+        test_string_token("str literal "), test_token("", TOKEN_INTERPOLATE),
+        test_int_token("100", 10), test_token("", TOKEN_STRING_END), test_int_token("22", 10),
+        test_float_token("44.2"), test_token("=", TOKEN_ASSIGN),
+        test_token("variable", TOKEN_IDENTIFIER), test_token("..", TOKEN_DOT_DOT)
     );
     ZmxProgram program = create_zmx_program("testAll", false);
     Lexer lexer = create_lexer(&program, source);
@@ -398,39 +399,39 @@ PRIVATE_TEST_CASE(test_lex_string) {
         test_token("", TOKEN_STRING_END),
 
         test_string_token("Interpolated { <- escaped "),
-        test_token("", TOKEN_FORMAT), test_int_token("3", 10),
+        test_token("", TOKEN_INTERPOLATE), test_int_token("3", 10),
         test_token("*", TOKEN_STAR), test_string_token("And "),
-        test_token("", TOKEN_FORMAT), test_int_token("2", 10),
+        test_token("", TOKEN_INTERPOLATE), test_int_token("2", 10),
         test_token("+", TOKEN_PLUS), test_int_token("3", 10),
-        test_token("", TOKEN_FORMAT), test_string_token(" is nested"),
+        test_token("", TOKEN_INTERPOLATE), test_string_token(" is nested"),
         test_token("", TOKEN_STRING_END), test_token("+", TOKEN_PLUS), test_int_token("2", 10),
         test_token("", TOKEN_STRING_END),
 
-        test_string_token("Interpolated raw \\"), test_token("", TOKEN_FORMAT),
+        test_string_token("Interpolated raw \\"), test_token("", TOKEN_INTERPOLATE),
         test_int_token("2", 10), test_token("+", TOKEN_PLUS), test_int_token("3", 10),
         test_token("", TOKEN_STRING_END),
 
-        test_string_token(""), test_token("", TOKEN_FORMAT),
-        test_string_token(""), test_token("", TOKEN_FORMAT),
+        test_string_token(""), test_token("", TOKEN_INTERPOLATE),
+        test_string_token(""), test_token("", TOKEN_INTERPOLATE),
         test_int_token("1", 10), test_token("+", TOKEN_PLUS),
         test_int_token("2", 10), test_token("", TOKEN_STRING_END),
-        test_token("", TOKEN_FORMAT), test_string_token(" end"),
+        test_token("", TOKEN_INTERPOLATE), test_string_token(" end"),
         test_token("", TOKEN_STRING_END),
 
-        test_string_token(" "), test_token("", TOKEN_FORMAT),
-        test_string_token(" "), test_token("", TOKEN_FORMAT),
+        test_string_token(" "), test_token("", TOKEN_INTERPOLATE),
+        test_string_token(" "), test_token("", TOKEN_INTERPOLATE),
         test_int_token("7", 10), test_token("**", TOKEN_EXPO),
-        test_int_token("23", 10), test_token("", TOKEN_FORMAT),
+        test_int_token("23", 10), test_token("", TOKEN_INTERPOLATE),
         test_string_token(" "), test_token("", TOKEN_STRING_END),
-        test_token("", TOKEN_FORMAT), test_string_token(" "),
+        test_token("", TOKEN_INTERPOLATE), test_string_token(" "),
         test_token("", TOKEN_STRING_END),
 
         test_string_token("unclosed { left curly, but not interpolated."),
         test_token("", TOKEN_STRING_END),
 
-        test_string_token(""), test_token("", TOKEN_FORMAT),
-        test_string_token("Empty "), test_token("", TOKEN_FORMAT),
-        test_string_token(""), test_token("", TOKEN_FORMAT), test_string_token("brace."),
+        test_string_token(""), test_token("", TOKEN_INTERPOLATE),
+        test_string_token("Empty "), test_token("", TOKEN_INTERPOLATE),
+        test_string_token(""), test_token("", TOKEN_INTERPOLATE), test_string_token("brace."),
         test_token("", TOKEN_STRING_END)
     );
     ZmxProgram program = create_zmx_program("testString", false);
@@ -635,10 +636,10 @@ PRIVATE_TEST_CASE(test_lexer_struct_functions) {
     Token keyword = test_token_pos("float", 1, 2, TOKEN_FLOAT_KW);
     ASSERT_TRUE(equal_token(LAST_TOKEN(defaultLexer), keyword));
 
-    append_implicit(defaultLexer, TOKEN_FORMAT);
+    append_implicit(defaultLexer, TOKEN_INTERPOLATE);
     ASSERT_TRUE(equal_token(
         LAST_TOKEN(defaultLexer),
-        test_token_pos("", defaultLexer->line, defaultLexer->column, TOKEN_FORMAT)
+        test_token_pos("", defaultLexer->line, defaultLexer->column, TOKEN_INTERPOLATE)
     ));
 
     ADVANCE(defaultLexer);

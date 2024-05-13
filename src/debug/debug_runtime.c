@@ -10,7 +10,7 @@ static void print_stack(Obj **stack, const int stackLength) {
             printf(" | ");
         }
         printf("{");
-        print_obj(stack[i]);
+        print_obj(stack[i], true);
         printf("}");
     }
 }

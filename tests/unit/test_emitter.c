@@ -34,9 +34,9 @@ PRIVATE_DECLARE_TEARDOWN(teardown_default_compiler) {
 
 /** Tests the main byte emit function. */
 PRIVATE_TEST_CASE(test_emit) {
-    emit(defaultCompiler, OP_LOAD_CONST, create_src_pos(1, 12, 6));
-    emit(defaultCompiler, OP_ADD, create_src_pos(1, 1, 1));
-    emit(defaultCompiler, OP_END, create_src_pos(99, 100, 100));
+    emit_instr(defaultCompiler, OP_LOAD_CONST, create_src_pos(1, 12, 6));
+    emit_instr(defaultCompiler, OP_ADD, create_src_pos(1, 1, 1));
+    emit_instr(defaultCompiler, OP_END, create_src_pos(99, 100, 100));
 
     u8 *bytecode = defaultCompiler->func->bytecode.data;
     ASSERT_UINT8_EQUAL(bytecode[0], OP_LOAD_CONST);
@@ -78,8 +78,8 @@ PRIVATE_TEST_CASE(test_emit_const) {
     ASSERT_INT_EQUAL(constPool[bytecode[1]]->type, OBJ_INT);
     ASSERT_INT_EQUAL(constPool[bytecode[3]]->type, OBJ_INT);
 
-    ASSERT_INT_EQUAL(AS_PTR(constPool[bytecode[1]], IntObj)->integer, 72);
-    ASSERT_INT_EQUAL(AS_PTR(constPool[bytecode[3]], IntObj)->integer, 14);
+    ASSERT_INT_EQUAL(AS_PTR(constPool[bytecode[1]], IntObj)->number, 72);
+    ASSERT_INT_EQUAL(AS_PTR(constPool[bytecode[3]], IntObj)->number, 14);
 }
 
 /** Tests emitter.c. */

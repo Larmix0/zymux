@@ -16,10 +16,11 @@
 #define CONSUME(parser, expected, message) \
     (CHECK((parser), (expected)) \
         ? ADVANCE_PEEK((parser)) \
-        : (raise_parser_error_missing((parser), &PEEK_PREVIOUS((parser)), (message)), \
-            PEEK(parser)))
+        : (raise_parser_error_missing((parser), &PEEK_PREVIOUS((parser)), (message)), PEEK(parser)))
 
 #define IS_EOF(parser) (CHECK((parser), TOKEN_EOF))
+
+static AstNode *expression(Parser *parser);
 
 /** Returns an initialized parser. */
 Parser create_parser(ZmxProgram *program, TokenArray tokens) {
@@ -70,6 +71,28 @@ static void raise_parser_error_missing(Parser *parser, Token *beforeMissing, con
     SYNTAX_ERROR(parser->program, errorPos, message);
 }
 
+/**
+ * Parse out a full string.
+ * 
+ * This is done by alternating between parsing a string literal and an interpolated expression
+ * until the STRING_END token is seen.
+ */
+static AstNode *string(Parser *parser) {
+    NodeArray exprs = CREATE_DA();
+    bool nextIsString = true;
+    while (!MATCH(parser, TOKEN_STRING_END)) {
+        if (nextIsString) {
+            Token literal = CONSUME(parser, TOKEN_STRING_LIT, "Expected a string literal.");
+            APPEND_DA(&exprs, new_literal_node(parser->program, literal));
+        } else {
+            APPEND_DA(&exprs, expression(parser));
+        }
+        nextIsString = nextIsString ? false : true;
+        MATCH(parser, TOKEN_INTERPOLATE);
+    }
+    return new_string_node(parser->program, exprs);
+}
+
 /** 
  * Parses and returns a primary.
  * 
@@ -80,6 +103,10 @@ static AstNode *primary(Parser *parser) {
     case TOKEN_INT_LIT:
     case TOKEN_FLOAT_LIT:
         return new_literal_node(parser->program, PEEK_PREVIOUS(parser));
+
+    case TOKEN_STRING_LIT:
+        RETREAT(parser); // Leave parsing the whole string to the string parser.
+        return string(parser);
 
     case TOKEN_TRUE_KW:
     case TOKEN_FALSE_KW:

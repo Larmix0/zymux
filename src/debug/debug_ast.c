@@ -7,7 +7,13 @@ static void eval_node(CharBuffer *astString, const AstNode *node);
 
 /** Abstraction for appending a token to the passed astString. */
 static void buffer_append_token(CharBuffer *astString, const Token token) {
+    if (token.type == TOKEN_STRING_LIT) {
+        buffer_append_char(astString, '"'); // Append starting quote of string literal.
+    }
     buffer_append_string_len(astString, token.lexeme, token.pos.length);
+    if (token.type == TOKEN_STRING_LIT) {
+        buffer_append_char(astString, '"'); // Append ending quote of string literal.
+    }
     buffer_append_char(astString, ' ');
 }
 
@@ -20,6 +26,14 @@ static void append_error_node(CharBuffer *astString) {
 /** Appends a literal's information. */
 static void append_literal_node(CharBuffer *astString, const LiteralNode *node) {
     buffer_append_token(astString, node->value);
+}
+
+/** Appends the node which holds a full string (including the formatting) in it. */
+static void append_string_node(CharBuffer *astString, const StringNode *node) {
+    buffer_append_string(astString, "<String> ");
+    for (int i = 0; i < node->exprs.length; i++) {
+        eval_node(astString, node->exprs.data[i]);
+    }
 }
 
 /** Appends a bare keyword using token_type_as_string. */
@@ -62,6 +76,7 @@ static void eval_node(CharBuffer *astString, const AstNode *node) {
     buffer_append_char(astString, '(');
     switch (node->type) {
     case AST_ERROR: append_error_node(astString); break;
+    case AST_STRING: append_string_node(astString, AS_PTR(node, StringNode)); break;
     case AST_KEYWORD: append_keyword_node(astString, AS_PTR(node, KeywordNode)); break;
     case AST_UNARY: append_unary_node(astString, AS_PTR(node, UnaryNode)); break;
     case AST_BINARY: append_binary_node(astString, AS_PTR(node, BinaryNode)); break;

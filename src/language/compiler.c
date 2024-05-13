@@ -30,17 +30,41 @@ static void compile_literal(Compiler *compiler, LiteralNode *node) {
     case TOKEN_FLOAT_LIT:
         literalAsObj = AS_PTR(new_float_obj(compiler->program, value.floatVal), Obj);
         break;
-    case TOKEN_STRING_LIT: // TODO: implement string literals.
+    case TOKEN_STRING_LIT:
+        literalAsObj = AS_PTR(new_string_obj(compiler->program, value.stringVal.text), Obj);
+        break;
     default: UNREACHABLE_ERROR();
     }
     emit_const(compiler, OP_LOAD_CONST, literalAsObj, node->value.pos);
 }
 
+/** 
+ * Compiles the node which holds all information of a string (including interpolation).
+ * 
+ * It alternates between emitting a string const and compiling an interpolated expression.
+ * When is compiled, an instruction to convert the expression's result to a string is also emitted.
+ * 
+ * At the end, we emit an instruction to build a "finished" string from all the string literals
+ * and converted expressions that are on the top of the stack.
+ */
+static void compile_string(Compiler *compiler, StringNode *node) {
+    bool nextIsInterpolated = false;
+    for (int i = 0; i < node->exprs.length; i++) {
+        compile_node(compiler, node->exprs.data[i]);
+        if (nextIsInterpolated) {
+            // Converts interpolated expression into a string.
+            emit_number(compiler, OP_AS, TYPE_STRING, get_node_pos(node->exprs.data[i]));
+        }
+        nextIsInterpolated = nextIsInterpolated ? false : true;
+    }
+    emit_number(compiler, OP_FINISH_STRING, node->exprs.length, get_node_pos(node->exprs.data[0]));
+}
+
 /** Compiles a keyword node, which is one that holds a bare keyword and it's position. */
 static void compile_keyword(Compiler *compiler, KeywordNode *node) {
     switch (node->keyword) {
-    case TOKEN_TRUE_KW: emit(compiler, OP_TRUE, node->pos); break;
-    case TOKEN_FALSE_KW: emit(compiler, OP_FALSE, node->pos); break;
+    case TOKEN_TRUE_KW: emit_instr(compiler, OP_TRUE, node->pos); break;
+    case TOKEN_FALSE_KW: emit_instr(compiler, OP_FALSE, node->pos); break;
     default: UNREACHABLE_ERROR();
     }
 }
@@ -53,10 +77,9 @@ static void compile_unary(Compiler *compiler, UnaryNode *node) {
     switch (node->operation.type) {
     case TOKEN_MINUS: unaryOp = OP_MINUS; break;
     case TOKEN_BANG: unaryOp = OP_NOT; break;
-    default:
-        UNREACHABLE_ERROR();
+    default: UNREACHABLE_ERROR();
     }
-    emit(compiler, unaryOp, node->operation.pos);
+    emit_instr(compiler, unaryOp, node->operation.pos);
 }
 
 /** Compiles a binary node. */
@@ -80,7 +103,7 @@ static void compile_binary(Compiler *compiler, BinaryNode *node) {
     case TOKEN_LESS_EQ: binaryOp = OP_LESS_EQ; break;
     default: UNREACHABLE_ERROR();
     }
-    emit(compiler, binaryOp, node->operation.pos);
+    emit_instr(compiler, binaryOp, node->operation.pos);
 }
 
 /** 
@@ -89,18 +112,19 @@ static void compile_binary(Compiler *compiler, BinaryNode *node) {
  */
 static void compile_expr_stmt(Compiler *compiler, ExprStmtNode *node) {
     compile_node(compiler, node->expr);
-    emit(compiler, OP_POP, get_node_pos(node->expr));
+    emit_instr(compiler, OP_POP, get_node_pos(node->expr));
 }
 
 /** Compiles an EOF node. */
 static void compile_eof(Compiler *compiler, EofNode *node) {
-    emit(compiler, OP_END, node->pos);
+    emit_instr(compiler, OP_END, node->pos);
 }
 
 /** Compiles the bytecode for the passed node into the compiler's currently compiling function. */
 static void compile_node(Compiler *compiler, AstNode *node) {
     switch (node->type) {
         case AST_LITERAL: compile_literal(compiler, AS_PTR(node, LiteralNode)); break;
+        case AST_STRING: compile_string(compiler, AS_PTR(node, StringNode)); break;
         case AST_KEYWORD: compile_keyword(compiler, AS_PTR(node, KeywordNode)); break;
         case AST_UNARY: compile_unary(compiler, AS_PTR(node, UnaryNode)); break;
         case AST_BINARY: compile_binary(compiler, AS_PTR(node, BinaryNode)); break;

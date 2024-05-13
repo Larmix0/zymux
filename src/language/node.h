@@ -11,6 +11,7 @@ typedef struct AstNode AstNode; // So an AST node can have other AST nodes insid
 typedef enum {
     AST_ERROR,
     AST_LITERAL,
+    AST_STRING,
     AST_KEYWORD,
     AST_UNARY,
     AST_BINARY,
@@ -37,6 +38,20 @@ typedef struct {
     AstNode node;
     Token value;
 } LiteralNode;
+
+/** 
+ * Holds the series of nodes that represent the full string, formatted or not.
+ * 
+ * Since a string at lexing is a series alternating between string literal nodes and an expr node
+ * representing an expression (for f-strings), we'll simply hold an array of nodes
+ * alternating between a string literal and an expression too at parse time.
+ * 
+ * its position is considered the first node in exprs.
+ */
+typedef struct {
+    AstNode node;
+    NodeArray exprs;
+} StringNode;
 
 /** Represents a keyword that is parsed as alone like true, false, null, super, etc. */
 typedef struct {
@@ -82,6 +97,9 @@ typedef struct {
 
 /** Returns an erroneous node which serves as a placeholder for returning a valid token. */
 AstNode *new_error_node(ZmxProgram *program);
+
+/** Returns a string node: An array of nodes that alternate between string literals and exprs. */
+AstNode *new_string_node(ZmxProgram *program, NodeArray exprs);
 
 /** Allocates a new literal node which just holds the literal value. */
 AstNode *new_literal_node(ZmxProgram *program, Token value);

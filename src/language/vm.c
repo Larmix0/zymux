@@ -10,7 +10,8 @@
 /** Reads the current instruction and increments IP to prepare for the next one. */
 #define NEXT_INSTRUCTION(vm) (*(vm)->frame->ip++)
 
-/** Reads the upcoming number in the bytecode. TODO: turn read_number to a macro for performance. */
+// TODO: turn read_number to a macro for performance.
+/** Reads the upcoming number in the bytecode. Prefer this over the function in the VM. */
 #define READ_NUMBER(vm) \
     (read_number((vm)->frame->func, (vm)->frame->ip++ - (vm)->frame->func->bytecode.data))
 
@@ -200,8 +201,33 @@ bool interpret(Vm *vm) {
             }
             break;
         case OP_NOT: {
-            BoolObj *afterNot = new_bool_obj(vm->program, !obj_as_bool(POP(vm)));
-            PUSH(vm, AS_PTR(afterNot, Obj));
+            BoolObj *asBool = as_bool(vm->program, POP(vm));
+            asBool->boolean = asBool->boolean ? false : true; // Simply reverse after converting.
+            PUSH(vm, AS_PTR(asBool, Obj));
+            break;
+        }
+        case OP_AS: {
+            Obj *original = POP(vm);
+            switch (READ_NUMBER(vm)) {
+            // TODO: implement other types.
+            case TYPE_BOOL: PUSH(vm, AS_PTR(as_bool(vm->program, original), Obj)); break;
+            case TYPE_STRING: PUSH(vm, AS_PTR(as_string(vm->program, original), Obj)); break;
+            default: UNREACHABLE_ERROR(); break;
+            }
+            break;
+        }
+        case OP_FINISH_STRING: {
+            const u32 amount = READ_NUMBER(vm);
+
+            // Build a string from the deepest till the highest/newest one in the stack.
+            StringObj *string = new_string_obj(vm->program, "");
+            for (int i = amount - 1; i >= 0; i--) {
+                string = concatenate(
+                    vm->program, string, AS_PTR(PEEK_DEPTH(vm, i), StringObj)
+                );
+            }
+            DROP_AMOUNT(vm, amount);
+            PUSH(vm, AS_PTR(string, Obj));
             break;
         }
         case OP_POP:

@@ -2,34 +2,35 @@
 #include "emitter.h"
 
 /** 
- * Emits/appends a single byte to the passed compiler's current function.
+ * Emits/appends a single byte instruction to the passed compiler's current function.
  * Also appends bytePos as debugging info to the positions array if enabled.
  */
-void emit(Compiler *compiler, u8 byte, SourcePosition bytePos) {
+void emit_instr(Compiler *compiler, u8 byte, SourcePosition bytePos) {
     APPEND_DA(&compiler->func->bytecode, byte);
     if (compiler->isDebugging) {
         APPEND_DA(&compiler->func->positions, bytePos);
     }
 }
 
-/** Emits a number that's at most the size of an integer. TODO: make it handle ints over 1 byte. */
-void emit_number(Compiler *compiler, const int number, SourcePosition bytePos) {
+/** Emits an instruction followed by a number that's at most the size of an integer. */
+// TODO: handle sizes over 1 byte.
+void emit_number(Compiler *compiler, u8 byte, const u32 number, SourcePosition pos) {
+    emit_instr(compiler, byte, pos);
     APPEND_DA(&compiler->func->bytecode, number);
     if (compiler->isDebugging) {
-        APPEND_DA(&compiler->func->positions, bytePos);
+        APPEND_DA(&compiler->func->positions, pos);
     }
 }
 
-/** Reads a number which begins from numStart. TODO: make it handle numbers over 1 byte. */
-int read_number(FuncObj *function, const int numStart) {
+// TODO: make it handle numbers over 1 byte.
+/** Reads a number which begins from numStart in the bytecode */
+u32 read_number(FuncObj *function, const int numStart) {
     return function->bytecode.data[numStart];
 }
 
-/** Emits an instruction that has a constant to read immediately after. */
+/** Emits an instruction followed by an idx after to be used for an object in the const pool. */
 void emit_const(Compiler *compiler, u8 byte, Obj *constant, SourcePosition bytePos) {
-    emit(compiler, byte, bytePos);
-
     APPEND_DA(&compiler->func->constPool, constant);
     int constIdx = compiler->func->constPool.length - 1;
-    emit_number(compiler, constIdx, bytePos);
+    emit_number(compiler, byte, constIdx, bytePos);
 }

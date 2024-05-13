@@ -8,6 +8,14 @@
 
 typedef struct Compiler Compiler;
 
+/** Represents each data type in Zymux. */
+typedef enum {
+    TYPE_INT,
+    TYPE_FLOAT,
+    TYPE_BOOL,
+    TYPE_STRING
+} DataType;
+
 /** 
  * Represents each opcode in Zymux's bytecode.
  * 
@@ -31,20 +39,22 @@ typedef enum {
     OP_LESS_EQ,
     OP_MINUS,
     OP_NOT,
+    OP_AS,
+    OP_FINISH_STRING,
     OP_POP,
     OP_END
 } OpCode;
 
 /** Emits a single byte of some kind to the compiler's bytecode. */
-void emit(Compiler *compiler, u8 byte, SourcePosition bytePos);
+void emit_instr(Compiler *compiler, u8 byte, SourcePosition bytePos);
 
-/** Emits a number that's at most the size of an integer. TODO: make it handle ints over 1 byte. */
-void emit_number(Compiler *compiler, const int number, SourcePosition bytePos);
+/** Emits a 1 byte instruction followed by a number that's at most the size of a U32. */
+void emit_number(Compiler *compiler, u8 byte, const u32 number, SourcePosition pos);
 
-/** Reads a number which begins from numStart. TODO: make it handle numbers over 1 byte. */
-int read_number(FuncObj *function, const int numStart);
+/** Reads a number that's a max size of a U32 which begins from numStart. */
+u32 read_number(FuncObj *function, const int numStart);
 
-/** Emits an instruction that has a constant to read immediately after. */
+/** Emits an instruction followed by an idx after to be used for an object in the const pool. */
 void emit_const(Compiler *compiler, u8 byte, Obj *constant, SourcePosition bytePos);
 
 #endif

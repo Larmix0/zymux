@@ -12,6 +12,7 @@ typedef enum {
     OBJ_INT,
     OBJ_FLOAT,
     OBJ_BOOL,
+    OBJ_STRING,
     OBJ_FUNC
 } ObjType;
 
@@ -48,6 +49,13 @@ typedef struct {
     bool boolean;
 } BoolObj;
 
+/** Represents a string object. */
+typedef struct {
+    Obj obj;
+    char *string;
+    int length;
+} StringObj;
+
 /**
  * TODO: this is a primitive version of the function object for the purposes of storing bytecode,
  * later on it'll have more stuff inside it, like its name.
@@ -66,14 +74,17 @@ typedef struct {
     ObjArray constPool;
 } FuncObj;
 
-/** Returns a new allocated int object from the passed integer. */
+/** Returns a new allocated integer object. */
 IntObj *new_int_obj(ZmxProgram *program, ZmxInt number);
 
-/** Returns a new allocated float object from the passed floating number. */
+/** Returns a new allocated float object. */
 FloatObj *new_float_obj(ZmxProgram *program, ZmxFloat number);
 
-/** Returns a new allocated boolean object from the passed bool. */
+/** Returns a new allocated boolean object. */
 BoolObj *new_bool_obj(ZmxProgram *program, bool boolean);
+
+/** Returns a new allocated string object. */
+StringObj *new_string_obj(ZmxProgram *program, char *string);
 
 /** TODO: will need to change this as FuncObj gets more parameters that'll need to be passed. */
 FuncObj *new_func_obj(ZmxProgram *program);
@@ -81,11 +92,23 @@ FuncObj *new_func_obj(ZmxProgram *program);
 /** Returns whether or not 2 objects are considered equal. */
 bool equal_obj(const Obj *left, const Obj *right);
 
-/** Returns whether the value of the passed object is "truthy" or "falsy" in a C boolean. */
-bool obj_as_bool(Obj *object);
+/** Returns a new string object that is formed from concatenating left with right. */
+StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringObj *right);
 
-/** Prints the passed object to the console. */
-void print_obj(const Obj *object);
+/** Returns the passed object as a string value. */
+StringObj *as_string(ZmxProgram *program, Obj *object);
+
+/** Returns the passed object's boolean (whether it's considered "truthy" or "falsy"). */
+BoolObj *as_bool(ZmxProgram *program, Obj *object);
+
+/** 
+ * Prints the passed object to the console.
+ * 
+ * If debugPrint is true, then it prints the object in the way it's supposed to show when debugging
+ * things like bytecode, otherwise it prints it like the user of Zymux will see it when
+ * using Zymux's printing.
+ */
+void print_obj(const Obj *object, const bool debugPrint);
 
 /** Frees all allocated objects stored in the passed program. */
 void free_all_objs(ZmxProgram *program);

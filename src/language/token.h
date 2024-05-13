@@ -64,7 +64,7 @@ typedef enum {
     TOKEN_SEMICOLON, TOKEN_COMMA, TOKEN_DOT, TOKEN_QUESTION_MARK, TOKEN_COLON,
 
     /** Implicitly inserted (without the user writing it themselves). */
-    TOKEN_FORMAT, TOKEN_STRING_END, TOKEN_EOF,
+    TOKEN_INTERPOLATE, TOKEN_STRING_END, TOKEN_EOF,
 
     /** Literal. */
     TOKEN_STRING_LIT, TOKEN_INT_LIT, TOKEN_FLOAT_LIT,

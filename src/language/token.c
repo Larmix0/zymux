@@ -85,7 +85,7 @@ char *token_type_as_string(const TokenType type) {
         case TOKEN_DOT: return "DOT";
         case TOKEN_QUESTION_MARK: return "QUESTION_MARK";
         case TOKEN_COLON: return "COLON";
-        case TOKEN_FORMAT: return "STRING_FORMAT";
+        case TOKEN_INTERPOLATE: return "STRING_FORMAT";
         case TOKEN_STRING_END: return "STRING_END";
         case TOKEN_STRING_LIT: return "STRING_LITERAL";
         case TOKEN_INT_LIT: return "INTEGER_LITERAL";
