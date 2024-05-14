@@ -5,8 +5,6 @@
 #include "emitter.h"
 #include "vm.h"
 
-#define MIN_STACK_SIZE 16
-
 /** Reads the current instruction and increments IP to prepare for the next one. */
 #define NEXT_INSTRUCTION(vm) (*(vm)->frame->ip++)
 
@@ -24,8 +22,6 @@
 #define PUSH(vm, obj) \
     do { \
         if ((vm)->stack.capacity < STACK_LENGTH(vm) + 1) { \
-            (vm)->stack.capacity = (vm)->stack.capacity < MIN_STACK_SIZE \
-                ? MIN_STACK_SIZE : (vm)->stack.capacity * 2; \
             reallocate_stack((vm)); \
         } \
         *(vm)->frame->sp++ = (obj); \
@@ -88,6 +84,7 @@
  * to also be updated to the same index relative to the potentially new stack address.
  */
 static void reallocate_stack(Vm *vm) {
+    vm->stack.capacity = vm->stack.capacity < MIN_DA_CAP ? MIN_DA_CAP : (vm)->stack.capacity * 2;
     Obj **previousStackAddr = vm->stack.objects;
     vm->stack.objects = ZMX_REALLOC(
         vm->stack.objects, vm->stack.capacity * sizeof(*vm->stack.objects)
