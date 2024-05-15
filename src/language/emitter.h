@@ -8,6 +8,17 @@
 
 typedef struct Compiler Compiler;
 
+/** 
+ * Represents how many bytes the next number to be read is.
+ * 
+ * This enum is also intended to have its members directly used as integers in operations.
+ */
+typedef enum {
+    INSTR_ONE_BYTE = 1,
+    INSTR_TWO_BYTES = 2,
+    INSTR_FOUR_BYTES = 4
+} InstrSize;
+
 /** Represents each data type in Zymux. */
 typedef enum {
     TYPE_INT,
@@ -23,6 +34,8 @@ typedef enum {
  */
 typedef enum {
     OP_LOAD_CONST,
+    OP_ARG_16,
+    OP_ARG_32,
     OP_TRUE,
     OP_FALSE,
     OP_ADD,
@@ -52,7 +65,7 @@ void emit_instr(Compiler *compiler, u8 byte, SourcePosition bytePos);
 void emit_number(Compiler *compiler, u8 byte, const u32 number, SourcePosition pos);
 
 /** Reads a number that's a max size of a U32 which begins from numStart. */
-u32 read_number(FuncObj *function, const int numStart);
+u32 read_number(FuncObj *function, const u32 numStart, InstrSize *size);
 
 /** Emits an instruction followed by an idx after to be used for an object in the const pool. */
 void emit_const(Compiler *compiler, u8 byte, Obj *constant, SourcePosition bytePos);

@@ -2,6 +2,7 @@
 #define DEBUG_BYTECODE_H
 
 #include "object.h"
+#include "emitter.h"
 
 typedef enum {
     INSTR_NO_LINE_OR_PAD,
@@ -10,7 +11,7 @@ typedef enum {
 } InstrFormat;
 
 /** Prints a single instruction depending on format, and modifies idx's value accordingly. */
-int print_instr(FuncObj *function, int idx, InstrFormat format);
+u32 print_instr(FuncObj *func, u32 idx, InstrSize *size, InstrFormat format);
 
 /**
  * Prints all of the bytecode stored inside function.

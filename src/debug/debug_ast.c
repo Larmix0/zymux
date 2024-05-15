@@ -31,7 +31,7 @@ static void append_literal_node(CharBuffer *astString, const LiteralNode *node) 
 /** Appends the node which holds a full string (including the formatting) in it. */
 static void append_string_node(CharBuffer *astString, const StringNode *node) {
     buffer_append_string(astString, "<String> ");
-    for (int i = 0; i < node->exprs.length; i++) {
+    for (u32 i = 0; i < node->exprs.length; i++) {
         eval_node(astString, node->exprs.data[i]);
     }
 }
@@ -94,7 +94,7 @@ void print_ast(const NodeArray *ast) {
     printf("Abstract syntax tree:\n");
 
     CharBuffer astString = create_char_buffer();
-    for (int i = 0; i < ast->length; i++) {
+    for (u32 i = 0; i < ast->length; i++) {
         buffer_append_char(&astString, '\t');
         eval_node(&astString, ast->data[i]);
 
@@ -109,7 +109,7 @@ void print_ast(const NodeArray *ast) {
 /** Allocates a string representation of the AST using the debug delimiter. */
 CharBuffer get_ast_string(const NodeArray *ast) {
     CharBuffer astString = create_char_buffer();
-    for (int i = 0; i < ast->length; i++) {
+    for (u32 i = 0; i < ast->length; i++) {
         if (i != 0) {
             buffer_append_string(&astString, AST_DEBUG_DELIMITER);
         }

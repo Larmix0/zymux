@@ -2,7 +2,6 @@
 
 #include "char_buffer.h"
 #include "debug_bytecode.h"
-#include "emitter.h"
 
 /** Resolves to whether or not the func's bytecode has stored its bytecode's positions. */
 #define HAS_POS_INFO(funcObj) ((funcObj)->positions.data != NULL)
@@ -11,23 +10,23 @@
  * Prints a "bare" instruction.
  * It is an instruction that doesn't have any numbers, consts or anything after it. Just one byte.
  */
-static void print_bare_instr(const char *instrName, int *idx) {
+static void print_bare_instr(const char *instrName, u32 *idx) {
     printf("%s", instrName);
     *idx += 1;
 }
 
 /** Prints an instruction that has a number after. Returns the read number as well. */
-static int print_number_instr(const char *instrName, FuncObj *func, int *idx) {
+static u32 print_number_instr(const char *instrName, FuncObj *func, u32 *idx, InstrSize *size) {
     print_bare_instr(instrName, idx);
-    const int number = read_number(func, *idx);
-    printf(" %d", number);
-    *idx += 1; // TODO: Change this to incrementing depending on instrSize.
+    *idx += *size;
+    const u32 number = read_number(func, *idx - *size, size);
+    printf(" %u", number);
     return number;
 }
 
 /** Prints an instruction that is followed by a data type enum. */
-static void print_data_type_instr(const char *instrName, FuncObj *func, int *idx) {
-    DataType dataType = print_number_instr(instrName, func, idx);
+static void print_data_type_instr(const char *instrName, FuncObj *func, u32 *idx, InstrSize *size) {
+    DataType dataType = print_number_instr(instrName, func, idx, size);
     printf(" (");
     switch (dataType) {
     case TYPE_INT: printf("int"); break;
@@ -40,17 +39,15 @@ static void print_data_type_instr(const char *instrName, FuncObj *func, int *idx
 }
 
 /** Prints an instruction that has a constant object immediately after. */
-static void print_const_instr(
-    const char *instrName, FuncObj *func, int *idx
-) {
-    const int constIdx = print_number_instr(instrName, func, idx);
+static void print_const_instr(const char *instrName, FuncObj *func, u32 *idx, InstrSize *size) {
+    const u32 constIdx = print_number_instr(instrName, func, idx, size);
     printf(" (");
     print_obj(func->constPool.data[constIdx], true);
     putchar(')');
 }
 
 /** Prints a single instruction depending on format, and modifies idx's value accordingly. */
-int print_instr(FuncObj *func, int idx, InstrFormat format) {
+u32 print_instr(FuncObj *func, u32 idx, InstrSize *size, InstrFormat format) {
     switch (format) {
     case INSTR_NORMAL:
         printf("%-10d", func->positions.data[idx].line);
@@ -64,7 +61,9 @@ int print_instr(FuncObj *func, int idx, InstrFormat format) {
     }
 
     switch (func->bytecode.data[idx]) {
-    case OP_LOAD_CONST: print_const_instr("LOAD_CONST", func, &idx); break;
+    case OP_LOAD_CONST: print_const_instr("LOAD_CONST", func, &idx, size); break;
+    case OP_ARG_16: print_bare_instr("ARG_16", &idx); *size = INSTR_TWO_BYTES; break;
+    case OP_ARG_32: print_bare_instr("ARG_32", &idx); *size = INSTR_FOUR_BYTES; break;
     case OP_TRUE: print_bare_instr("TRUE", &idx); break;
     case OP_FALSE: print_bare_instr("FALSE", &idx); break;
     case OP_ADD: print_bare_instr("ADD", &idx); break;
@@ -81,8 +80,8 @@ int print_instr(FuncObj *func, int idx, InstrFormat format) {
     case OP_LESS_EQ: print_bare_instr("LESS_EQUAL", &idx); break;
     case OP_MINUS: print_bare_instr("MINUS", &idx); break;
     case OP_NOT: print_bare_instr("NOT", &idx); break;
-    case OP_AS: print_data_type_instr("AS", func, &idx); break;
-    case OP_FINISH_STRING: print_number_instr("FINISH_STRING", func, &idx); break;
+    case OP_AS: print_data_type_instr("AS", func, &idx, size); break;
+    case OP_FINISH_STRING: print_number_instr("FINISH_STRING", func, &idx, size); break;
     case OP_POP: print_bare_instr("POP", &idx); break;
     case OP_END: print_bare_instr("END", &idx); break;
     }
@@ -115,8 +114,9 @@ void print_bytecode(FuncObj *func) {
     printf("Instruction | OpCode\n");
     print_separator(func);
 
+    InstrSize size = INSTR_ONE_BYTE;
     // Loop doesn't increment the index, as print_instr()'s return does that instead.
-    for (int idx = 0; idx < func->bytecode.length;) {
-        idx = print_instr(func, idx, HAS_POS_INFO(func) ? INSTR_NORMAL : INSTR_NO_LINE);
+    for (u32 idx = 0; idx < func->bytecode.length;) {
+        idx = print_instr(func, idx, &size, HAS_POS_INFO(func) ? INSTR_NORMAL : INSTR_NO_LINE);
     }
 }

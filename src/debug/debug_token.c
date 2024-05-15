@@ -32,7 +32,7 @@ static void print_token(const Token token) {
 /** Prints an entire array of tokens. */
 void print_tokens(const TokenArray tokens) {
     printf("Tokens:\n");
-    for (int i = 0; i < tokens.length; i++) {
+    for (u32 i = 0; i < tokens.length; i++) {
         putchar('\t');
         print_token(tokens.data[i]);
         putchar('\n');

@@ -3,13 +3,14 @@
 
 #include <stdlib.h>
 
+#include "constants.h"
 #include "program.h"
 
 /** Minimum capacity of a dynamic array. */
 #define MIN_DA_CAP 16
 
 /** Declares the struct of a dynamic array typedef'd with name and an array/pointer of type. */
-#define DECLARE_DA_STRUCT(name, type) typedef struct {int length; int capacity; type *data;} name
+#define DECLARE_DA_STRUCT(name, type) typedef struct {u32 length; u32 capacity; type *data;} name
 
 /** Creates a dynamic array. */
 #define CREATE_DA() {.length = 0, .capacity = 0, .data = NULL}

@@ -12,7 +12,11 @@
 // Pretty considerable since it's also used by the const reader.
 /** Reads the upcoming number in the bytecode. Prefer this over the function in the VM. */
 #define READ_NUMBER(vm) \
-    (read_number((vm)->frame->func, (vm)->frame->ip++ - (vm)->frame->func->bytecode.data))
+    ((vm)->frame->ip += (vm)->instrSize, \
+    read_number( \
+        (vm)->frame->func, (vm)->frame->ip - (vm)->frame->func->bytecode.data - (vm)->instrSize, \
+        &(vm)->instrSize \
+    ))
 
 /** Reads the upcoming number and uses it to index an object in the current constant pool. */
 #define READ_CONST(vm) ((vm)->frame->func->constPool.data[READ_NUMBER((vm))])
@@ -94,7 +98,7 @@ static void reallocate_stack(Vm *vm) {
         return;
     }
     
-    for (int i = 0; i < vm->callStack.length; i++) {
+    for (u32 i = 0; i < vm->callStack.length; i++) {
         vm->callStack.data[i].sp = &vm->stack.objects[vm->callStack.data[i].sp - previousStackAddr];
     }
 }
@@ -107,7 +111,10 @@ static StackFrame create_frame(FuncObj *func, Obj **sp) {
 
 /** Returns a VM initialized from the passed func. */
 Vm create_vm(ZmxProgram *program, FuncObj *func) {
-    Vm vm = {.program = program, .callStack = CREATE_DA(), .frame = NULL, .stack = CREATE_STACK()};
+    Vm vm = {
+        .program = program, .instrSize = INSTR_ONE_BYTE,
+        .callStack = CREATE_DA(), .frame = NULL, .stack = CREATE_STACK()
+    };
 
     // Set current frame and its SP after their arrays have been initialized.
     APPEND_DA(&vm.callStack, create_frame(func, vm.stack.objects));
@@ -125,15 +132,18 @@ void free_vm(Vm *vm) {
 bool interpret(Vm *vm) {
     while (true) {
 #if DEBUG_RUNTIME == 1
+
         print_runtime_state(
             vm->frame->func, vm->stack.objects, STACK_LENGTH(vm),
-            vm->frame->ip - vm->frame->func->bytecode.data
+            vm->frame->ip - vm->frame->func->bytecode.data, vm->instrSize
         );
 #endif
         switch (NEXT_INSTRUCTION(vm)) {
         case OP_LOAD_CONST:
             PUSH(vm, READ_CONST(vm));
             break;
+        case OP_ARG_16: vm->instrSize = INSTR_TWO_BYTES; break;
+        case OP_ARG_32: vm->instrSize = INSTR_FOUR_BYTES; break;
         case OP_TRUE: PUSH(vm, AS_PTR(new_bool_obj(vm->program, true), Obj)); break;
         case OP_FALSE: PUSH(vm, AS_PTR(new_bool_obj(vm->program, false), Obj)); break;
         case OP_ADD: BIN_OP(vm, +); break;
@@ -216,12 +226,12 @@ bool interpret(Vm *vm) {
         }
         case OP_FINISH_STRING: {
             const u32 amount = READ_NUMBER(vm);
-
-            // Build a string from the deepest till the highest/newest one in the stack.
             StringObj *string = new_string_obj(vm->program, "");
-            for (int i = amount - 1; i >= 0; i--) {
+
+            // Build a string from the deepest/oldest till the outermost/newest one in the stack.
+            for (u32 i = 1; i <= amount; i++) {
                 string = concatenate(
-                    vm->program, string, AS_PTR(PEEK_DEPTH(vm, i), StringObj)
+                    vm->program, string, AS_PTR(PEEK_DEPTH(vm, amount - i), StringObj)
                 );
             }
             DROP_AMOUNT(vm, amount);

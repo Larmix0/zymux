@@ -17,7 +17,7 @@ static void print_stack(Obj **stack, const int stackLength) {
 
 /** Prints the current instruction and the stack */
 void print_runtime_state(
-    FuncObj *func, Obj **stack, const int stackLength, const int bytecodeOffset
+    FuncObj *func, Obj **stack, const int stackLength, const u32 bytecodeOffset, InstrSize size
 ) {
     printf("- ");
     if (stackLength == 0) {
@@ -26,5 +26,5 @@ void print_runtime_state(
         print_stack(stack, stackLength);
     }
     putchar('\n');
-    print_instr(func, bytecodeOffset, INSTR_NO_LINE_OR_PAD);
+    print_instr(func, bytecodeOffset, &size, INSTR_NO_LINE_OR_PAD);
 }

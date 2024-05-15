@@ -2,6 +2,7 @@
 #define VM_H
 
 #include "object.h"
+#include "emitter.h"
 
 /** Holds a frame around of information around the currently executing function object. */
 typedef struct {
@@ -16,6 +17,7 @@ DECLARE_DA_STRUCT(CallStack, StackFrame);
 /** Zymux's virtual machine for interpreting the bytecode. */
 typedef struct {
     ZmxProgram *program; /** The Zymux program for general information and allocations. */
+    InstrSize instrSize; /** The size of the number instruction to be read after the opcode. */
     CallStack callStack; /** Holds the entire call stack of stack frames. */
     StackFrame *frame; /** The current frame which holds the bytecode we're executing. */
 
@@ -34,7 +36,7 @@ typedef struct {
      */
     struct {
         Obj **objects;
-        int capacity;
+        u32 capacity;
     } stack;
 } Vm;
 

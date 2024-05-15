@@ -60,7 +60,7 @@ void *zmx_realloc(void *oldPointer, const size_t newSize, const SourceInfo info)
  */
 ZmxInt zmx_int_power(const ZmxInt base, const ZmxInt exponent) {
     ZmxInt result = 1;
-    for (int i = 0; i < exponent; i++) {
+    for (ZmxInt i = 0; i < exponent; i++) {
         result *= base;
     }
     return result;
@@ -68,6 +68,7 @@ ZmxInt zmx_int_power(const ZmxInt base, const ZmxInt exponent) {
 
 /** Returns the base to the power of exponent (float). */
 ZmxFloat zmx_float_power(const ZmxFloat base, const ZmxFloat exponent) {
+    // TODO: Remove this function as a whole, since actual float exponent is much more complicated..
     ZmxFloat result = 1;
     for (int i = 0; i < exponent; i++) {
         result *= base;

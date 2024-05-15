@@ -5,7 +5,7 @@
 
 /** Prints the current instruction and the stack */
 void print_runtime_state(
-    FuncObj *func, Obj **stack, const int stackLength, const int bytecodeOffset
+    FuncObj *func, Obj **stack, const int stackLength, const u32 bytecodeOffset, InstrSize size
 );
 
 #endif

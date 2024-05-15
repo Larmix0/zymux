@@ -49,7 +49,7 @@ static void compile_literal(Compiler *compiler, LiteralNode *node) {
  */
 static void compile_string(Compiler *compiler, StringNode *node) {
     bool nextIsInterpolated = false;
-    for (int i = 0; i < node->exprs.length; i++) {
+    for (u32 i = 0; i < node->exprs.length; i++) {
         compile_node(compiler, node->exprs.data[i]);
         if (nextIsInterpolated) {
             // Converts interpolated expression into a string.
@@ -141,7 +141,7 @@ static void compile_node(Compiler *compiler, AstNode *node) {
  * Returns whether or not we've errored.
  */
 bool compile(Compiler *compiler) {
-    for (int i = 0; i < compiler->ast.length; i++) {
+    for (u32 i = 0; i < compiler->ast.length; i++) {
         compile_node(compiler, compiler->ast.data[i]);
     }
 
