@@ -55,6 +55,7 @@ void emit_number(Compiler *compiler, u8 byte, const u32 number, SourcePosition p
  * instruction size pointer is automatically set to 1 byte for next reads after being called.
  */
 u32 read_number(FuncObj *function, const u32 numStart, InstrSize *size) {
+    // TODO: combine this into one loop like the INSTR_FOUR_BYTES one.
     switch (*size) {
     case INSTR_ONE_BYTE:
         return function->bytecode.data[numStart];

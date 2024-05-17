@@ -4,8 +4,9 @@
 #include "constants.h"
 #include "data_structures.h"
 
+#define AS_OBJ(object) ((Obj *)object)
+
 typedef struct ZmxProgram ZmxProgram;
-typedef struct Obj Obj; // So Obj can have other Objs inside it.
 
 /** Represents all the different types of objects in Zymux in an enum. */
 typedef enum {

@@ -7,7 +7,7 @@ PRIVATE_TEST_CASE(test_new_obj) {
     IntObj *integer = NEW_OBJ(&program, OBJ_INT, IntObj);
 
     ASSERT_INT_EQUAL(sizeof(*integer), sizeof(IntObj));
-    ASSERT_TRUE(AS_PTR(integer, Obj)->type == OBJ_INT);
+    ASSERT_TRUE(AS_OBJ(integer)->type == OBJ_INT);
 
     free_zmx_program(&program); // Frees the objects too.
 }

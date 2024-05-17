@@ -52,13 +52,13 @@ PRIVATE_TEST_CASE(test_emit) {
 /** Tests the function which appends objects onto the constant pull and emits their index. */
 PRIVATE_TEST_CASE(test_emit_const) {
     emit_const(
-        defaultCompiler, OP_LOAD_CONST, AS_PTR(new_int_obj(defaultCompiler->program, 72), Obj),
+        defaultCompiler, OP_LOAD_CONST, AS_OBJ(new_int_obj(defaultCompiler->program, 72)),
         create_src_pos(1, 2, 3)
     );
     // TODO: when more const-based instructions and more objects get added,
     // change the const loading instruction here with something else, and the object to StringObj.
     emit_const(
-        defaultCompiler, OP_LOAD_CONST, AS_PTR(new_int_obj(defaultCompiler->program, 14), Obj),
+        defaultCompiler, OP_LOAD_CONST, AS_OBJ(new_int_obj(defaultCompiler->program, 14)),
         create_src_pos(54, 336, 101)
     );
 
@@ -78,8 +78,8 @@ PRIVATE_TEST_CASE(test_emit_const) {
     ASSERT_INT_EQUAL(constPool[bytecode[1]]->type, OBJ_INT);
     ASSERT_INT_EQUAL(constPool[bytecode[3]]->type, OBJ_INT);
 
-    ASSERT_INT_EQUAL(AS_PTR(constPool[bytecode[1]], IntObj)->number, 72);
-    ASSERT_INT_EQUAL(AS_PTR(constPool[bytecode[3]], IntObj)->number, 14);
+    ASSERT_INT_EQUAL(AS_PTR(IntObj, constPool[bytecode[1]])->number, 72);
+    ASSERT_INT_EQUAL(AS_PTR(IntObj, constPool[bytecode[3]])->number, 14);
 }
 
 /** Tests emitter.c. */

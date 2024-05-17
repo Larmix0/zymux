@@ -46,8 +46,8 @@
 #define ZMX_INT_FMT "%" PRId64
 #define ZMX_FLOAT_FMT "%lf"
 
-/** Converts the passed pointer to a pointer to the passed type. */
-#define AS_PTR(value, type) ((type *)value)
+/** Converts the passed pointer to a pointer of the passed type. */
+#define AS_PTR(type, value) ((type *)value)
 
 typedef int8_t i8;
 typedef int16_t i16;

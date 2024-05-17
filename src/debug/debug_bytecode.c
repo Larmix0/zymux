@@ -105,7 +105,7 @@ static void print_separator(FuncObj *func) {
  */
 void print_bytecode(FuncObj *func) {
     print_separator(func);
-    print_obj(AS_PTR(func, Obj), true);
+    print_obj(AS_OBJ(func), true);
     putchar('\n');
     print_separator(func);
     if (HAS_POS_INFO(func)) {

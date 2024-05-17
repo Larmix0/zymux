@@ -1,7 +1,7 @@
 #include "compiler.h"
 #include "emitter.h"
 
-static void compile_node(Compiler *compiler, AstNode *node);
+static void compile_node(Compiler *compiler, Node *node);
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
 Compiler create_compiler(ZmxProgram *program, NodeArray ast, bool isDebugging) {
@@ -25,13 +25,13 @@ static void compile_literal(Compiler *compiler, LiteralNode *node) {
     Obj *literalAsObj;
     switch (value.type) {
     case TOKEN_INT_LIT:
-        literalAsObj = AS_PTR(new_int_obj(compiler->program, value.intVal), Obj);
+        literalAsObj = AS_OBJ(new_int_obj(compiler->program, value.intVal));
         break;
     case TOKEN_FLOAT_LIT:
-        literalAsObj = AS_PTR(new_float_obj(compiler->program, value.floatVal), Obj);
+        literalAsObj = AS_OBJ(new_float_obj(compiler->program, value.floatVal));
         break;
     case TOKEN_STRING_LIT:
-        literalAsObj = AS_PTR(new_string_obj(compiler->program, value.stringVal.text), Obj);
+        literalAsObj = AS_OBJ(new_string_obj(compiler->program, value.stringVal.text));
         break;
     default: UNREACHABLE_ERROR();
     }
@@ -121,15 +121,15 @@ static void compile_eof(Compiler *compiler, EofNode *node) {
 }
 
 /** Compiles the bytecode for the passed node into the compiler's currently compiling function. */
-static void compile_node(Compiler *compiler, AstNode *node) {
+static void compile_node(Compiler *compiler, Node *node) {
     switch (node->type) {
-        case AST_LITERAL: compile_literal(compiler, AS_PTR(node, LiteralNode)); break;
-        case AST_STRING: compile_string(compiler, AS_PTR(node, StringNode)); break;
-        case AST_KEYWORD: compile_keyword(compiler, AS_PTR(node, KeywordNode)); break;
-        case AST_UNARY: compile_unary(compiler, AS_PTR(node, UnaryNode)); break;
-        case AST_BINARY: compile_binary(compiler, AS_PTR(node, BinaryNode)); break;
-        case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(node, ExprStmtNode)); break;
-        case AST_EOF: compile_eof(compiler, AS_PTR(node, EofNode)); break;
+        case AST_LITERAL: compile_literal(compiler, AS_PTR(LiteralNode, node)); break;
+        case AST_STRING: compile_string(compiler, AS_PTR(StringNode, node)); break;
+        case AST_KEYWORD: compile_keyword(compiler, AS_PTR(KeywordNode, node)); break;
+        case AST_UNARY: compile_unary(compiler, AS_PTR(UnaryNode, node)); break;
+        case AST_BINARY: compile_binary(compiler, AS_PTR(BinaryNode, node)); break;
+        case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
+        case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
         case AST_ERROR: break; // Do nothing on erroneous nodes.
         default: UNREACHABLE_ERROR();
     }

@@ -73,18 +73,18 @@ bool equal_obj(const Obj *left, const Obj *right) {
     }
 
     switch (left->type) {
-    case OBJ_INT: return AS_PTR(left, IntObj)->number == AS_PTR(right, IntObj)->number;
-    case OBJ_FLOAT: return AS_PTR(left, FloatObj)->number == AS_PTR(right, FloatObj)->number;
-    case OBJ_BOOL: return AS_PTR(left, BoolObj)->boolean == AS_PTR(right, BoolObj)->boolean;
+    case OBJ_INT: return AS_PTR(IntObj, left)->number == AS_PTR(IntObj, right)->number;
+    case OBJ_FLOAT: return AS_PTR(FloatObj, left)->number == AS_PTR(FloatObj, right)->number;
+    case OBJ_BOOL: return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
     case OBJ_STRING:
         // TODO: this is temporary. Once interning is added, do an address equality check.
-        if (AS_PTR(left, StringObj)->length != AS_PTR(right, StringObj)->length) {
+        if (AS_PTR(StringObj, left)->length != AS_PTR(StringObj, right)->length) {
             return false;
         }
         return strncmp(
-            AS_PTR(left, StringObj)->string,
-            AS_PTR(right, StringObj)->string,
-            AS_PTR(left, StringObj)->length
+            AS_PTR(StringObj, left)->string,
+            AS_PTR(StringObj, right)->string,
+            AS_PTR(StringObj, left)->length
         );
     case OBJ_FUNC:
         return left == right; // Compare addresses directly.
@@ -113,27 +113,27 @@ StringObj *as_string(ZmxProgram *program, Obj *object) {
     char *string;
     switch (object->type) {
     case OBJ_INT: {
-        ZmxInt value = AS_PTR(object, IntObj)->number;
+        ZmxInt value = AS_PTR(IntObj, object)->number;
         const int length = snprintf(NULL, 0, ZMX_INT_FMT, value);
         string = ZMX_ARRAY_ALLOC(length + 1, char);
         snprintf(string, length + 1, ZMX_INT_FMT, value);
         break;
     }
     case OBJ_FLOAT: {
-        ZmxFloat value = AS_PTR(object, FloatObj)->number;
+        ZmxFloat value = AS_PTR(FloatObj, object)->number;
         const int length = snprintf(NULL, 0, ZMX_FLOAT_FMT, value);
         string = ZMX_ARRAY_ALLOC(length + 1, char);
         snprintf(string, length + 1, ZMX_FLOAT_FMT, value);
         break;
     }
     case OBJ_FUNC:
-        string = ZMX_ARRAY_ALLOC(AS_PTR(object, FuncObj)->name->length, char);
+        string = ZMX_ARRAY_ALLOC(AS_PTR(FuncObj, object)->name->length, char);
         break;
     case OBJ_BOOL:
         // No need to allocate since it's only true or false.
-        return new_string_obj(program, AS_PTR(object, BoolObj)->boolean ? "true" : "false");
+        return new_string_obj(program, AS_PTR(BoolObj, object)->boolean ? "true" : "false");
         
-    case OBJ_STRING: return AS_PTR(object, StringObj);
+    case OBJ_STRING: return AS_PTR(StringObj, object);
     default: UNREACHABLE_ERROR();
     }
     StringObj *result = new_string_obj(program, string);
@@ -150,11 +150,11 @@ BoolObj *as_bool(ZmxProgram *program, Obj *object) {
         result = true;
         break;
 
-    case OBJ_INT: result = AS_PTR(object, IntObj)->number != 0; break;
-    case OBJ_FLOAT: result = AS_PTR(object, FloatObj)->number != 0.0; break;
-    case OBJ_STRING: result = AS_PTR(object, StringObj)->length != 0; break;
+    case OBJ_INT: result = AS_PTR(IntObj, object)->number != 0; break;
+    case OBJ_FLOAT: result = AS_PTR(FloatObj, object)->number != 0.0; break;
+    case OBJ_STRING: result = AS_PTR(StringObj, object)->length != 0; break;
 
-    case OBJ_BOOL: return AS_PTR(object, BoolObj);
+    case OBJ_BOOL: return AS_PTR(BoolObj, object);
     default: UNREACHABLE_ERROR(); result = false; break;
     }
     return new_bool_obj(program, result);
@@ -164,17 +164,17 @@ BoolObj *as_bool(ZmxProgram *program, Obj *object) {
  * Prints the passed object to the console. The output depends on whether to debugPrint or not. */
 void print_obj(const Obj *object, const bool debugPrint) {
     switch (object->type) {
-    case OBJ_INT: printf(ZMX_INT_FMT, AS_PTR(object, IntObj)->number); break;
-    case OBJ_FLOAT: printf(ZMX_FLOAT_FMT, AS_PTR(object, FloatObj)->number); break;
-    case OBJ_BOOL: printf("%s", AS_PTR(object, BoolObj)->boolean ? "true" : "false"); break;
+    case OBJ_INT: printf(ZMX_INT_FMT, AS_PTR(IntObj, object)->number); break;
+    case OBJ_FLOAT: printf(ZMX_FLOAT_FMT, AS_PTR(FloatObj, object)->number); break;
+    case OBJ_BOOL: printf("%s", AS_PTR(BoolObj, object)->boolean ? "true" : "false"); break;
     case OBJ_STRING:
         if (debugPrint) {
-            printf("\"%s\"", AS_PTR(object, StringObj)->string);
+            printf("\"%s\"", AS_PTR(StringObj, object)->string);
         } else {
-            printf("%s", AS_PTR(object, StringObj)->string);
+            printf("%s", AS_PTR(StringObj, object)->string);
         }
         break;
-    case OBJ_FUNC: printf("<func \"%s\">", AS_PTR(object, FuncObj)->name->string); break;
+    case OBJ_FUNC: printf("<func \"%s\">", AS_PTR(FuncObj, object)->name->string); break;
     default: UNREACHABLE_ERROR();
     }
 }
@@ -193,9 +193,9 @@ static void free_obj_contents(Obj *object) {
         case OBJ_BOOL:
             return;
 
-        case OBJ_STRING: free(AS_PTR(object, StringObj)->string); break;
+        case OBJ_STRING: free(AS_PTR(StringObj, object)->string); break;
         case OBJ_FUNC: {
-            FuncObj *func = AS_PTR(object, FuncObj);
+            FuncObj *func = AS_PTR(FuncObj, object);
             FREE_DA(&func->bytecode);
             FREE_DA(&func->constPool);
             FREE_DA(&func->positions);

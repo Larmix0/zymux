@@ -20,7 +20,7 @@
 
 #define IS_EOF(parser) (CHECK((parser), TOKEN_EOF))
 
-static AstNode *expression(Parser *parser);
+static Node *expression(Parser *parser);
 
 /** Returns an initialized parser. */
 Parser create_parser(ZmxProgram *program, TokenArray tokens) {
@@ -77,7 +77,7 @@ static void raise_parser_error_missing(Parser *parser, Token *beforeMissing, con
  * This is done by alternating between parsing a string literal and an interpolated expression
  * until the STRING_END token is seen.
  */
-static AstNode *string(Parser *parser) {
+static Node *string(Parser *parser) {
     NodeArray exprs = CREATE_DA();
     bool nextIsString = true;
     while (!MATCH(parser, TOKEN_STRING_END)) {
@@ -98,7 +98,7 @@ static AstNode *string(Parser *parser) {
  * 
  * The highest priority precedence. Includes basic things like integer literals and identifiers.
  */
-static AstNode *primary(Parser *parser) {
+static Node *primary(Parser *parser) {
     switch (ADVANCE_PEEK(parser).type) {
     case TOKEN_INT_LIT:
     case TOKEN_FLOAT_LIT:
@@ -118,7 +118,7 @@ static AstNode *primary(Parser *parser) {
 }
 
 /** A unary is just a primary with a some operation to the left of it. */
-static AstNode *unary(Parser *parser) {
+static Node *unary(Parser *parser) {
     if (CHECK(parser, TOKEN_MINUS) || CHECK(parser, TOKEN_BANG)) {
         Token operation = ADVANCE_PEEK(parser);
         return new_unary_node(parser->program, operation, unary(parser));
@@ -128,56 +128,56 @@ static AstNode *unary(Parser *parser) {
 }
 
 /** Handles the precedence of exponents, which is tighter than terms and factors. */
-static AstNode *exponent(Parser *parser) {
-    AstNode *expr = unary(parser);
+static Node *exponent(Parser *parser) {
+    Node *expr = unary(parser);
     while (CHECK(parser, TOKEN_EXPO)) {
         Token operation = ADVANCE_PEEK(parser);
-        AstNode *rhs = unary(parser);
+        Node *rhs = unary(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
     return expr;
 }
 
 /** A factor in Zymux is multiplication, division, or modulo. */
-static AstNode *factor(Parser *parser) {
-    AstNode *expr = exponent(parser);
+static Node *factor(Parser *parser) {
+    Node *expr = exponent(parser);
     while (CHECK(parser, TOKEN_STAR) || CHECK(parser, TOKEN_SLASH) || CHECK(parser, TOKEN_MODULO)) {
         Token operation = ADVANCE_PEEK(parser);
-        AstNode *rhs = exponent(parser);
+        Node *rhs = exponent(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
     return expr;
 }
 
 /** A term encapsulates the + and - in precedence. */
-static AstNode *term(Parser *parser) {
-    AstNode *expr = factor(parser);
+static Node *term(Parser *parser) {
+    Node *expr = factor(parser);
     while (CHECK(parser, TOKEN_PLUS) || CHECK(parser, TOKEN_MINUS)) {
         Token operation = ADVANCE_PEEK(parser);
-        AstNode *rhs = factor(parser);
+        Node *rhs = factor(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
     return expr;
 }
 
 /** Comparisons handle any comparison operations other than equal and unequal. */
-static AstNode *comparison(Parser *parser) {
-    AstNode *expr = term(parser);
+static Node *comparison(Parser *parser) {
+    Node *expr = term(parser);
     while (CHECK(parser, TOKEN_GREATER) || CHECK(parser, TOKEN_GREATER_EQ)
             || CHECK(parser, TOKEN_LESS) || CHECK(parser, TOKEN_LESS_EQ)) {
         Token operation = ADVANCE_PEEK(parser);
-        AstNode *rhs = term(parser);
+        Node *rhs = term(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
     return expr;
 }
 
 /** Handles equal and not equal's precedence (which are executed after other comparisons). */
-static AstNode *equality(Parser *parser) {
-    AstNode *expr = comparison(parser);
+static Node *equality(Parser *parser) {
+    Node *expr = comparison(parser);
     while (CHECK(parser, TOKEN_EQ_EQ) || CHECK(parser, TOKEN_BANG_EQ)) {
         Token operation = ADVANCE_PEEK(parser);
-        AstNode *rhs = comparison(parser);
+        Node *rhs = comparison(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
     return expr;
@@ -186,20 +186,20 @@ static AstNode *equality(Parser *parser) {
 // TODO: find out if compound assignment is just underneath normal assignments in precedence.
 
 /** Parses and returns an expression. */
-static AstNode *expression(Parser *parser) {
+static Node *expression(Parser *parser) {
     return equality(parser);
 }
 
 /** A statement which only holds an expression inside it. */
-static AstNode *expression_stmt(Parser *parser) {
-    AstNode *node = expression(parser);
+static Node *expression_stmt(Parser *parser) {
+    Node *node = expression(parser);
     CONSUME(parser, TOKEN_SEMICOLON, "Expected \";\" after expression.");
     return new_expr_stmt_node(parser->program, node);
 }
 
 /** Parses and returns a statement or expression-statement. */
-static AstNode *statement(Parser *parser) {
-    AstNode *node;
+static Node *statement(Parser *parser) {
+    Node *node;
     switch (ADVANCE_PEEK(parser).type) {
     default:
         RETREAT(parser);
@@ -257,8 +257,8 @@ static void synchronize(Parser *parser) {
 }
 
 /** Parses and returns a declaration or statement. */
-static AstNode *declaration(Parser *parser) {
-    AstNode *node;
+static Node *declaration(Parser *parser) {
+    Node *node;
     switch (ADVANCE_PEEK(parser).type) {
     default:
         RETREAT(parser);

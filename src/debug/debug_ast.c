@@ -3,7 +3,7 @@
 #include "debug_ast.h"
 #include "report_error.h"
 
-static void eval_node(CharBuffer *astString, const AstNode *node);
+static void eval_node(CharBuffer *astString, const Node *node);
 
 /** Abstraction for appending a token to the passed astString. */
 static void buffer_append_token(CharBuffer *astString, const Token token) {
@@ -66,21 +66,21 @@ static void append_eof_node(CharBuffer *astString) {
 }
 
 /** Calls the appropriate append function for the passed node. */
-static void eval_node(CharBuffer *astString, const AstNode *node) {
+static void eval_node(CharBuffer *astString, const Node *node) {
     if (node->type == AST_LITERAL) {
         // Literals don't get wrapped in parenthesis.
-        append_literal_node(astString, AS_PTR(node, LiteralNode));
+        append_literal_node(astString, AS_PTR(LiteralNode, node));
         return;
     }
 
     buffer_append_char(astString, '(');
     switch (node->type) {
     case AST_ERROR: append_error_node(astString); break;
-    case AST_STRING: append_string_node(astString, AS_PTR(node, StringNode)); break;
-    case AST_KEYWORD: append_keyword_node(astString, AS_PTR(node, KeywordNode)); break;
-    case AST_UNARY: append_unary_node(astString, AS_PTR(node, UnaryNode)); break;
-    case AST_BINARY: append_binary_node(astString, AS_PTR(node, BinaryNode)); break;
-    case AST_EXPR_STMT: append_expr_stmt_node(astString, AS_PTR(node, ExprStmtNode)); break;
+    case AST_STRING: append_string_node(astString, AS_PTR(StringNode, node)); break;
+    case AST_KEYWORD: append_keyword_node(astString, AS_PTR(KeywordNode, node)); break;
+    case AST_UNARY: append_unary_node(astString, AS_PTR(UnaryNode, node)); break;
+    case AST_BINARY: append_binary_node(astString, AS_PTR(BinaryNode, node)); break;
+    case AST_EXPR_STMT: append_expr_stmt_node(astString, AS_PTR(ExprStmtNode, node)); break;
     case AST_EOF: append_eof_node(astString); break;
     default: UNREACHABLE_ERROR();
     }

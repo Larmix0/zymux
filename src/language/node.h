@@ -5,7 +5,7 @@
 #include "token.h"
 #include "program.h"
 
-typedef struct AstNode AstNode; // So an AST node can have other AST nodes inside it.
+#define AS_NODE(node) ((Node *)node)
 
 /** An enum to represent different types of AST nodes. */
 typedef enum {
@@ -20,22 +20,22 @@ typedef enum {
 } AstType;
 
 /** Generic AST node struct for type punning. */
-typedef struct AstNode {
-    AstNode *next;
+typedef struct Node {
+    Node *next;
     AstType type;
-} AstNode;
+} Node;
 
 /** An array of AST nodes. */
-DECLARE_DA_STRUCT(NodeArray, AstNode *);
+DECLARE_DA_STRUCT(NodeArray, Node *);
 
 /** An erroneous node. This is mostly just a placeholder for returning after erroring out. */
 typedef struct {
-    AstNode node;
+    Node node;
 } ErrorNode;
 
 /** A node which holds one literal value. */
 typedef struct {
-    AstNode node;
+    Node node;
     Token value;
 } LiteralNode;
 
@@ -49,13 +49,13 @@ typedef struct {
  * its position is considered the first node in exprs.
  */
 typedef struct {
-    AstNode node;
+    Node node;
     NodeArray exprs;
 } StringNode;
 
 /** Represents a keyword that is parsed as alone like true, false, null, super, etc. */
 typedef struct {
-    AstNode node;
+    Node node;
     TokenType keyword;
     SourcePosition pos;
 } KeywordNode;
@@ -66,17 +66,17 @@ typedef struct {
  * This is because anything could be RHS in a unary operation. Even a nested unary like (---10).
  */
 typedef struct {
-    AstNode node;
+    Node node;
     Token operation;
-    AstNode *rhs;
+    Node *rhs;
 } UnaryNode;
 
 /** Holds the right and left value of some operation, as well as that operation itself. */
 typedef struct {
-    AstNode node;
-    AstNode *lhs;
+    Node node;
+    Node *lhs;
     Token operation;
-    AstNode *rhs;
+    Node *rhs;
 } BinaryNode;
 
 /**
@@ -85,42 +85,42 @@ typedef struct {
  * This is needed so the compiler knows to throw some extra opcodes after (like a pop).
  */
 typedef struct {
-    AstNode node;
-    AstNode *expr;
+    Node node;
+    Node *expr;
 } ExprStmtNode;
 
 /** Node that simply represents EOF and holds the its position. */
 typedef struct {
-    AstNode node;
+    Node node;
     SourcePosition pos;
 } EofNode;
 
 /** Returns an erroneous node which serves as a placeholder for returning a valid token. */
-AstNode *new_error_node(ZmxProgram *program);
+Node *new_error_node(ZmxProgram *program);
 
 /** Returns a string node: An array of nodes that alternate between string literals and exprs. */
-AstNode *new_string_node(ZmxProgram *program, NodeArray exprs);
+Node *new_string_node(ZmxProgram *program, NodeArray exprs);
 
 /** Allocates a new literal node which just holds the literal value. */
-AstNode *new_literal_node(ZmxProgram *program, Token value);
+Node *new_literal_node(ZmxProgram *program, Token value);
 
 /** Returns a keyword node that is denoted by the token type. */
-AstNode *new_keyword_node(ZmxProgram *program, Token keyword);
+Node *new_keyword_node(ZmxProgram *program, Token keyword);
 
 /** Allocates a unary node, which is something that has one operation done on it. */
-AstNode *new_unary_node(ZmxProgram *program, Token operation, AstNode *rhs);
+Node *new_unary_node(ZmxProgram *program, Token operation, Node *rhs);
 
 /** Allocates a binary node, which holds information of an operation done between 2 operands. */
-AstNode *new_binary_node(ZmxProgram *program, AstNode *lhs, Token operation, AstNode *rhs);
+Node *new_binary_node(ZmxProgram *program, Node *lhs, Token operation, Node *rhs);
 
 /** Allocates an expression statement node, which just holds an expression. */
-AstNode *new_expr_stmt_node(ZmxProgram *program, AstNode *expr);
+Node *new_expr_stmt_node(ZmxProgram *program, Node *expr);
 
 /** Returns a node which holds the position an EOF token. */
-AstNode *new_eof_node(ZmxProgram *program, SourcePosition eofPos);
+Node *new_eof_node(ZmxProgram *program, SourcePosition eofPos);
 
 /** Returns the source position of an arbitrary node. */
-SourcePosition get_node_pos(AstNode *node);
+SourcePosition get_node_pos(Node *node);
 
 /** Frees all the nodes allocated in the program. */
 void free_all_nodes(ZmxProgram *program);

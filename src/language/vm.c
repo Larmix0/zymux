@@ -42,7 +42,7 @@
 
 /** Returns the number the passed object holds, assuming it's either an int, or float object. */
 #define NUM_VAL(obj) \
-    ((obj)->type == OBJ_INT ? AS_PTR((obj), IntObj)->number : AS_PTR((obj), FloatObj)->number)
+    ((obj)->type == OBJ_INT ? AS_PTR(IntObj, (obj))->number : AS_PTR(FloatObj, (obj))->number)
 
 /** Creates a float from an operation done on 2 values, one of which at least is a float. */
 #define FLOAT_FROM_BIN_OP(vm, left, op, right) \
@@ -60,11 +60,11 @@
         if (BIN_LEFT((vm))->type == OBJ_FLOAT || BIN_RIGHT((vm))->type == OBJ_FLOAT) { \
             FloatObj *result = FLOAT_FROM_BIN_OP((vm), BIN_LEFT((vm)), op, BIN_RIGHT((vm))); \
             DROP_AMOUNT((vm), 2); \
-            PUSH(vm, AS_PTR(result, Obj)); \
+            PUSH(vm, AS_OBJ(result)); \
         } else { \
             IntObj *result = INT_FROM_BIN_OP((vm), BIN_LEFT((vm)), op, BIN_RIGHT((vm))); \
             DROP_AMOUNT((vm), 2); \
-            PUSH(vm, AS_PTR(result, Obj)); \
+            PUSH(vm, AS_OBJ(result)); \
         } \
     } while (false)
 
@@ -75,7 +75,7 @@
             vm->program, NUM_VAL(BIN_LEFT((vm))) op NUM_VAL(BIN_RIGHT((vm))) \
         ); \
         DROP_AMOUNT((vm), 2); \
-        PUSH(vm, AS_PTR(result, Obj)); \
+        PUSH(vm, AS_OBJ(result)); \
     } while (false)
 
 /** 
@@ -144,8 +144,8 @@ bool interpret(Vm *vm) {
             break;
         case OP_ARG_16: vm->instrSize = INSTR_TWO_BYTES; break;
         case OP_ARG_32: vm->instrSize = INSTR_FOUR_BYTES; break;
-        case OP_TRUE: PUSH(vm, AS_PTR(new_bool_obj(vm->program, true), Obj)); break;
-        case OP_FALSE: PUSH(vm, AS_PTR(new_bool_obj(vm->program, false), Obj)); break;
+        case OP_TRUE: PUSH(vm, AS_OBJ(new_bool_obj(vm->program, true))); break;
+        case OP_FALSE: PUSH(vm, AS_OBJ(new_bool_obj(vm->program, false))); break;
         case OP_ADD: BIN_OP(vm, +); break;
         case OP_SUBTRACT: BIN_OP(vm, -); break;
         case OP_MULTIPLY: BIN_OP(vm, *); break;
@@ -156,14 +156,14 @@ bool interpret(Vm *vm) {
                     vm->program, zmx_float_modulo(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
                 );
                 DROP_AMOUNT(vm, 2);
-                PUSH(vm, AS_PTR(result, Obj));
+                PUSH(vm, AS_OBJ(result));
             } else {
                 IntObj *result = new_int_obj(
                     vm->program,
-                    AS_PTR((BIN_LEFT(vm)), IntObj)->number % AS_PTR((BIN_RIGHT(vm)), IntObj)->number
+                    AS_PTR(IntObj, (BIN_LEFT(vm)))->number % AS_PTR(IntObj, (BIN_RIGHT(vm)))->number
                 );
                 DROP_AMOUNT(vm, 2);
-                PUSH(vm, AS_PTR(result, Obj));
+                PUSH(vm, AS_OBJ(result));
             }
             break;
         }
@@ -173,26 +173,26 @@ bool interpret(Vm *vm) {
                     vm->program, zmx_float_power(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
                 );
                 DROP_AMOUNT(vm, 2);
-                PUSH(vm, AS_PTR(result, Obj));
+                PUSH(vm, AS_OBJ(result));
             } else {
                 IntObj *result = new_int_obj(
                     vm->program, zmx_int_power(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
                 );
                 DROP_AMOUNT(vm, 2);
-                PUSH(vm, AS_PTR(result, Obj));
+                PUSH(vm, AS_OBJ(result));
             }
             break;
         }
         case OP_EQ: {
             BoolObj *result = new_bool_obj(vm->program, equal_obj(BIN_LEFT(vm), BIN_RIGHT(vm)));
             DROP_AMOUNT(vm, 2);
-            PUSH(vm, AS_PTR(result, Obj));
+            PUSH(vm, AS_OBJ(result));
             break;
         }
         case OP_NOT_EQ: {
             BoolObj *result = new_bool_obj(vm->program, !equal_obj(BIN_LEFT(vm), BIN_RIGHT(vm)));
             DROP_AMOUNT(vm, 2);
-            PUSH(vm, AS_PTR(result, Obj));
+            PUSH(vm, AS_OBJ(result));
             break;
         }
         case OP_GREATER: BIN_OP_BOOL(vm, >); break;
@@ -201,25 +201,25 @@ bool interpret(Vm *vm) {
         case OP_LESS_EQ: BIN_OP_BOOL(vm, <=); break;
         case OP_MINUS:
             if (PEEK(vm)->type == OBJ_INT) {
-                ZmxInt negated = -AS_PTR(POP(vm), IntObj)->number;
-                PUSH(vm, AS_PTR(new_int_obj(vm->program, negated), Obj));
+                ZmxInt negated = -AS_PTR(IntObj, POP(vm))->number;
+                PUSH(vm, AS_OBJ(new_int_obj(vm->program, negated)));
             } else if (PEEK(vm)->type == OBJ_FLOAT) {
-                ZmxFloat negated = -AS_PTR(POP(vm), FloatObj)->number;
-                PUSH(vm, AS_PTR(new_float_obj(vm->program, negated), Obj));
+                ZmxFloat negated = -AS_PTR(FloatObj, POP(vm))->number;
+                PUSH(vm, AS_OBJ(new_float_obj(vm->program, negated)));
             }
             break;
         case OP_NOT: {
             BoolObj *asBool = as_bool(vm->program, POP(vm));
             asBool->boolean = asBool->boolean ? false : true; // Simply reverse after converting.
-            PUSH(vm, AS_PTR(asBool, Obj));
+            PUSH(vm, AS_OBJ(asBool));
             break;
         }
         case OP_AS: {
             Obj *original = POP(vm);
             switch (READ_NUMBER(vm)) {
             // TODO: implement other types.
-            case TYPE_BOOL: PUSH(vm, AS_PTR(as_bool(vm->program, original), Obj)); break;
-            case TYPE_STRING: PUSH(vm, AS_PTR(as_string(vm->program, original), Obj)); break;
+            case TYPE_BOOL: PUSH(vm, AS_OBJ(as_bool(vm->program, original))); break;
+            case TYPE_STRING: PUSH(vm, AS_OBJ(as_string(vm->program, original))); break;
             default: UNREACHABLE_ERROR(); break;
             }
             break;
@@ -231,11 +231,11 @@ bool interpret(Vm *vm) {
             // Build a string from the deepest/oldest till the outermost/newest one in the stack.
             for (u32 i = 1; i <= amount; i++) {
                 string = concatenate(
-                    vm->program, string, AS_PTR(PEEK_DEPTH(vm, amount - i), StringObj)
+                    vm->program, string, AS_PTR(StringObj, PEEK_DEPTH(vm, amount - i))
                 );
             }
             DROP_AMOUNT(vm, amount);
-            PUSH(vm, AS_PTR(string, Obj));
+            PUSH(vm, AS_OBJ(string));
             break;
         }
         case OP_POP:
