@@ -6,7 +6,7 @@
 #include "vm.h"
 
 /** Reads the current instruction and increments IP to prepare for the next one. */
-#define NEXT_INSTRUCTION(vm) (*(vm)->frame->ip++)
+#define READ_INSTR(vm) (*(vm)->frame->ip++)
 
 // TODO: turn the read_number function fully to a macro for performance?
 // Pretty considerable since it's also used by the const reader.
@@ -19,14 +19,14 @@
     ))
 
 /** Reads the upcoming number and uses it to index an object in the current constant pool. */
-#define READ_CONST(vm) ((vm)->frame->func->constPool.data[READ_NUMBER((vm))])
+#define READ_CONST(vm) ((vm)->frame->func->constPool.data[READ_NUMBER(vm)])
 
 #define CREATE_STACK() {.objects = NULL, .capacity = 0}
-#define STACK_LENGTH(vm) ((vm)->frame->sp - vm->stack.objects)
+#define STACK_LENGTH(vm) ((vm)->frame->sp - (vm)->stack.objects)
 #define PUSH(vm, obj) \
     do { \
         if ((vm)->stack.capacity < STACK_LENGTH(vm) + 1) { \
-            reallocate_stack((vm)); \
+            reallocate_stack(vm); \
         } \
         *(vm)->frame->sp++ = (obj); \
     } while (false)
@@ -35,35 +35,37 @@
 #define DROP_AMOUNT(vm, amount) ((vm)->frame->sp -= (amount))
 #define PEEK(vm) (*((vm)->frame->sp - 1))
 #define PEEK_DEPTH(vm, depth) (*((vm)->frame->sp - (depth) - 1))
-#define FREE_STACK(stack) (free((stack)->objects))
+#define FREE_STACK(vm) (free((vm)->stack.objects))
 
-#define BIN_LEFT(vm) (PEEK_DEPTH((vm), 1)) /** Left hand side object of a binary in the stack. */
-#define BIN_RIGHT(vm) (PEEK_DEPTH((vm), 0)) /** Right hand side object of a binary in the stack. */
+#define BIN_LEFT(vm) (PEEK_DEPTH(vm, 1)) /** Left hand side object of a binary in the stack. */
+#define BIN_RIGHT(vm) (PEEK_DEPTH(vm, 0)) /** Right hand side object of a binary in the stack. */
 
+// TODO: ensure that we don't blindly cast to a float object if it's not an integer object.
 /** Returns the number the passed object holds, assuming it's either an int, or float object. */
 #define NUM_VAL(obj) \
-    ((obj)->type == OBJ_INT ? AS_PTR(IntObj, (obj))->number : AS_PTR(FloatObj, (obj))->number)
+    ((obj)->type == OBJ_INT ? AS_PTR(IntObj, obj)->number : AS_PTR(FloatObj, obj)->number)
 
 /** Creates a float from an operation done on 2 values, one of which at least is a float. */
 #define FLOAT_FROM_BIN_OP(vm, left, op, right) \
     (new_float_obj( \
-        (vm)->program, ((ZmxFloat)NUM_VAL((left)) op (ZmxFloat)NUM_VAL((right))) \
+        (vm)->program, ((ZmxFloat)NUM_VAL(left) op (ZmxFloat)NUM_VAL(right)) \
     ))
 
 /** Creates an integer object from an operation done on 2 integer objects. */
 #define INT_FROM_BIN_OP(vm, left, op, right) \
-    (new_int_obj((vm)->program, NUM_VAL((left)) op NUM_VAL((right))))
+    (new_int_obj((vm)->program, NUM_VAL(left) op NUM_VAL(right)))
 
+// TODO: perform a check that the top 2 elements of the stack are even integers or floats.
 /** Applies the passed op as a binary operation to the last 2 values of the stack, pushes result. */
 #define BIN_OP(vm, op) \
     do { \
-        if (BIN_LEFT((vm))->type == OBJ_FLOAT || BIN_RIGHT((vm))->type == OBJ_FLOAT) { \
-            FloatObj *result = FLOAT_FROM_BIN_OP((vm), BIN_LEFT((vm)), op, BIN_RIGHT((vm))); \
-            DROP_AMOUNT((vm), 2); \
+        if (BIN_LEFT(vm)->type == OBJ_FLOAT || BIN_RIGHT(vm)->type == OBJ_FLOAT) { \
+            FloatObj *result = FLOAT_FROM_BIN_OP(vm, BIN_LEFT(vm), op, BIN_RIGHT(vm)); \
+            DROP_AMOUNT(vm, 2); \
             PUSH(vm, AS_OBJ(result)); \
         } else { \
-            IntObj *result = INT_FROM_BIN_OP((vm), BIN_LEFT((vm)), op, BIN_RIGHT((vm))); \
-            DROP_AMOUNT((vm), 2); \
+            IntObj *result = INT_FROM_BIN_OP(vm, BIN_LEFT(vm), op, BIN_RIGHT(vm)); \
+            DROP_AMOUNT(vm, 2); \
             PUSH(vm, AS_OBJ(result)); \
         } \
     } while (false)
@@ -72,9 +74,9 @@
 #define BIN_OP_BOOL(vm, op) \
     do { \
         BoolObj *result = new_bool_obj( \
-            vm->program, NUM_VAL(BIN_LEFT((vm))) op NUM_VAL(BIN_RIGHT((vm))) \
+            vm->program, NUM_VAL(BIN_LEFT(vm)) op NUM_VAL(BIN_RIGHT(vm)) \
         ); \
-        DROP_AMOUNT((vm), 2); \
+        DROP_AMOUNT(vm, 2); \
         PUSH(vm, AS_OBJ(result)); \
     } while (false)
 
@@ -125,7 +127,7 @@ Vm create_vm(ZmxProgram *program, FuncObj *func) {
 /** Frees all memory that the passed VM allocated. */
 void free_vm(Vm *vm) {
     FREE_DA(&vm->callStack);
-    FREE_STACK(&vm->stack);
+    FREE_STACK(vm);
 }
 
 /** Executes all the bytecode in the passed VM's function object. */
@@ -138,7 +140,7 @@ bool interpret(Vm *vm) {
             vm->frame->ip - vm->frame->func->bytecode.data, vm->instrSize
         );
 #endif
-        switch (NEXT_INSTRUCTION(vm)) {
+        switch (READ_INSTR(vm)) {
         case OP_LOAD_CONST:
             PUSH(vm, READ_CONST(vm));
             break;

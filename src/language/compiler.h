@@ -6,9 +6,9 @@
 
 /** The compiler for a Zymux program. */
 typedef struct Compiler {
-    ZmxProgram *program;
-    NodeArray ast;
-    FuncObj *func;
+    ZmxProgram *program; /** Zymux program to hold the program's information. */
+    NodeArray ast; /** The whole AST that is being compiled. */
+    FuncObj *func; /** The "function" whose bytecode is currently being added while compiling. */
     bool isDebugging; /** Whether or not we should store the positions of each bytecode. */
 } Compiler;
 

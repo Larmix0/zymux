@@ -7,7 +7,7 @@
 #include "report_error.h"
 
 /** To be used for generally allocating a number of bytes. */
-#define ZMX_ALLOC(amount) (zmx_alloc((amount), SOURCE_INFO))
+#define ZMX_ALLOC(amount) (zmx_alloc(amount, SOURCE_INFO))
 
 /** To be used when allocating memory for a specific type. */
 #define ZMX_TYPE_ALLOC(type) (ZMX_ALLOC(sizeof(type)))
@@ -17,11 +17,11 @@
 
 /** To be used when reallocating a block of memory of a specific length in bytes.  */
 #define ZMX_REALLOC(oldPointer, amount) \
-    (zmx_realloc((oldPointer), (amount), SOURCE_INFO))
+    (zmx_realloc(oldPointer, amount, SOURCE_INFO))
 
 /** To be used when reallocating an array. */
 #define ZMX_REALLOC_ARRAY(oldPointer, amount, type) \
-    (ZMX_REALLOC((oldPointer), (amount) * sizeof(type)))
+    (ZMX_REALLOC(oldPointer, (amount) * sizeof(type)))
 
 typedef struct Node Node;
 typedef struct Obj Obj;

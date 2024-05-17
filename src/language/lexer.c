@@ -8,8 +8,7 @@
 
 #define CURRENT_TOKEN_LENGTH(lexer) ((lexer)->current - (lexer)->tokenStart)
 #define START_TOKEN(lexer) \
-    ((lexer)->tokenStart = (lexer)->current, \
-    (lexer)->tokenColumn = (lexer)->column)
+    ((lexer)->tokenStart = (lexer)->current, (lexer)->tokenColumn = (lexer)->column)
 
 #define PEEK(lexer) (*(lexer)->current)
 #define PEEK_NEXT(lexer) \
@@ -19,11 +18,11 @@
 #define ADVANCE(lexer) ((lexer)->column++, (lexer)->current++)
 #define ADVANCE_DOUBLE(lexer) ((lexer)->column += 2, (lexer)->current += 2)
 
-#define MATCH(lexer, expected) (PEEK((lexer)) == (expected) ? (ADVANCE((lexer)), true) : false)
+#define MATCH(lexer, expected) (PEEK(lexer) == (expected) ? (ADVANCE(lexer), true) : false)
 #define RETREAT(lexer) ((lexer)->column--, (lexer)->current--)
 
 #define LOWERED_CHAR(ch) ((ch) >= 'A' && (ch) <= 'Z' ? (ch) + 32 : (ch))
-#define IS_ALPHA(ch) ((LOWERED_CHAR((ch)) >= 'a' && LOWERED_CHAR((ch)) <= 'z') || (ch) == '_')
+#define IS_ALPHA(ch) ((LOWERED_CHAR(ch) >= 'a' && LOWERED_CHAR(ch) <= 'z') || (ch) == '_')
 #define IS_DIGIT(ch) ((ch) >= '0' && (ch) <= '9')
 
 #define IS_EOF(lexer) (*(lexer)->current == '\0')
@@ -31,7 +30,7 @@
 /** Signature of a function used for checking if a character is within a base. */
 typedef bool (*BaseCheckFunc)(const char ch);
 
-/** A struct specifically to store information about a string that's being lexed. */
+/** A struct made specifically for storing information about a string that's being lexed. */
 typedef struct {
     bool isRaw;
     bool isInterpolated;
@@ -934,7 +933,7 @@ bool lex(Lexer *lexer) {
         ignore_whitespace(lexer);
         lex_token(lexer);
         Token lastToken = lexer->tokens.data[lexer->tokens.length - 1];
-        if (TOKEN_IS_TYPE(lastToken, TOKEN_EOF)) {
+        if (lastToken.type == TOKEN_EOF) {
             break;
         }
     }

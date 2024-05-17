@@ -4,21 +4,20 @@
 
 #define PEEK(parser) (*(parser)->current)
 #define PEEK_PREVIOUS(parser) (*((parser)->current - 1))
-#define CHECK(parser, expected) (PEEK((parser)).type == (expected))
-
-// All macros which change a parser's current token stop changing if we're on panic mode.
+#define CHECK(parser, expected) (PEEK(parser).type == (expected))
 
 #define ADVANCE_PEEK(parser) (*(parser)->current++)
 #define ADVANCE(parser) ((parser)->current++)
 #define RETREAT(parser) ((parser)->current--)
 
-#define MATCH(parser, expected) (CHECK((parser), (expected)) ? (ADVANCE((parser)), true) : false)
+#define MATCH(parser, expected) (CHECK(parser, expected) ? (ADVANCE(parser), true) : false)
 #define CONSUME(parser, expected, message) \
-    (CHECK((parser), (expected)) \
-        ? ADVANCE_PEEK((parser)) \
-        : (raise_parser_error_missing((parser), &PEEK_PREVIOUS((parser)), (message)), PEEK(parser)))
-
-#define IS_EOF(parser) (CHECK((parser), TOKEN_EOF))
+    (CHECK(parser, expected) \
+        ? ADVANCE_PEEK(parser) \
+        : (raise_parser_error_missing(parser, &PEEK_PREVIOUS(parser), message), \
+            PEEK(parser)))
+            
+#define IS_EOF(parser) (CHECK(parser, TOKEN_EOF))
 
 static Node *expression(Parser *parser);
 

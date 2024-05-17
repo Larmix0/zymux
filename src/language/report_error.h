@@ -9,7 +9,7 @@
     (internal_error(info, "Memory error", __VA_ARGS__))
 
 /** Reports a memory-related error where it was called. */
-#define MEMORY_ERROR(...) (MEMORY_ERROR_ARGS(LINE_INFO, __VA_ARGS__))
+#define MEMORY_ERROR(...) (MEMORY_ERROR_ARGS(SOURCE_INFO, __VA_ARGS__))
 
 /** 
  * Reports an error where a part of the implementation that wasn't meant to be executed was reached.
@@ -32,7 +32,7 @@
 
 /** A user syntax error. Typically means an error occurred in lexing or parsing. */
 #define SYNTAX_ERROR(program, pos, message) \
-    (zmx_user_error((program), (pos), "Syntax error", (message)))
+    (zmx_user_error(program, pos, "Syntax error", message))
 
 /** Places an instantiated struct that holds information of a line in C source code. */
 #define SOURCE_INFO ((SourceInfo){.file = __FILE__, .func = __func__, .line = __LINE__})
