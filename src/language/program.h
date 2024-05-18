@@ -57,7 +57,7 @@ ZmxFloat zmx_float_power(const ZmxFloat base, const ZmxFloat exponent);
 ZmxFloat zmx_float_modulo(ZmxFloat dividend, const ZmxFloat divisor);
 
 /** Returns an initialized zymux program with the parameters. */
-ZmxProgram create_zmx_program(char *file, bool showErrors);
+ZmxProgram create_zmx_program(char *file, const bool showErrors);
 
 /** Frees generally everything held by program. */
 void free_zmx_program(ZmxProgram *program);

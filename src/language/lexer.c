@@ -105,7 +105,7 @@ static void append_lexed_error(Lexer *lexer, char *message) {
 
 /** Appends an error token in a specific position in the source code with the message. */
 static void append_error_at(
-    Lexer *lexer, char *message, char *errorStart, SourcePosition pos
+    Lexer *lexer, char *message, char *errorStart, const SourcePosition pos
 ) {
     Token error = {
         .lexeme = errorStart, .pos = pos,
@@ -126,7 +126,7 @@ static void append_lexed(Lexer *lexer, const TokenType type) {
 }
 
 /** Appends an integer that was lexed and sets its integer union to the passed literal value. */
-static void append_lexed_int(Lexer *lexer, ZmxInt integer) {
+static void append_lexed_int(Lexer *lexer, const ZmxInt integer) {
     Token token = {
         .lexeme = lexer->tokenStart,
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
@@ -136,7 +136,7 @@ static void append_lexed_int(Lexer *lexer, ZmxInt integer) {
 }
 
 /** Appends a float that was lexed and sets its float union to the passed literal value. */
-static void append_lexed_float(Lexer *lexer, ZmxFloat floatVal) {
+static void append_lexed_float(Lexer *lexer, const ZmxFloat floatVal) {
     Token token = {
         .lexeme = lexer->tokenStart,
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
@@ -370,7 +370,7 @@ static void lex_name(Lexer *lexer) {
 }
 
 /** Appends the lexed integer token. */
-static void append_lexed_base(Lexer *lexer, const int base, bool hasPrefix) {
+static void append_lexed_base(Lexer *lexer, const int base, const bool hasPrefix) {
     // Create a terminated version of the lexeme to use strtoll on it.
     char *terminatedLexeme = alloc_current_lexeme(lexer);
     ZmxInt integer = strtoll(terminatedLexeme, NULL, base);
@@ -384,7 +384,7 @@ static void append_lexed_base(Lexer *lexer, const int base, bool hasPrefix) {
 }
 
 /** Errors a number literal covering the number until next isn't alphabetical or numerical. */
-static void invalid_literal(Lexer *lexer, char *message, bool hasPrefix) {
+static void invalid_literal(Lexer *lexer, char *message, const bool hasPrefix) {
     if (hasPrefix) {
         lexer->tokenStart -= 2;
         lexer->tokenColumn -= 2;
@@ -932,8 +932,7 @@ bool lex(Lexer *lexer) {
     while (true) {
         ignore_whitespace(lexer);
         lex_token(lexer);
-        Token lastToken = lexer->tokens.data[lexer->tokens.length - 1];
-        if (lastToken.type == TOKEN_EOF) {
+        if (lexer->tokens.data[lexer->tokens.length - 1].type == TOKEN_EOF) {
             break;
         }
     }

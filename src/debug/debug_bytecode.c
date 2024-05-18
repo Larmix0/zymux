@@ -16,7 +16,9 @@ static void print_bare_instr(const char *instrName, u32 *idx) {
 }
 
 /** Prints an instruction that has a number after. Returns the read number as well. */
-static u32 print_number_instr(const char *instrName, FuncObj *func, u32 *idx, InstrSize *size) {
+static u32 print_number_instr(
+    const char *instrName, const FuncObj *func, u32 *idx, InstrSize *size
+) {
     print_bare_instr(instrName, idx);
     *idx += *size;
     const u32 number = read_number(func, *idx - *size, size);
@@ -25,7 +27,9 @@ static u32 print_number_instr(const char *instrName, FuncObj *func, u32 *idx, In
 }
 
 /** Prints an instruction that is followed by a data type enum. */
-static void print_data_type_instr(const char *instrName, FuncObj *func, u32 *idx, InstrSize *size) {
+static void print_data_type_instr(
+    const char *instrName, const FuncObj *func, u32 *idx, InstrSize *size
+) {
     DataType dataType = print_number_instr(instrName, func, idx, size);
     printf(" (");
     switch (dataType) {
@@ -39,7 +43,9 @@ static void print_data_type_instr(const char *instrName, FuncObj *func, u32 *idx
 }
 
 /** Prints an instruction that has a constant object immediately after. */
-static void print_const_instr(const char *instrName, FuncObj *func, u32 *idx, InstrSize *size) {
+static void print_const_instr(
+    const char *instrName, const FuncObj *func, u32 *idx, InstrSize *size
+) {
     const u32 constIdx = print_number_instr(instrName, func, idx, size);
     printf(" (");
     print_obj(func->constPool.data[constIdx], true);
@@ -47,7 +53,7 @@ static void print_const_instr(const char *instrName, FuncObj *func, u32 *idx, In
 }
 
 /** Prints a single instruction depending on format, and modifies idx's value accordingly. */
-u32 print_instr(FuncObj *func, u32 idx, InstrSize *size, InstrFormat format) {
+u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const InstrFormat format) {
     switch (format) {
     case INSTR_NORMAL:
         printf("%-10d", func->positions.data[idx].line);
@@ -89,7 +95,7 @@ u32 print_instr(FuncObj *func, u32 idx, InstrSize *size, InstrFormat format) {
     return idx;
 }
 
-static void print_separator(FuncObj *func) {
+static void print_separator(const FuncObj *func) {
     if (HAS_POS_INFO(func)) {
         printf("----------");
     }
@@ -103,7 +109,7 @@ static void print_separator(FuncObj *func) {
  * It could be NULL in the case that the bytecode array is simple empty,
  * but in that the loop won't end up triggering and printing anything anyways.
  */
-void print_bytecode(FuncObj *func) {
+void print_bytecode(const FuncObj *func) {
     print_separator(func);
     print_obj(AS_OBJ(func), true);
     putchar('\n');

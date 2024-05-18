@@ -1,10 +1,10 @@
 #include "compiler.h"
 #include "emitter.h"
 
-static void compile_node(Compiler *compiler, Node *node);
+static void compile_node(Compiler *compiler, const Node *node);
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
-Compiler create_compiler(ZmxProgram *program, NodeArray ast, bool isDebugging) {
+Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool isDebugging) {
     Compiler compiler = {
         .program = program, .ast = ast, .isDebugging = isDebugging,
         .func = new_func_obj(program, new_string_obj(program, "<global>"))
@@ -20,7 +20,7 @@ void free_compiler(Compiler *compiler) {
 }
 
 /** Compiles a literal value which is by adding it's obj form in the constants pool. */
-static void compile_literal(Compiler *compiler, LiteralNode *node) {
+static void compile_literal(Compiler *compiler, const LiteralNode *node) {
     Token value = node->value;
     Obj *literalAsObj;
     switch (value.type) {
@@ -47,7 +47,7 @@ static void compile_literal(Compiler *compiler, LiteralNode *node) {
  * At the end, we emit an instruction to build a "finished" string from all the string literals
  * and converted expressions that are on the top of the stack.
  */
-static void compile_string(Compiler *compiler, StringNode *node) {
+static void compile_string(Compiler *compiler, const StringNode *node) {
     bool nextIsInterpolated = false;
     for (u32 i = 0; i < node->exprs.length; i++) {
         compile_node(compiler, node->exprs.data[i]);
@@ -61,7 +61,7 @@ static void compile_string(Compiler *compiler, StringNode *node) {
 }
 
 /** Compiles a keyword node, which is one that holds a bare keyword and it's position. */
-static void compile_keyword(Compiler *compiler, KeywordNode *node) {
+static void compile_keyword(Compiler *compiler, const KeywordNode *node) {
     switch (node->keyword) {
     case TOKEN_TRUE_KW: emit_instr(compiler, OP_TRUE, node->pos); break;
     case TOKEN_FALSE_KW: emit_instr(compiler, OP_FALSE, node->pos); break;
@@ -70,7 +70,7 @@ static void compile_keyword(Compiler *compiler, KeywordNode *node) {
 }
 
 /** Compiles a unary node. */
-static void compile_unary(Compiler *compiler, UnaryNode *node) {
+static void compile_unary(Compiler *compiler, const UnaryNode *node) {
     compile_node(compiler, node->rhs);
 
     OpCode unaryOp;
@@ -83,7 +83,7 @@ static void compile_unary(Compiler *compiler, UnaryNode *node) {
 }
 
 /** Compiles a binary node. */
-static void compile_binary(Compiler *compiler, BinaryNode *node) {
+static void compile_binary(Compiler *compiler, const BinaryNode *node) {
     compile_node(compiler, node->lhs);
     compile_node(compiler, node->rhs);
 
@@ -110,18 +110,18 @@ static void compile_binary(Compiler *compiler, BinaryNode *node) {
  * Compiles an expression statement.
  * It's just an expression node that pops the resulting value afterwards.
  */
-static void compile_expr_stmt(Compiler *compiler, ExprStmtNode *node) {
+static void compile_expr_stmt(Compiler *compiler, const ExprStmtNode *node) {
     compile_node(compiler, node->expr);
     emit_instr(compiler, OP_POP, get_node_pos(node->expr));
 }
 
 /** Compiles an EOF node. */
-static void compile_eof(Compiler *compiler, EofNode *node) {
+static void compile_eof(Compiler *compiler, const EofNode *node) {
     emit_instr(compiler, OP_END, node->pos);
 }
 
 /** Compiles the bytecode for the passed node into the compiler's currently compiling function. */
-static void compile_node(Compiler *compiler, Node *node) {
+static void compile_node(Compiler *compiler, const Node *node) {
     switch (node->type) {
         case AST_LITERAL: compile_literal(compiler, AS_PTR(LiteralNode, node)); break;
         case AST_STRING: compile_string(compiler, AS_PTR(StringNode, node)); break;

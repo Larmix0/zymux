@@ -23,7 +23,7 @@
  * Finally, just compare the pre-built/copy-pasted string with the one the debugger returned
  * on the tested unit.
  */
-void buffer_append_ast_strings(CharBuffer *buffer, const int amount, ...) {
+static void buffer_append_ast_strings(CharBuffer *buffer, const int amount, ...) {
     va_list args;
     va_start(args, amount);
     for (int i = 0; i < amount; i++) {

@@ -55,10 +55,10 @@ typedef struct {
 } SourcePosition;
 
 /** Returns a position in the source code created from the parameters */
-SourcePosition create_src_pos(int line, int column, int length);
+SourcePosition create_src_pos(const int line, const int column, const int length);
 
 /** Checks whether pos1 and pos2 are the same. */
-bool equal_position(SourcePosition pos1, SourcePosition pos2);
+bool equal_position(const SourcePosition pos1, const SourcePosition pos2);
 
 /** Displays an error relating to the user's operating system. */
 void os_error(const char *format, ...);
@@ -71,7 +71,7 @@ void file_error(const char *format, ...);
 
 /** Displays an error that happened due to a mistake from the person using Zymux in a *.zmx file. */
 void zmx_user_error(
-    ZmxProgram *program, SourcePosition pos, const char *errorName, const char *format, ...
+    ZmxProgram *program, const SourcePosition pos, const char *errorName, const char *format, ...
 );
 
 #endif

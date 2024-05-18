@@ -13,7 +13,7 @@ typedef struct Compiler {
 } Compiler;
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
-Compiler create_compiler(ZmxProgram *program, NodeArray ast, bool isDebugging);
+Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool isDebugging);
 
 /** Frees all memory the compiler owns. */
 void free_compiler(Compiler *compiler);

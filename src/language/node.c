@@ -25,14 +25,14 @@ Node *new_error_node(ZmxProgram *program) {
 }
 
 /** Allocates a new literal node which just holds the literal value. */
-Node *new_literal_node(ZmxProgram *program, Token value) {
+Node *new_literal_node(ZmxProgram *program, const Token value) {
     LiteralNode *node = NEW_NODE(program, AST_LITERAL, LiteralNode);
     node->value = value;
     return AS_NODE(node);
 }
 
 /** Returns a string node: An array of nodes that alternate between string literals and exprs. */
-Node *new_string_node(ZmxProgram *program, NodeArray exprs) {
+Node *new_string_node(ZmxProgram *program, const NodeArray exprs) {
     StringNode *node = NEW_NODE(program, AST_STRING, StringNode);
     node->exprs = exprs;
     return AS_NODE(node);
@@ -40,7 +40,7 @@ Node *new_string_node(ZmxProgram *program, NodeArray exprs) {
 
 
 /** Returns a keyword node that is denoted by the token type. */
-Node *new_keyword_node(ZmxProgram *program, Token keyword) {
+Node *new_keyword_node(ZmxProgram *program, const Token keyword) {
     KeywordNode *node = NEW_NODE(program, AST_KEYWORD, KeywordNode);
     node->keyword = keyword.type;
     node->pos = keyword.pos;
@@ -48,7 +48,7 @@ Node *new_keyword_node(ZmxProgram *program, Token keyword) {
 }
 
 /** Allocates a unary node, which is something that has one operation done on it. */
-Node *new_unary_node(ZmxProgram *program, Token operation, Node *rhs) {
+Node *new_unary_node(ZmxProgram *program, const Token operation, Node *rhs) {
     UnaryNode *node = NEW_NODE(program, AST_UNARY, UnaryNode);
     node->operation = operation;
     node->rhs = rhs;
@@ -56,7 +56,7 @@ Node *new_unary_node(ZmxProgram *program, Token operation, Node *rhs) {
 }
 
 /** Allocates a binary node, which holds information of an operation done between 2 operands. */
-Node *new_binary_node(ZmxProgram *program, Node *lhs, Token operation, Node *rhs) {
+Node *new_binary_node(ZmxProgram *program, Node *lhs, const Token operation, Node *rhs) {
     BinaryNode *node = NEW_NODE(program, AST_BINARY, BinaryNode);
     node->lhs = lhs;
     node->operation = operation;
@@ -73,7 +73,7 @@ Node *new_expr_stmt_node(ZmxProgram *program, Node *expr) {
 
 
 /** Returns a node which holds the position an EOF token. */
-Node *new_eof_node(ZmxProgram *program, SourcePosition eofPos) {
+Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos) {
     EofNode *node = NEW_NODE(program, AST_EOF, EofNode);
     node->pos = eofPos;
     return AS_NODE(node);
@@ -85,7 +85,7 @@ Node *new_eof_node(ZmxProgram *program, SourcePosition eofPos) {
  * This function becomes recursive when getting the lines of a node that doesn't directly have a
  * token inside it.
  */
-SourcePosition get_node_pos(Node *node) {
+SourcePosition get_node_pos(const Node *node) {
     switch (node->type) {
     case AST_ERROR: return create_src_pos(0, 0, 0);
     case AST_LITERAL: return AS_PTR(LiteralNode, node)->value.pos;

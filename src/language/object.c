@@ -20,21 +20,21 @@ static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) 
 }
 
 /** Allocates an int object from the passed integer. */
-IntObj *new_int_obj(ZmxProgram *program, ZmxInt number) {
+IntObj *new_int_obj(ZmxProgram *program, const ZmxInt number) {
     IntObj *object = NEW_OBJ(program, OBJ_INT, IntObj);
     object->number = number;
     return object;
 }
 
 /** Returns a new allocated float object from the passed floating number. */
-FloatObj *new_float_obj(ZmxProgram *program, ZmxFloat number) {
+FloatObj *new_float_obj(ZmxProgram *program, const ZmxFloat number) {
     FloatObj *object = NEW_OBJ(program, OBJ_FLOAT, FloatObj);
     object->number = number;
     return object;
 }
 
 /** Returns a new allocated boolean object from the passed bool. TODO: intern booleans. */
-BoolObj *new_bool_obj(ZmxProgram *program, bool boolean) {
+BoolObj *new_bool_obj(ZmxProgram *program, const bool boolean) {
     BoolObj *object = NEW_OBJ(program, OBJ_BOOL, BoolObj);
     object->boolean = boolean;
     return object;
@@ -109,7 +109,7 @@ StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringO
 // and/or return NULL?
 
 /** Returns the passed object as a string value. */
-StringObj *as_string(ZmxProgram *program, Obj *object) {
+StringObj *as_string(ZmxProgram *program, const Obj *object) {
     char *string;
     switch (object->type) {
     case OBJ_INT: {
@@ -142,7 +142,7 @@ StringObj *as_string(ZmxProgram *program, Obj *object) {
 }
 
 /** Returns the passed object's boolean (whether it's considered "truthy" or "falsy"). */
-BoolObj *as_bool(ZmxProgram *program, Obj *object) {
+BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     bool result;
     switch (object->type) {
     case OBJ_FUNC:

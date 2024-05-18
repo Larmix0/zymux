@@ -18,12 +18,12 @@ typedef struct {
     ZmxProgram *program; /** Information about the Zymux program. */
     TokenArray tokens; /** Lexed tokens we're parsing. */
     Token *current; /** The token we're currently parsing on. */
-    Token *syncSpot; /** Pointer to the token we should start synching from in case of an error. */
+    Token *syncSpot; /** Pointer to the token we should start syncing from in case of an error. */
     NodeArray ast; /** The array of nested nodes that were parsed. */
 } Parser;
 
 /** Returns an initialized parser with the passed tokens and the program. */
-Parser create_parser(ZmxProgram *program, TokenArray tokens);
+Parser create_parser(ZmxProgram *program, const TokenArray tokens);
 
 /** Frees all the memory the parser owns. */
 void free_parser(Parser *parser);

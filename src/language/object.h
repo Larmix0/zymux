@@ -81,13 +81,13 @@ typedef struct {
 } FuncObj;
 
 /** Returns a new allocated integer object. */
-IntObj *new_int_obj(ZmxProgram *program, ZmxInt number);
+IntObj *new_int_obj(ZmxProgram *program, const ZmxInt number);
 
 /** Returns a new allocated float object. */
-FloatObj *new_float_obj(ZmxProgram *program, ZmxFloat number);
+FloatObj *new_float_obj(ZmxProgram *program, const ZmxFloat number);
 
 /** Returns a new allocated boolean object. */
-BoolObj *new_bool_obj(ZmxProgram *program, bool boolean);
+BoolObj *new_bool_obj(ZmxProgram *program, const bool boolean);
 
 /** Returns a new allocated string object. */
 StringObj *new_string_obj(ZmxProgram *program, char *string);
@@ -102,10 +102,10 @@ bool equal_obj(const Obj *left, const Obj *right);
 StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringObj *right);
 
 /** Returns the passed object as a string value. */
-StringObj *as_string(ZmxProgram *program, Obj *object);
+StringObj *as_string(ZmxProgram *program, const Obj *object);
 
 /** Returns the passed object's boolean (whether it's considered "truthy" or "falsy"). */
-BoolObj *as_bool(ZmxProgram *program, Obj *object);
+BoolObj *as_bool(ZmxProgram *program, const Obj *object);
 
 /** 
  * Prints the passed object to the console.

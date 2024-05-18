@@ -203,10 +203,10 @@ bool interpret(Vm *vm) {
         case OP_LESS_EQ: BIN_OP_BOOL(vm, <=); break;
         case OP_MINUS:
             if (PEEK(vm)->type == OBJ_INT) {
-                ZmxInt negated = -AS_PTR(IntObj, POP(vm))->number;
+                const ZmxInt negated = -AS_PTR(IntObj, POP(vm))->number;
                 PUSH(vm, AS_OBJ(new_int_obj(vm->program, negated)));
             } else if (PEEK(vm)->type == OBJ_FLOAT) {
-                ZmxFloat negated = -AS_PTR(FloatObj, POP(vm))->number;
+                const ZmxFloat negated = -AS_PTR(FloatObj, POP(vm))->number;
                 PUSH(vm, AS_OBJ(new_float_obj(vm->program, negated)));
             }
             break;
@@ -217,7 +217,7 @@ bool interpret(Vm *vm) {
             break;
         }
         case OP_AS: {
-            Obj *original = POP(vm);
+            const Obj *original = POP(vm);
             switch (READ_NUMBER(vm)) {
             // TODO: implement other types.
             case TYPE_BOOL: PUSH(vm, AS_OBJ(as_bool(vm->program, original))); break;

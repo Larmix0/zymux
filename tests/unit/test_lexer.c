@@ -90,7 +90,7 @@ static void append_test_tokens(TokenArray *tokens, const int amount, ...) {
  * Compares the tokens in the lexer with the passed expectedArray.
  * If compareSpots is set to true, it'll also compare the the line and column of the tokens.
  */
-static void compare_lexed(Lexer *lexer, TokenArray *expectedArray, bool compareSpots) {
+static void compare_lexed(Lexer *lexer, TokenArray *expectedArray, const bool compareSpots) {
     const int lexerLength = lexer->tokens.length;
     const int expectedLength = expectedArray->length;
     ASSERT_INT_EQUAL(lexer->tokens.length, expectedArray->length);

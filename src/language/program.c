@@ -6,7 +6,7 @@
 #include "program.h"
 
 /** Returns an initialized Zymux program with the file and whether or not to show errors. */
-ZmxProgram create_zmx_program(char *file, bool showErrors) {
+ZmxProgram create_zmx_program(char *file, const bool showErrors) {
     ZmxProgram program = {
         .hasErrored = false, .showErrors = showErrors, .currentFile = file,
         .allNodes = NULL, .allObjs = NULL

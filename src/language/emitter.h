@@ -64,8 +64,8 @@ void emit_instr(Compiler *compiler, u8 byte, SourcePosition bytePos);
 /** Emits a 1 byte instruction followed by a number that's at most the size of a U32. */
 void emit_number(Compiler *compiler, u8 byte, const u32 number, SourcePosition pos);
 
-/** Reads a number that's a max size of a U32 which begins from numStart. */
-u32 read_number(FuncObj *function, const u32 numStart, InstrSize *size);
+/** Reads a number that's a max size of a U32 which begins from numStart as an index in bytecode. */
+u32 read_number(const FuncObj *function, const u32 numStart, InstrSize *size);
 
 /** Emits an instruction followed by an idx after to be used for an object in the const pool. */
 void emit_const(Compiler *compiler, u8 byte, Obj *constant, SourcePosition bytePos);

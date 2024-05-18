@@ -11,7 +11,7 @@ typedef enum {
 } InstrFormat;
 
 /** Prints a single instruction depending on format, and modifies idx's value accordingly. */
-u32 print_instr(FuncObj *func, u32 idx, InstrSize *size, InstrFormat format);
+u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, InstrFormat format);
 
 /**
  * Prints all of the bytecode stored inside function.
@@ -20,6 +20,6 @@ u32 print_instr(FuncObj *func, u32 idx, InstrSize *size, InstrFormat format);
  * source positions array is empty, which should be the case if it was compiled without
  * debugging information set to true on the compiler.
  */
-void print_bytecode(FuncObj *function);
+void print_bytecode(const FuncObj *function);
 
 #endif

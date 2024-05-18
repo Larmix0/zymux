@@ -10,13 +10,13 @@
 #include "report_error.h"
 
 /** Returns a position in a source code from the parameters. */
-SourcePosition create_src_pos(int line, int column, int length) {
+SourcePosition create_src_pos(const int line, const int column, const int length) {
     SourcePosition position = {.line = line, .column = column, .length = length};
     return position;
 }
 
 /** Checks whether pos1 and pos2 are the same. */
-bool equal_position(SourcePosition pos1, SourcePosition pos2) {
+bool equal_position(const SourcePosition pos1, const SourcePosition pos2) {
     return pos1.column == pos2.column && pos1.line == pos2.line && pos1.length == pos2.length;
 }
 
@@ -105,7 +105,7 @@ void os_error(const char *format, ...) {
 }
 
 /** An internal error occurred within the Zymux implementation in C itself like a memory error. */
-void internal_error(SourceInfo info, const char *errorName, const char *format, ...) {
+void internal_error(const SourceInfo info, const char *errorName, const char *format, ...) {
     fprintf(
         stderr,
         "Zymux implementation [file=\"%s\", func=%s(), line=%d]:\n\t" RED "%s: " DEFAULT_COLOR,

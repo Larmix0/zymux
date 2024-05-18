@@ -49,13 +49,13 @@ void emit_number(Compiler *compiler, u8 byte, const u32 number, SourcePosition p
 }
 
 /** 
- * Reads a number which begins from numStart in the bytecode.
+ * Reads a number that's a max size of a U32 which begins from numStart as an index in bytecode.
  * 
  * The amount of bytes read depends on the passed instruction size. Worth mentioning that the 
  * instruction size pointer is automatically set to 1 byte for next reads after being called.
  */
-u32 read_number(FuncObj *function, const u32 numStart, InstrSize *size) {
-    // TODO: combine this into one loop like the INSTR_FOUR_BYTES one.
+u32 read_number(const FuncObj *function, const u32 numStart, InstrSize *size) {
+    // TODO: combine this into one loop (like INSTR_FOUR_BYTES's case one).
     switch (*size) {
     case INSTR_ONE_BYTE:
         return function->bytecode.data[numStart];
@@ -80,6 +80,6 @@ u32 read_number(FuncObj *function, const u32 numStart, InstrSize *size) {
 /** Emits an instruction followed by an idx after to be used for an object in the const pool. */
 void emit_const(Compiler *compiler, u8 byte, Obj *constant, SourcePosition bytePos) {
     APPEND_DA(&compiler->func->constPool, constant);
-    u32 constIdx = compiler->func->constPool.length - 1;
+    const u32 constIdx = compiler->func->constPool.length - 1;
     emit_number(compiler, byte, constIdx, bytePos);
 }
