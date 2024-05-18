@@ -73,6 +73,9 @@ bool equal_obj(const Obj *left, const Obj *right) {
     }
 
     switch (left->type) {
+    case OBJ_FUNC:
+        return left == right; // Compare addresses directly.
+    
     case OBJ_INT: return AS_PTR(IntObj, left)->number == AS_PTR(IntObj, right)->number;
     case OBJ_FLOAT: return AS_PTR(FloatObj, left)->number == AS_PTR(FloatObj, right)->number;
     case OBJ_BOOL: return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
@@ -86,10 +89,7 @@ bool equal_obj(const Obj *left, const Obj *right) {
             AS_PTR(StringObj, right)->string,
             AS_PTR(StringObj, left)->length
         );
-    case OBJ_FUNC:
-        return left == right; // Compare addresses directly.
-
-    default: UNREACHABLE_ERROR(); return false; // Return to not have compiler warnings.
+    default: UNREACHABLE_ERROR();
     }
 }
 
@@ -132,9 +132,10 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
     case OBJ_BOOL:
         // No need to allocate since it's only true or false.
         return new_string_obj(program, AS_PTR(BoolObj, object)->boolean ? "true" : "false");
-        
-    case OBJ_STRING: return AS_PTR(StringObj, object);
-    default: UNREACHABLE_ERROR();
+    case OBJ_STRING:
+        return AS_PTR(StringObj, object);
+    default:
+        UNREACHABLE_ERROR();
     }
     StringObj *result = new_string_obj(program, string);
     free(string);
@@ -153,9 +154,8 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     case OBJ_INT: result = AS_PTR(IntObj, object)->number != 0; break;
     case OBJ_FLOAT: result = AS_PTR(FloatObj, object)->number != 0.0; break;
     case OBJ_STRING: result = AS_PTR(StringObj, object)->length != 0; break;
-
     case OBJ_BOOL: return AS_PTR(BoolObj, object);
-    default: UNREACHABLE_ERROR(); result = false; break;
+    default: UNREACHABLE_ERROR();
     }
     return new_bool_obj(program, result);
 }
@@ -164,9 +164,15 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
  * Prints the passed object to the console. The output depends on whether to debugPrint or not. */
 void print_obj(const Obj *object, const bool debugPrint) {
     switch (object->type) {
-    case OBJ_INT: printf(ZMX_INT_FMT, AS_PTR(IntObj, object)->number); break;
-    case OBJ_FLOAT: printf(ZMX_FLOAT_FMT, AS_PTR(FloatObj, object)->number); break;
-    case OBJ_BOOL: printf("%s", AS_PTR(BoolObj, object)->boolean ? "true" : "false"); break;
+    case OBJ_INT:
+        printf(ZMX_INT_FMT, AS_PTR(IntObj, object)->number);
+        break;
+    case OBJ_FLOAT:
+        printf(ZMX_FLOAT_FMT, AS_PTR(FloatObj, object)->number);
+        break;
+    case OBJ_BOOL:
+        printf("%s", AS_PTR(BoolObj, object)->boolean ? "true" : "false");
+        break;
     case OBJ_STRING:
         if (debugPrint) {
             printf("\"%s\"", AS_PTR(StringObj, object)->string);
@@ -174,8 +180,11 @@ void print_obj(const Obj *object, const bool debugPrint) {
             printf("%s", AS_PTR(StringObj, object)->string);
         }
         break;
-    case OBJ_FUNC: printf("<func \"%s\">", AS_PTR(FuncObj, object)->name->string); break;
-    default: UNREACHABLE_ERROR();
+    case OBJ_FUNC:
+        printf("<func \"%s\">", AS_PTR(FuncObj, object)->name->string);
+        break;
+    default:
+        UNREACHABLE_ERROR();
     }
 }
 
@@ -193,7 +202,9 @@ static void free_obj_contents(Obj *object) {
         case OBJ_BOOL:
             return;
 
-        case OBJ_STRING: free(AS_PTR(StringObj, object)->string); break;
+        case OBJ_STRING:
+            free(AS_PTR(StringObj, object)->string);
+            break;
         case OBJ_FUNC: {
             FuncObj *func = AS_PTR(FuncObj, object);
             FREE_DA(&func->bytecode);
@@ -201,8 +212,8 @@ static void free_obj_contents(Obj *object) {
             FREE_DA(&func->positions);
             break;
         }
-
-        default: UNREACHABLE_ERROR();
+        default:
+            UNREACHABLE_ERROR();
     }
 }
 

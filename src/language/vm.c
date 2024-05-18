@@ -222,7 +222,7 @@ bool interpret(Vm *vm) {
             // TODO: implement other types.
             case TYPE_BOOL: PUSH(vm, AS_OBJ(as_bool(vm->program, original))); break;
             case TYPE_STRING: PUSH(vm, AS_OBJ(as_string(vm->program, original))); break;
-            default: UNREACHABLE_ERROR(); break;
+            default: UNREACHABLE_ERROR();
             }
             break;
         }

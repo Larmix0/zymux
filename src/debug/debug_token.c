@@ -24,7 +24,8 @@ static void print_token(const Token token) {
         case TOKEN_ERROR:
             printf(", error=\"%s\"", token.errorMessage);
             break;
-        default: break;
+        default:
+            break; // Add nothing to the token's print.
     }
     putchar(')');
 }

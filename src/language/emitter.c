@@ -73,7 +73,8 @@ u32 read_number(const FuncObj *function, const u32 numStart, InstrSize *size) {
         }
         return total;
     }
-    default: UNREACHABLE_ERROR(); return 0;
+    default:
+        UNREACHABLE_ERROR();
     }
 }
 

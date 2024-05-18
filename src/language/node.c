@@ -95,8 +95,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_STRING: return get_node_pos(AS_PTR(StringNode, node)->exprs.data[0]);
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(ExprStmtNode, node)->expr);
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
-    
-    default: UNREACHABLE_ERROR(); return create_src_pos(0, 0, 0);
+    default: UNREACHABLE_ERROR();
     }
 }
 
@@ -112,7 +111,9 @@ static void free_node_contents(Node *node) {
     case AST_EOF:
         break; // Nothing to free.
 
-    case AST_STRING: FREE_DA(&AS_PTR(StringNode, node)->exprs); break;
+    case AST_STRING:
+        FREE_DA(&AS_PTR(StringNode, node)->exprs);
+        break;
     default: UNREACHABLE_ERROR();
     }
 }

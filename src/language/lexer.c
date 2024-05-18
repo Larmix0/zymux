@@ -509,15 +509,13 @@ static void lex_number(Lexer *lexer) {
 static bool ignore_interpolation_whitespace(Lexer *lexer) {
     while (true) {
         switch (PEEK(lexer)) {
+        case '\n':
+            UNREACHABLE_ERROR(); // Should've errored earlier, so unreachable.
         case ' ':
         case '\t':
         case '\r':
             ADVANCE(lexer);
             break;
-        case '\n':
-            // Should've errored earlier, so unreachable.
-            UNREACHABLE_ERROR();
-            return false;
         case '/':
             if (PEEK_NEXT(lexer) == '/' || PEEK_NEXT(lexer) == '*') {
                 append_error_at(

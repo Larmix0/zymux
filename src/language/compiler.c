@@ -33,7 +33,8 @@ static void compile_literal(Compiler *compiler, const LiteralNode *node) {
     case TOKEN_STRING_LIT:
         literalAsObj = AS_OBJ(new_string_obj(compiler->program, value.stringVal.text));
         break;
-    default: UNREACHABLE_ERROR();
+    default:
+        UNREACHABLE_ERROR();
     }
     emit_const(compiler, OP_LOAD_CONST, literalAsObj, node->value.pos);
 }

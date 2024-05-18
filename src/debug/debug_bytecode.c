@@ -64,6 +64,9 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const InstrFormat
         break;
     case INSTR_NO_LINE_OR_PAD:
         printf("%d ", idx);
+        break;
+    default:
+        UNREACHABLE_ERROR();
     }
 
     switch (func->bytecode.data[idx]) {
@@ -90,6 +93,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const InstrFormat
     case OP_FINISH_STRING: print_number_instr("FINISH_STRING", func, &idx, size); break;
     case OP_POP: print_bare_instr("POP", &idx); break;
     case OP_END: print_bare_instr("END", &idx); break;
+    default: UNREACHABLE_ERROR();
     }
     putchar('\n');
     return idx;

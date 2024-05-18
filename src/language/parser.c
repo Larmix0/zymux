@@ -99,17 +99,15 @@ static Node *string(Parser *parser) {
  */
 static Node *primary(Parser *parser) {
     switch (ADVANCE_PEEK(parser).type) {
-    case TOKEN_INT_LIT:
-    case TOKEN_FLOAT_LIT:
-        return new_literal_node(parser->program, PEEK_PREVIOUS(parser));
-
-    case TOKEN_STRING_LIT:
-        RETREAT(parser); // Leave parsing the whole string to the string parser.
-        return string(parser);
-
     case TOKEN_TRUE_KW:
     case TOKEN_FALSE_KW:
         return new_keyword_node(parser->program, PEEK_PREVIOUS(parser));
+    case TOKEN_INT_LIT:
+    case TOKEN_FLOAT_LIT:
+        return new_literal_node(parser->program, PEEK_PREVIOUS(parser));
+    case TOKEN_STRING_LIT:
+        RETREAT(parser); // Leave parsing the whole string to the string parser.
+        return string(parser);
     default:
         raise_parser_error_at(parser, &PEEK_PREVIOUS(parser), "Invalid expression.");
         return new_error_node(parser->program);

@@ -1,6 +1,8 @@
 #ifndef REPORT_ERROR_H
 #define REPORT_ERROR_H
 
+#include <stdlib.h>
+
 /** Reports an error relating to the user's operating system.*/
 #define OS_ERROR(...) (os_error(__VA_ARGS__))
 
@@ -19,13 +21,15 @@
  * Unlike file errors or memory errors which may be caused by something in the user's computer
  * (like running out of memory), unreachable errors are never ever meant to be executed,
  * so when seen they should be fixed immediately.
+ * 
+ * This macro also aborts after, just so the compiler doesn't complain about not returning values.
  */
 #define UNREACHABLE_ERROR() \
     (internal_error( \
         SOURCE_INFO, "Unreachable error", \
         "Reached an unreachable part of Zymux's internal code " \
         "(Please report this error to the developer(s) of Zymux, as this should never appear)" \
-    ))
+    ), abort())
 
 /** Reports a file-related error. */
 #define FILE_ERROR(...) (file_error(__VA_ARGS__))

@@ -95,9 +95,8 @@ char *token_type_as_string(const TokenType type) {
         case TOKEN_DOT_DOT: return "DOT_DOT";
         case TOKEN_EOF: return "EOF";
         case TOKEN_ERROR: return "ERROR";
+        default: UNREACHABLE_ERROR();
     }
-    UNREACHABLE_ERROR();
-    return NULL; // Unreachable error already exits. This is so the compiler doesn't yell.
 }
 
 /** Frees any allocated contents in the passed token array, which is usually a union values. */
