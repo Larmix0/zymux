@@ -2,7 +2,6 @@
 
 #include "constants.h"
 #include "node.h"
-#include "program.h"
 
 /** Allocates a new node of actualType. */
 #define NEW_NODE(program, astType, actualType) \

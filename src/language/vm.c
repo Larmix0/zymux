@@ -1,6 +1,5 @@
 #include <stdlib.h>
 
-#include "debug_bytecode.h"
 #include "debug_runtime.h"
 #include "emitter.h"
 #include "vm.h"
@@ -134,7 +133,6 @@ void free_vm(Vm *vm) {
 bool interpret(Vm *vm) {
     while (true) {
 #if DEBUG_RUNTIME == 1
-
         print_runtime_state(
             vm->frame->func, vm->stack.objects, STACK_LENGTH(vm),
             vm->frame->ip - vm->frame->func->bytecode.data, vm->instrSize

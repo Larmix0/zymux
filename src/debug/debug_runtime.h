@@ -1,6 +1,7 @@
 #ifndef DEBUG_RUNTIME_H
 #define DEBUG_RUNTIME_H
 
+#include "emitter.h"
 #include "object.h"
 
 /** Prints the current instruction and the stack */

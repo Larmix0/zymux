@@ -2,8 +2,8 @@
 #define NODE_H
 
 #include "data_structures.h"
-#include "token.h"
 #include "program.h"
+#include "token.h"
 
 #define AS_NODE(node) ((Node *)node)
 
