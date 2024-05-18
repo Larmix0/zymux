@@ -1,10 +1,23 @@
 This file is documentation for each one of Zymux's operation codes (opcodes) for the VM.
 
+Basic information:
+    InstrSize is an enum that represents the size of the next instruction.
+    It could be one byte, 2 bytes (short), and even 4 bytes (integer).
+    It's primarily used for reading/emitting numbers for instructions, so that the VM
+    wouldn't be limited to 255 to represent numbers after instruction.
+    Example: having more than 256 constants in one chunk.
+
+    DataType is an enum that represents all the different data types in Zymux as a language.
+    It's used as an enum for certain instructions to pass a number that represents which
+    data type is being used.
+    Example: Emitting a DataType string enum after an "is" opcode to know what type to check
+        at the top of the stack.
+
 ----------------------------------------------------------------------------------------------------
 
-Math opcodes:
+Binary math:
     Each one of these opcodes pops a first object from the stack, then a second one.
-    After that, applies an operation where the second popped object is the left operand,
+    After that, applies a math operation where the second popped object is the left operand,
     and the first popped object is the right operand.
     Finally, the result of the operation is pushed to the top of the stack.
 
@@ -12,29 +25,106 @@ Math opcodes:
         OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE, OP_MODULO, OP_EXPONENT
 
     Example:
-        OP_DIVIDE first pops obj1, then obj2. The result of obj2 / obj1 is pushed to the stack.
+        Divide opcode first pops obj1, then obj2. The result of obj2 / obj1 is pushed to the stack.
 
 ----------------------------------------------------------------------------------------------------
 
-Unary opcodes:
+Unary:
     Pops the top object in the stack, then creates a new object that is the same as the popped one,
     but with the unary operation applied on it.
 
     Includes:
         OP_MINUS, OP_NOT
+    
+    Example:
+        Minus operation pops an integer object whose value is 7. Then, it creates a new integer with
+        a minus sign, which is -7, and that gets pushed to the stack.
 
 ----------------------------------------------------------------------------------------------------
 
-Miscellaneous:
-    OP_LOAD_CONST:
-        Loads an object into the stack from the constant object pool.
+Argument size:
+    Sets the VM's InstrSize to a specific number of bytes written as bits in the name of the opcode,
+    so that the next instruction that reads a number, will read that number of bits.
 
-        Expects a number index after it in the bytecode which is used to index an object from the 
-        constant object pool that is currently being used.
-        It loads that object into the top of the stack.
+    Includes:
+        OP_ARG_16, OP_ARG_32
 
-    OP_POP:
-        Simply pops one object from the stack and disposes of it.
+    Example:
+        Arg 16 right before a jump instruction. That'll let the VM know that the jump
+        instruction's number is 16 bits (2 bytes) in size inside the bytecode.
 
-    OP_END:
-        Ends the currently executing VM.
+----------------------------------------------------------------------------------------------------
+
+Boolean:
+    Pushes a boolean value on the stack, either true or false.
+
+    Includes:
+        OP_TRUE, OP_FALSE
+
+----------------------------------------------------------------------------------------------------
+
+Equality:
+    Checks if the top 2 elements of the stack are considered equal in Zymux.
+    Pops them, then pushes a boolean depending on the results.
+
+    Includes:
+        OP_EQ, OP_NOT_EQ
+
+----------------------------------------------------------------------------------------------------
+
+Comparison:
+    Pops a first object from the stack, then a second one.
+    After that, applies a comparison where the second popped object is the left operand,
+    while the first popped object is the right operand.
+    Finally, pushes a boolean object that indicates the result of the operation (true or false).
+
+    Includes:
+        OP_GREATER, OP_GREATER_EQ, OP_LESS, OP_LESS_EQ
+
+    Example:
+        OP_GREATER pops obj1 then obj2. The resulting boolean of obj2 > obj1 is pushed.
+
+----------------------------------------------------------------------------------------------------
+
+========================================== Other opcodes ===========================================
+
+OP_LOAD_CONST:
+    Loads an object into the stack from the constant object pool.
+
+    Expects a number index after it in the bytecode which is used to index an object from the 
+    constant object pool that is currently being used.
+    It loads that object into the top of the stack.
+
+OP_AS:
+    Converts the topmost element of the stack to a certain data type.
+    That data type is a DataType enum number read after the instruction.
+
+    Example:
+        Integer 3 is the top of the stack. Then, OP_AS reads a string data type enum after.
+        The topmost element (integer of 3) is popped and a string version of it is pushed ("3").
+
+OP_POP:
+    Simply pops one object from the stack and disposes of it.
+
+OP_FINISH_STRING:
+    Expects a number of string elements to be on top of the stack that are to be concatenated
+    to form a string. Reads a number after the instruction to indicate how many elements to
+    concatenate. The concatenation is done from the deepest/lowest in the stack to
+    the top/most recent element being concatenated last.
+    This opcode is done on every string, even non-interpolated one string objects.
+
+    Example:
+        The stack looks like the following: {"Hi"} | {" middle "} | {"end."}
+        We expect the number after OP_FINISH_STRING to be 3 in this case.
+        Then, we'll start with an empty string (""). After that, we'll peek 3 deep into the stack
+        (which will be "Hi"). Then, combine our current string with the peeked string.
+        The current empty string is on the left side, while "Hi" is on the right, making the current
+        string "Hi". After that, we peek one less deep (2 items deep) where we see " middle ",
+        and concatenate our current string as the left side with that string as the right side.
+        This makes the current string "Hi middle ". Then we peek one number less, seeing the string
+        "end.". Finally, we combine our current string ("Hi middle ") with that, creating
+        the final string "Hi middle end.". While we have it stored, we pop the 3 strings we used
+        to concatenate, and push that final string ("Hi middle end.").
+
+OP_END:
+    Ends the currently executing VM.
