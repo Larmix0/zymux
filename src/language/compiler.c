@@ -1,5 +1,10 @@
+#include "debug_ast.h"
+#include "debug_bytecode.h"
+#include "debug_token.h"
 #include "compiler.h"
 #include "emitter.h"
+#include "lexer.h"
+#include "parser.h"
 
 static void compile_node(Compiler *compiler, const Node *node);
 
@@ -147,4 +152,43 @@ bool compile(Compiler *compiler) {
     }
 
     return !compiler->program->hasErrored;
+}
+
+/** 
+ * Returns a compiler whose main func is fully compiled.
+ * 
+ * debugByteCode controls whether or not we keep track of the positions of each bytecode,
+ * and also whether or not we should print the lexed tokens, parsed AST, and compiled bytecode.
+ */
+FuncObj *compile_source(ZmxProgram *program, char *source, const bool debugBytecode) {
+    Lexer lexer = create_lexer(program, source);
+    if (!lex(&lexer)) {
+        free_lexer(&lexer);
+        return new_func_obj(program, new_string_obj(program, "<Error>"));
+    }
+    if (debugBytecode && DEBUG_LEXER) {
+        print_tokens(lexer.tokens);
+    }
+
+    Parser parser = create_parser(program, lexer.tokens);
+    if (!parse(&parser)) {
+        free_lexer(&lexer);
+        free_parser(&parser);
+        free_all_nodes(program);
+        return new_func_obj(program, new_string_obj(program, "<Error>"));
+    }
+    if (debugBytecode && DEBUG_PARSER) {
+        print_ast(&parser.ast);
+    }
+
+    Compiler compiler = create_compiler(program, parser.ast, debugBytecode);
+    compile(&compiler);
+    if (!program->hasErrored && debugBytecode && DEBUG_COMPILER) {
+        print_bytecode(compiler.func);
+    }
+    free_lexer(&lexer);
+    free_parser(&parser);
+    free_compiler(&compiler);
+    free_all_nodes(program);
+    return compiler.func;
 }

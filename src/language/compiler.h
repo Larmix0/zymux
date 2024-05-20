@@ -21,4 +21,12 @@ void free_compiler(Compiler *compiler);
 /** Compiles all the bytecode of the passed. */
 bool compile(Compiler *compiler);
 
+/** 
+ * Returns a compiler whose main func is fully compiled.
+ * 
+ * debugByteCodePos controls whether or not we keep track of the positions of each bytecode,
+ * and also whether or not we should print the lexed tokens, parsed AST, and compiled bytecode.
+ */
+FuncObj *compile_source(ZmxProgram *program, char *source, const bool debugBytecode);
+
 #endif

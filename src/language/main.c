@@ -22,40 +22,7 @@ static void repl() {
 static void run_zmx_file(char *file) {
     char *source = alloc_source(file);
     ZmxProgram program = create_zmx_program(file, true);
-    Lexer lexer = create_lexer(&program, source);
-    if (!lex(&lexer)) {
-        printf("SYNTAX ERROR.\n");
-    }
-#if DEBUG_LEXER
-    print_tokens(lexer.tokens);
-#endif
-
-    Parser parser = create_parser(&program, lexer.tokens);
-    if (!parse(&parser)) {
-        printf("PARSING ERROR.\n");
-    }
-#if DEBUG_PARSER
-    print_ast(&parser.ast);
-#endif
-
-    Compiler compiler = create_compiler(&program, parser.ast, true);
-    if (!compile(&compiler)) {
-        printf("COMPILING ERROR.\n");
-    }
-#if DEBUG_COMPILER
-    print_bytecode(compiler.func);
-#endif
-
-    Vm vm = create_vm(&program, compiler.func);
-    if (!interpret(&vm)) {
-        printf("INTERPRETING ERROR.\n");
-    }
-
-    free_lexer(&lexer);
-    free_parser(&parser);
-    free_all_nodes(&program);
-    free_compiler(&compiler);
-    free_vm(&vm);
+    interpret_source(&program, source);
     free_zmx_program(&program);
     free(source);
 }

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #include "debug_runtime.h"
+#include "compiler.h"
 #include "emitter.h"
 #include "vm.h"
 
@@ -247,4 +248,24 @@ bool interpret(Vm *vm) {
             UNREACHABLE_ERROR();
         }
     }
+}
+
+/** Returns a vm created from the compilation of the source (not executed). */
+Vm vm_from_source(ZmxProgram *program, char *source) {
+    FuncObj *mainFunc = compile_source(program, source, DEBUG_COMPILER);
+    return create_vm(program, mainFunc);
+}
+
+/** 
+ * Simply executes the passed source string and frees all memory used except the program's.
+ * 
+ * This is because Zymux sometimes extra VMs for imported modules.
+ */
+bool interpret_source(ZmxProgram *program, char *source) {
+    Vm vm = vm_from_source(program, source);
+    if (!program->hasErrored) {
+        interpret(&vm);
+    }
+    free_vm(&vm);
+    return !program->hasErrored;
 }
