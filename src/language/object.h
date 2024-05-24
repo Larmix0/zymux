@@ -51,7 +51,7 @@ typedef struct {
 } BoolObj;
 
 /** Represents a string object. */
-typedef struct {
+typedef struct StringObj {
     Obj obj;
     char *string;
     int length;
@@ -76,8 +76,14 @@ typedef struct {
     /** Stores a position for each bytecode instruction. Useful when we error later at runtime. */
     SourcePositionArray positions;
 
-    /** The pool which we store constant objects inside (ones created at compile time). */
+    /** The pool which we store constant objects inside of (objects created at compile time). */
     ObjArray constPool;
+
+    /**
+     * The index in the const pool which the function is located at. Used for runtime errors,
+     * since we don't track bytecode by default unless we error, and then recompile to track it.
+     */
+    int constIdx;
 } FuncObj;
 
 /** Returns a new allocated integer object. */
@@ -93,7 +99,7 @@ BoolObj *new_bool_obj(ZmxProgram *program, const bool boolean);
 StringObj *new_string_obj(ZmxProgram *program, char *string);
 
 /** Returns a new allocated function object. */
-FuncObj *new_func_obj(ZmxProgram *program, StringObj *name);
+FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx);
 
 /** Returns whether or not 2 objects are considered equal. */
 bool equal_obj(const Obj *left, const Obj *right);

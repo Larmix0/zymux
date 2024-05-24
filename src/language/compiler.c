@@ -12,7 +12,7 @@ static void compile_node(Compiler *compiler, const Node *node);
 Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool isDebugging) {
     Compiler compiler = {
         .program = program, .ast = ast, .isDebugging = isDebugging,
-        .func = new_func_obj(program, new_string_obj(program, "<global>"))
+        .func = new_func_obj(program, new_string_obj(program, "<main>"), -1)
     };
     return compiler;
 }
@@ -164,7 +164,7 @@ FuncObj *compile_source(ZmxProgram *program, char *source, const bool debugBytec
     Lexer lexer = create_lexer(program, source);
     if (!lex(&lexer)) {
         free_lexer(&lexer);
-        return new_func_obj(program, new_string_obj(program, "<Error>"));
+        return new_func_obj(program, new_string_obj(program, "<Error>"), -1);
     }
     if (debugBytecode && DEBUG_LEXER) {
         print_tokens(lexer.tokens);
@@ -175,7 +175,7 @@ FuncObj *compile_source(ZmxProgram *program, char *source, const bool debugBytec
         free_lexer(&lexer);
         free_parser(&parser);
         free_all_nodes(program);
-        return new_func_obj(program, new_string_obj(program, "<Error>"));
+        return new_func_obj(program, new_string_obj(program, "<Error>"), -1);
     }
     if (debugBytecode && DEBUG_PARSER) {
         print_ast(&parser.ast);

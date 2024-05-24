@@ -57,6 +57,6 @@ Vm vm_from_source(ZmxProgram *program, char *source);
  * 
  * This is because Zymux sometimes extra VMs for imported modules.
  */
-void interpret_source(ZmxProgram *program, char *source);
+bool interpret_source(ZmxProgram *program, char *source);
 
 #endif

@@ -3,6 +3,8 @@
 
 #include "lukip.h"
 
+#include "object.h"
+
 #include "lexer.c"
 
 #define LAST_TOKEN(lexer) ((lexer)->tokens.data[(lexer)->tokens.length - 1])
@@ -620,7 +622,7 @@ PRIVATE_TEST_CASE(test_lexer_struct_functions) {
     ASSERT_INT_EQUAL(manual.pos.column, created.pos.column);
 
     // The setup already uses create_lexer(), so just test it on it.
-    ASSERT_STRING_EQUAL(defaultLexer->program->currentFile, "default");
+    ASSERT_STRING_EQUAL(defaultLexer->program->currentFile->string, "default");
     ASSERT_STRING_EQUAL(defaultLexer->source, defaultSource);
     ASSERT_TRUE(
         defaultLexer->source == defaultLexer->current

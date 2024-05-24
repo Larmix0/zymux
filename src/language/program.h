@@ -25,15 +25,24 @@
 
 typedef struct Node Node;
 typedef struct Obj Obj;
+typedef struct StringObj StringObj;
 
 /** Stores the state of Zymux throughout the entire execution of the program. */
 typedef struct ZmxProgram {
     bool hasErrored;
     bool showErrors;
-    char *currentFile;
     Node *allNodes;
     Obj *allObjs;
+    StringObj *mainFile;
+    StringObj *currentFile;
 } ZmxProgram;
+
+/** Returns an initialized zymux program with the parameters. */
+ZmxProgram create_zmx_program(char *file, const bool showErrors);
+
+/** Frees generally everything held by program. */
+void free_zmx_program(ZmxProgram *program);
+
 
 /** 
  * Allocates size memory and uses file, func, and line for errors.
@@ -55,11 +64,5 @@ ZmxFloat zmx_float_power(const ZmxFloat base, const ZmxFloat exponent);
 
 /** Returns the float result of dividend modulo divisor (both floats). */
 ZmxFloat zmx_float_modulo(ZmxFloat dividend, const ZmxFloat divisor);
-
-/** Returns an initialized zymux program with the parameters. */
-ZmxProgram create_zmx_program(char *file, const bool showErrors);
-
-/** Frees generally everything held by program. */
-void free_zmx_program(ZmxProgram *program);
 
 #endif

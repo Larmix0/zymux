@@ -1,9 +1,20 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "debug_runtime.h"
+#include "char_buffer.h"
 #include "compiler.h"
 #include "emitter.h"
+#include "file.h"
 #include "vm.h"
+
+/** 
+ * A user error that occurred at runtime, which means during the VM's execution of bytecode.
+ * 
+ * Resolves to a value of false so it can also be returned in the interpreter as a fail.
+ */
+#define RUNTIME_ERROR(vm, ...) \
+    (zmx_user_error((vm)->program, runtime_error_pos(vm), "Runtime error", __VA_ARGS__), false)
 
 /** Reads the current instruction and increments IP to prepare for the next one. */
 #define READ_INSTR(vm) (*(vm)->frame->ip++)
@@ -37,13 +48,15 @@
 #define PEEK_DEPTH(vm, depth) (*((vm)->frame->sp - (depth) - 1))
 #define FREE_STACK(vm) (free((vm)->stack.objects))
 
-#define BIN_LEFT(vm) (PEEK_DEPTH(vm, 1)) /** Left hand side object of a binary in the stack. */
-#define BIN_RIGHT(vm) (PEEK_DEPTH(vm, 0)) /** Right hand side object of a binary in the stack. */
+/** Resolves to whether or not the passed object is considered a number (integer or float). */
+#define IS_NUM(obj) ((obj)->type == OBJ_INT || (obj)->type == OBJ_FLOAT)
 
-// TODO: ensure that we don't blindly cast to a float object if it's not an integer object.
 /** Returns the number the passed object holds, assuming it's either an int, or float object. */
 #define NUM_VAL(obj) \
     ((obj)->type == OBJ_INT ? AS_PTR(IntObj, obj)->number : AS_PTR(FloatObj, obj)->number)
+
+#define BIN_LEFT(vm) (PEEK_DEPTH(vm, 1)) /** Left hand side object of a binary in the stack. */
+#define BIN_RIGHT(vm) (PEEK_DEPTH(vm, 0)) /** Right hand side object of a binary in the stack. */
 
 /** Creates a float from an operation done on 2 values, one of which at least is a float. */
 #define FLOAT_FROM_BIN_OP(vm, left, op, right) \
@@ -59,6 +72,9 @@
 /** Applies the passed op as a binary operation to the last 2 values of the stack, pushes result. */
 #define BIN_OP(vm, op) \
     do { \
+        if (!IS_NUM(BIN_LEFT(vm)) || !IS_NUM(BIN_RIGHT(vm))) { \
+            return RUNTIME_ERROR(vm, "Expected number in operation."); \
+        } \
         if (BIN_LEFT(vm)->type == OBJ_FLOAT || BIN_RIGHT(vm)->type == OBJ_FLOAT) { \
             FloatObj *result = FLOAT_FROM_BIN_OP(vm, BIN_LEFT(vm), op, BIN_RIGHT(vm)); \
             DROP_AMOUNT(vm, 2); \
@@ -73,12 +89,83 @@
 /** Binary operation that pops the last 2 values and pushes the resulting bool value from op. */
 #define BIN_OP_BOOL(vm, op) \
     do { \
+        if (!IS_NUM(BIN_LEFT(vm)) || !IS_NUM(BIN_RIGHT(vm))) { \
+            return RUNTIME_ERROR(vm, "Expected number in operation."); \
+        } \
         BoolObj *result = new_bool_obj( \
             vm->program, NUM_VAL(BIN_LEFT(vm)) op NUM_VAL(BIN_RIGHT(vm)) \
         ); \
         DROP_AMOUNT(vm, 2); \
         PUSH(vm, AS_OBJ(result)); \
     } while (false)
+
+/** An array of just integers to store the indices of each function in the call stack. */
+DECLARE_DA_STRUCT(IntArray, int);
+
+// TODO: Add better documentation describing the method used for recompiling with debugging.
+/**
+ * From an integer array representing the stack trace + starting file,
+ * retrace and compile the whole program and walk through the constant pool of each function
+ * one by one in frameIndices in order to find the original one.
+ */
+static FuncObj *copy_errored_func(ZmxProgram *program, IntArray framesIndices) {
+    char *mainSource = alloc_source(program->currentFile->string);
+    FuncObj *current = compile_source(program, mainSource, true);
+    free(mainSource);
+    for (u32 i = 0; i < framesIndices.length; i++) {
+        current = AS_PTR(FuncObj, current->constPool.data[framesIndices.data[i]]);
+    }
+    return current;
+}
+
+/** 
+ * Copies the indices of each constant in the passed call stack into an integer array.
+ * 
+ * Does not copy the const index of the first (top-level) function as that's the starting point,
+ * and it isn't present in any const pools. 
+ */
+IntArray copy_const_indices(CallStack callStack) {
+    IntArray framesIndices = CREATE_DA();
+    for (u32 i = 1; i < callStack.length; i++) {
+        APPEND_DA(&framesIndices, callStack.data[i].func->constIdx);
+    }
+    return framesIndices;
+}
+
+/** 
+ * Reports a the position of a runtime error.
+ * 
+ * Because the original compilation doesn't include bytecode positions (for optimization),
+ * we first delete the VM so we have enough memory to recompile the main file with positions on.
+ * 
+ * After that, we traverse the call stack and check the constant index of each frame's function.
+ * This is a way to find out exactly where the function that errored and its bytecode lies,
+ * even if multiple functions in different scopes can have the same name.
+ * 
+ * Also, this is only possible since Zymux only creates function at compilation time,
+ * meaning every executable function is in a constant pool of objects created at compilation time.
+ */
+static SourcePosition runtime_error_pos(Vm *vm) {
+    ZmxProgram *program = vm->program;
+    const int bytecodeIdx = vm->frame->ip - vm->frame->func->bytecode.data;
+    IntArray framesIndices = copy_const_indices(vm->callStack);
+
+    char *mainName = ZMX_ARRAY_ALLOC(program->mainFile->length + 1, char);
+    strncpy(mainName, program->mainFile->string, program->mainFile->length);
+    mainName[program->mainFile->length] = '\0';
+    free_zmx_program(program);
+    *program = create_zmx_program(mainName, true);
+    free_vm(vm);
+    free(mainName);
+
+    // Recreate the VM to avoid a double free.
+    *vm = create_vm(
+        program, new_func_obj(program, new_string_obj(program, "<Error>"), -1)
+    );
+    FuncObj *erroredFunc = copy_errored_func(program, framesIndices);
+    FREE_DA(&framesIndices);
+    return erroredFunc->positions.data[bytecodeIdx];
+}
 
 /** 
  * Special reallocation function for the VM's stack.
@@ -152,6 +239,9 @@ bool interpret(Vm *vm) {
         case OP_MULTIPLY: BIN_OP(vm, *); break;
         case OP_DIVIDE: BIN_OP(vm, /); break;
         case OP_MODULO: {
+            if (!IS_NUM(BIN_LEFT(vm)) || !IS_NUM(BIN_RIGHT(vm))) {
+                return RUNTIME_ERROR(vm, "Expected number in operation.");
+            }
             if (BIN_LEFT(vm)->type == OBJ_FLOAT || BIN_RIGHT(vm)->type == OBJ_FLOAT) {
                 FloatObj *result = new_float_obj(
                     vm->program, zmx_float_modulo(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
@@ -169,6 +259,9 @@ bool interpret(Vm *vm) {
             break;
         }
         case OP_EXPONENT: {
+            if (!IS_NUM(BIN_LEFT(vm)) || !IS_NUM(BIN_RIGHT(vm))) {
+                return RUNTIME_ERROR(vm, "Expected number in operation.");
+            }
             if (BIN_LEFT(vm)->type == OBJ_FLOAT || BIN_RIGHT(vm)->type == OBJ_FLOAT) {
                 FloatObj *result = new_float_obj(
                     vm->program, zmx_float_power(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
@@ -210,8 +303,7 @@ bool interpret(Vm *vm) {
             }
             break;
         case OP_NOT: {
-            BoolObj *asBool = as_bool(vm->program, POP(vm));
-            asBool->boolean = asBool->boolean ? false : true; // Simply reverse after converting.
+            BoolObj *asBool = new_bool_obj(vm->program, !as_bool(vm->program, POP(vm))->boolean);
             PUSH(vm, AS_OBJ(asBool));
             break;
         }

@@ -8,9 +8,11 @@
 /** Returns an initialized Zymux program with the file and whether or not to show errors. */
 ZmxProgram create_zmx_program(char *file, const bool showErrors) {
     ZmxProgram program = {
-        .hasErrored = false, .showErrors = showErrors, .currentFile = file,
-        .allNodes = NULL, .allObjs = NULL
+        .hasErrored = false, .showErrors = showErrors,
+        .allNodes = NULL, .allObjs = NULL, .mainFile = NULL, .currentFile = NULL
     };
+    program.mainFile = new_string_obj(&program, file);
+    program.currentFile = new_string_obj(&program, file);
     return program;
 }
 

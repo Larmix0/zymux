@@ -5,6 +5,7 @@
 
 #include "constants.h"
 #include "file.h"
+#include "object.h"
 #include "program.h"
 #include "report_error.h"
 
@@ -156,10 +157,10 @@ void zmx_user_error(
         fputc('\n', stderr);
     }
 
-    show_zmx_error_line(program->currentFile, pos);
+    show_zmx_error_line(program->currentFile->string, pos);
     fprintf(
         stderr, "line %d in \"%s\":\n\t" RED "%s: " DEFAULT_COLOR,
-        pos.line, program->currentFile, errorName
+        pos.line, program->currentFile->string, errorName
     );
 
     va_list args;

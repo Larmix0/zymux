@@ -35,8 +35,8 @@
 #define FILE_ERROR(...) (file_error(__VA_ARGS__))
 
 /** A user syntax error. Typically means an error occurred in lexing or parsing. */
-#define SYNTAX_ERROR(program, pos, message) \
-    (zmx_user_error(program, pos, "Syntax error", message))
+#define SYNTAX_ERROR(program, position, message) \
+    (zmx_user_error(program, position, "Syntax error", message))
 
 /** Places an instantiated struct that holds information of a line in C source code. */
 #define SOURCE_INFO ((SourceInfo){.file = __FILE__, .func = __func__, .line = __LINE__})

@@ -57,9 +57,10 @@ StringObj *new_string_obj(ZmxProgram *program, char *string) {
 }
 
 /** Returns a new allocated function object with a name to it and its members initialized. */
-FuncObj *new_func_obj(ZmxProgram *program, StringObj *name) {
+FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx) {
     FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);
     object->name = name;
+    object->constIdx = constIdx;
     INIT_DA(&object->bytecode);
     INIT_DA(&object->positions);
     INIT_DA(&object->constPool);
