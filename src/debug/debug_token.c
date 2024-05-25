@@ -34,7 +34,7 @@ static void print_token(const Token token) {
 void print_tokens(const TokenArray tokens) {
     printf("Tokens:\n");
     for (u32 i = 0; i < tokens.length; i++) {
-        putchar('\t');
+        printf(INDENT);
         print_token(tokens.data[i]);
         putchar('\n');
     }

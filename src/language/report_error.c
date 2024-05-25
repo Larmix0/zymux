@@ -93,7 +93,7 @@ static void show_zmx_error_line(char *file, const SourcePosition pos) {
 
 /** Prints an error for an issue regarding the user's operating system. */
 void os_error(const char *format, ...) {
-    fprintf(stderr, RED "OS error:\n\t" DEFAULT_COLOR);
+    fprintf(stderr, RED "OS error:\n" DEFAULT_COLOR INDENT);
 
     va_list args;
     va_start(args, format);
@@ -108,7 +108,7 @@ void os_error(const char *format, ...) {
 void internal_error(const SourceInfo info, const char *errorName, const char *format, ...) {
     fprintf(
         stderr,
-        "Zymux implementation [file=\"%s\", func=%s(), line=%d]:\n\t" RED "%s: " DEFAULT_COLOR,
+        "Zymux implementation [file=\"%s\", func=%s(), line=%d]:\n" INDENT RED "%s: " DEFAULT_COLOR,
         info.file, info.func, info.line, errorName
     );
 
@@ -128,7 +128,7 @@ void internal_error(const SourceInfo info, const char *errorName, const char *fo
  * Like running "./zymux x.zmx" where "x.zmx" doesn't exist.
  */
 void file_error(const char *format, ...) {
-    fprintf(stderr, RED "File IO error:\n\t" DEFAULT_COLOR);
+    fprintf(stderr, RED "File IO error:\n" DEFAULT_COLOR INDENT);
 
     va_list args;
     va_start(args, format);
@@ -159,7 +159,7 @@ void zmx_user_error(
 
     show_zmx_error_line(program->currentFile->string, pos);
     fprintf(
-        stderr, "line %d in \"%s\":\n\t" RED "%s: " DEFAULT_COLOR,
+        stderr, "line %d in \"%s\":\n" INDENT RED "%s: " DEFAULT_COLOR,
         pos.line, program->currentFile->string, errorName
     );
 

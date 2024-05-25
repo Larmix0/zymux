@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "constants.h"
 #include "debug_ast.h"
 #include "report_error.h"
 
@@ -95,7 +96,7 @@ void print_ast(const NodeArray *ast) {
 
     CharBuffer astString = create_char_buffer();
     for (u32 i = 0; i < ast->length; i++) {
-        buffer_append_char(&astString, '\t');
+        buffer_append_string(&astString, INDENT);
         eval_node(&astString, ast->data[i]);
 
         // Whitespace after closing parenthesis is spurious here, so pop.

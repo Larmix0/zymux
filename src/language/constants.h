@@ -49,6 +49,9 @@
 /** Converts the passed pointer to a pointer of the passed type. */
 #define AS_PTR(type, value) ((type *)value)
 
+/** Used when indenting text during error reporting and debugging. */
+#define INDENT "    "
+
 typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
