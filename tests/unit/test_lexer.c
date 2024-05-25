@@ -51,7 +51,7 @@ static Token test_string_token(char *lexeme) {
     CharBuffer buffer = create_char_buffer();
     buffer_append_string(&buffer, lexeme);
     token.stringVal.length = buffer.length;
-    token.stringVal.text = buffer.data;
+    token.stringVal.text = buffer.text;
     return token;
 }
 

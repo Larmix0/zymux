@@ -102,7 +102,7 @@ void print_ast(const NodeArray *ast) {
         buffer_pop(&astString);
         buffer_append_char(&astString, '\n');
     }
-    printf("%s", astString.data);
+    printf("%s", astString.text);
     free_char_buffer(&astString);
 }
 

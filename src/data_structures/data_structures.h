@@ -6,8 +6,15 @@
 #include "constants.h"
 #include "program.h"
 
-/** Minimum capacity of a dynamic array. */
-#define MIN_DA_CAP 16
+/** How much should a data structure grow per allocation (used with multiplication). */
+#define GROWTH_FACTOR 2
+
+/** Minimum capacity of a data structure. */
+#define MIN_CAP 16
+
+/** Macro for increasing the capacity of a data structure. */
+#define INCREASE_CAP(capacity) \
+    ((capacity) = (capacity) < MIN_CAP ? MIN_CAP : (capacity) * GROWTH_FACTOR)
 
 /** Declares the struct of a dynamic array typedef'd with name and an array/pointer of type. */
 #define DECLARE_DA_STRUCT(name, type) typedef struct {u32 length; u32 capacity; type *data;} name
@@ -32,12 +39,12 @@
  * so we aren't actually dereferencing NULL.
  * 
  * However, I believe if it's a variable length array (VLA) then it'll have to evaluate the element,
- * therefore dereferencing NULL. This is not an issue though as our dynamic array isn't a VLA.
+ * therefore dereferencing NULL. This is not an issue though, as our dynamic array isn't a VLA.
  */
 #define APPEND_DA(da, item) \
     do { \
         if ((da)->capacity < (da)->length + 1) { \
-            (da)->capacity = (da)->capacity < MIN_DA_CAP ? MIN_DA_CAP : (da)->capacity * 2; \
+            INCREASE_CAP((da)->capacity); \
             (da)->data = ZMX_REALLOC((da)->data, (da)->capacity * sizeof(*(da)->data)); \
         } \
         (da)->data[(da)->length++] = (item); \

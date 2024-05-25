@@ -8,10 +8,10 @@
 PRIVATE_TEST_CASE(test_get_path_type) {
     CharBuffer path = create_char_buffer();
     buffer_append_format(&path, "tests%cunit%ctest_open_dir", PATH_DELIMITER, PATH_DELIMITER);
-    ASSERT_TRUE(get_path_type(path.data) == PATH_DIRECTORY);
+    ASSERT_TRUE(get_path_type(path.text) == PATH_DIRECTORY);
     
     buffer_append_format(&path, "%cfile_test.txt", PATH_DELIMITER);
-    ASSERT_TRUE(get_path_type(path.data) == PATH_FILE);
+    ASSERT_TRUE(get_path_type(path.text) == PATH_FILE);
 
     free_char_buffer(&path);
 }
@@ -39,7 +39,7 @@ PRIVATE_TEST_CASE(test_open_file) {
         &sourcePath, "tests%cunit%ctest_open_dir%cfile_test.txt",
         PATH_DELIMITER, PATH_DELIMITER, PATH_DELIMITER
     );
-    char *source = alloc_source(sourcePath.data);
+    char *source = alloc_source(sourcePath.text);
     const int sourceLength = strlen(source);
 
     ASSERT_INT_EQUAL(sourceLength, expectedLength);

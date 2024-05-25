@@ -16,26 +16,26 @@ PRIVATE_DECLARE_TEARDOWN(buffer_teardown) {
 
 /** Tests the creation of a char buffer. */
 PRIVATE_TEST_CASE(test_char_buffer_create) {
-    ASSERT_STRING_EQUAL(defaultBuffer.data, "");
+    ASSERT_STRING_EQUAL(defaultBuffer.text, "");
 }
 
 /** Tests the char buffer's appending functions. */
 PRIVATE_TEST_CASE(test_char_buffer_appenders) {
     buffer_append_string(&defaultBuffer, "");
     buffer_append_char(&defaultBuffer, 'J');
-    ASSERT_STRING_EQUAL(defaultBuffer.data, "J");
+    ASSERT_STRING_EQUAL(defaultBuffer.text, "J");
     buffer_append_string_len(&defaultBuffer, "ack", strlen("ack"));
     buffer_append_char(&defaultBuffer, '\0');
 
-    ASSERT_STRING_EQUAL(defaultBuffer.data, "Jack");
+    ASSERT_STRING_EQUAL(defaultBuffer.text, "Jack");
     buffer_append_string(&defaultBuffer, "");
     buffer_append_char(&defaultBuffer, ',');
     buffer_append_char(&defaultBuffer, ' ');
     buffer_append_strings(&defaultBuffer, 7, "", "Sam", ", ", "Liam,", "", " ", "and John");
-    ASSERT_STRING_EQUAL(defaultBuffer.data, "Jack, Sam, Liam, and John");
+    ASSERT_STRING_EQUAL(defaultBuffer.text, "Jack, Sam, Liam, and John");
 
     buffer_append_format(&defaultBuffer, ". Also, %s who is %d", "Sean", 23);
-    ASSERT_STRING_EQUAL(defaultBuffer.data, "Jack, Sam, Liam, and John. Also, Sean who is 23");
+    ASSERT_STRING_EQUAL(defaultBuffer.text, "Jack, Sam, Liam, and John. Also, Sean who is 23");
 }
 
 /** Tests the char buffer's popping functions. */
@@ -43,17 +43,17 @@ PRIVATE_TEST_CASE(test_char_buffer_poppers) {
     buffer_append_string(&defaultBuffer, "Hello, world!");
     buffer_append_string(&defaultBuffer, "");
     buffer_pop(&defaultBuffer);
-    ASSERT_STRING_EQUAL(defaultBuffer.data, "Hello, world");
+    ASSERT_STRING_EQUAL(defaultBuffer.text, "Hello, world");
     buffer_pop_amount(&defaultBuffer, 6);
 
-    ASSERT_STRING_EQUAL(defaultBuffer.data, "Hello,");
+    ASSERT_STRING_EQUAL(defaultBuffer.text, "Hello,");
     buffer_append_char(&defaultBuffer, ' ');
     buffer_append_string(&defaultBuffer, "mom");
     buffer_pop(&defaultBuffer);
     buffer_append_char(&defaultBuffer, '\0');
     buffer_pop(&defaultBuffer);
     buffer_append_char(&defaultBuffer, 'e');
-    ASSERT_STRING_EQUAL(defaultBuffer.data, "Hello, me");
+    ASSERT_STRING_EQUAL(defaultBuffer.text, "Hello, me");
 }
 
 /** Tests char_buffer.c. */

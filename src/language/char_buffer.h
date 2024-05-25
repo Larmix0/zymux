@@ -10,7 +10,11 @@
  * 
  * The buffer's length always takes into account NUL.
  */
-DECLARE_DA_STRUCT(CharBuffer, char);
+typedef struct {
+    u32 length;
+    u32 capacity;
+    char *text;
+} CharBuffer;
 
 /** Returns an initialized CharBuffer. */
 CharBuffer create_char_buffer();

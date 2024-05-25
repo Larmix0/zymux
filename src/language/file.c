@@ -55,7 +55,7 @@ static char *alloc_fixed_source(const char *source) {
         }
         buffer_append_char(&buffer, '\n');
     }
-    return buffer.data;
+    return buffer.text;
 }
 
 /** 

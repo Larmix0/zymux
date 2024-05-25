@@ -153,7 +153,7 @@ static void append_lexed_string(Lexer *lexer, StringLexer *string, CharBuffer bu
             lexer->line, lexer->tokenColumn,
             buffer.length + string->escapes - 1 // -1 because CharBuffer counts NULL.
         ),
-        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer.length, .text = buffer.data}
+        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer.length, .text = buffer.text}
     };
     APPEND_DA(&lexer->tokens, token);
 }

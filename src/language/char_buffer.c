@@ -7,8 +7,8 @@
 
 /** Creates and initializes a char buffer with a NUL terminator already appended. */
 CharBuffer create_char_buffer() {
-    CharBuffer buffer = {.capacity = 1, .length = 1, .data = ZMX_ARRAY_ALLOC(1, char)};
-    buffer.data[0] = '\0';
+    CharBuffer buffer = {.capacity = 1, .length = 1, .text = ZMX_ARRAY_ALLOC(1, char)};
+    buffer.text[0] = '\0';
     return buffer;
 }
 
@@ -16,9 +16,9 @@ CharBuffer create_char_buffer() {
 void buffer_append_string_len(CharBuffer *buffer, const char *string, const int length) {
     if (buffer->length + length + 1 > buffer->capacity) {
         buffer->capacity += length * 2;
-        buffer->data = ZMX_REALLOC_ARRAY(buffer->data, buffer->capacity, sizeof(char));
+        buffer->text = ZMX_REALLOC_ARRAY(buffer->text, buffer->capacity, sizeof(char));
     }
-    strncat(buffer->data, string, length);
+    strncat(buffer->text, string, length);
     buffer->length += length;
 }
 
@@ -49,10 +49,10 @@ void buffer_append_format(CharBuffer *buffer, const char *format, ...) {
     const int formatLength = vsnprintf(NULL, 0, format, argsForLength);
     if (buffer->length + formatLength + 1 > buffer->capacity) {
         buffer->capacity += formatLength * 2;
-        buffer->data = ZMX_REALLOC_ARRAY(buffer->data, buffer->capacity, sizeof(char));
+        buffer->text = ZMX_REALLOC_ARRAY(buffer->text, buffer->capacity, sizeof(char));
     }
     // -1 because char buffer's take NUL into account. +1 to length of format is for writing NUL.
-    vsnprintf(buffer->data + buffer->length - 1, formatLength + 1, format, args);
+    vsnprintf(buffer->text + buffer->length - 1, formatLength + 1, format, args);
     buffer->length += formatLength;
 
     va_end(args);
@@ -68,8 +68,12 @@ void buffer_append_char(CharBuffer *buffer, const char ch) {
     if (ch == '\0') {
         return; // Don't append more NULs as char buffer automatically does that.
     }
-    buffer->data[buffer->length - 1] = ch;
-    APPEND_DA(buffer, '\0');
+    buffer->text[buffer->length - 1] = ch;
+    if (buffer->capacity < buffer->length + 1) {
+        INCREASE_CAP(buffer->capacity);
+        buffer->text = ZMX_REALLOC(buffer->text, buffer->capacity * sizeof(char));
+    }
+    buffer->text[buffer->length++] = '\0';
 }
 
 /** 
@@ -79,9 +83,9 @@ void buffer_append_char(CharBuffer *buffer, const char ch) {
  * and then replace the new last character (the character to be actually popped) with NUL.
  */
 char buffer_pop(CharBuffer *buffer) {
-    char popped = buffer->data[buffer->length - 2];
-    buffer->data[buffer->length - 2] = '\0';
-    DROP_DA(buffer);
+    char popped = buffer->text[buffer->length - 2];
+    buffer->text[buffer->length - 2] = '\0';
+    buffer->length--;
     return popped;
 }
 
@@ -94,5 +98,5 @@ void buffer_pop_amount(CharBuffer *buffer, const int amount) {
 
 /** Frees all memory the CharBuffer has used. */
 void free_char_buffer(CharBuffer *buffer) {
-    free(buffer->data);
+    free(buffer->text);
 }

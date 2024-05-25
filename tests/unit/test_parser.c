@@ -62,7 +62,7 @@ PRIVATE_TEST_CASE(test_parser_expression) {
         "(232)", "((** 3 2))", "((- 10 (- 10)))", "((- (/ (* 2 (** 10 5)) 4) 9))",
         "((% (* 0 (** 0xff (- (- (- (- 0)))))) 0))"
     );
-    ASSERT_STRING_EQUAL(actual.data, expected.data);
+    ASSERT_STRING_EQUAL(actual.text, expected.text);
     free_char_buffer(&actual);
     free_char_buffer(&expected);
 }

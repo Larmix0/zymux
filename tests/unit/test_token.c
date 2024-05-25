@@ -14,13 +14,13 @@ PRIVATE_TEST_CASE(test_equal_token) {
     buffer_append_string(&buffer1, "hello");
     Token string1 = {
         .lexeme = "str1", .pos = create_src_pos(1, 1, 4),
-        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer1.length, .text = buffer1.data}
+        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer1.length, .text = buffer1.text}
     };
     CharBuffer buffer2 = create_char_buffer();
     buffer_append_string(&buffer2, "hello");
     Token string2 = {
         .lexeme = "str2", .pos = create_src_pos(1, 1, 4),
-        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer2.length, .text = buffer2.data}
+        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer2.length, .text = buffer2.text}
     };
     ASSERT_TRUE(equal_token(string1, string2));
     free_char_buffer(&buffer1);

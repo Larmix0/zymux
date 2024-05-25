@@ -177,18 +177,18 @@ static SourcePosition runtime_error_pos(Vm *vm) {
  * to also be updated to the same index relative to the potentially new stack address.
  */
 static void reallocate_stack(Vm *vm) {
-    vm->stack.capacity = vm->stack.capacity < MIN_DA_CAP ? MIN_DA_CAP : (vm)->stack.capacity * 2;
-    Obj **previousStackAddr = vm->stack.objects;
+    INCREASE_CAP(vm->stack.capacity);
+    Obj **originalStack = vm->stack.objects;
     vm->stack.objects = ZMX_REALLOC(
         vm->stack.objects, vm->stack.capacity * sizeof(*vm->stack.objects)
     );
-    if (vm->stack.objects == previousStackAddr) {
+    if (vm->stack.objects == originalStack) {
         // Stack address didn't change, no need to move pointers in the stack to a new location.
         return;
     }
     
     for (u32 i = 0; i < vm->callStack.length; i++) {
-        vm->callStack.data[i].sp = &vm->stack.objects[vm->callStack.data[i].sp - previousStackAddr];
+        vm->callStack.data[i].sp = &vm->stack.objects[vm->callStack.data[i].sp - originalStack];
     }
 }
 
