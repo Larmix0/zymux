@@ -43,7 +43,6 @@ ZmxProgram create_zmx_program(char *file, const bool showErrors);
 /** Frees generally everything held by program. */
 void free_zmx_program(ZmxProgram *program);
 
-
 /** 
  * Allocates size memory and uses file, func, and line for errors.
  * This is here for the macros, so use those macros instead.
@@ -55,14 +54,5 @@ void *zmx_alloc(const size_t size, const SourceInfo info);
  * This is here for the macros, so use those macros instead.
  */
 void *zmx_realloc(void *oldPointer, const size_t newSize, const SourceInfo info);
-
-/** Returns the number result of base to the power of exponent. */
-ZmxInt zmx_int_power(const ZmxInt base, const ZmxInt exponent);
-
-/** Returns the base to the power of exponent (float). */
-ZmxFloat zmx_float_power(const ZmxFloat base, const ZmxFloat exponent);
-
-/** Returns the float result of dividend modulo divisor (both floats). */
-ZmxFloat zmx_float_modulo(ZmxFloat dividend, const ZmxFloat divisor);
 
 #endif

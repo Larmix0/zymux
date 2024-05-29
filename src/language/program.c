@@ -53,39 +53,3 @@ void *zmx_realloc(void *oldPointer, const size_t newSize, const SourceInfo info)
     }
     return newPointer;
 }
-
-/** 
- * Returns the base to the power of exponent.
- * 
- * Could've linked with the C math library, but I decided to reimplement it since it's just 5 lines.
- * Simply implements the power by multiplying the base once for every exponent.
- */
-ZmxInt zmx_int_power(const ZmxInt base, const ZmxInt exponent) {
-    ZmxInt result = 1;
-    for (ZmxInt i = 0; i < exponent; i++) {
-        result *= base;
-    }
-    return result;
-}
-
-/** Returns the base to the power of exponent (float). */
-ZmxFloat zmx_float_power(const ZmxFloat base, const ZmxFloat exponent) {
-    // TODO: Remove this function as a whole, since actual float exponent is much more complicated..
-    ZmxFloat result = 1;
-    for (int i = 0; i < exponent; i++) {
-        result *= base;
-    }
-    return result;
-}
-
-/** 
- * Returns the float result of dividend modulo divisor (both floats).
- * 
- * This function was created because the modulo operator in C by default only supports integers.
- */
-ZmxFloat zmx_float_modulo(ZmxFloat dividend, const ZmxFloat divisor) {
-    while (dividend >= divisor) {
-        dividend -= divisor;
-    }
-    return dividend;
-}

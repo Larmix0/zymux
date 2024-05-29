@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -244,14 +245,14 @@ bool interpret(Vm *vm) {
             }
             if (BIN_LEFT(vm)->type == OBJ_FLOAT || BIN_RIGHT(vm)->type == OBJ_FLOAT) {
                 FloatObj *result = new_float_obj(
-                    vm->program, zmx_float_modulo(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
+                    vm->program, fmod(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
                 );
                 DROP_AMOUNT(vm, 2);
                 PUSH(vm, AS_OBJ(result));
             } else {
                 IntObj *result = new_int_obj(
                     vm->program,
-                    AS_PTR(IntObj, (BIN_LEFT(vm)))->number % AS_PTR(IntObj, (BIN_RIGHT(vm)))->number
+                    AS_PTR(IntObj, BIN_LEFT(vm))->number % AS_PTR(IntObj, BIN_RIGHT(vm))->number
                 );
                 DROP_AMOUNT(vm, 2);
                 PUSH(vm, AS_OBJ(result));
@@ -264,13 +265,13 @@ bool interpret(Vm *vm) {
             }
             if (BIN_LEFT(vm)->type == OBJ_FLOAT || BIN_RIGHT(vm)->type == OBJ_FLOAT) {
                 FloatObj *result = new_float_obj(
-                    vm->program, zmx_float_power(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
+                    vm->program, pow(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
                 );
                 DROP_AMOUNT(vm, 2);
                 PUSH(vm, AS_OBJ(result));
             } else {
                 IntObj *result = new_int_obj(
-                    vm->program, zmx_int_power(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
+                    vm->program, pow(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
                 );
                 DROP_AMOUNT(vm, 2);
                 PUSH(vm, AS_OBJ(result));

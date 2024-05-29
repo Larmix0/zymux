@@ -2,16 +2,6 @@
 
 #include "program.c"
 
-/** Tests that zmx_power properly implements exponentiation. */
-PRIVATE_TEST_CASE(test_zmx_power) {
-    ASSERT_INT_EQUAL(zmx_int_power(7, 2), 49);
-    ASSERT_INT_EQUAL(zmx_int_power(3, 7), 2187);
-    ASSERT_INT_EQUAL(zmx_int_power(23, 1), 23);
-    ASSERT_INT_EQUAL(zmx_int_power(9, 0), 1);
-    ASSERT_INT_EQUAL(zmx_int_power(-4, 4), 256);
-    ASSERT_INT_EQUAL(zmx_int_power(-6, 3), -216);
-}
-
 /** Tests that we can properly create an initialized Zymux program from create_zmx_program(). */
 PRIVATE_TEST_CASE(test_create_zmx_program) {
     ZmxProgram program = create_zmx_program("zymux", false);
@@ -60,7 +50,6 @@ PRIVATE_TEST_CASE(test_zmx_allocators) {
 
 /** Tests zmx_program.c. */
 void test_program() {
-    TEST(test_zmx_power);
     TEST(test_create_zmx_program);
     TEST(test_zmx_allocators);
 }

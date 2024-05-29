@@ -2,6 +2,7 @@ CC = gcc
 
 # TODO: add -Werror to CFLAGS later.
 CFLAGS = -Wall -Wextra -Wpedantic -g
+LDFLAGS = -lm
 
 LIB_DIR = lib
 SRC_DIR = src
@@ -66,10 +67,10 @@ endif
 
 unittest: $(BIN_DIR) $(SRC_OBJS) $(UNIT_OBJS) $(LUKIP_LIB)
 ifeq ($(OS), Windows_NT)
-	$(CC) -o $<\$(UNIT_EXE) $(UNIT_OBJS) $(LUKIP_LIB)
+	$(CC) -o $<\$(UNIT_EXE) $(UNIT_OBJS) $(LUKIP_LIB) $(LDFLAGS)
 	.\$(BIN_DIR)\$(UNIT_EXE)
 else
-	$(CC) -o $</$(UNIT_EXE) $(UNIT_OBJS) $(LUKIP_LIB)
+	$(CC) -o $</$(UNIT_EXE) $(UNIT_OBJS) $(LUKIP_LIB) $(LDFLAGS)
 	./$(BIN_DIR)/$(UNIT_EXE)
 endif
 
@@ -78,9 +79,9 @@ $(LUKIP_LIB):
 
 $(ZYMUX_EXE): $(BIN_DIR) $(SRC_OBJS)
 ifeq ($(OS), Windows_NT)
-	$(CC) -o $<\$@ $(SRC_OBJS)
+	$(CC) -o $<\$@ $(SRC_OBJS) $(LDFLAGS)
 else
-	$(CC) -o $</$@ $(SRC_OBJS)
+	$(CC) -o $</$@ $(SRC_OBJS) $(LDFLAGS)
 endif
 
 %.o: %.c
