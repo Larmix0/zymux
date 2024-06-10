@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -93,23 +94,31 @@ static void append_implicit(Lexer *lexer, const TokenType type) {
 }
 
 /** Appends the token we've been lexing as an error with the passed message. */
-static void append_lexed_error(Lexer *lexer, char *message) {
+static void append_lexed_error(Lexer *lexer, const char *format, ...) {
     Token error = {
         .lexeme = lexer->tokenStart,
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .type = TOKEN_ERROR,
     };
     APPEND_DA(&lexer->tokens, error);
-    SYNTAX_ERROR(lexer->program, error.pos, message);
+
+    va_list args;
+    va_start(args, format);
+    zmx_user_error(lexer->program, error.pos, "Syntax error", format, &args);
+    va_end(args);
 }
 
 /** Appends an error token in a specific position in the source code with the message. */
 static void append_error_at(
-    Lexer *lexer, char *message, char *errorStart, const SourcePosition pos
+    Lexer *lexer, char *errorStart, const SourcePosition pos, const char *format, ...
 ) {
-    Token error = {.lexeme = errorStart, .pos = pos, .type = TOKEN_ERROR,};
+    Token error = {.lexeme = errorStart, .pos = pos, .type = TOKEN_ERROR};
     APPEND_DA(&lexer->tokens, error);
-    SYNTAX_ERROR(lexer->program, error.pos, message);
+
+    va_list args;
+    va_start(args, format);
+    zmx_user_error(lexer->program, error.pos, "Syntax error", format, &args);
+    va_end(args);
 }
 
 /** Appends a token that was lexed (advanced over) of the passed type. */
@@ -172,8 +181,8 @@ static void multiline_comment(Lexer *lexer) {
         switch (ADVANCE_PEEK(lexer)) {
         case '\0':
             append_error_at(
-                lexer, "Unterminated multiline comment.", lexer->tokenStart,
-                create_src_pos(lexer->line, lexer->tokenColumn, 2)
+                lexer, lexer->tokenStart, create_src_pos(lexer->line, lexer->tokenColumn, 2),
+                "Unterminated multiline comment."
             );
             RETREAT(lexer);
             return;
@@ -516,8 +525,8 @@ static bool ignore_interpolation_whitespace(Lexer *lexer) {
         case '/':
             if (PEEK_NEXT(lexer) == '/' || PEEK_NEXT(lexer) == '*') {
                 append_error_at(
-                    lexer, "Can't have comment inside string interpolation.", lexer->tokenStart,
-                    create_src_pos(lexer->line, lexer->tokenColumn, 2)
+                    lexer, lexer->tokenStart, create_src_pos(lexer->line, lexer->tokenColumn, 2),
+                    "Can't have comment inside string interpolation."
                 );
                 return false;
             }
@@ -665,7 +674,7 @@ static bool scan_string_char(
     }
     if (IS_EOF(lexer) || current == '\n') {
         append_error_at(
-            lexer, "Unterminated string.", quote, create_src_pos(lexer->line, quoteColumn, 1)
+            lexer, quote, create_src_pos(lexer->line, quoteColumn, 1), "Unterminated string."
         );
         return false;
     }
@@ -692,8 +701,9 @@ static void finish_string(Lexer *lexer, StringLexer *string) {
 
     if (string->interpolationDepth != 0) {
         append_error_at(
-            lexer, "Unclosed \"{\" in interpolated string.", string->interpolationStart,
-            create_src_pos(lexer->line, string->interpolationColumn, 1)
+            lexer, string->interpolationStart,
+            create_src_pos(lexer->line, string->interpolationColumn, 1),
+            "Unclosed \"{\" in interpolated string."
         );
     }
     append_lexed_string(lexer, string, buffer);

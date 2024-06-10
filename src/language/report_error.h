@@ -1,6 +1,7 @@
 #ifndef REPORT_ERROR_H
 #define REPORT_ERROR_H
 
+#include <stdarg.h>
 #include <stdlib.h>
 
 /** Reports an error relating to the user's operating system.*/
@@ -22,7 +23,8 @@
  * (like running out of memory), unreachable errors are never ever meant to be executed,
  * so when seen they should be fixed immediately.
  * 
- * This macro also aborts after, just so the compiler doesn't complain about not returning values.
+ * This macro also aborts afterwards,
+ * we do that so the compiler doesn't complain about not returning values.
  */
 #define UNREACHABLE_ERROR() \
     (internal_error( \
@@ -33,10 +35,6 @@
 
 /** Reports a file-related error. */
 #define FILE_ERROR(...) (file_error(__VA_ARGS__))
-
-/** A user syntax error. Typically means an error occurred in lexing or parsing. */
-#define SYNTAX_ERROR(program, position, message) \
-    (zmx_user_error(program, position, "Syntax error", message))
 
 /** Places an instantiated struct that holds information of a line in C source code. */
 #define SOURCE_INFO ((SourceInfo){.file = __FILE__, .func = __func__, .line = __LINE__})
@@ -73,9 +71,16 @@ void internal_error(const SourceInfo info, const char *errorName, const char *fo
 /** Displays a file error. */
 void file_error(const char *format, ...);
 
-/** Displays an error that happened due to a mistake from the person using Zymux in a *.zmx file. */
+/** 
+ * Displays an error that happened due to a mistake from the person using Zymux in a *.zmx file.
+ * 
+ * Takes in the args directly as this is supposed to be a base error function,
+ * which could be wrapped around for extra functionality regarding errors during other stages
+ * of Zymux.
+ */
 void zmx_user_error(
-    ZmxProgram *program, const SourcePosition pos, const char *errorName, const char *format, ...
+    ZmxProgram *program, const SourcePosition pos, const char *errorName,
+    const char *format, va_list *args
 );
 
 #endif

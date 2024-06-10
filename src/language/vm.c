@@ -9,14 +9,6 @@
 #include "file.h"
 #include "vm.h"
 
-/** 
- * A user error that occurred at runtime, which means during the VM's execution of bytecode.
- * 
- * Resolves to a value of false so it can also be returned in the interpreter as a fail.
- */
-#define RUNTIME_ERROR(vm, ...) \
-    (zmx_user_error((vm)->program, runtime_error_pos(vm), "Runtime error", __VA_ARGS__), false)
-
 /** Reads the current instruction and increments IP to prepare for the next one. */
 #define READ_INSTR(vm) (*(vm)->frame->ip++)
 
@@ -73,7 +65,7 @@
 #define BIN_OP_MATH(vm, resultNum) \
     do { \
         if (!IS_NUM(BIN_LEFT(vm)) || !IS_NUM(BIN_RIGHT(vm))) { \
-            return RUNTIME_ERROR(vm, "Expected number in operation."); \
+            return runtime_error(vm, "Expected number in operation."); \
         } \
         Obj *resultObj = BIN_HAS_FLOAT(vm) ? AS_OBJ(new_float_obj((vm)->program, resultNum)) \
             : AS_OBJ(new_int_obj((vm)->program, resultNum)); \
@@ -92,7 +84,7 @@
 #define BIN_OP_BOOL(vm, resultBool) \
     do { \
         if (!IS_NUM(BIN_LEFT(vm)) || !IS_NUM(BIN_RIGHT(vm))) { \
-            return RUNTIME_ERROR(vm, "Expected number in operation."); \
+            return runtime_error(vm, "Expected number in operation."); \
         } \
         Obj *resultObj = AS_OBJ(new_bool_obj(vm->program, resultBool)); \
         DROP_AMOUNT(vm, 2); \
@@ -132,8 +124,18 @@ IntArray copy_const_indices(CallStack callStack) {
     return framesIndices;
 }
 
+/** Frees the passed program's content and sets it to a fresh program with the same main name. */
+static void reset_program(ZmxProgram *program) {
+    char *mainName = ZMX_ARRAY_ALLOC(program->mainFile->length + 1, char);
+    strncpy(mainName, program->mainFile->string, program->mainFile->length);
+    mainName[program->mainFile->length] = '\0';
+    free_zmx_program(program);
+    *program = create_zmx_program(mainName, true);
+    free(mainName);   
+}
+
 /** 
- * Reports a the position of a runtime error.
+ * Reports a runtime error.
  * 
  * Because the original compilation doesn't include bytecode positions (for optimization),
  * we first delete the VM so we have enough memory to recompile the main file with positions on.
@@ -145,26 +147,25 @@ IntArray copy_const_indices(CallStack callStack) {
  * Also, this is only possible since Zymux only creates function at compilation time,
  * meaning every executable function is in a constant pool of objects created at compilation time.
  */
-static SourcePosition runtime_error_pos(Vm *vm) {
-    ZmxProgram *program = vm->program;
+static bool runtime_error(Vm *vm, const char *format, ...) {
     const int bytecodeIdx = vm->frame->ip - vm->frame->func->bytecode.data;
     IntArray framesIndices = copy_const_indices(vm->callStack);
 
-    char *mainName = ZMX_ARRAY_ALLOC(program->mainFile->length + 1, char);
-    strncpy(mainName, program->mainFile->string, program->mainFile->length);
-    mainName[program->mainFile->length] = '\0';
-    free_zmx_program(program);
-    *program = create_zmx_program(mainName, true);
+    ZmxProgram *program = vm->program;
+    reset_program(program);
     free_vm(vm);
-    free(mainName);
-
-    // Recreate the VM to avoid a double free.
-    *vm = create_vm(
-        program, new_func_obj(program, new_string_obj(program, "<Error>"), -1)
-    );
-    FuncObj *erroredFunc = copy_errored_func(program, framesIndices);
+    // Recreate a new empty VM to avoid a double free later.
+    *vm = create_vm(program, new_func_obj(program, new_string_obj(program, "<Error>"), -1));
+    FuncObj *erroredFunc = copy_errored_func(vm->program, framesIndices);
     FREE_DA(&framesIndices);
-    return erroredFunc->positions.data[bytecodeIdx];
+
+    va_list args;
+    va_start(args, format);
+    zmx_user_error(
+        vm->program, erroredFunc->positions.data[bytecodeIdx], "Runtime error", format, &args
+    );
+    va_end(args);
+    return false;
 }
 
 /** 

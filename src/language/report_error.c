@@ -146,7 +146,8 @@ void file_error(const char *format, ...) {
  * Like a compiler error or a runtime error.
  */
 void zmx_user_error(
-    ZmxProgram *program, const SourcePosition pos, const char *errorName, const char *format, ...
+    ZmxProgram *program, const SourcePosition pos, const char *errorName,
+    const char *format, va_list *args
 ) {
     bool hasErrored = program->hasErrored;
     program->hasErrored = true;
@@ -162,11 +163,6 @@ void zmx_user_error(
         stderr, "line %d in \"%s\":\n" INDENT RED "%s: " DEFAULT_COLOR,
         pos.line, program->currentFile->string, errorName
     );
-
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
-    
+    vfprintf(stderr, format, *args);  
     fputc('\n', stderr);
 }

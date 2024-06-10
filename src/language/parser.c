@@ -36,13 +36,17 @@ void free_parser(Parser *parser) {
 }
 
 /** Reports a parsing error on a specific, erroneous token, then starts panicking. */
-static void raise_parser_error_at(Parser *parser, Token *erroredToken, const char *message) {
+static void raise_parser_error_at(Parser *parser, Token *erroredToken, const char *format, ...) {
     if (parser->isPanicking) {
         return;
     }
     parser->isPanicking = true;
     parser->syncSpot = erroredToken;
-    SYNTAX_ERROR(parser->program, erroredToken->pos, message);
+    
+    va_list args;
+    va_start(args, format);
+    zmx_user_error(parser->program, erroredToken->pos, "Syntax error", format, &args);
+    va_end(args);
 }
 
 /**
@@ -54,7 +58,9 @@ static void raise_parser_error_at(Parser *parser, Token *erroredToken, const cha
  * It errors the missing character by showing
  * the character after the token located before the missing one (which is what beforeMissing is).
  */
-static void raise_parser_error_missing(Parser *parser, Token *beforeMissing, const char *message) {
+static void raise_parser_error_missing(
+    Parser *parser, Token *beforeMissing, const char *format, ...
+) {
     if (parser->isPanicking) {
         return;
     }
@@ -62,10 +68,13 @@ static void raise_parser_error_missing(Parser *parser, Token *beforeMissing, con
     parser->syncSpot = beforeMissing;
 
     // Errors out the character after the token located before the missing one.
-    SourcePosition errorPos = create_src_pos(
+    const SourcePosition errorPos = create_src_pos(
         beforeMissing->pos.line, beforeMissing->pos.column + beforeMissing->pos.length, 1
     );
-    SYNTAX_ERROR(parser->program, errorPos, message);
+    va_list args;
+    va_start(args, format);
+    zmx_user_error(parser->program, errorPos, "Syntax error", format, &args);
+    va_end(args);
 }
 
 /**

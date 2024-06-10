@@ -657,7 +657,7 @@ PRIVATE_TEST_CASE(test_lexer_struct_functions) {
 
 /** Tests that errors are made and appended correctly. */
 PRIVATE_TEST_CASE(test_error_functions) {
-    append_error_at(defaultLexer, "at", defaultLexer->source + 2, create_src_pos(1, 1, 4));
+    append_error_at(defaultLexer, defaultLexer->source + 2, create_src_pos(1, 1, 4), "at");
     Token manualAt = {
         .lexeme = defaultLexer->source + 2, .pos = create_src_pos(1, 1, 4), .type = TOKEN_ERROR,
     };
