@@ -104,12 +104,6 @@ typedef struct {
             int length;
             char *text;
         } stringVal;
-
-        /** 
-         * When an error occurs, it still points to a lexeme and length in the source, which is
-         * the erroneous token that gets displayed. errorMessage is the message to be printed.
-         */
-        char *errorMessage;
     };
 } Token;
 

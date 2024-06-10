@@ -97,22 +97,19 @@ static void append_lexed_error(Lexer *lexer, char *message) {
     Token error = {
         .lexeme = lexer->tokenStart,
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
-        .errorMessage = message, .type = TOKEN_ERROR,
+        .type = TOKEN_ERROR,
     };
     APPEND_DA(&lexer->tokens, error);
-    SYNTAX_ERROR(lexer->program, error.pos, error.errorMessage);
+    SYNTAX_ERROR(lexer->program, error.pos, message);
 }
 
 /** Appends an error token in a specific position in the source code with the message. */
 static void append_error_at(
     Lexer *lexer, char *message, char *errorStart, const SourcePosition pos
 ) {
-    Token error = {
-        .lexeme = errorStart, .pos = pos,
-        .errorMessage = message, .type = TOKEN_ERROR,
-    };
+    Token error = {.lexeme = errorStart, .pos = pos, .type = TOKEN_ERROR,};
     APPEND_DA(&lexer->tokens, error);
-    SYNTAX_ERROR(lexer->program, error.pos, error.errorMessage);
+    SYNTAX_ERROR(lexer->program, error.pos, message);
 }
 
 /** Appends a token that was lexed (advanced over) of the passed type. */

@@ -659,8 +659,7 @@ PRIVATE_TEST_CASE(test_lexer_struct_functions) {
 PRIVATE_TEST_CASE(test_error_functions) {
     append_error_at(defaultLexer, "at", defaultLexer->source + 2, create_src_pos(1, 1, 4));
     Token manualAt = {
-        .lexeme = defaultLexer->source + 2, .pos = create_src_pos(1, 1, 4),
-        .errorMessage = "lexed", .type = TOKEN_ERROR,
+        .lexeme = defaultLexer->source + 2, .pos = create_src_pos(1, 1, 4), .type = TOKEN_ERROR,
     };
     ASSERT_TRUE(equal_token(LAST_TOKEN(defaultLexer), manualAt));
     
@@ -669,8 +668,7 @@ PRIVATE_TEST_CASE(test_error_functions) {
     }
     append_lexed_error(defaultLexer, "lexed");
     Token manualLexed = {
-        .lexeme = defaultLexer->source, .pos = create_src_pos(1, 1, 5),
-        .errorMessage = "lexed", .type = TOKEN_ERROR,
+        .lexeme = defaultLexer->source, .pos = create_src_pos(1, 1, 5), .type = TOKEN_ERROR,
     };
     ASSERT_TRUE(equal_token(LAST_TOKEN(defaultLexer), manualLexed));
 }

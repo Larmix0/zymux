@@ -21,9 +21,6 @@ static void print_token(const Token token) {
         case TOKEN_STRING_LIT:
             printf(", string=\"%s\"", token.stringVal.text);
             break;
-        case TOKEN_ERROR:
-            printf(", error=\"%s\"", token.errorMessage);
-            break;
         default:
             break; // Add nothing to the token's print.
     }
