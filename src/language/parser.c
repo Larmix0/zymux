@@ -42,9 +42,7 @@ static void raise_parser_error_at(Parser *parser, Token *erroredToken, const cha
     }
     parser->isPanicking = true;
     parser->syncSpot = erroredToken;
-    SYNTAX_ERROR(
-        parser->program, erroredToken->pos, message
-    );
+    SYNTAX_ERROR(parser->program, erroredToken->pos, message);
 }
 
 /**
@@ -86,7 +84,7 @@ static Node *string(Parser *parser) {
         } else {
             APPEND_DA(&exprs, expression(parser));
         }
-        nextIsString = nextIsString ? false : true;
+        nextIsString = !nextIsString;
         MATCH(parser, TOKEN_INTERPOLATE);
     }
     return new_string_node(parser->program, exprs);

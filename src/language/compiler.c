@@ -61,7 +61,7 @@ static void compile_string(Compiler *compiler, const StringNode *node) {
             // Converts interpolated expression into a string.
             emit_number(compiler, OP_AS, TYPE_STRING, get_node_pos(node->exprs.data[i]));
         }
-        nextIsInterpolated = nextIsInterpolated ? false : true;
+        nextIsInterpolated = !nextIsInterpolated;
     }
     emit_number(compiler, OP_FINISH_STRING, node->exprs.length, get_node_pos(node->exprs.data[0]));
 }

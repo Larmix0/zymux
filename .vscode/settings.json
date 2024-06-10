@@ -22,7 +22,8 @@
         "node.h": "c",
         "test_dynamic_array.h": "c",
         "regex": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "char_buffer.h": "c"
     },
     "cSpell.words": [
         "Zymux"
