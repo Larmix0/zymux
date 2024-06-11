@@ -235,7 +235,17 @@ bool interpret(Vm *vm) {
         case OP_ARG_32: vm->instrSize = INSTR_FOUR_BYTES; break;
         case OP_TRUE: PUSH(vm, AS_OBJ(new_bool_obj(vm->program, true))); break;
         case OP_FALSE: PUSH(vm, AS_OBJ(new_bool_obj(vm->program, false))); break;
-        case OP_ADD: BIN_OP_MATH(vm, NUM_VAL(BIN_LEFT(vm)) + NUM_VAL(BIN_RIGHT(vm))); break;
+        case OP_ADD:
+            if (BIN_LEFT(vm)->type == OBJ_STRING && BIN_RIGHT(vm)->type == OBJ_STRING) {
+                Obj *result = AS_OBJ(concatenate(
+                    vm->program, AS_PTR(StringObj, BIN_LEFT(vm)), AS_PTR(StringObj, BIN_RIGHT(vm))
+                ));
+                DROP_AMOUNT(vm, 2);
+                PUSH(vm, result);
+            } else {
+                BIN_OP_MATH(vm, NUM_VAL(BIN_LEFT(vm)) + NUM_VAL(BIN_RIGHT(vm)));
+            }
+            break;
         case OP_SUBTRACT: BIN_OP_MATH(vm, NUM_VAL(BIN_LEFT(vm)) - NUM_VAL(BIN_RIGHT(vm))); break;
         case OP_MULTIPLY: BIN_OP_MATH(vm, NUM_VAL(BIN_LEFT(vm)) * NUM_VAL(BIN_RIGHT(vm))); break;
         case OP_DIVIDE: BIN_OP_MATH(vm, NUM_VAL(BIN_LEFT(vm)) / NUM_VAL(BIN_RIGHT(vm))); break;
@@ -315,7 +325,7 @@ bool interpret_source(ZmxProgram *program, char *source) {
     if (mainFunc == NULL) {
         return false;
     }
-    
+
     Vm vm = create_vm(program, mainFunc);
     interpret(&vm);
     free_vm(&vm);
