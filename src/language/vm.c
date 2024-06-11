@@ -312,10 +312,12 @@ bool interpret(Vm *vm) {
  */
 bool interpret_source(ZmxProgram *program, char *source) {
     FuncObj *mainFunc = compile_source(program, source, DEBUG_COMPILER);
-    Vm vm = create_vm(program, mainFunc);
-    if (!program->hasErrored) {
-        interpret(&vm);
+    if (mainFunc == NULL) {
+        return false;
     }
+    
+    Vm vm = create_vm(program, mainFunc);
+    interpret(&vm);
     free_vm(&vm);
     return !program->hasErrored;
 }

@@ -159,12 +159,15 @@ bool compile(Compiler *compiler) {
  * 
  * debugByteCode controls whether or not we keep track of the positions of each bytecode,
  * and also whether or not we should print the lexed tokens, parsed AST, and compiled bytecode.
+ * 
+ * Returns NULL instead of the main function if an error has occurred during any point
+ * of the compilation.
  */
 FuncObj *compile_source(ZmxProgram *program, char *source, const bool debugBytecode) {
     Lexer lexer = create_lexer(program, source);
     if (!lex(&lexer)) {
         free_lexer(&lexer);
-        return new_func_obj(program, new_string_obj(program, "<Error>"), -1);
+        return NULL;
     }
     if (debugBytecode && DEBUG_LEXER) {
         print_tokens(lexer.tokens);
@@ -175,7 +178,7 @@ FuncObj *compile_source(ZmxProgram *program, char *source, const bool debugBytec
         free_lexer(&lexer);
         free_parser(&parser);
         free_all_nodes(program);
-        return new_func_obj(program, new_string_obj(program, "<Error>"), -1);
+        return NULL;
     }
     if (debugBytecode && DEBUG_PARSER) {
         print_ast(&parser.ast);
@@ -190,5 +193,5 @@ FuncObj *compile_source(ZmxProgram *program, char *source, const bool debugBytec
     free_parser(&parser);
     free_compiler(&compiler);
     free_all_nodes(program);
-    return compiler.func;
+    return program->hasErrored ? NULL : compiler.func;
 }
