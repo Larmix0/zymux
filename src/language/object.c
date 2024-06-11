@@ -130,10 +130,9 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
     case OBJ_FUNC:
         return new_string_obj(program, AS_PTR(FuncObj, object)->name->string);
     case OBJ_BOOL:
-        // No need to allocate since it's only true or false.
         return new_string_obj(program, AS_PTR(BoolObj, object)->boolean ? "true" : "false");
     case OBJ_STRING:
-        return AS_PTR(StringObj, object);
+        return new_string_obj(program, AS_PTR(StringObj, object)->string);
     default:
         UNREACHABLE_ERROR();
     }
@@ -154,7 +153,7 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     case OBJ_INT: result = AS_PTR(IntObj, object)->number != 0; break;
     case OBJ_FLOAT: result = AS_PTR(FloatObj, object)->number != 0.0; break;
     case OBJ_STRING: result = AS_PTR(StringObj, object)->length != 0; break;
-    case OBJ_BOOL: return AS_PTR(BoolObj, object);
+    case OBJ_BOOL: result = AS_PTR(BoolObj, object)->boolean; break;
     default: UNREACHABLE_ERROR();
     }
     return new_bool_obj(program, result);
