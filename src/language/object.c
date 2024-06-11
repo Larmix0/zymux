@@ -128,8 +128,7 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
         break;
     }
     case OBJ_FUNC:
-        string = ZMX_ARRAY_ALLOC(AS_PTR(FuncObj, object)->name->length, char);
-        break;
+        return new_string_obj(program, AS_PTR(FuncObj, object)->name->string);
     case OBJ_BOOL:
         // No need to allocate since it's only true or false.
         return new_string_obj(program, AS_PTR(BoolObj, object)->boolean ? "true" : "false");
