@@ -32,7 +32,7 @@ PRIVATE_TEST_CASE(test_fixed_source) {
 /** Tests if we can properly open and read files with alloc_source(). */
 PRIVATE_TEST_CASE(test_open_file) {
     const char *expected = "File to test opening files.\n";
-    const int expectedLength = strlen(expected);
+    const size_t expectedLength = strlen(expected);
 
     CharBuffer sourcePath = create_char_buffer();
     buffer_append_format(
@@ -40,9 +40,9 @@ PRIVATE_TEST_CASE(test_open_file) {
         PATH_DELIMITER, PATH_DELIMITER, PATH_DELIMITER
     );
     char *source = alloc_source(sourcePath.text);
-    const int sourceLength = strlen(source);
+    const size_t sourceLength = strlen(source);
 
-    ASSERT_INT_EQUAL(sourceLength, expectedLength);
+    ASSERT_SIZE_T_EQUAL(sourceLength, expectedLength);
     ASSERT_TRUE(strncmp(source, expected, sourceLength) == 0);
     free(source);
     free_char_buffer(&sourcePath);

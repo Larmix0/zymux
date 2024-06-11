@@ -100,7 +100,7 @@ DECLARE_DA_STRUCT(IntArray, int);
  * retrace and compile the whole program and walk through the constant pool of each function
  * one by one in frameIndices in order to find the original one.
  */
-static FuncObj *copy_errored_func(ZmxProgram *program, IntArray framesIndices) {
+static FuncObj *copy_errored_func(ZmxProgram *program, const IntArray framesIndices) {
     char *mainSource = alloc_source(program->currentFile->string);
     FuncObj *current = compile_source(program, mainSource, true);
     free(mainSource);
@@ -116,7 +116,7 @@ static FuncObj *copy_errored_func(ZmxProgram *program, IntArray framesIndices) {
  * Does not copy the const index of the first (top-level) function as that's the starting point,
  * and it isn't present in any const pools. 
  */
-IntArray copy_const_indices(CallStack callStack) {
+static IntArray copy_const_indices(const CallStack callStack) {
     IntArray framesIndices = CREATE_DA();
     for (u32 i = 1; i < callStack.length; i++) {
         APPEND_DA(&framesIndices, callStack.data[i].func->constIdx);
@@ -148,7 +148,7 @@ static void reset_program(ZmxProgram *program) {
  * meaning every executable function is in a constant pool of objects created at compilation time.
  */
 static bool runtime_error(Vm *vm, const char *format, ...) {
-    const int bytecodeIdx = vm->frame->ip - vm->frame->func->bytecode.data;
+    const u32 bytecodeIdx = vm->frame->ip - vm->frame->func->bytecode.data;
     IntArray framesIndices = copy_const_indices(vm->callStack);
 
     ZmxProgram *program = vm->program;
@@ -184,7 +184,7 @@ static void reallocate_stack(Vm *vm) {
         vm->stack.objects, vm->stack.capacity * sizeof(*vm->stack.objects)
     );
     if (vm->stack.objects == originalStack) {
-        // Stack address didn't change, no need to move pointers in the stack to a new location.
+        // Stack address didn't change, no need to move pointers in the stack to the new location.
         return;
     }
     

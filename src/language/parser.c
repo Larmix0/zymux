@@ -22,7 +22,7 @@
 static Node *expression(Parser *parser);
 
 /** Returns an initialized parser. */
-Parser create_parser(ZmxProgram *program, const TokenArray tokens) {
+Parser create_parser(ZmxProgram *program, TokenArray tokens) {
     Parser parser = {
         .isPanicking = false, .ast = CREATE_DA(), .program = program,
         .tokens = tokens, .current = tokens.data, .syncSpot = NULL

@@ -12,7 +12,7 @@ ZmxProgram create_zmx_program(char *file, const bool showErrors) {
         .allNodes = NULL, .allObjs = NULL, .mainFile = NULL, .currentFile = NULL
     };
     program.mainFile = new_string_obj(&program, file);
-    program.currentFile = new_string_obj(&program, file);
+    program.currentFile = program.mainFile;
     return program;
 }
 

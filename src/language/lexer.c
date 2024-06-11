@@ -44,6 +44,14 @@ typedef struct {
     char quote;
 } StringLexer;
 
+/** Represents how setting some metadata went. */
+typedef enum {
+    METADATA_SUCCESS,
+    METADATA_END,
+    METADATA_REPEATED_ERROR,
+    METADATA_MISSING_STRING_ERROR
+} MetadataStatus;
+
 static void lex_token(Lexer *lexer);
 
 /** Returns an initialized lexer with the source code passed. */
@@ -390,7 +398,7 @@ static void append_lexed_base(Lexer *lexer, const int base, const bool hasPrefix
 }
 
 /** Errors a number literal covering the number until next isn't alphabetical or numerical. */
-static void invalid_literal(Lexer *lexer, char *message, const bool hasPrefix) {
+static void invalid_literal(Lexer *lexer, const bool hasPrefix, const char *message) {
     if (hasPrefix) {
         lexer->tokenStart -= 2;
         lexer->tokenColumn -= 2;
@@ -407,12 +415,12 @@ static void invalid_literal(Lexer *lexer, char *message, const bool hasPrefix) {
  * then appends the lexed base.
  */
 static void lex_base(
-    Lexer *lexer, const BaseCheckFunc is_within_base, const int base, char *errorMessage
+    Lexer *lexer, const BaseCheckFunc is_within_base, const int base, const char *errorMessage
 ) {
     ADVANCE_DOUBLE(lexer);
     START_TOKEN(lexer);
     if (!is_within_base(PEEK(lexer))) {
-        invalid_literal(lexer, errorMessage, true);
+        invalid_literal(lexer, true, errorMessage);
         return;
     }
 
@@ -420,7 +428,7 @@ static void lex_base(
         ADVANCE(lexer);
     }
     if (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
-        invalid_literal(lexer, errorMessage, true);
+        invalid_literal(lexer, true, errorMessage);
     } else {
         append_lexed_base(lexer, base, true);   
     }
@@ -435,7 +443,7 @@ static void finish_float(Lexer *lexer) {
         ADVANCE(lexer);
     }
     if (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
-        invalid_literal(lexer, "Invalid float literal.", false);
+        invalid_literal(lexer, false, "Invalid float literal.");
     } else {
         // Create a terminated version of the lexeme to use strtod on it.
         char *terminatedLexeme = alloc_current_lexeme(lexer);
@@ -459,7 +467,7 @@ static void normal_number(Lexer *lexer) {
     }
 
     if (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
-        invalid_literal(lexer, "Invalid integer literal.", false);
+        invalid_literal(lexer, false, "Invalid integer literal.");
         return;
     }
     append_lexed_base(lexer, 10, false);
@@ -658,21 +666,18 @@ static void escape_character(Lexer *lexer, StringLexer *string, CharBuffer *buff
  * Return whether or not we should continue scanning characters.
  */
 static bool scan_string_char(
-    Lexer *lexer, StringLexer *string, CharBuffer *buffer, char *quote, int quoteColumn
+    Lexer *lexer, StringLexer *string, CharBuffer *buffer, char *quote, const int quoteColumn
 ) {
-    char current = PEEK(lexer);
+    const char current = PEEK(lexer);
     if (current == '\\' && !string->isRaw) {
         escape_character(lexer, string, buffer);
         return true;
-    }
-    if (current == '{' && string->isInterpolated) {
+    } else if (current == '{' && string->isInterpolated) {
         interpolation_start(lexer, string, buffer);
         return true;
-    }
-    if (current == '}' && string->interpolationStart != NULL) {
+    } else if (current == '}' && string->interpolationStart != NULL) {
         return interpolation_end(lexer, string, buffer);
-    }
-    if (IS_EOF(lexer) || current == '\n') {
+    } else if (IS_EOF(lexer) || current == '\n') {
         append_error_at(
             lexer, quote, create_src_pos(lexer->line, quoteColumn, 1), "Unterminated string."
         );
@@ -717,14 +722,6 @@ static void repeated_metadata_error(Lexer *lexer) {
     }
     append_lexed_error(lexer, "Can't repeat \"$\" or \"#\" on string.");
 }
-
-/** Represents how setting some metadata went. */
-typedef enum {
-    METADATA_SUCCESS,
-    METADATA_END,
-    METADATA_REPEATED_ERROR,
-    METADATA_MISSING_STRING_ERROR
-} MetadataStatus;
 
 /** 
  * Sets a piece of metadata on the passed string lexer.

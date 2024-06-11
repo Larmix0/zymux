@@ -16,7 +16,7 @@ PRIVATE_TEST_CASE(test_compile_math_expr) {
     Compiler compiler = create_compiler(&program, parser.ast, true);
     ASSERT_TRUE(compile(&compiler));
 
-    u8 expected[] = {
+    const u8 expected[] = {
         OP_LOAD_CONST, 0, OP_LOAD_CONST, 1, OP_LOAD_CONST, 2, OP_MINUS, OP_MINUS, OP_MULTIPLY,
         OP_LOAD_CONST, 3, OP_MULTIPLY, OP_LOAD_CONST, 4, OP_LOAD_CONST, 5, OP_EXPONENT, OP_DIVIDE,
         OP_LOAD_CONST, 6, OP_MINUS, OP_DIVIDE, OP_ADD, OP_POP, OP_END

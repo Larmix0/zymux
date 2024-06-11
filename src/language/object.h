@@ -96,7 +96,7 @@ FloatObj *new_float_obj(ZmxProgram *program, const ZmxFloat number);
 BoolObj *new_bool_obj(ZmxProgram *program, const bool boolean);
 
 /** Returns a new allocated string object. */
-StringObj *new_string_obj(ZmxProgram *program, char *string);
+StringObj *new_string_obj(ZmxProgram *program, const char *string);
 
 /** Returns a new allocated function object. */
 FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx);

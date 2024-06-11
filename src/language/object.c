@@ -46,7 +46,7 @@ BoolObj *new_bool_obj(ZmxProgram *program, const bool boolean) {
  * This function manually allocates a copy of the passed string, so the responsibility
  * of potentially having to free the passed string is not passed to the string object.
  */
-StringObj *new_string_obj(ZmxProgram *program, char *string) {
+StringObj *new_string_obj(ZmxProgram *program, const char *string) {
     StringObj *object = NEW_OBJ(program, OBJ_STRING, StringObj);
     object->length = strlen(string);
 
@@ -143,7 +143,7 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
     return result;
 }
 
-/** Returns the passed object's boolean (whether it's considered "truthy" or "falsy"). */
+/** Returns the passed object as a boolean (whether it's considered "truthy" or "falsy"). */
 BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     bool result;
     switch (object->type) {

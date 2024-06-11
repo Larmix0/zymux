@@ -588,7 +588,7 @@ PRIVATE_TEST_CASE(test_alloc_lexeme) {
 /** Tests that ignore_whitespace ignores them properly. */
 PRIVATE_TEST_CASE(test_handling_whitespace) {
     // There isn't whitespace in the beginning, so peek result shouldn't change.
-    char current = PEEK(defaultLexer);
+    const char current = PEEK(defaultLexer);
     ignore_whitespace(defaultLexer);
     ASSERT_CHAR_EQUAL(current, PEEK(defaultLexer)); 
 
@@ -613,8 +613,8 @@ PRIVATE_TEST_CASE(test_handling_whitespace) {
 
 /** Tests the relevant functions related to structs. */
 PRIVATE_TEST_CASE(test_lexer_struct_functions) {
-    Token created = test_token_pos("test", 2, 2, TOKEN_IDENTIFIER);
-    Token manual = {
+    const Token created = test_token_pos("test", 2, 2, TOKEN_IDENTIFIER);
+    const Token manual = {
         .lexeme = "test", .pos = create_src_pos(2, 2, 4), .type = TOKEN_IDENTIFIER
     };
     ASSERT_TRUE(equal_token(manual, created));
@@ -658,7 +658,7 @@ PRIVATE_TEST_CASE(test_lexer_struct_functions) {
 /** Tests that errors are made and appended correctly. */
 PRIVATE_TEST_CASE(test_error_functions) {
     append_error_at(defaultLexer, defaultLexer->source + 2, create_src_pos(1, 1, 4), "at");
-    Token manualAt = {
+    const Token manualAt = {
         .lexeme = defaultLexer->source + 2, .pos = create_src_pos(1, 1, 4), .type = TOKEN_ERROR,
     };
     ASSERT_TRUE(equal_token(LAST_TOKEN(defaultLexer), manualAt));
@@ -667,7 +667,7 @@ PRIVATE_TEST_CASE(test_error_functions) {
         ADVANCE(defaultLexer);
     }
     append_lexed_error(defaultLexer, "lexed");
-    Token manualLexed = {
+    const Token manualLexed = {
         .lexeme = defaultLexer->source, .pos = create_src_pos(1, 1, 5), .type = TOKEN_ERROR,
     };
     ASSERT_TRUE(equal_token(LAST_TOKEN(defaultLexer), manualLexed));

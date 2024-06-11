@@ -23,7 +23,7 @@ typedef struct {
 } Parser;
 
 /** Returns an initialized parser with the passed tokens and the program. */
-Parser create_parser(ZmxProgram *program, const TokenArray tokens);
+Parser create_parser(ZmxProgram *program, TokenArray tokens);
 
 /** Frees all the memory the parser owns. */
 void free_parser(Parser *parser);
