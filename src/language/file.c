@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "allocator.h"
 #include "char_buffer.h"
 #include "program.h"
 #include "report_error.h"
@@ -90,7 +91,7 @@ char *alloc_source(const char *path) {
         FILE_ERROR("Couldn't seek to the beginning of file \"%s\" to read the source.", path);
     }
 
-    char *source = ZMX_ARRAY_ALLOC(fileLength + 1, char);
+    char *source = ARRAY_ALLOC(fileLength + 1, char);
     if (fread(source, sizeof(char), fileLength, file) != (size_t)fileLength) {
         FILE_ERROR("Failed to read the source of file \"%s\".", path);
     }

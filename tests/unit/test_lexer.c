@@ -15,10 +15,10 @@ Lexer *defaultLexer;
 
 /** A setup to initialize the default lexer. */
 PRIVATE_DECLARE_SETUP(setup_default_lexer) {
-    ZmxProgram *program = ZMX_TYPE_ALLOC(ZmxProgram);
+    ZmxProgram *program = TYPE_ALLOC(ZmxProgram);
     *program = create_zmx_program("default", false);
 
-    defaultLexer = ZMX_TYPE_ALLOC(Lexer);
+    defaultLexer = TYPE_ALLOC(Lexer);
     *defaultLexer = create_lexer(program, defaultSource);
 }
 
@@ -130,7 +130,7 @@ PRIVATE_TEST_CASE(test_lex_successful_programs) {
         "ide // Single line /*multiline*/ comment\n 'Bare string.' /*normal\n multiline\t\n*/ end"
     }; 
     const size_t sourcesAmount = sizeof(sources) / sizeof(char *);
-    TokenArray *tokens2DArray = ZMX_ARRAY_ALLOC(sourcesAmount, TokenArray);
+    TokenArray *tokens2DArray = ARRAY_ALLOC(sourcesAmount, TokenArray);
     for (size_t i = 0; i < sourcesAmount; i++) {
         INIT_DA(&tokens2DArray[i]);
     }

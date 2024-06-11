@@ -11,12 +11,12 @@ Compiler *defaultCompiler; /** Default compiler for testing the bytecode emitter
 
 /** A setup to initialize the default compiler. */
 PRIVATE_DECLARE_SETUP(setup_default_compiler) {
-    ZmxProgram *program = ZMX_TYPE_ALLOC(ZmxProgram);
+    ZmxProgram *program = TYPE_ALLOC(ZmxProgram);
     *program = create_zmx_program("default", false);
     NodeArray defaultAst = CREATE_DA();
 
 
-    defaultCompiler = ZMX_TYPE_ALLOC(Compiler);
+    defaultCompiler = TYPE_ALLOC(Compiler);
     *defaultCompiler = create_compiler(program, defaultAst, true);
 }
 

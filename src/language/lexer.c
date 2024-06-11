@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "allocator.h"
 #include "char_buffer.h"
 #include "data_structures.h"
 #include "lexer.h"
@@ -81,7 +82,7 @@ static StringLexer create_string_lexer() {
 /** Allocates and returns the current token's lexeme in a NUL terminated heap string. */
 static char *alloc_current_lexeme(Lexer *lexer) {
     const int length = lexer->current - lexer->tokenStart;
-    char *string = ZMX_ARRAY_ALLOC(length + 1, char);
+    char *string = ARRAY_ALLOC(length + 1, char);
     
     strncpy(string, lexer->tokenStart, length);
     string[length] = '\0';

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 
+#include "allocator.h"
 #include "constants.h"
 #include "node.h"
 
@@ -9,7 +10,7 @@
 
 /** Allocates a new node of the passed type. */
 static Node *new_node(ZmxProgram *program, const AstType type, const size_t size) {
-    Node *node = ZMX_ALLOC(size);
+    Node *node = ALLOC(size);
     node->type = type;    
 
     node->next = program->allNodes;

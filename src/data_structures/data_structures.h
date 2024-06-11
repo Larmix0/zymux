@@ -3,8 +3,8 @@
 
 #include <stdlib.h>
 
+#include "allocator.h"
 #include "constants.h"
-#include "program.h"
 
 /** How much should a data structure grow per allocation (used with multiplication). */
 #define GROWTH_FACTOR 2
@@ -45,7 +45,7 @@
     do { \
         if ((da)->capacity < (da)->length + 1) { \
             INCREASE_CAP((da)->capacity); \
-            (da)->data = ZMX_REALLOC((da)->data, (da)->capacity * sizeof(*(da)->data)); \
+            (da)->data = REALLOC((da)->data, (da)->capacity * sizeof(*(da)->data)); \
         } \
         (da)->data[(da)->length++] = (item); \
     } while (false)

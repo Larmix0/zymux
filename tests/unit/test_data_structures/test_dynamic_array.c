@@ -59,7 +59,7 @@ PRIVATE_TEST_CASE(test_creation_macros) {
 
     integers.length += 2;
     integers.capacity += 3;
-    integers.data = ZMX_ARRAY_ALLOC(3, int);
+    integers.data = ARRAY_ALLOC(3, int);
     int *arrayPtr = integers.data; // So we can still free the array after re-initializing.
 
     INIT_DA(&integers);

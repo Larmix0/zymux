@@ -1,5 +1,6 @@
 #include "lukip.h"
 
+#include "test_allocator.h"
 #include "test_char_buffer.h"
 #include "test_compiler.h"
 #include "test_dynamic_array.h"
@@ -29,6 +30,7 @@ int main() {
 #endif
 
     LUKIP_INIT();
+    test_allocator();
     test_dynamic_array();
     test_file();
     test_char_buffer();

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "allocator.h"
 #include "debug_runtime.h"
 #include "char_buffer.h"
 #include "compiler.h"
@@ -126,7 +127,7 @@ static IntArray copy_const_indices(const CallStack callStack) {
 
 /** Frees the passed program's content and sets it to a fresh program with the same main name. */
 static void reset_program(ZmxProgram *program) {
-    char *mainName = ZMX_ARRAY_ALLOC(program->mainFile->length + 1, char);
+    char *mainName = ARRAY_ALLOC(program->mainFile->length + 1, char);
     strncpy(mainName, program->mainFile->string, program->mainFile->length);
     mainName[program->mainFile->length] = '\0';
     free_zmx_program(program);
@@ -180,7 +181,7 @@ static bool runtime_error(Vm *vm, const char *format, ...) {
 static void reallocate_stack(Vm *vm) {
     INCREASE_CAP(vm->stack.capacity);
     Obj **originalStack = vm->stack.objects;
-    vm->stack.objects = ZMX_REALLOC(
+    vm->stack.objects = REALLOC(
         vm->stack.objects, vm->stack.capacity * sizeof(*vm->stack.objects)
     );
     if (vm->stack.objects == originalStack) {

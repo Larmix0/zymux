@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "allocator.h"
 #include "object.h"
 #include "program.h"
 
@@ -11,7 +12,7 @@
 
 /** Allocates a new object of the passed type and size. */
 static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) {
-    Obj *object = ZMX_ALLOC(size);
+    Obj *object = ALLOC(size);
     object->type = type;
 
     object->next = program->allObjs;
@@ -50,7 +51,7 @@ StringObj *new_string_obj(ZmxProgram *program, const char *string) {
     StringObj *object = NEW_OBJ(program, OBJ_STRING, StringObj);
     object->length = strlen(string);
 
-    object->string = ZMX_ARRAY_ALLOC(object->length + 1, char);
+    object->string = ARRAY_ALLOC(object->length + 1, char);
     strncpy(object->string, string, object->length);
     object->string[object->length] = '\0';
     return object;
@@ -96,7 +97,7 @@ bool equal_obj(const Obj *left, const Obj *right) {
 
 /** Returns a new string object that is formed from concatenating left with right. */
 StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringObj *right) {
-    char *concatenated = ZMX_ARRAY_ALLOC(left->length + right->length + 1, char);
+    char *concatenated = ARRAY_ALLOC(left->length + right->length + 1, char);
     strncpy(concatenated, left->string, left->length);
     strncpy(concatenated + left->length, right->string, right->length);
     concatenated[left->length + right->length] = '\0';
@@ -116,14 +117,14 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
     case OBJ_INT: {
         ZmxInt value = AS_PTR(IntObj, object)->number;
         const int length = snprintf(NULL, 0, ZMX_INT_FMT, value);
-        string = ZMX_ARRAY_ALLOC(length + 1, char);
+        string = ARRAY_ALLOC(length + 1, char);
         snprintf(string, length + 1, ZMX_INT_FMT, value);
         break;
     }
     case OBJ_FLOAT: {
         ZmxFloat value = AS_PTR(FloatObj, object)->number;
         const int length = snprintf(NULL, 0, ZMX_FLOAT_FMT, value);
-        string = ZMX_ARRAY_ALLOC(length + 1, char);
+        string = ARRAY_ALLOC(length + 1, char);
         snprintf(string, length + 1, ZMX_FLOAT_FMT, value);
         break;
     }

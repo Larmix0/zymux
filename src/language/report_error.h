@@ -1,6 +1,7 @@
 #ifndef REPORT_ERROR_H
 #define REPORT_ERROR_H
 
+#include <stdbool.h>
 #include <stdarg.h>
 #include <stdlib.h>
 

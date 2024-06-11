@@ -1,12 +1,15 @@
 #ifndef OBJECT_H
 #define OBJECT_H
 
+#include <stdbool.h>
+
 #include "constants.h"
 #include "data_structures.h"
 
 #define AS_OBJ(object) ((Obj *)object)
 
 typedef struct ZmxProgram ZmxProgram;
+typedef struct Obj Obj;
 
 /** Represents all the different types of objects in Zymux in an enum. */
 typedef enum {
