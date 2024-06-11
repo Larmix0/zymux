@@ -305,19 +305,14 @@ bool interpret(Vm *vm) {
     }
 }
 
-/** Returns a vm created from the compilation of the source (not executed). */
-Vm vm_from_source(ZmxProgram *program, char *source) {
-    FuncObj *mainFunc = compile_source(program, source, DEBUG_COMPILER);
-    return create_vm(program, mainFunc);
-}
-
 /** 
  * Simply executes the passed source string and frees all memory used except the program's.
  * 
  * This is because Zymux sometimes extra VMs for imported modules.
  */
 bool interpret_source(ZmxProgram *program, char *source) {
-    Vm vm = vm_from_source(program, source);
+    FuncObj *mainFunc = compile_source(program, source, DEBUG_COMPILER);
+    Vm vm = create_vm(program, mainFunc);
     if (!program->hasErrored) {
         interpret(&vm);
     }

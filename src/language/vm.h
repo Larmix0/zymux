@@ -49,9 +49,6 @@ void free_vm(Vm *vm);
 /** Executes all the bytecode in the passed VM's function object. */
 bool interpret(Vm *vm);
 
-/** Returns a vm created from the compilation of the source (not executed). */
-Vm vm_from_source(ZmxProgram *program, char *source);
-
 /** 
  * Simply executes the passed source string and frees all memory used except the program's.
  * 
