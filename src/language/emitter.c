@@ -55,27 +55,13 @@ void emit_number(Compiler *compiler, u8 byte, const u32 number, SourcePosition p
  * instruction size pointer is automatically set to 1 byte for next reads after being called.
  */
 u32 read_number(const FuncObj *function, const u32 numStart, InstrSize *size) {
-    // TODO: combine this into one loop (like INSTR_FOUR_BYTES's case one).
-    switch (*size) {
-    case INSTR_ONE_BYTE:
-        return function->bytecode.data[numStart];
-    case INSTR_TWO_BYTES: {
-        *size = INSTR_ONE_BYTE;
-        u16 total = function->bytecode.data[numStart];
-        total = (total << 8) | function->bytecode.data[numStart + 1];
-        return (u32)total;
+    u32 total = 0;
+    InstrSize numberSize = *size;
+    *size = INSTR_ONE_BYTE;
+    for (int i = 0; i < numberSize; i++) {
+        total = (total << 8) | function->bytecode.data[numStart + i];
     }
-    case INSTR_FOUR_BYTES: {
-        *size = INSTR_ONE_BYTE;
-        u32 total = 0;
-        for (int i = 0; i < INSTR_FOUR_BYTES; i++) {
-            total = (total << 8) | function->bytecode.data[numStart + i];
-        }
-        return total;
-    }
-    default:
-        UNREACHABLE_ERROR();
-    }
+    return total;
 }
 
 /** Emits an instruction followed by an idx after to be used for an object in the const pool. */

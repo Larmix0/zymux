@@ -50,9 +50,8 @@
         (da)->data[(da)->length++] = (item); \
     } while (false)
 
-// TODO: Check, is this arithmetic correct for pop?
 /** Pops and returns the last element from the passed dynamic array. */
-#define POP_DA(da) ((da)->data[((da)->length--) - 1])
+#define POP_DA(da) ((da)->data[--(da)->length])
 
 /** Simply drops the last element of the passed dynamic array without returning it. */
 #define DROP_DA(da) ((da)->length--)

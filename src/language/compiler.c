@@ -17,7 +17,7 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool isDebugg
     return compiler;
 }
 
-/** Frees all memory the compiler owns. TODO: current doesn't free anything. */
+/** Frees all memory the compiler owns. */
 void free_compiler(Compiler *compiler) {
     // Do nothing for now as the compiler still doesn't own any memory.
     // Later on when we add things like keeping track of variables at compilation time,
