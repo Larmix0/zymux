@@ -1,0 +1,68 @@
+This is a temporary TODOs file for things that are to be done later on in the language.
+This will (likely) be deleted once Zymux's development is mostly finished.
+
+----------------------------------------------------------------------------------------------------
+
+Name the slash/backslash that seperates folders of imports "delimiter".
+
+"nothing" keyword which assigns to nothing. Useful for throwaway assignments in multi-assignments.
+Also, maybe can be used with "is" in order to mean an "empty" datatype
+(like 0 for int, "" for strings, [] for lists, and {} for maps).
+
+Because every function in Zymux is created during compilation as a constant (and not runtime),
+we can actually attach an integer "constIdx" to each function,
+representing the index in the constant pool of a chunk they're on (perhaps -1 if <script>).
+Then, after compilation we just iterate through the VM's FrameStack of functions,
+and look at their constIdxs one by one to immediately head straight to the erroneous function.
+Actually, the "constIdx" member can be part of the frame instead of the function,
+and it gets set on whenever we append a function maybe?
+This'll allow us to just find the function that errored directly instead of using its name
+(which doesn't work as multiple functions at different scopes can have the same name).
+
+Issue warnings for weird edge cases for the language. Example:
+    AST finding the expression condition of an if/while to be an assignment.
+(Allow warnings to be disabled with a certain flag or something)
+
+----------------------------------------------------------------------------------------------------
+
+Optimization:
+    1. Heavily optimize memory usage in parser by traversing the AST for freeing nodes
+        instead of having a linked list. This saves the need for an 8 byte "next" pointer.
+        Potentially use an arena to avoid the linked list for objects too, as all objects
+        are in front of each other in the arena. Might also increase or even decrease performance?
+        Gotta benchmark it, though.
+
+    2. Change certain macros to use the normal type instead of pointer to optimize dereferencing.
+        (In other words, use the dot operator instead of the arrow).
+
+    3. Perhaps optimize bytecode by putting constants after the instructions themselves,
+        but with 1 extra byte to identify them.
+        Example:
+            Add operation expected 2 instructions after. They may be OP_ARG_8/16/32.
+            First byte is the OP_ARG_X, then depending on that we know how many bytes to read
+            for the const indices.
+            This shouldn't increase the amount of bytecode as identifying the first byte
+            would need to be there for the dispatch loop to know the const instruction anyways.
+
+            Gotta bench mark the performance in math expressions before doing it everywhere, though.
+
+----------------------------------------------------------------------------------------------------
+Code for a buffer append using variadic arguments just in case.
+
+/** Appends to the buffer a format using an already made VA list. */
+void buffer_append_va(CharBuffer *buffer, const char *format, va_list *args) {
+    va_list argsForLength;
+    va_copy(argsForLength, *args);
+
+    const int formatLength = vsnprintf(NULL, 0, format, argsForLength);
+    if (buffer->length + formatLength + 1 > buffer->capacity) {
+        buffer->capacity += formatLength * 2;
+        buffer->data = ZMX_REALLOC_ARRAY(buffer->data, buffer->capacity, sizeof(char));
+    }
+    // -1 because char buffer's take NUL into account. +1 to length of format is for writing NUL.
+    vsnprintf(buffer->data + buffer->length - 1, formatLength + 1, format, args);
+    buffer->length += formatLength;
+}
+----------------------------------------------------------------------------------------------------
+
+Visit TODOs again after implementing the hash table.
