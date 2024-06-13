@@ -56,7 +56,7 @@ void emit_number(Compiler *compiler, u8 byte, const u32 number, SourcePosition p
  */
 u32 read_number(const FuncObj *function, const u32 numStart, InstrSize *size) {
     u32 total = 0;
-    InstrSize numberSize = *size;
+    int numberSize = *size;
     *size = INSTR_ONE_BYTE;
     for (int i = 0; i < numberSize; i++) {
         total = (total << 8) | function->bytecode.data[numStart + i];
