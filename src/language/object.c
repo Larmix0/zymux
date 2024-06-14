@@ -90,7 +90,7 @@ bool equal_obj(const Obj *left, const Obj *right) {
             AS_PTR(StringObj, left)->string,
             AS_PTR(StringObj, right)->string,
             AS_PTR(StringObj, left)->length
-        );
+        ) == 0;
     default: UNREACHABLE_ERROR();
     }
 }
