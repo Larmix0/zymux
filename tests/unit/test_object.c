@@ -42,9 +42,24 @@ PRIVATE_TEST_CASE(test_equal_obj) {
     ASSERT_FALSE(equal_obj(AS_OBJ(func1), AS_OBJ(func2))); // Must be the same address for equality.
 }
 
+PRIVATE_TEST_CASE(test_concatenate) {
+    StringObj *start = new_string_obj(defaultProgram, "start");
+    StringObj *middle = new_string_obj(defaultProgram, " middle");
+    StringObj *end = new_string_obj(defaultProgram, " end");
+
+    StringObj *startMiddle = concatenate(defaultProgram, start, middle);
+    StringObj *expectedStartMiddle = new_string_obj(defaultProgram, "start middle");
+    ASSERT_TRUE(equal_obj(AS_OBJ(startMiddle), AS_OBJ(expectedStartMiddle)));
+
+    StringObj *full = concatenate(defaultProgram, startMiddle, end);
+    StringObj *expectedFull = new_string_obj(defaultProgram, "start middle end");
+    ASSERT_TRUE(equal_obj(AS_OBJ(full), AS_OBJ(expectedFull)));
+}
+
 void test_object() {
     MAKE_FIXTURE(setup_default_program, teardown_default_program);
     TEST(test_new_obj);
     TEST(test_equal_obj);
+    TEST(test_concatenate);
     RESET_FIXTURE();
 }
