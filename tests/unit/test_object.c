@@ -28,6 +28,14 @@ PRIVATE_TEST_CASE(test_equal_obj) {
     IntObj *intNotEqual = new_int_obj(defaultProgram, 23);
     ASSERT_FALSE(equal_obj(AS_OBJ(int1), AS_OBJ(intNotEqual)));
 
+    FloatObj *float1 = new_float_obj(defaultProgram, 55.0);
+    FloatObj *float2 = new_float_obj(defaultProgram, 55);
+    FloatObj *floatNotEqual = new_float_obj(defaultProgram, 55.3);
+    ASSERT_TRUE(equal_obj(AS_OBJ(float1), AS_OBJ(float2)));
+    ASSERT_TRUE(equal_obj(AS_OBJ(int1), AS_OBJ(float1)));
+    ASSERT_FALSE(equal_obj(AS_OBJ(int1), AS_OBJ(floatNotEqual)));
+    ASSERT_FALSE(equal_obj(AS_OBJ(float1), AS_OBJ(floatNotEqual)));
+
     StringObj *name1 = new_string_obj(defaultProgram, "name");
     StringObj *name2 = new_string_obj(defaultProgram, "name");
     ASSERT_TRUE(equal_obj(AS_OBJ(name1), AS_OBJ(name2)));

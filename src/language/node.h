@@ -5,6 +5,7 @@
 #include "program.h"
 #include "token.h"
 
+/** Converts anything that "inherits" from node to its type punning base form. */
 #define AS_NODE(node) ((Node *)node)
 
 /** An enum to represent different types of AST nodes. */

@@ -8,6 +8,7 @@
 #include "compiler.h"
 #include "emitter.h"
 #include "file.h"
+#include "object.h"
 #include "vm.h"
 
 /** Reads the current instruction and increments IP to prepare for the next one. */
@@ -41,13 +42,6 @@
 #define PEEK(vm) (*((vm)->frame->sp - 1))
 #define PEEK_DEPTH(vm, depth) (*((vm)->frame->sp - (depth) - 1))
 #define FREE_STACK(vm) (free((vm)->stack.objects))
-
-/** Resolves to whether or not the passed object is considered a number (integer or float). */
-#define IS_NUM(obj) ((obj)->type == OBJ_INT || (obj)->type == OBJ_FLOAT)
-
-/** Returns the number the passed object holds, assuming it's either an integer or float object. */
-#define NUM_VAL(obj) \
-    ((obj)->type == OBJ_INT ? AS_PTR(IntObj, obj)->number : AS_PTR(FloatObj, obj)->number)
 
 #define BIN_LEFT(vm) (PEEK_DEPTH(vm, 1)) /** Left hand side object of a binary in the stack. */
 #define BIN_RIGHT(vm) (PEEK_DEPTH(vm, 0)) /** Right hand side object of a binary in the stack. */

@@ -68,9 +68,19 @@ FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx) 
     return object;
 }
 
-/** Returns whether or not 2 objects are considered equal. */
+/** 
+ * Returns whether or not 2 objects are considered equal.
+ * 
+ * The types must be equal, unless they're numbers (floats or integers), in that case they could
+ * be of differing types but still equal (like 2 == 2.0 being true).
+ * 
+ * This is also why the switch doesn't have to handle integers or floats,
+ * as they would be unreachable.
+ */
 bool equal_obj(const Obj *left, const Obj *right) {
-    if (left->type != right->type) {
+    if (IS_NUM(left) && IS_NUM(right)) {
+        return NUM_VAL(left) == NUM_VAL(right);
+    } else if (left->type != right->type) {
         return false;
     }
 
@@ -78,8 +88,6 @@ bool equal_obj(const Obj *left, const Obj *right) {
     case OBJ_FUNC:
         return left == right; // Compare addresses directly.
     
-    case OBJ_INT: return AS_PTR(IntObj, left)->number == AS_PTR(IntObj, right)->number;
-    case OBJ_FLOAT: return AS_PTR(FloatObj, left)->number == AS_PTR(FloatObj, right)->number;
     case OBJ_BOOL: return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
     case OBJ_STRING:
         // TODO: this is temporary. Once interning is added, do an address equality check.
@@ -91,7 +99,8 @@ bool equal_obj(const Obj *left, const Obj *right) {
             AS_PTR(StringObj, right)->string,
             AS_PTR(StringObj, left)->length
         ) == 0;
-    default: UNREACHABLE_ERROR();
+    default:
+        UNREACHABLE_ERROR();
     }
 }
 

@@ -6,7 +6,15 @@
 #include "constants.h"
 #include "data_structures.h"
 
+/** Converts anything that "inherits" from object to its type punning base form. */
 #define AS_OBJ(object) ((Obj *)object)
+
+/** Resolves to whether or not the passed object is considered a number (integer or float). */
+#define IS_NUM(obj) ((obj)->type == OBJ_INT || (obj)->type == OBJ_FLOAT)
+
+/** Returns the number the passed object holds, assuming it's either an integer or float object. */
+#define NUM_VAL(obj) \
+    ((obj)->type == OBJ_INT ? AS_PTR(IntObj, obj)->number : AS_PTR(FloatObj, obj)->number)
 
 typedef struct ZmxProgram ZmxProgram;
 typedef struct Obj Obj;
