@@ -5,8 +5,6 @@
 
 #include "emitter.c"
 
-// TODO: test number emit and read when they're fully implemented.
-
 Compiler *defaultCompiler; /** Default compiler for testing the bytecode emitters. */
 
 /** A setup to initialize the default compiler. */

@@ -65,6 +65,4 @@ void buffer_append_va(CharBuffer *buffer, const char *format, va_list *args) {
 }
 ----------------------------------------------------------------------------------------------------
 
-Make int and float equality check not immediately exit, but compare their numbers instead.
-
 Visit TODOs again after implementing the hash table.
