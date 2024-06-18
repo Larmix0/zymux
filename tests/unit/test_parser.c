@@ -51,6 +51,46 @@ static CharBuffer source_to_ast_string(char *source) {
     return astString;
 }
 
+/** Test that the macros of the parser work properly. */
+PRIVATE_TEST_CASE(test_parser_macros) {
+    char *source = "1 + 3 ** 22 --2;";
+    ZmxProgram program = create_zmx_program("test", false);
+    Lexer lexer = create_lexer(&program, source);
+    ASSERT_TRUE(lex(&lexer));
+    Parser parser = create_parser(&program, lexer.tokens);
+
+    Token one = create_int_token("1", 10);
+    Token plus = create_normal_token("+", TOKEN_PLUS);
+    Token three = create_int_token("3", 10);
+    ASSERT_FALSE(IS_EOF(&parser));
+    ASSERT_TRUE(equal_token(PEEK(&parser), one));
+    ASSERT_TRUE(equal_token(ADVANCE_PEEK(&parser), one));
+    ASSERT_TRUE(CHECK(&parser, TOKEN_PLUS));
+
+    ADVANCE(&parser);
+    ASSERT_TRUE(equal_token(PEEK(&parser), three));
+    ASSERT_TRUE(equal_token(PEEK_PREVIOUS(&parser), plus));
+
+    RETREAT(&parser);
+    ASSERT_TRUE(equal_token(PEEK(&parser), plus));
+
+    ASSERT_FALSE(MATCH(&parser, TOKEN_GREATER));
+    ASSERT_TRUE(equal_token(PEEK(&parser), plus));
+    ASSERT_TRUE(MATCH(&parser, TOKEN_PLUS));
+    ASSERT_TRUE(equal_token(PEEK(&parser), three));
+
+    Token consumedThree = CONSUME(&parser, TOKEN_INT_LIT, "This should succeed");
+    ASSERT_TRUE(equal_token(three, consumedThree));
+    ASSERT_FALSE(parser.program->hasErrored);
+    CONSUME(&parser, TOKEN_BAR_BAR, "This should fail.");
+    ASSERT_TRUE(parser.program->hasErrored);
+
+    free_lexer(&lexer);
+    free_parser(&parser);
+    free_zmx_program(&program);
+    free_all_nodes(&program);
+}
+
 /** Tests that the parser handles expressions correctly. */
 PRIVATE_TEST_CASE(test_parser_expression) {
     CharBuffer actual = source_to_ast_string(
@@ -74,4 +114,5 @@ PRIVATE_TEST_CASE(test_parser_expression) {
 /** Tests parser.c. */
 void test_parser() {
     TEST(test_parser_expression);
+    TEST(test_parser_macros);
 }
