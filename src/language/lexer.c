@@ -162,13 +162,14 @@ static void append_lexed_float(Lexer *lexer, const ZmxFloat floatVal) {
 
 /** Appends a string that was lexed by making the string union the passed buffer. */
 static void append_lexed_string(Lexer *lexer, StringLexer *string, CharBuffer buffer) {
+    const int finalLength = buffer.length - 1; // -1 because CharBuffer counts NUL.
     Token token = {
         .lexeme = lexer->tokenStart, 
         .pos = create_src_pos(
             lexer->line, lexer->tokenColumn,
-            buffer.length + string->escapes - 1 // -1 because CharBuffer counts NULL.
+            finalLength + string->escapes
         ),
-        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer.length, .text = buffer.text}
+        .type = TOKEN_STRING_LIT, .stringVal = {.length = finalLength, .text = buffer.text}
     };
     APPEND_DA(&lexer->tokens, token);
 }

@@ -100,13 +100,46 @@ char *token_type_as_string(const TokenType type) {
     }
 }
 
-/** Frees any allocated contents in the passed token array, which is usually a union values. */
-void free_tokens_contents(TokenArray *tokens) {
-    for (u32 i = 0; i < tokens->length; i++) {
-        if (tokens->data[i].type == TOKEN_STRING_LIT) {
-            free(tokens->data[i].stringVal.text);
-        }
-    }
+/** Creates a "normal" token, which is a token that doesn't have any union values. */
+Token create_normal_token(char *lexeme, const TokenType type) {
+    Token token = {.lexeme = lexeme, .type = type, .pos = create_src_pos(0, 0, 0)};
+    return token;
+}
+
+/** 
+ * Creates a synthetic integer literal token.
+ * 
+ * The lexeme holds the number we want to convert into intVal. We use base to know
+ * what base we'll parse.
+ */
+Token create_int_token(char *lexeme, const int base) {
+    Token token = {.lexeme = lexeme, .type = TOKEN_INT_LIT, .intVal = strtoll(lexeme, NULL, base)};
+    return token;
+}
+
+/** Creates a synthetic float literal token. */
+Token create_float_token(char *lexeme) {
+    Token token = {.lexeme = lexeme, .type = TOKEN_FLOAT_LIT, .floatVal = strtod(lexeme, NULL)};
+    return token;
+}
+
+/** 
+ * Creates a synthetic string literal token.
+ * 
+ * Allocates its string value from the passed string, meaning that it doesn't take
+ * the responsibility of freeing the passed string whether or not it's allocated.
+ * 
+ * The lexeme however, points straight to the passed string without creating a copy.
+ */
+Token create_string_token(char *string) {
+    const size_t length = strlen(string);
+    Token token = {
+        .lexeme = string,
+        .type = TOKEN_STRING_LIT,
+        .stringVal = {.length = length, .text = ARRAY_ALLOC(length, char)}
+    };
+    strncpy(token.stringVal.text, string, length + 1);
+    return token;
 }
 
 /** 
@@ -134,8 +167,14 @@ bool equal_token(const Token left, const Token right) {
         return strncmp(left.stringVal.text, right.stringVal.text, left.stringVal.length) == 0;
     }
 
-    if (left.pos.length != right.pos.length) {
-        return false;
-    }
     return strncmp(left.lexeme, right.lexeme, left.pos.length) == 0;
+}
+
+/** Frees any allocated contents in the passed token array, which is usually a union values. */
+void free_tokens_contents(TokenArray *tokens) {
+    for (u32 i = 0; i < tokens->length; i++) {
+        if (tokens->data[i].type == TOKEN_STRING_LIT) {
+            free(tokens->data[i].stringVal.text);
+        }
+    }
 }

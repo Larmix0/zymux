@@ -110,13 +110,37 @@ typedef struct {
 /** An array of tokens. */
 DECLARE_DA_STRUCT(TokenArray, Token);
 
-/** Frees any allocated contents in any of the tokens in the passed token array. */
-void free_tokens_contents(TokenArray *tokens);
+/** Returns the passed token type as a string literal in all uppercase. */
+char *token_type_as_string(const TokenType type);
+
+/** Creates a "normal" token, which is a token that doesn't have any union values. */
+Token create_normal_token(char *lexeme, const TokenType type);
+
+/** 
+ * Creates a synthetic integer literal token.
+ * 
+ * The lexeme holds the number we want to convert into intVal. We use base to know
+ * what base we'll parse.
+ */
+Token create_int_token(char *lexeme, const int base);
+
+/** Creates a synthetic float literal token. */
+Token create_float_token(char *lexeme);
+
+/** 
+ * Creates a synthetic string literal token.
+ * 
+ * Allocates its string value from the passed string, meaning that it doesn't take
+ * the responsibility of freeing the passed string whether or not it's allocated.
+ * 
+ * The lexeme however, points straight to the passed string without creating a copy.
+ */
+Token create_string_token(char *string);
 
 /** Returns whether or not 2 tokens are considered equal. */
 bool equal_token(const Token left, const Token right);
 
-/** Returns the passed token type as a string literal in all uppercase. */
-char *token_type_as_string(const TokenType type);
+/** Frees any allocated contents in any of the tokens in the passed token array. */
+void free_tokens_contents(TokenArray *tokens);
 
 #endif

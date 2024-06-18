@@ -4,9 +4,11 @@
 #include "lukip.h"
 
 #include "object.h"
+#include "token.h"
 
 #include "lexer.c"
 
+/** The last token which was appended to the lexer. */
 #define LAST_TOKEN(lexer) ((lexer)->tokens.data[(lexer)->tokens.length - 1])
 
 char *defaultSource = "float && var (); $'str {2 * 3}' break; 22 44.2"
@@ -31,46 +33,17 @@ PRIVATE_DECLARE_TEARDOWN(teardown_default_lexer) {
     free(defaultLexer);
 }
 
-static Token test_token_pos(
+/** 
+ * Creates a normal token with no union values, but with a position.
+ * 
+ * Creates the position from the passed line and column, then figures the length from the lexeme.
+ */
+static Token create_token_pos(
     char *lexeme, const int line, const int column, const TokenType type
 ) {
     Token token = {
         .lexeme = lexeme, .pos = create_src_pos(line, column, strlen(lexeme)), .type = type
     };
-    return token;
-}
-
-/** Returns a token for testing with minimal parameters (line and column are automatically 0). */
-static Token test_token(char *lexeme, const TokenType type) {
-    return test_token_pos(lexeme, 0, 0, type);
-}
-
-/** Returns a string literal token where both the stringVal and lexeme are the same. */
-static Token test_string_token(char *lexeme) {
-    Token token = test_token(lexeme, TOKEN_STRING_LIT);
-    CharBuffer buffer = create_char_buffer();
-    buffer_append_string(&buffer, lexeme);
-    token.stringVal.length = buffer.length;
-    token.stringVal.text = buffer.text;
-    return token;
-}
-
-/** 
- * Creates an integer literal token from a string representation of the number.
- * 
- * The lexeme holds the number we want to convert into intVal. We use base to know
- * what base we'll parse.
- */
-static Token test_int_token(char *lexeme, int base) {
-    Token token = test_token(lexeme, TOKEN_INT_LIT);
-    token.intVal = strtoll(lexeme, NULL, base);
-    return token;
-}
-
-/** Returns a float literal token from the lexeme. */
-static Token test_float_token(char *lexeme) {
-    Token token = test_token(lexeme, TOKEN_FLOAT_LIT);
-    token.floatVal = strtod(lexeme, NULL);
     return token;
 }
 
@@ -84,7 +57,7 @@ static void append_test_tokens(TokenArray *tokens, const int amount, ...) {
     for (int i = 0; i < amount; i++) {
         APPEND_DA(tokens, va_arg(args, Token));
     }
-    APPEND_DA(tokens, test_token("", TOKEN_EOF));
+    APPEND_DA(tokens, create_normal_token("", TOKEN_EOF));
     va_end(args);
 }
 
@@ -137,41 +110,42 @@ PRIVATE_TEST_CASE(test_lex_successful_programs) {
     append_test_tokens(&tokens2DArray[0], 0);
     append_test_tokens(
         &tokens2DArray[1], 14,
-        test_token("(", TOKEN_LPAR), test_int_token("2", 10),
-        test_token("+", TOKEN_PLUS), test_int_token("3", 10),
-        test_token(")", TOKEN_RPAR), test_token("*", TOKEN_STAR), 
-        test_int_token("30", 10), test_token("**", TOKEN_EXPO),
-        test_int_token("2", 10), test_token("/", TOKEN_SLASH),
-        test_float_token("1.5"), test_token("-", TOKEN_MINUS),
-        test_float_token("0.2"), test_token(";", TOKEN_SEMICOLON)
+        create_normal_token("(", TOKEN_LPAR), create_int_token("2", 10),
+        create_normal_token("+", TOKEN_PLUS), create_int_token("3", 10),
+        create_normal_token(")", TOKEN_RPAR), create_normal_token("*", TOKEN_STAR), 
+        create_int_token("30", 10), create_normal_token("**", TOKEN_EXPO),
+        create_int_token("2", 10), create_normal_token("/", TOKEN_SLASH),
+        create_float_token("1.5"), create_normal_token("-", TOKEN_MINUS),
+        create_float_token("0.2"), create_normal_token(";", TOKEN_SEMICOLON)
     );
-    append_test_tokens(&tokens2DArray[2], 1, test_token("<<=", TOKEN_LSHIFT_EQ));
+    append_test_tokens(&tokens2DArray[2], 1, create_normal_token("<<=", TOKEN_LSHIFT_EQ));
     append_test_tokens(&tokens2DArray[3], 0);
 
     append_test_tokens(
         &tokens2DArray[4], 4,
-        test_token("variable", TOKEN_IDENTIFIER), test_token("*", TOKEN_STAR),
-        test_token("/", TOKEN_SLASH), test_token("endvar", TOKEN_IDENTIFIER)
+        create_normal_token("variable", TOKEN_IDENTIFIER), create_normal_token("*", TOKEN_STAR),
+        create_normal_token("/", TOKEN_SLASH), create_normal_token("endvar", TOKEN_IDENTIFIER)
     );
     append_test_tokens(
-        &tokens2DArray[5], 1, test_token("a", TOKEN_IDENTIFIER)
+        &tokens2DArray[5], 1, create_normal_token("a", TOKEN_IDENTIFIER)
     );
     append_test_tokens(&tokens2DArray[6], 0);
     append_test_tokens(&tokens2DArray[7], 0);
     append_test_tokens(
         &tokens2DArray[8], 4,
-        test_token("hello", TOKEN_IDENTIFIER), test_token("match", TOKEN_MATCH_KW),
-        test_token(";", TOKEN_SEMICOLON), test_token("int", TOKEN_INT_KW)
+        create_normal_token("hello", TOKEN_IDENTIFIER),
+        create_normal_token("match", TOKEN_MATCH_KW), create_normal_token(";", TOKEN_SEMICOLON),
+        create_normal_token("int", TOKEN_INT_KW)
     );
     append_test_tokens(
         &tokens2DArray[9], 3,
-        test_int_token("345", 10), test_token("-", TOKEN_MINUS),
-        test_int_token("234", 10)
+        create_int_token("345", 10), create_normal_token("-", TOKEN_MINUS),
+        create_int_token("234", 10)
     );
     append_test_tokens(
         &tokens2DArray[10], 4,
-        test_token("ide", TOKEN_IDENTIFIER), test_string_token("Bare string."),
-        test_token("", TOKEN_STRING_END), test_token("end", TOKEN_IDENTIFIER)
+        create_normal_token("ide", TOKEN_IDENTIFIER), create_string_token("Bare string."),
+        create_normal_token("", TOKEN_STRING_END), create_normal_token("end", TOKEN_IDENTIFIER)
     );
 
     for (size_t arrayIdx = 0; arrayIdx < sourcesAmount; arrayIdx++) {
@@ -224,47 +198,55 @@ PRIVATE_TEST_CASE(test_lex_all_tokens) {
     TokenArray allTokens = CREATE_DA();
     append_test_tokens(
         &allTokens, 87,
-        test_token("string", TOKEN_STRING_KW), test_token("int", TOKEN_INT_KW),
-        test_token("float", TOKEN_FLOAT_KW), test_token("bool", TOKEN_BOOL_KW),
-        test_token("list", TOKEN_LIST_KW), test_token("map", TOKEN_MAP_KW),
-        test_token("class", TOKEN_CLASS_KW), test_token("const", TOKEN_CONST_KW),
-        test_token("let", TOKEN_LET_KW), test_token("private", TOKEN_PRIVATE_KW),
-        test_token("func", TOKEN_FUNC_KW), test_token("if", TOKEN_IF_KW),
-        test_token("else", TOKEN_ELSE_KW), test_token("while", TOKEN_WHILE_KW),
-        test_token("for", TOKEN_FOR_KW), test_token("do", TOKEN_DO_KW),
-        test_token("return", TOKEN_RETURN_KW), test_token("break", TOKEN_BREAK_KW),
-        test_token("continue", TOKEN_CONTINUE_KW), test_token("true", TOKEN_TRUE_KW),
-        test_token("false", TOKEN_FALSE_KW), test_token("null", TOKEN_NULL_KW),
-        test_token("as", TOKEN_AS_KW), test_token("is", TOKEN_IS_KW), test_token("in", TOKEN_IN_KW),
-        test_token("super", TOKEN_SUPER_KW), test_token("this", TOKEN_THIS_KW),
-        test_token("init", TOKEN_INIT_KW), test_token("abstract", TOKEN_ABSTRACT_KW),
-        test_token("inherits", TOKEN_INHERITS_KW), test_token("match", TOKEN_MATCH_KW),
-        test_token("case", TOKEN_CASE_KW), test_token("default", TOKEN_DEFAULT_KW),
-        test_token("from", TOKEN_FROM_KW), test_token("import", TOKEN_IMPORT_KW),
-        test_token("&&", TOKEN_AMPER_AMPER), test_token("||", TOKEN_BAR_BAR),
-        test_token("!", TOKEN_BANG), test_token("&", TOKEN_AMPER), test_token("|", TOKEN_BAR),
-         test_token("^", TOKEN_CARET), test_token("<<", TOKEN_LSHIFT),
-        test_token(">>", TOKEN_RSHIFT), test_token("~", TOKEN_TILDE),
-        test_token("+=", TOKEN_PLUS_EQ), test_token("-=", TOKEN_MINUS_EQ),
-        test_token("*=", TOKEN_STAR_EQ), test_token("/=", TOKEN_SLASH_EQ),
-        test_token("%=", TOKEN_MODULO_EQ), test_token("**=", TOKEN_EXPO_EQ),
-        test_token("&=", TOKEN_AMPER_EQ), test_token("|=", TOKEN_BAR_EQ),
-        test_token("<<=", TOKEN_LSHIFT_EQ), test_token(">>=", TOKEN_RSHIFT_EQ),
-        test_token("~=", TOKEN_TILDE_EQ), test_token("+", TOKEN_PLUS),
-        test_token("-", TOKEN_MINUS), test_token("*", TOKEN_STAR),
-        test_token("/", TOKEN_SLASH), test_token("%", TOKEN_MODULO),
-        test_token("**", TOKEN_EXPO), test_token("==", TOKEN_EQ_EQ),
-        test_token("!=", TOKEN_BANG_EQ), test_token(">", TOKEN_GREATER),
-        test_token(">=", TOKEN_GREATER_EQ), test_token("<", TOKEN_LESS),
-        test_token("<=", TOKEN_LESS_EQ), test_token("(", TOKEN_LPAR), test_token(")", TOKEN_RPAR),
-        test_token("[", TOKEN_LSQUARE), test_token("]", TOKEN_RSQUARE),
-        test_token("{", TOKEN_LCURLY), test_token("}", TOKEN_RCURLY),
-        test_token(";", TOKEN_SEMICOLON), test_token(",", TOKEN_COMMA), test_token(".", TOKEN_DOT),
-        test_token("?", TOKEN_QUESTION_MARK), test_token(":", TOKEN_COLON),
-        test_string_token("str literal "), test_token("", TOKEN_INTERPOLATE),
-        test_int_token("100", 10), test_token("", TOKEN_STRING_END), test_int_token("22", 10),
-        test_float_token("44.2"), test_token("=", TOKEN_ASSIGN),
-        test_token("variable", TOKEN_IDENTIFIER), test_token("..", TOKEN_DOT_DOT)
+        create_normal_token("string", TOKEN_STRING_KW), create_normal_token("int", TOKEN_INT_KW),
+        create_normal_token("float", TOKEN_FLOAT_KW), create_normal_token("bool", TOKEN_BOOL_KW),
+        create_normal_token("list", TOKEN_LIST_KW), create_normal_token("map", TOKEN_MAP_KW),
+        create_normal_token("class", TOKEN_CLASS_KW), create_normal_token("const", TOKEN_CONST_KW),
+        create_normal_token("let", TOKEN_LET_KW), create_normal_token("private", TOKEN_PRIVATE_KW),
+        create_normal_token("func", TOKEN_FUNC_KW), create_normal_token("if", TOKEN_IF_KW),
+        create_normal_token("else", TOKEN_ELSE_KW), create_normal_token("while", TOKEN_WHILE_KW),
+        create_normal_token("for", TOKEN_FOR_KW), create_normal_token("do", TOKEN_DO_KW),
+        create_normal_token("return", TOKEN_RETURN_KW),
+        create_normal_token("break", TOKEN_BREAK_KW),
+        create_normal_token("continue", TOKEN_CONTINUE_KW),
+        create_normal_token("true", TOKEN_TRUE_KW), create_normal_token("false", TOKEN_FALSE_KW),
+        create_normal_token("null", TOKEN_NULL_KW), create_normal_token("as", TOKEN_AS_KW),
+        create_normal_token("is", TOKEN_IS_KW), create_normal_token("in", TOKEN_IN_KW),
+        create_normal_token("super", TOKEN_SUPER_KW), create_normal_token("this", TOKEN_THIS_KW),
+        create_normal_token("init", TOKEN_INIT_KW),
+        create_normal_token("abstract", TOKEN_ABSTRACT_KW),
+        create_normal_token("inherits", TOKEN_INHERITS_KW),
+        create_normal_token("match", TOKEN_MATCH_KW), create_normal_token("case", TOKEN_CASE_KW),
+        create_normal_token("default", TOKEN_DEFAULT_KW),
+        create_normal_token("from", TOKEN_FROM_KW), create_normal_token("import", TOKEN_IMPORT_KW),
+        create_normal_token("&&", TOKEN_AMPER_AMPER), create_normal_token("||", TOKEN_BAR_BAR),
+        create_normal_token("!", TOKEN_BANG), create_normal_token("&", TOKEN_AMPER),
+        create_normal_token("|", TOKEN_BAR),
+        create_normal_token("^", TOKEN_CARET), create_normal_token("<<", TOKEN_LSHIFT),
+        create_normal_token(">>", TOKEN_RSHIFT), create_normal_token("~", TOKEN_TILDE),
+        create_normal_token("+=", TOKEN_PLUS_EQ), create_normal_token("-=", TOKEN_MINUS_EQ),
+        create_normal_token("*=", TOKEN_STAR_EQ), create_normal_token("/=", TOKEN_SLASH_EQ),
+        create_normal_token("%=", TOKEN_MODULO_EQ), create_normal_token("**=", TOKEN_EXPO_EQ),
+        create_normal_token("&=", TOKEN_AMPER_EQ), create_normal_token("|=", TOKEN_BAR_EQ),
+        create_normal_token("<<=", TOKEN_LSHIFT_EQ), create_normal_token(">>=", TOKEN_RSHIFT_EQ),
+        create_normal_token("~=", TOKEN_TILDE_EQ), create_normal_token("+", TOKEN_PLUS),
+        create_normal_token("-", TOKEN_MINUS), create_normal_token("*", TOKEN_STAR),
+        create_normal_token("/", TOKEN_SLASH), create_normal_token("%", TOKEN_MODULO),
+        create_normal_token("**", TOKEN_EXPO), create_normal_token("==", TOKEN_EQ_EQ),
+        create_normal_token("!=", TOKEN_BANG_EQ), create_normal_token(">", TOKEN_GREATER),
+        create_normal_token(">=", TOKEN_GREATER_EQ), create_normal_token("<", TOKEN_LESS),
+        create_normal_token("<=", TOKEN_LESS_EQ),
+        create_normal_token("(", TOKEN_LPAR), create_normal_token(")", TOKEN_RPAR),
+        create_normal_token("[", TOKEN_LSQUARE), create_normal_token("]", TOKEN_RSQUARE),
+        create_normal_token("{", TOKEN_LCURLY), create_normal_token("}", TOKEN_RCURLY),
+        create_normal_token(";", TOKEN_SEMICOLON), create_normal_token(",", TOKEN_COMMA),
+        create_normal_token(".", TOKEN_DOT),
+        create_normal_token("?", TOKEN_QUESTION_MARK), create_normal_token(":", TOKEN_COLON),
+        create_string_token("str literal "), create_normal_token("", TOKEN_INTERPOLATE),
+        create_int_token("100", 10), create_normal_token("", TOKEN_STRING_END),
+        create_int_token("22", 10), create_float_token("44.2"),
+        create_normal_token("=", TOKEN_ASSIGN),
+        create_normal_token("variable", TOKEN_IDENTIFIER), create_normal_token("..", TOKEN_DOT_DOT)
     );
     ZmxProgram program = create_zmx_program("testAll", false);
     Lexer lexer = create_lexer(&program, source);
@@ -284,10 +266,10 @@ PRIVATE_TEST_CASE(test_lex_spots) {
     TokenArray allTokens = CREATE_DA();
     append_test_tokens(
         &allTokens, 5,
-        test_token_pos("line1", 1, 1, TOKEN_IDENTIFIER),
-        test_token_pos("line2", 2, 2, TOKEN_IDENTIFIER),
-        test_token_pos("break", 2, 8, TOKEN_BREAK_KW),
-        test_token_pos("line5", 5, 4, TOKEN_IDENTIFIER),
+        create_token_pos("line1", 1, 1, TOKEN_IDENTIFIER),
+        create_token_pos("line2", 2, 2, TOKEN_IDENTIFIER),
+        create_token_pos("break", 2, 8, TOKEN_BREAK_KW),
+        create_token_pos("line5", 5, 4, TOKEN_IDENTIFIER),
         (Token){
             .lexeme = "555", .pos = create_src_pos(5, 10, 3),
             .type = TOKEN_INT_LIT, .intVal = 555
@@ -319,16 +301,16 @@ PRIVATE_TEST_CASE(test_lex_number) {
     TokenArray allTokens = CREATE_DA();
     append_test_tokens(
         &allTokens, 20,
-        test_int_token("0", 16), test_int_token("ff0", 16),
-        test_int_token("ea2301", 16), test_int_token("0", 2),
-        test_int_token("101", 2), test_int_token("10", 2),
-        test_int_token("100110111", 2), test_int_token("0", 8),
-        test_int_token("2707", 8), test_int_token("241", 8),
-        test_int_token("0", 16), test_int_token("77", 8),
-        test_int_token("0", 10), test_float_token("0.0"),
-        test_float_token("0.010"), test_int_token("13", 10),
-        test_float_token("2.3300"), test_int_token("931453229", 10),
-        test_float_token("23.3"), test_float_token("3.0")
+        create_int_token("0", 16), create_int_token("ff0", 16),
+        create_int_token("ea2301", 16), create_int_token("0", 2),
+        create_int_token("101", 2), create_int_token("10", 2),
+        create_int_token("100110111", 2), create_int_token("0", 8),
+        create_int_token("2707", 8), create_int_token("241", 8),
+        create_int_token("0", 16), create_int_token("77", 8),
+        create_int_token("0", 10), create_float_token("0.0"),
+        create_float_token("0.010"), create_int_token("13", 10),
+        create_float_token("2.3300"), create_int_token("931453229", 10),
+        create_float_token("23.3"), create_float_token("3.0")
     );
     ZmxProgram program = create_zmx_program("testNumber", false);
     Lexer lexer = create_lexer(&program, source);
@@ -337,7 +319,7 @@ PRIVATE_TEST_CASE(test_lex_number) {
         lex_number(&lexer);
         ignore_whitespace(&lexer);
     }
-    APPEND_DA(&lexer.tokens, test_token("", TOKEN_EOF));
+    APPEND_DA(&lexer.tokens, create_normal_token("", TOKEN_EOF));
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
@@ -353,11 +335,16 @@ PRIVATE_TEST_CASE(test_lex_name) {
     TokenArray allTokens = CREATE_DA();
     append_test_tokens(
         &allTokens, 10,
-        test_token("hello", TOKEN_IDENTIFIER), test_token("returnme", TOKEN_IDENTIFIER),
-        test_token("break", TOKEN_BREAK_KW), test_token("_", TOKEN_IDENTIFIER),
-        test_token("notKeyword__", TOKEN_IDENTIFIER), test_token("float", TOKEN_FLOAT_KW),
-        test_token("L2dm3e44", TOKEN_IDENTIFIER), test_token("_22_", TOKEN_IDENTIFIER),
-        test_token("string", TOKEN_STRING_KW), test_token("_NAME_HERE", TOKEN_IDENTIFIER)
+        create_normal_token("hello", TOKEN_IDENTIFIER),
+        create_normal_token("returnme", TOKEN_IDENTIFIER),
+        create_normal_token("break", TOKEN_BREAK_KW),
+        create_normal_token("_", TOKEN_IDENTIFIER),
+        create_normal_token("notKeyword__", TOKEN_IDENTIFIER),
+        create_normal_token("float", TOKEN_FLOAT_KW),
+        create_normal_token("L2dm3e44", TOKEN_IDENTIFIER),
+        create_normal_token("_22_", TOKEN_IDENTIFIER),
+        create_normal_token("string", TOKEN_STRING_KW),
+        create_normal_token("_NAME_HERE", TOKEN_IDENTIFIER)
     );
     ZmxProgram program = create_zmx_program("testName", false);
     Lexer lexer = create_lexer(&program, source);
@@ -366,7 +353,7 @@ PRIVATE_TEST_CASE(test_lex_name) {
         lex_name(&lexer);
         ignore_whitespace(&lexer);
     }
-    APPEND_DA(&lexer.tokens, test_token("", TOKEN_EOF));
+    APPEND_DA(&lexer.tokens, create_normal_token("", TOKEN_EOF));
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
@@ -391,50 +378,50 @@ PRIVATE_TEST_CASE(test_lex_string) {
         "$'{\t}Empty {}{\t}brace.{ }'";
 
     TokenArray allTokens = CREATE_DA();
-        append_test_tokens(
+    append_test_tokens(
         &allTokens, 59,
 
-        test_string_token("Normal\t string\\n w/escapes"),
-        test_token("", TOKEN_STRING_END),
+        create_string_token("Normal\t string\\n w/escapes"),
+        create_normal_token("", TOKEN_STRING_END),
 
-        test_string_token("This is a\\t raw string.\\n\\\\n"),
-        test_token("", TOKEN_STRING_END),
+        create_string_token("This is a\\t raw string.\\n\\\\n"),
+        create_normal_token("", TOKEN_STRING_END),
 
-        test_string_token("Interpolated { <- escaped "),
-        test_token("", TOKEN_INTERPOLATE), test_int_token("3", 10),
-        test_token("*", TOKEN_STAR), test_string_token("And "),
-        test_token("", TOKEN_INTERPOLATE), test_int_token("2", 10),
-        test_token("+", TOKEN_PLUS), test_int_token("3", 10),
-        test_token("", TOKEN_INTERPOLATE), test_string_token(" is nested"),
-        test_token("", TOKEN_STRING_END), test_token("+", TOKEN_PLUS), test_int_token("2", 10),
-        test_token("", TOKEN_STRING_END),
+        create_string_token("Interpolated { <- escaped "),
+        create_normal_token("", TOKEN_INTERPOLATE), create_int_token("3", 10),
+        create_normal_token("*", TOKEN_STAR), create_string_token("And "),
+        create_normal_token("", TOKEN_INTERPOLATE), create_int_token("2", 10),
+        create_normal_token("+", TOKEN_PLUS), create_int_token("3", 10),
+        create_normal_token("", TOKEN_INTERPOLATE), create_string_token(" is nested"),
+        create_normal_token("", TOKEN_STRING_END), create_normal_token("+", TOKEN_PLUS),
+        create_int_token("2", 10), create_normal_token("", TOKEN_STRING_END),
 
-        test_string_token("Interpolated raw \\"), test_token("", TOKEN_INTERPOLATE),
-        test_int_token("2", 10), test_token("+", TOKEN_PLUS), test_int_token("3", 10),
-        test_token("", TOKEN_STRING_END),
+        create_string_token("Interpolated raw \\"), create_normal_token("", TOKEN_INTERPOLATE),
+        create_int_token("2", 10), create_normal_token("+", TOKEN_PLUS), create_int_token("3", 10),
+        create_normal_token("", TOKEN_STRING_END),
 
-        test_string_token(""), test_token("", TOKEN_INTERPOLATE),
-        test_string_token(""), test_token("", TOKEN_INTERPOLATE),
-        test_int_token("1", 10), test_token("+", TOKEN_PLUS),
-        test_int_token("2", 10), test_token("", TOKEN_STRING_END),
-        test_token("", TOKEN_INTERPOLATE), test_string_token(" end"),
-        test_token("", TOKEN_STRING_END),
+        create_string_token(""), create_normal_token("", TOKEN_INTERPOLATE),
+        create_string_token(""), create_normal_token("", TOKEN_INTERPOLATE),
+        create_int_token("1", 10), create_normal_token("+", TOKEN_PLUS),
+        create_int_token("2", 10), create_normal_token("", TOKEN_STRING_END),
+        create_normal_token("", TOKEN_INTERPOLATE), create_string_token(" end"),
+        create_normal_token("", TOKEN_STRING_END),
 
-        test_string_token(" "), test_token("", TOKEN_INTERPOLATE),
-        test_string_token(" "), test_token("", TOKEN_INTERPOLATE),
-        test_int_token("7", 10), test_token("**", TOKEN_EXPO),
-        test_int_token("23", 10), test_token("", TOKEN_INTERPOLATE),
-        test_string_token(" "), test_token("", TOKEN_STRING_END),
-        test_token("", TOKEN_INTERPOLATE), test_string_token(" "),
-        test_token("", TOKEN_STRING_END),
+        create_string_token(" "), create_normal_token("", TOKEN_INTERPOLATE),
+        create_string_token(" "), create_normal_token("", TOKEN_INTERPOLATE),
+        create_int_token("7", 10), create_normal_token("**", TOKEN_EXPO),
+        create_int_token("23", 10), create_normal_token("", TOKEN_INTERPOLATE),
+        create_string_token(" "), create_normal_token("", TOKEN_STRING_END),
+        create_normal_token("", TOKEN_INTERPOLATE), create_string_token(" "),
+        create_normal_token("", TOKEN_STRING_END),
 
-        test_string_token("unclosed { left curly, but not interpolated."),
-        test_token("", TOKEN_STRING_END),
+        create_string_token("unclosed { left curly, but not interpolated."),
+        create_normal_token("", TOKEN_STRING_END),
 
-        test_string_token(""), test_token("", TOKEN_INTERPOLATE),
-        test_string_token("Empty "), test_token("", TOKEN_INTERPOLATE),
-        test_string_token(""), test_token("", TOKEN_INTERPOLATE), test_string_token("brace."),
-        test_token("", TOKEN_STRING_END)
+        create_string_token(""), create_normal_token("", TOKEN_INTERPOLATE),
+        create_string_token("Empty "), create_normal_token("", TOKEN_INTERPOLATE),
+        create_string_token(""), create_normal_token("", TOKEN_INTERPOLATE),
+        create_string_token("brace."), create_normal_token("", TOKEN_STRING_END)
     );
     ZmxProgram program = create_zmx_program("testString", false);
     Lexer lexer = create_lexer(&program, source);
@@ -443,7 +430,7 @@ PRIVATE_TEST_CASE(test_lex_string) {
         lex_string(&lexer);
         ignore_whitespace(&lexer);
     }
-    APPEND_DA(&lexer.tokens, test_token("", TOKEN_EOF));
+    APPEND_DA(&lexer.tokens, create_normal_token("", TOKEN_EOF));
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
@@ -466,11 +453,11 @@ PRIVATE_TEST_CASE(test_lex_chars_tokens) {
     TokenArray allTokens = CREATE_DA();
     append_test_tokens(
         &allTokens, 10,
-        test_token("<<=", TOKEN_LSHIFT_EQ), test_token("<<", TOKEN_LSHIFT),
-        test_token("<=", TOKEN_LESS_EQ), test_token("<", TOKEN_LESS),
-        test_token("&=", TOKEN_AMPER_EQ), test_token("&&", TOKEN_AMPER_AMPER),
-        test_token("&", TOKEN_AMPER), test_token("..", TOKEN_DOT_DOT),
-        test_token(".", TOKEN_DOT), test_token(";", TOKEN_SEMICOLON)
+        create_normal_token("<<=", TOKEN_LSHIFT_EQ), create_normal_token("<<", TOKEN_LSHIFT),
+        create_normal_token("<=", TOKEN_LESS_EQ), create_normal_token("<", TOKEN_LESS),
+        create_normal_token("&=", TOKEN_AMPER_EQ), create_normal_token("&&", TOKEN_AMPER_AMPER),
+        create_normal_token("&", TOKEN_AMPER), create_normal_token("..", TOKEN_DOT_DOT),
+        create_normal_token(".", TOKEN_DOT), create_normal_token(";", TOKEN_SEMICOLON)
     );
     ZmxProgram program = create_zmx_program("testString", false);
     Lexer lexer = create_lexer(&program, source);
@@ -495,7 +482,7 @@ PRIVATE_TEST_CASE(test_lex_chars_tokens) {
     START_TOKEN(&lexer);
     ADVANCE(&lexer);
     append_lexed(&lexer, TOKEN_SEMICOLON);
-    APPEND_DA(&lexer.tokens, test_token("", TOKEN_EOF));
+    APPEND_DA(&lexer.tokens, create_normal_token("", TOKEN_EOF));
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
@@ -602,18 +589,18 @@ PRIVATE_TEST_CASE(test_handling_whitespace) {
     ignore_whitespace(defaultLexer);
     lex_token(defaultLexer);
     ASSERT_TRUE(
-        equal_token(LAST_TOKEN(defaultLexer), test_token("hey", TOKEN_IDENTIFIER))
+        equal_token(LAST_TOKEN(defaultLexer), create_normal_token("hey", TOKEN_IDENTIFIER))
     );
     ignore_whitespace(defaultLexer);
     lex_token(defaultLexer);
     ASSERT_TRUE(
-        equal_token(LAST_TOKEN(defaultLexer), test_token("end", TOKEN_IDENTIFIER))
+        equal_token(LAST_TOKEN(defaultLexer), create_normal_token("end", TOKEN_IDENTIFIER))
     );
 }
 
 /** Tests the relevant functions related to structs. */
 PRIVATE_TEST_CASE(test_lexer_struct_functions) {
-    const Token created = test_token_pos("test", 2, 2, TOKEN_IDENTIFIER);
+    const Token created = create_token_pos("test", 2, 2, TOKEN_IDENTIFIER);
     const Token manual = {
         .lexeme = "test", .pos = create_src_pos(2, 2, 4), .type = TOKEN_IDENTIFIER
     };
@@ -635,13 +622,13 @@ PRIVATE_TEST_CASE(test_lexer_struct_functions) {
         ADVANCE(defaultLexer);
     }
     append_lexed(defaultLexer, TOKEN_FLOAT_KW);
-    Token keyword = test_token_pos("float", 1, 2, TOKEN_FLOAT_KW);
+    Token keyword = create_token_pos("float", 1, 2, TOKEN_FLOAT_KW);
     ASSERT_TRUE(equal_token(LAST_TOKEN(defaultLexer), keyword));
 
     append_implicit(defaultLexer, TOKEN_INTERPOLATE);
     ASSERT_TRUE(equal_token(
         LAST_TOKEN(defaultLexer),
-        test_token_pos("", defaultLexer->line, defaultLexer->column, TOKEN_INTERPOLATE)
+        create_token_pos("", defaultLexer->line, defaultLexer->column, TOKEN_INTERPOLATE)
     ));
 
     ADVANCE(defaultLexer);
@@ -651,7 +638,7 @@ PRIVATE_TEST_CASE(test_lexer_struct_functions) {
     append_implicit(defaultLexer, TOKEN_STRING_END);
     ASSERT_TRUE(equal_token(
         LAST_TOKEN(defaultLexer),
-        test_token_pos("", defaultLexer->line, defaultLexer->column, TOKEN_STRING_END)
+        create_token_pos("", defaultLexer->line, defaultLexer->column, TOKEN_STRING_END)
     ));
 }
 
