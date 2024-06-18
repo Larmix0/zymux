@@ -136,7 +136,7 @@ Token create_string_token(char *string) {
     Token token = {
         .lexeme = string,
         .type = TOKEN_STRING_LIT,
-        .stringVal = {.length = length, .text = ARRAY_ALLOC(length, char)}
+        .stringVal = {.length = length, .text = ARRAY_ALLOC(length + 1, char)}
     };
     strncpy(token.stringVal.text, string, length + 1);
     return token;
