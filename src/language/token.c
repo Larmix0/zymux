@@ -167,12 +167,3 @@ bool equal_token(const Token left, const Token right) {
 
     return strncmp(left.lexeme, right.lexeme, left.pos.length) == 0;
 }
-
-/** Frees any allocated contents in the passed token array, which is usually a union values. */
-void free_tokens_contents(TokenArray *tokens) {
-    for (u32 i = 0; i < tokens->length; i++) {
-        if (tokens->data[i].type == TOKEN_STRING_LIT) {
-            free(tokens->data[i].stringVal.text);
-        }
-    }
-}

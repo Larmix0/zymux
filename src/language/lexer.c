@@ -67,9 +67,13 @@ Lexer create_lexer(ZmxProgram *program, char *source) {
     return lexer;
 }
 
-/** Frees all the memory the lexing stage of Zymux has used. */
+/** Frees all the memory the lexing stage of Zymux owns. */
 void free_lexer(Lexer *lexer) {
-    free_tokens_contents(&lexer->tokens);
+    for (u32 i = 0; i < lexer->tokens.length; i++) {
+        if (lexer->tokens.data[i].type == TOKEN_STRING_LIT) {
+            free(lexer->tokens.data[i].stringVal.text);
+        }
+    }
     FREE_DA(&lexer->tokens);
 }
 
