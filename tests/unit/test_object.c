@@ -33,6 +33,7 @@ PRIVATE_TEST_CASE(test_equal_obj) {
     FloatObj *floatNotEqual = new_float_obj(defaultProgram, 55.3);
     ASSERT_TRUE(equal_obj(AS_OBJ(float1), AS_OBJ(float2)));
     ASSERT_TRUE(equal_obj(AS_OBJ(int1), AS_OBJ(float1)));
+    ASSERT_FALSE(equal_obj(AS_OBJ(int1), AS_OBJ(intNotEqual)));
     ASSERT_FALSE(equal_obj(AS_OBJ(int1), AS_OBJ(floatNotEqual)));
     ASSERT_FALSE(equal_obj(AS_OBJ(float1), AS_OBJ(floatNotEqual)));
 
@@ -40,8 +41,9 @@ PRIVATE_TEST_CASE(test_equal_obj) {
     StringObj *name2 = new_string_obj(defaultProgram, "name");
     ASSERT_TRUE(equal_obj(AS_OBJ(name1), AS_OBJ(name2)));
 
-    StringObj *differentName = new_string_obj(defaultProgram, "different");
-    ASSERT_FALSE(equal_obj(AS_OBJ(int1), AS_OBJ(intNotEqual)));
+    StringObj *numAsString = new_string_obj(defaultProgram, "55");
+    ASSERT_FALSE(equal_obj(AS_OBJ(name1), AS_OBJ(numAsString)));
+    ASSERT_FALSE(equal_obj(AS_OBJ(int1), AS_OBJ(numAsString)));
 
     FuncObj *func1 = new_func_obj(defaultProgram, name1, 0);
     ASSERT_TRUE(equal_obj(AS_OBJ(func1), AS_OBJ(func1)));
