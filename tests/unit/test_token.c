@@ -4,6 +4,37 @@
 
 #include "token.c"
 
+/** Tests if converting a token type to a string literal works properly. */
+PRIVATE_TEST_CASE(test_token_type_to_string) {
+    ASSERT_STRING_EQUAL(token_type_as_string(TOKEN_LIST_KW), "LIST");
+    ASSERT_STRING_EQUAL(token_type_as_string(TOKEN_GREATER), "GREATER");
+    ASSERT_STRING_EQUAL(token_type_as_string(TOKEN_IDENTIFIER), "IDENTIFIER");
+}
+
+/** Tests if the functions for creating arbitrary non-positioned tokens work. */
+PRIVATE_TEST_CASE(test_token_creators) {
+    Token leftShift = create_normal_token("<<", TOKEN_LSHIFT);
+    ASSERT_STRING_EQUAL(leftShift.lexeme, "<<");
+    ASSERT_TRUE(leftShift.type == TOKEN_LSHIFT);
+
+    Token decimalInt = create_int_token("23", 10);
+    ASSERT_STRING_EQUAL(decimalInt.lexeme, "23");
+    ASSERT_INT_EQUAL(decimalInt.intVal, 23);
+
+    Token hexInt = create_int_token("E2D", 16);
+    ASSERT_STRING_EQUAL(hexInt.lexeme, "E2D");
+    ASSERT_INT_EQUAL(hexInt.intVal, 3629);
+
+    Token floatNumber = create_float_token("33.4");
+    ASSERT_STRING_EQUAL(floatNumber.lexeme, "33.4");
+    ASSERT_FLOAT_EQUAL(floatNumber.floatVal, 33.4);
+
+    Token string = create_string_token("String.");
+    ASSERT_STRING_EQUAL(string.lexeme, "String.");
+    ASSERT_STRING_EQUAL(string.stringVal.text, "String.");
+    free(string.stringVal.text);
+}
+
 /** Tests if equal_token handles equality properly. */
 PRIVATE_TEST_CASE(test_equal_token) {
     const Token equal1 = {
@@ -55,15 +86,9 @@ PRIVATE_TEST_CASE(test_equal_token) {
     ASSERT_FALSE(equal_token(notEqual1, notEqual2));
 }
 
-/** Tests if converting a token type to a string literal works properly. */
-PRIVATE_TEST_CASE(test_type_to_string) {
-    ASSERT_STRING_EQUAL(token_type_as_string(TOKEN_LIST_KW), "LIST");
-    ASSERT_STRING_EQUAL(token_type_as_string(TOKEN_GREATER), "GREATER");
-    ASSERT_STRING_EQUAL(token_type_as_string(TOKEN_IDENTIFIER), "IDENTIFIER");
-}
-
 /** Tests token.c. */
 void test_token() {
-    TEST(test_type_to_string);
+    TEST(test_token_type_to_string);
+    TEST(test_token_creators);
     TEST(test_equal_token);
 }
