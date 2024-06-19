@@ -159,7 +159,6 @@ PRIVATE_TEST_CASE(test_lex_successful_programs) {
         free_zmx_program(&program);
     }
     for (size_t i = 0; i < sourcesAmount; i++) {
-        free_tokens_contents(&tokens2DArray[i]);
         FREE_DA(&tokens2DArray[i]);
     }
     free(tokens2DArray);
@@ -255,8 +254,6 @@ PRIVATE_TEST_CASE(test_lex_all_tokens) {
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
     free_zmx_program(&program);
-
-    free_tokens_contents(&allTokens);
     FREE_DA(&allTokens);
 }
 
@@ -284,8 +281,6 @@ PRIVATE_TEST_CASE(test_lex_spots) {
     compare_lexed(&lexer, &allTokens, true);
     free_lexer(&lexer);
     free_zmx_program(&program);
-
-    free_tokens_contents(&allTokens);
     FREE_DA(&allTokens);
 }
 
@@ -324,8 +319,6 @@ PRIVATE_TEST_CASE(test_lex_number) {
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
     free_zmx_program(&program);
-
-    free_tokens_contents(&allTokens);
     FREE_DA(&allTokens);
 }
 
@@ -358,8 +351,6 @@ PRIVATE_TEST_CASE(test_lex_name) {
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
     free_zmx_program(&program);
-
-    free_tokens_contents(&allTokens);
     FREE_DA(&allTokens);
 }
 
@@ -436,7 +427,6 @@ PRIVATE_TEST_CASE(test_lex_string) {
     free_lexer(&lexer);
     free_zmx_program(&program);
 
-    free_tokens_contents(&allTokens);
     FREE_DA(&allTokens);
 }
 
@@ -487,8 +477,6 @@ PRIVATE_TEST_CASE(test_lex_chars_tokens) {
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
     free_zmx_program(&program);
-
-    free_tokens_contents(&allTokens);
     FREE_DA(&allTokens);
 }
 

@@ -32,7 +32,6 @@ PRIVATE_TEST_CASE(test_token_creators) {
     Token string = create_string_token("String.");
     ASSERT_STRING_EQUAL(string.lexeme, "String.");
     ASSERT_STRING_EQUAL(string.stringVal.text, "String.");
-    free(string.stringVal.text);
 }
 
 /** Tests if equal_token handles equality properly. */

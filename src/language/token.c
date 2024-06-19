@@ -126,19 +126,17 @@ Token create_float_token(char *lexeme) {
 /** 
  * Creates a synthetic string literal token.
  * 
- * Allocates its string value from the passed string, meaning that it doesn't take
- * the responsibility of freeing the passed string whether or not it's allocated.
- * 
- * The lexeme however, points straight to the passed string without creating a copy.
+ * The lexeme and text of the stringVal are both set to point directly to
+ * the passed string's address. This means that if the string passed is heap allocated,
+ * it shouldn't be freed until the created token itself is no longer needed.
  */
 Token create_string_token(char *string) {
     const size_t length = strlen(string);
     Token token = {
         .lexeme = string,
         .type = TOKEN_STRING_LIT,
-        .stringVal = {.length = length, .text = ARRAY_ALLOC(length + 1, char)}
+        .stringVal = {.length = length, .text = string}
     };
-    strncpy(token.stringVal.text, string, length + 1);
     return token;
 }
 
