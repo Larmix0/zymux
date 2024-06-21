@@ -12,6 +12,7 @@
 #include "test_parser.h"
 #include "test_program.h"
 #include "test_token.h"
+#include "test_vm.h"
 
 // Since every source must be manually included somewhere for testing once and only once,
 // all sources other than main.c that aren't used by other test modules are here for linking.
@@ -20,8 +21,6 @@
 #include "debug_bytecode.c"
 #include "debug_runtime.c"
 #include "report_error.c"
-
-#include "vm.c" // TODO: this is temporary, VM will later be tested.
 
 /** Main function of the unit tests that calls all file testers. */
 int main() {
@@ -42,5 +41,6 @@ int main() {
     test_parser();
     test_emitter();
     test_compiler();
+    test_vm();
     return EXIT_SUCCESS;
 }

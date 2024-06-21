@@ -189,7 +189,7 @@ static void reallocate_stack(Vm *vm) {
 }
 
 /** Returns a stack frame to hold information about the currently executing function. */
-static StackFrame create_frame(FuncObj *func, Obj **sp) {
+static StackFrame create_stack_frame(FuncObj *func, Obj **sp) {
     StackFrame frame = {.func = func, .ip = func->bytecode.data, .sp = sp};
     return frame;
 }
@@ -202,7 +202,7 @@ Vm create_vm(ZmxProgram *program, FuncObj *func) {
     };
 
     // Set current frame and its SP after their arrays have been initialized.
-    APPEND_DA(&vm.callStack, create_frame(func, vm.stack.objects));
+    APPEND_DA(&vm.callStack, create_stack_frame(func, vm.stack.objects));
     vm.frame = vm.callStack.data;
     return vm;
 }
