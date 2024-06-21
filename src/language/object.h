@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #include "constants.h"
-#include "data_structures.h"
+#include "dynamic_array.h"
 
 /** Converts anything that "inherits" from object to its type punning base form. */
 #define AS_OBJ(object) ((Obj *)object)

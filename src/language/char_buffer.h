@@ -3,7 +3,7 @@
 
 #include <stdarg.h>
 
-#include "data_structures.h"
+#include "dynamic_array.h"
 
 /**
  * An array of characters that is always NUL terminated (the NUL counts towards length).

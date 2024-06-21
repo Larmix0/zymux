@@ -1,7 +1,7 @@
 #ifndef NODE_H
 #define NODE_H
 
-#include "data_structures.h"
+#include "dynamic_array.h"
 #include "program.h"
 #include "token.h"
 

@@ -5,7 +5,7 @@
 
 #include "allocator.h"
 #include "char_buffer.h"
-#include "data_structures.h"
+#include "dynamic_array.h"
 #include "lexer.h"
 
 #define CURRENT_TOKEN_LENGTH(lexer) ((lexer)->current - (lexer)->tokenStart)

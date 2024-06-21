@@ -70,7 +70,7 @@ void buffer_append_char(CharBuffer *buffer, const char ch) {
     }
     buffer->text[buffer->length - 1] = ch;
     if (buffer->capacity < buffer->length + 1) {
-        INCREASE_CAP(buffer->capacity);
+        DA_INCREASE_CAP(buffer->capacity);
         buffer->text = REALLOC(buffer->text, buffer->capacity * sizeof(char));
     }
     buffer->text[buffer->length++] = '\0';

@@ -1,7 +1,7 @@
 #include "lukip.h"
 
 #include "compiler.h"
-#include "data_structures.h"
+#include "dynamic_array.h"
 
 #include "emitter.c"
 

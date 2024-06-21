@@ -2,7 +2,7 @@
 #define EMITTER_H
 
 #include "constants.h"
-#include "data_structures.h"
+#include "dynamic_array.h"
 #include "object.h"
 #include "report_error.h"
 

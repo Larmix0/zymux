@@ -1,6 +1,6 @@
 #include "lukip.h"
 
-#include "data_structures.h"
+#include "dynamic_array.h"
 
 /** An integer array purely made to test our generic dynamic array implementation. */
 DECLARE_DA_STRUCT(IntArray, int);

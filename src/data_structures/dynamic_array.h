@@ -7,14 +7,14 @@
 #include "constants.h"
 
 /** How much should a data structure grow per allocation (used with multiplication). */
-#define GROWTH_FACTOR 2
+#define DA_GROWTH_FACTOR 2
 
 /** Minimum capacity of a data structure. */
-#define MIN_CAP 16
+#define DA_MIN_CAP 16
 
 /** Macro for increasing the capacity of a data structure. */
-#define INCREASE_CAP(capacity) \
-    ((capacity) = (capacity) < MIN_CAP ? MIN_CAP : (capacity) * GROWTH_FACTOR)
+#define DA_INCREASE_CAP(capacity) \
+    ((capacity) = (capacity) < DA_MIN_CAP ? DA_MIN_CAP : (capacity) * DA_GROWTH_FACTOR)
 
 /** Declares the struct of a dynamic array typedef'd with name and an array/pointer of type. */
 #define DECLARE_DA_STRUCT(name, type) typedef struct {u32 length; u32 capacity; type *data;} name
@@ -44,7 +44,7 @@
 #define APPEND_DA(da, item) \
     do { \
         if ((da)->capacity < (da)->length + 1) { \
-            INCREASE_CAP((da)->capacity); \
+            DA_INCREASE_CAP((da)->capacity); \
             (da)->data = REALLOC((da)->data, (da)->capacity * sizeof(*(da)->data)); \
         } \
         (da)->data[(da)->length++] = (item); \

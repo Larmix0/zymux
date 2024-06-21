@@ -1,4 +1,4 @@
-#include "data_structures.h"
+#include "dynamic_array.h"
 #include "parser.h"
 #include "report_error.h"
 

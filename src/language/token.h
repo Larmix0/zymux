@@ -2,7 +2,7 @@
 #define TOKEN_H
 
 #include "constants.h"
-#include "data_structures.h"
+#include "dynamic_array.h"
 #include "report_error.h"
 
 /** Every type of token that Zymux supports. */

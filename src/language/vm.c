@@ -173,7 +173,7 @@ static bool runtime_error(Vm *vm, const char *format, ...) {
  * to also be updated to the same index relative to the potentially new stack address.
  */
 static void reallocate_stack(Vm *vm) {
-    INCREASE_CAP(vm->stack.capacity);
+    DA_INCREASE_CAP(vm->stack.capacity);
     Obj **originalStack = vm->stack.objects;
     vm->stack.objects = REALLOC(
         vm->stack.objects, vm->stack.capacity * sizeof(*vm->stack.objects)

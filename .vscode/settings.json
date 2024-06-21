@@ -24,7 +24,11 @@
         "regex": "c",
         "stdio.h": "c",
         "char_buffer.h": "c",
-        "constants.h": "c"
+        "constants.h": "c",
+        "dynamic_array.h": "c",
+        "object.h": "c",
+        "token.h": "c",
+        "parser.h": "c"
     },
     "cSpell.words": [
         "Zymux"

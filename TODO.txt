@@ -66,3 +66,5 @@ void buffer_append_va(CharBuffer *buffer, const char *format, va_list *args) {
 ----------------------------------------------------------------------------------------------------
 
 Visit TODOs again after implementing the hash table.
+
+Split data_structures.h into dynamic_array.h and hash_table.h
