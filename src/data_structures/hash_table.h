@@ -5,16 +5,6 @@
 
 #include "object.h"
 
-/** How much should a hash table grow per allocation (used with multiplication). */
-#define TABLE_GROWTH_FACTOR 2
-
-/** Minimum capacity of a hash table. */
-#define TABLE_MIN_CAP 16
-
-/** Macro for increasing the capacity of a hash table. */
-#define TABLE_INCREASE_CAP(capacity) \
-    ((capacity) = (capacity) < TABLE_MIN_CAP ? TABLE_MIN_CAP : (capacity) * TABLE_GROWTH_FACTOR)
-
 /** Evalutes a bool of whether or not the length exceeds the allowed amount relative to capacity. */
 #define TABLE_OVER_MAX_LOAD(table) ((table)->count + 1 > (table)->capacity * 0.75)
 

@@ -111,7 +111,7 @@ static void make_entry_empty(Entry *entry) {
 static void adjust_capacity(Table *oldTable) {
     Table newTable = create_table();
     newTable.capacity = oldTable->capacity;
-    TABLE_INCREASE_CAP(newTable.capacity);
+    INCREASE_CAPACITY(newTable.capacity);
 
     newTable.entries = ARRAY_ALLOC(newTable.capacity, Entry);
     for (u32 i = 0; i < newTable.capacity; i++) {

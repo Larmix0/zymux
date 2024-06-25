@@ -52,6 +52,16 @@
 /** Used when indenting text during error reporting and debugging. */
 #define INDENT "    "
 
+/** How much should a data structure grow per allocation (to be used with multiplication). */
+#define CAPACITY_GROWTH 2
+
+/** Minimum capacity of a data structure. */
+#define MINIMUM_CAPACITY 16
+
+/** Increases the passed capacity field/variable's size. */
+#define INCREASE_CAPACITY(capacity) \
+    ((capacity) = (capacity) < MINIMUM_CAPACITY ? MINIMUM_CAPACITY : (capacity) * CAPACITY_GROWTH)
+
 typedef int8_t i8;
 typedef int16_t i16;
 typedef int32_t i32;
