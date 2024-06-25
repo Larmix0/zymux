@@ -6,13 +6,13 @@
 #include "allocator.h"
 #include "constants.h"
 
-/** How much should a data structure grow per allocation (used with multiplication). */
+/** How much should a dynamic array grow per allocation (used with multiplication). */
 #define DA_GROWTH_FACTOR 2
 
-/** Minimum capacity of a data structure. */
+/** Minimum capacity of a dynamic array. */
 #define DA_MIN_CAP 16
 
-/** Macro for increasing the capacity of a data structure. */
+/** Macro for increasing the capacity of a dynamic array. */
 #define DA_INCREASE_CAP(capacity) \
     ((capacity) = (capacity) < DA_MIN_CAP ? DA_MIN_CAP : (capacity) * DA_GROWTH_FACTOR)
 

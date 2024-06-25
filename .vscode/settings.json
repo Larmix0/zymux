@@ -28,7 +28,8 @@
         "dynamic_array.h": "c",
         "object.h": "c",
         "token.h": "c",
-        "parser.h": "c"
+        "parser.h": "c",
+        "hash_table.h": "c"
     },
     "cSpell.words": [
         "Zymux"
