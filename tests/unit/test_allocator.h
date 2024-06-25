@@ -1,7 +1,7 @@
 #ifndef TEST_ALLOCATOR_H
 #define TEST_ALLOCATOR_H
 
-/** Tests the entire allocator.c file. */
+/** Tests allocator.c/.h. */
 void test_allocator();
 
 #endif
