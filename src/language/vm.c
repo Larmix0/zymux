@@ -57,7 +57,7 @@
  * 
  * Used by passing a binary operation but not popping its operands from the stack while doing that.
  */
-#define BIN_OP_MATH(vm, resultNum) \
+#define MATH_BIN_OP(vm, resultNum) \
     do { \
         if (!IS_NUM(BIN_LEFT(vm)) || !IS_NUM(BIN_RIGHT(vm))) { \
             return runtime_error(vm, "Expected number in operation."); \
@@ -69,21 +69,29 @@
     } while (false)
 
 /** 
- * Pushes number and drops the last 2 elements (from the binary operation).
+ * Pushes resultBool and drops the last 2 elements (from the binary operation).
  * 
- * The number passed is a resulting C boolean which will be pushed as a bool object
+ * The resultBool passed is a resulting C boolean which will be pushed as a bool object
  * after the binary operands have been dropped.
+ * 
+ * Allows operands of any type
  * 
  * Used by passing a binary operation but not popping its operands from the stack while doing that.
  */
-#define BIN_OP_BOOL(vm, resultBool) \
+#define BOOL_BIN_OP(vm, resultBool) \
+    do { \
+        Obj *resultObj = AS_OBJ(new_bool_obj(vm->program, resultBool)); \
+        DROP_AMOUNT(vm, 2); \
+        PUSH(vm, resultObj); \
+    } while (false)
+
+/** BOOL_BIN_OP() wrapper which errors if the operands of the operation aren't both numbers. */
+#define NUM_BOOL_BIN_OP(vm, resultBool) \
     do { \
         if (!IS_NUM(BIN_LEFT(vm)) || !IS_NUM(BIN_RIGHT(vm))) { \
             return runtime_error(vm, "Expected number in operation."); \
         } \
-        Obj *resultObj = AS_OBJ(new_bool_obj(vm->program, resultBool)); \
-        DROP_AMOUNT(vm, 2); \
-        PUSH(vm, resultObj); \
+        BOOL_BIN_OP(vm, resultBool); \
     } while (false)
 
 /** An array of just integers to store the indices of each function in the call stack. */
@@ -239,29 +247,41 @@ bool interpret(Vm *vm) {
                 DROP_AMOUNT(vm, 2);
                 PUSH(vm, result);
             } else {
-                BIN_OP_MATH(vm, NUM_VAL(BIN_LEFT(vm)) + NUM_VAL(BIN_RIGHT(vm)));
+                MATH_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) + NUM_VAL(BIN_RIGHT(vm)));
             }
             break;
-        case OP_SUBTRACT: BIN_OP_MATH(vm, NUM_VAL(BIN_LEFT(vm)) - NUM_VAL(BIN_RIGHT(vm))); break;
-        case OP_MULTIPLY: BIN_OP_MATH(vm, NUM_VAL(BIN_LEFT(vm)) * NUM_VAL(BIN_RIGHT(vm))); break;
-        case OP_DIVIDE: BIN_OP_MATH(vm, NUM_VAL(BIN_LEFT(vm)) / NUM_VAL(BIN_RIGHT(vm))); break;
+        case OP_SUBTRACT: MATH_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) - NUM_VAL(BIN_RIGHT(vm))); break;
+        case OP_MULTIPLY: MATH_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) * NUM_VAL(BIN_RIGHT(vm))); break;
+        case OP_DIVIDE: MATH_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) / NUM_VAL(BIN_RIGHT(vm))); break;
         case OP_MODULO:
             // Modulo doesn't handle floats in C, so use fmod() if there's a float in the operation.
-            BIN_OP_MATH(
+            MATH_BIN_OP(
                 vm,
                 BIN_HAS_FLOAT(vm) ? fmod(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
                     : AS_PTR(IntObj, BIN_LEFT(vm))->number % AS_PTR(IntObj, BIN_RIGHT(vm))->number
             );
             break;
         case OP_EXPONENT:
-            BIN_OP_MATH(vm, pow(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm))));
+            MATH_BIN_OP(vm, pow(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm))));
             break;
-        case OP_EQ: BIN_OP_BOOL(vm, equal_obj(BIN_LEFT(vm), BIN_RIGHT(vm))); break;
-        case OP_NOT_EQ: BIN_OP_BOOL(vm, !equal_obj(BIN_LEFT(vm), BIN_RIGHT(vm))); break;
-        case OP_GREATER: BIN_OP_BOOL(vm, NUM_VAL(BIN_LEFT(vm)) > NUM_VAL(BIN_RIGHT(vm))); break;
-        case OP_GREATER_EQ: BIN_OP_BOOL(vm, NUM_VAL(BIN_LEFT(vm)) >= NUM_VAL(BIN_RIGHT(vm))); break;
-        case OP_LESS: BIN_OP_BOOL(vm, NUM_VAL(BIN_LEFT(vm)) < NUM_VAL(BIN_RIGHT(vm))); break;
-        case OP_LESS_EQ: BIN_OP_BOOL(vm, NUM_VAL(BIN_LEFT(vm)) >= NUM_VAL(BIN_RIGHT(vm))); break;
+        case OP_EQ:
+            BOOL_BIN_OP(vm, equal_obj(BIN_LEFT(vm), BIN_RIGHT(vm)));
+            break;
+        case OP_NOT_EQ:
+            BOOL_BIN_OP(vm, !equal_obj(BIN_LEFT(vm), BIN_RIGHT(vm)));
+            break;
+        case OP_GREATER:
+            NUM_BOOL_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) > NUM_VAL(BIN_RIGHT(vm)));
+            break;
+        case OP_GREATER_EQ:
+            NUM_BOOL_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) >= NUM_VAL(BIN_RIGHT(vm)));
+            break;
+        case OP_LESS:
+            NUM_BOOL_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) < NUM_VAL(BIN_RIGHT(vm)));
+            break;
+        case OP_LESS_EQ:
+            NUM_BOOL_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) >= NUM_VAL(BIN_RIGHT(vm)));
+            break;
         case OP_MINUS:
             if (PEEK(vm)->type == OBJ_INT) {
                 const ZmxInt negated = -AS_PTR(IntObj, POP(vm))->number;
