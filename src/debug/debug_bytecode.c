@@ -75,6 +75,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const InstrFormat
     case OP_ARG_32: print_bare_instr("ARG_32", &idx); *size = INSTR_FOUR_BYTES; break;
     case OP_TRUE: print_bare_instr("TRUE", &idx); break;
     case OP_FALSE: print_bare_instr("FALSE", &idx); break;
+    case OP_NULL: print_bare_instr("NULL", &idx); break;
     case OP_ADD: print_bare_instr("ADD", &idx); break;
     case OP_SUBTRACT: print_bare_instr("SUBTRACT", &idx); break;
     case OP_MULTIPLY: print_bare_instr("MULTIPLY", &idx); break;

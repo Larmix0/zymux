@@ -126,5 +126,8 @@ OP_FINISH_STRING:
         the final string "Hi middle end.". While we have it stored, we pop the 3 strings we used
         to concatenate, and push that final string ("Hi middle end.").
 
+OP_NULL:
+    Pushes a null object to the stack.
+
 OP_END:
     Ends the currently executing VM.

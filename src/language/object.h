@@ -24,6 +24,7 @@ typedef enum {
     OBJ_INT,
     OBJ_FLOAT,
     OBJ_BOOL,
+    OBJ_NULL,
     OBJ_STRING,
     OBJ_FUNC
 } ObjType;
@@ -60,6 +61,11 @@ typedef struct {
     Obj obj;
     bool boolean;
 } BoolObj;
+
+/** Represents just a bare null value. */
+typedef struct {
+    Obj obj;
+} NullObj;
 
 /** Represents a string object. */
 typedef struct StringObj {
@@ -105,6 +111,9 @@ FloatObj *new_float_obj(ZmxProgram *program, const ZmxFloat number);
 
 /** Returns a new allocated boolean object. */
 BoolObj *new_bool_obj(ZmxProgram *program, const bool boolean);
+
+/** Returns a new allocated null object, which is always the same. */
+NullObj *new_null_obj(ZmxProgram *program);
 
 /** Returns a new allocated string object. */
 StringObj *new_string_obj(ZmxProgram *program, const char *string);

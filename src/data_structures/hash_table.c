@@ -14,6 +14,7 @@ bool is_hashable(Obj *object) {
     case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:
+    case OBJ_NULL:
     case OBJ_STRING:
         return true;
     case OBJ_FUNC:
@@ -65,6 +66,7 @@ u32 hash_obj(Obj *object) {
     case OBJ_FLOAT: return hash_float(AS_PTR(FloatObj, object)->number);
     case OBJ_STRING: return hash_string(AS_PTR(StringObj, object)->string);
     case OBJ_BOOL: return AS_PTR(BoolObj, object)->boolean ? 1 : 0;
+    case OBJ_NULL: return 2;
 
     default:
         // Anything else shouldn't have been called to begin with.

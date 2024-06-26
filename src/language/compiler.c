@@ -71,6 +71,7 @@ static void compile_keyword(Compiler *compiler, const KeywordNode *node) {
     switch (node->keyword) {
     case TOKEN_TRUE_KW: emit_instr(compiler, OP_TRUE, node->pos); break;
     case TOKEN_FALSE_KW: emit_instr(compiler, OP_FALSE, node->pos); break;
+    case TOKEN_NULL_KW: emit_instr(compiler, OP_NULL, node->pos); break;
     default: UNREACHABLE_ERROR();
     }
 }

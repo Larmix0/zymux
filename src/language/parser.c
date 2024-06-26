@@ -108,6 +108,7 @@ static Node *primary(Parser *parser) {
     switch (ADVANCE_PEEK(parser).type) {
     case TOKEN_TRUE_KW:
     case TOKEN_FALSE_KW:
+    case TOKEN_NULL_KW:
         return new_keyword_node(parser->program, PEEK_PREVIOUS(parser));
     case TOKEN_INT_LIT:
     case TOKEN_FLOAT_LIT:

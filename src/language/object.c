@@ -41,6 +41,12 @@ BoolObj *new_bool_obj(ZmxProgram *program, const bool boolean) {
     return object;
 }
 
+/** Returns a new allocated null object, which is always the same. */
+NullObj *new_null_obj(ZmxProgram *program) {
+    NullObj *object = NEW_OBJ(program, OBJ_NULL, NullObj);
+    return object;
+}
+
 /** 
  * Returns a new allocated string object.
  * 
@@ -89,6 +95,7 @@ bool equal_obj(const Obj *left, const Obj *right) {
         return left == right; // Compare addresses directly.
     
     case OBJ_BOOL: return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
+    case OBJ_NULL: return true; // All nulls are the same.
     case OBJ_STRING:
         // TODO: this is temporary. Once interning is added, do an address equality check.
         if (AS_PTR(StringObj, left)->length != AS_PTR(StringObj, right)->length) {
@@ -141,6 +148,8 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
         return new_string_obj(program, AS_PTR(FuncObj, object)->name->string);
     case OBJ_BOOL:
         return new_string_obj(program, AS_PTR(BoolObj, object)->boolean ? "true" : "false");
+    case OBJ_NULL:
+        return new_string_obj(program, "null");
     case OBJ_STRING:
         return new_string_obj(program, AS_PTR(StringObj, object)->string);
     default:
@@ -164,6 +173,7 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     case OBJ_FLOAT: result = AS_PTR(FloatObj, object)->number != 0.0; break;
     case OBJ_STRING: result = AS_PTR(StringObj, object)->length != 0; break;
     case OBJ_BOOL: result = AS_PTR(BoolObj, object)->boolean; break;
+    case OBJ_NULL: result = false; break;
     default: UNREACHABLE_ERROR();
     }
     return new_bool_obj(program, result);
@@ -181,6 +191,9 @@ void print_obj(const Obj *object, const bool debugPrint) {
         break;
     case OBJ_BOOL:
         printf("%s", AS_PTR(BoolObj, object)->boolean ? "true" : "false");
+        break;
+    case OBJ_NULL:
+        printf("null");
         break;
     case OBJ_STRING:
         if (debugPrint) {
@@ -209,6 +222,7 @@ static void free_obj_contents(Obj *object) {
         case OBJ_INT:
         case OBJ_FLOAT:
         case OBJ_BOOL:
+        case OBJ_NULL:
             return;
 
         case OBJ_STRING:

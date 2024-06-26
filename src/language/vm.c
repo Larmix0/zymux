@@ -230,6 +230,7 @@ bool interpret(Vm *vm) {
         case OP_ARG_32: vm->instrSize = INSTR_FOUR_BYTES; break;
         case OP_TRUE: PUSH(vm, AS_OBJ(new_bool_obj(vm->program, true))); break;
         case OP_FALSE: PUSH(vm, AS_OBJ(new_bool_obj(vm->program, false))); break;
+        case OP_NULL: PUSH(vm, AS_OBJ(new_null_obj(vm->program))); break;
         case OP_ADD:
             if (BIN_LEFT(vm)->type == OBJ_STRING && BIN_RIGHT(vm)->type == OBJ_STRING) {
                 Obj *result = AS_OBJ(concatenate(
