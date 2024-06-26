@@ -108,7 +108,7 @@ static void make_entry_empty(Entry *entry) {
  * This means the key value pairs are re-positioned due to the size increase of the hash table,
  * which causes the hashed keys to end up in different places instead of wrapping around earlier.
  */
-static void adjust_capacity(Table *oldTable) {
+static void expand_table(Table *oldTable) {
     Table newTable = create_table();
     newTable.capacity = oldTable->capacity;
     INCREASE_CAPACITY(newTable.capacity);
@@ -131,15 +131,13 @@ static void adjust_capacity(Table *oldTable) {
 /** Gets the passed key's respective entry in the hash table, empty or not. */
 static Entry *get_entry_of_key(Table *table, Obj *key) {
     if (table->entries == NULL) {
-        adjust_capacity(table); // The whole table was a NULL, so we set it to return a NULL entry.
+        expand_table(table); // The whole table was a NULL, so we set it to return a NULL entry.
     }
     
     u32 index = GET_ENTRY_IDX(get_hash(key), table);
     while (true) {
         Entry *entry = &table->entries[index];
-        if (EMPTY_ENTRY(entry)) {
-            return entry;
-        } else if (equal_obj(entry->key, key)) {
+        if (EMPTY_ENTRY(entry) || equal_obj(entry->key, key)) {
             return entry;
         }
         index = GET_ENTRY_IDX(index + 1, table);
@@ -174,7 +172,7 @@ Obj *table_get(Table *table, Obj *key) {
  */
 void table_set(Table *table, Obj *key, Obj *value) {
     if (TABLE_OVER_MAX_LOAD(table)) {
-        adjust_capacity(table);
+        expand_table(table);
     }
 
     u32 index = GET_ENTRY_IDX(get_hash(key), table);

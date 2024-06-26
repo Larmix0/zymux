@@ -6,6 +6,7 @@
 #include "test_dynamic_array.h"
 #include "test_emitter.h"
 #include "test_file.h"
+#include "test_hash_table.h"
 #include "test_lexer.h"
 #include "test_node.h"
 #include "test_object.h"
@@ -31,6 +32,7 @@ int main() {
     LUKIP_INIT();
     test_allocator();
     test_dynamic_array();
+    test_hash_table();
     test_file();
     test_char_buffer();
     test_program();
