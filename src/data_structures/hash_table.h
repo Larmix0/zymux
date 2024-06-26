@@ -39,6 +39,9 @@ bool is_hashable(Obj *object);
  */
 u32 hash_obj(Obj *object);
 
+/** Returns the hash of the passed object. */
+u32 get_hash(Obj *object);
+
 /** Creates an empty hash table. */
 Table create_table();
 
