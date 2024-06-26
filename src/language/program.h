@@ -6,15 +6,23 @@
 typedef struct Node Node;
 typedef struct Obj Obj;
 typedef struct StringObj StringObj;
+typedef struct BoolObj BoolObj;
+typedef struct NullObj NullObj;
 
 /** Stores the state of Zymux throughout the entire execution of the program. */
 typedef struct ZmxProgram {
     bool hasErrored;
     bool showErrors;
+    
     Node *allNodes;
     Obj *allObjs;
+
     StringObj *mainFile;
     StringObj *currentFile;
+
+    NullObj *internedNull;
+    BoolObj *internedTrue;
+    BoolObj *internedFalse;
 } ZmxProgram;
 
 /** Returns an initialized zymux program with the parameters. */

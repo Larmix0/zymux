@@ -57,13 +57,13 @@ typedef struct {
 } FloatObj;
 
 /** Represents a boolean (true or false) object. */
-typedef struct {
+typedef struct BoolObj {
     Obj obj;
     bool boolean;
 } BoolObj;
 
 /** Represents just a bare null value. */
-typedef struct {
+typedef struct NullObj {
     Obj obj;
 } NullObj;
 
@@ -103,16 +103,21 @@ typedef struct {
     int constIdx;
 } FuncObj;
 
+/** 
+ * Allocates some objects for interning and puts them in the passed program.
+ */
+void intern_objs(ZmxProgram *program);
+
 /** Returns a new allocated integer object. */
 IntObj *new_int_obj(ZmxProgram *program, const ZmxInt number);
 
 /** Returns a new allocated float object. */
 FloatObj *new_float_obj(ZmxProgram *program, const ZmxFloat number);
 
-/** Returns a new allocated boolean object. */
+/** Returns an interned boolean object depending on the passed bool. */
 BoolObj *new_bool_obj(ZmxProgram *program, const bool boolean);
 
-/** Returns a new allocated null object, which is always the same. */
+/** Returns an interned null object. */
 NullObj *new_null_obj(ZmxProgram *program);
 
 /** Returns a new allocated string object. */

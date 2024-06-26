@@ -20,6 +20,17 @@ static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) 
     return object;
 }
 
+/** Allocates some objects for interning and puts them in the passed program. */
+void intern_objs(ZmxProgram *program) {
+    program->internedTrue = NEW_OBJ(program, OBJ_BOOL, BoolObj);
+    program->internedTrue->boolean = true;
+
+    program->internedFalse = NEW_OBJ(program, OBJ_BOOL, BoolObj);
+    program->internedFalse->boolean = false;
+
+    program->internedNull = NEW_OBJ(program, OBJ_NULL, NullObj);
+}
+
 /** Allocates an int object from the passed integer. */
 IntObj *new_int_obj(ZmxProgram *program, const ZmxInt number) {
     IntObj *object = NEW_OBJ(program, OBJ_INT, IntObj);
@@ -34,17 +45,14 @@ FloatObj *new_float_obj(ZmxProgram *program, const ZmxFloat number) {
     return object;
 }
 
-/** Returns a new allocated boolean object from the passed bool. TODO: intern booleans. */
+/** Returns an interned boolean object depending on the passed bool. */
 BoolObj *new_bool_obj(ZmxProgram *program, const bool boolean) {
-    BoolObj *object = NEW_OBJ(program, OBJ_BOOL, BoolObj);
-    object->boolean = boolean;
-    return object;
+    return boolean ? program->internedTrue : program->internedFalse;
 }
 
-/** Returns a new allocated null object, which is always the same. */
+/** Returns an interned null object. */
 NullObj *new_null_obj(ZmxProgram *program) {
-    NullObj *object = NEW_OBJ(program, OBJ_NULL, NullObj);
-    return object;
+    return program->internedNull;
 }
 
 /** 

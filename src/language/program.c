@@ -9,8 +9,9 @@
 ZmxProgram create_zmx_program(char *file, const bool showErrors) {
     ZmxProgram program = {
         .hasErrored = false, .showErrors = showErrors,
-        .allNodes = NULL, .allObjs = NULL, .mainFile = NULL, .currentFile = NULL
+        .allNodes = NULL, .allObjs = NULL, .mainFile = NULL, .currentFile = NULL,
     };
+    intern_objs(&program);
     program.mainFile = new_string_obj(&program, file);
     program.currentFile = program.mainFile;
     return program;
