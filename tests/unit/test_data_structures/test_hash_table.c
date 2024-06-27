@@ -120,7 +120,7 @@ PRIVATE_TEST_CASE(test_get_entry_of_key) {
  */
 PRIVATE_TEST_CASE(test_expand_table) {
     expand_table(&defaultTable);
-    ASSERT_INT_EQUAL(defaultTable.capacity, defaultTable.capacity);
+    ASSERT_INT_EQUAL(defaultTable.capacity, MINIMUM_CAPACITY);
     ASSERT_INT_EQUAL(defaultTable.count, 0);
     for (u32 i = 0; i < defaultTable.capacity; i++) {
         Entry *entry = &defaultTable.entries[i];

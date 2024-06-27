@@ -70,7 +70,7 @@ typedef struct NullObj {
 /** Represents a string object. */
 typedef struct StringObj {
     Obj obj;
-    int length;
+    u32 length;
     u32 hash;
     char *string;
 } StringObj;
@@ -104,21 +104,6 @@ typedef struct {
     int constIdx;
 } FuncObj;
 
-/** Returns whether or not a given object is hashable. */
-bool is_hashable(const Obj *object);
-
-/** 
- * Returns the hash value of an object assuming it is hashable.
- * 
- * If the object passed is not hashable it'll become an unreachable error.
- */
-u32 get_hash(const Obj *object);
-
-/** 
- * Allocates some objects for interning and puts them in the passed program.
- */
-void intern_objs(ZmxProgram *program);
-
 /** Returns a new allocated integer object. */
 IntObj *new_int_obj(ZmxProgram *program, const ZmxInt number);
 
@@ -136,6 +121,9 @@ StringObj *new_string_obj(ZmxProgram *program, const char *string);
 
 /** Returns a new allocated function object. */
 FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx);
+
+/** Allocates some objects for interning and puts them in the passed program. */
+void intern_objs(ZmxProgram *program);
 
 /** Returns whether or not 2 objects are considered equal. */
 bool equal_obj(const Obj *left, const Obj *right);

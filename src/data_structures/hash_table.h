@@ -31,6 +31,19 @@ typedef struct {
     Entry *entries; /** The array of key-value pair entries. */
 } Table;
 
+/** Returns whether or not a given object is hashable. */
+bool is_hashable(const Obj *object);
+
+/** Hashes a string using the DJB2 hashing function. */
+u32 hash_string(const char *string);
+
+/** 
+ * Returns the hash value of an object assuming it is hashable and immutable.
+ * 
+ * If the object passed is not hashable it'll become an unreachable error.
+ */
+u32 get_hash(const Obj *object);
+
 /** Creates an empty hash table. */
 Table create_table();
 
