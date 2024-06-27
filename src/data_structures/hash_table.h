@@ -3,7 +3,9 @@
 
 #include <stdlib.h>
 
-#include "object.h"
+#include "constants.h"
+
+typedef struct Obj Obj;
 
 /** Evalutes a bool of whether or not the length exceeds the allowed amount relative to capacity. */
 #define TABLE_OVER_MAX_LOAD(table) ((table)->count + 1 > (table)->capacity * 0.75)
@@ -28,19 +30,6 @@ typedef struct {
     u32 capacity; /** How many elements including filled and empty ones are in the table. */
     Entry *entries; /** The array of key-value pair entries. */
 } Table;
-
-/** Returns whether or not a given object is hashable. */
-bool is_hashable(Obj *object);
-
-/** 
- * Returns the hash value of an object assuming it is hashable.
- * 
- * If the object passed is not hashable it'll become an unreachable error.
- */
-u32 hash_obj(Obj *object);
-
-/** Returns the hash of the passed object. */
-u32 get_hash(Obj *object);
 
 /** Creates an empty hash table. */
 Table create_table();

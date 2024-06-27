@@ -72,6 +72,7 @@ typedef struct StringObj {
     Obj obj;
     char *string;
     int length;
+    u32 hash;
 } StringObj;
 
 /**
@@ -102,6 +103,16 @@ typedef struct {
      */
     int constIdx;
 } FuncObj;
+
+/** Returns whether or not a given object is hashable. */
+bool is_hashable(const Obj *object);
+
+/** 
+ * Returns the hash value of an object assuming it is hashable.
+ * 
+ * If the object passed is not hashable it'll become an unreachable error.
+ */
+u32 get_hash(const Obj *object);
 
 /** 
  * Allocates some objects for interning and puts them in the passed program.
