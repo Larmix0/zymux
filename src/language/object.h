@@ -70,9 +70,9 @@ typedef struct NullObj {
 /** Represents a string object. */
 typedef struct StringObj {
     Obj obj;
-    char *string;
     int length;
     u32 hash;
+    char *string;
 } StringObj;
 
 /**

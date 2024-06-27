@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <string.h>
 
 #include "allocator.h"
 #include "hash_table.h"
@@ -64,7 +65,7 @@ static void expand_table(Table *oldTable) {
 /** Gets the passed key's respective entry in the hash table, empty or not. */
 static Entry *get_entry_of_key(Table *table, Obj *key) {
     if (table->entries == NULL) {
-        expand_table(table); // The whole table was a NULL, so we set it to return a NULL entry.
+        expand_table(table); // The whole table was a NULL, so we set it to return an empty entry.
     }
     
     u32 index = GET_ENTRY_IDX(get_hash(key), table);
@@ -162,6 +163,33 @@ bool table_delete(Table *table, Obj *key) {
         make_entry_empty(next);
     }
     return true;
+}
+
+/** Returns the string key in a hash table if it exists, otherwise returns NULL. */
+Obj *table_get_string(Table *table, const char *string, const u32 hash) {
+    if (table->entries == NULL) {
+        // Empty table, just expand it and return that the key doesn't exist.
+        expand_table(table);
+        return NULL;
+    }
+
+    u32 index = GET_ENTRY_IDX(hash, table);
+    while (true) {
+        Entry *entry = &table->entries[index];
+        if (EMPTY_ENTRY(entry)) {
+            return NULL;
+        } else if (entry->key->type != OBJ_STRING) {
+            index = GET_ENTRY_IDX(index + 1, table);
+            continue;
+        }
+        
+        StringObj *key = AS_PTR(StringObj, entry->key);
+        if (key->hash == hash && key->length == strlen(string) 
+                && strncmp(key->string, string, key->length) == 0) {
+            return entry->key;
+        }
+        index = GET_ENTRY_IDX(index + 1, table);
+    }
 }
 
 /** Frees the memory allocated by the passed hash table. */

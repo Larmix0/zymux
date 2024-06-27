@@ -128,13 +128,20 @@ NullObj *new_null_obj(ZmxProgram *program) {
  * of potentially having to free the passed string is not passed to the string object.
  */
 StringObj *new_string_obj(ZmxProgram *program, const char *string) {
+    u32 hash = hash_string(string);
+    Obj *interned = table_get_string(&program->internedStrings, string, hash);
+    if (interned != NULL) {
+        return AS_PTR(StringObj, interned);
+    }
+
     StringObj *object = NEW_OBJ(program, OBJ_STRING, StringObj);
     object->length = strlen(string);
+    object->hash = hash;
 
     object->string = ARRAY_ALLOC(object->length + 1, char);
     strncpy(object->string, string, object->length);
     object->string[object->length] = '\0';
-    object->hash = hash_string(string);
+    table_set(&program->internedStrings, AS_OBJ(object), NULL);
     return object;
 }
 

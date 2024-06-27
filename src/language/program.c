@@ -10,6 +10,8 @@ ZmxProgram create_zmx_program(char *file, const bool showErrors) {
     ZmxProgram program = {
         .hasErrored = false, .showErrors = showErrors,
         .allNodes = NULL, .allObjs = NULL, .mainFile = NULL, .currentFile = NULL,
+        .internedStrings = create_table(),
+        .internedFalse = NULL, .internedTrue = NULL, .internedNull = NULL
     };
     intern_objs(&program);
     program.mainFile = new_string_obj(&program, file);
@@ -25,4 +27,5 @@ ZmxProgram create_zmx_program(char *file, const bool showErrors) {
  */
 void free_zmx_program(ZmxProgram *program) {
     free_all_objs(program);
+    free_table(&program->internedStrings);
 }

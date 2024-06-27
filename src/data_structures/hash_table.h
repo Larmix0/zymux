@@ -51,6 +51,9 @@ void table_set(Table *table, Obj *key, Obj *value);
  */
 bool table_delete(Table *table, Obj *key);
 
+/** Returns the string key in a hash table if it exists, otherwise returns NULL. */
+Obj *table_get_string(Table *table, const char *string, const u32 hash);
+
 /** Frees the memory allocated by the passed hash table. */
 void free_table(Table *table);
 

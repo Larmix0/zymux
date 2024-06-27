@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#include "hash_table.h"
+
 typedef struct Node Node;
 typedef struct Obj Obj;
 typedef struct StringObj StringObj;
@@ -20,6 +22,7 @@ typedef struct ZmxProgram {
     StringObj *mainFile;
     StringObj *currentFile;
 
+    Table internedStrings;
     NullObj *internedNull;
     BoolObj *internedTrue;
     BoolObj *internedFalse;
