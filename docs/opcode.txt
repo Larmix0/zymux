@@ -129,5 +129,18 @@ OP_FINISH_STRING:
 OP_NULL:
     Pushes a null object to the stack.
 
+OP_DECLARE_GLOBAL:
+    Sets a new key value pair in the globals hash
+    table where a string constant that's read is the key, and a popped object from the stack
+    is the value to the key.
+    Declared variable must not have been declared before within the scope the instruction is
+    executed on.
+
+OP_ASSIGN_GLOBAL:
+    Sets an existing key value pair in the globals hash table
+    where a string constant that's read is the key, and a popped object from the stack
+    is the value to the key.
+    Assigned variable must've been already declared at some visible scope which is being reassigned.
+
 OP_END:
     Ends the currently executing VM.

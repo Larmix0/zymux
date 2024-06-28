@@ -119,6 +119,9 @@ NullObj *new_null_obj(ZmxProgram *program);
 /** Returns a new allocated string object. */
 StringObj *new_string_obj(ZmxProgram *program, const char *string);
 
+/** Returns an allocated string object from a length based string (may not be NUL terminated). */
+StringObj *string_obj_from_len(ZmxProgram *program, const char *string, const u32 length);
+
 /** Returns a new allocated function object. */
 FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx);
 

@@ -102,7 +102,7 @@ char *token_type_as_string(const TokenType type) {
 
 /** Creates a "normal" token, which is a token that doesn't have any union values. */
 Token create_normal_token(char *lexeme, const TokenType type) {
-    Token token = {.lexeme = lexeme, .type = type, .pos = create_src_pos(0, 0, 0)};
+    Token token = {.lexeme = lexeme, .pos = create_src_pos(0, 0, strlen(lexeme)), .type = type};
     return token;
 }
 
@@ -113,13 +113,15 @@ Token create_normal_token(char *lexeme, const TokenType type) {
  * what base we'll parse.
  */
 Token create_int_token(char *lexeme, const int base) {
-    Token token = {.lexeme = lexeme, .type = TOKEN_INT_LIT, .intVal = strtoll(lexeme, NULL, base)};
+    Token token = create_normal_token(lexeme, TOKEN_INT_LIT);
+    token.intVal = strtoll(lexeme, NULL, base);
     return token;
 }
 
 /** Creates a synthetic float literal token. */
 Token create_float_token(char *lexeme) {
-    Token token = {.lexeme = lexeme, .type = TOKEN_FLOAT_LIT, .floatVal = strtod(lexeme, NULL)};
+    Token token = create_normal_token(lexeme, TOKEN_FLOAT_LIT);
+    token.floatVal = strtod(lexeme, NULL);
     return token;
 }
 
@@ -131,12 +133,10 @@ Token create_float_token(char *lexeme) {
  * it shouldn't be freed until the created token itself is no longer needed.
  */
 Token create_string_token(char *string) {
+    Token token = create_normal_token(string, TOKEN_STRING_LIT);
     const size_t length = strlen(string);
-    Token token = {
-        .lexeme = string,
-        .type = TOKEN_STRING_LIT,
-        .stringVal = {.length = length, .text = string}
-    };
+    token.stringVal.length = length;
+    token.stringVal.text = string;
     return token;
 }
 
@@ -159,11 +159,10 @@ bool equal_token(const Token left, const Token right) {
         return left.floatVal == right.floatVal;
     }
     if (left.type == TOKEN_STRING_LIT) {
-        if (left.stringVal.length != right.stringVal.length) {
-            return false;
-        }
-        return strncmp(left.stringVal.text, right.stringVal.text, left.stringVal.length) == 0;
+        return left.stringVal.length == right.stringVal.length
+                && strncmp(left.stringVal.text, right.stringVal.text, left.stringVal.length) == 0;
     }
 
-    return strncmp(left.lexeme, right.lexeme, left.pos.length) == 0;
+    return left.pos.length == right.pos.length
+            && strncmp(left.lexeme, right.lexeme, left.pos.length) == 0;
 }

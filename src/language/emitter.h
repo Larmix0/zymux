@@ -55,6 +55,9 @@ typedef enum {
     OP_NOT,
     OP_AS,
     OP_FINISH_STRING,
+    OP_DECLARE_GLOBAL,
+    OP_ASSIGN_GLOBAL,
+    OP_GET_GLOBAL,
     OP_POP,
     OP_END
 } OpCode;

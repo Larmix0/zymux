@@ -71,6 +71,34 @@ Node *new_expr_stmt_node(ZmxProgram *program, Node *expr) {
     return AS_NODE(node);
 }
 
+/** 
+ * Allocates a variable declaration node.
+ * 
+ * Variable delcaration is the first variable assignment which also includes constness.
+ * It doesn't include whether or not it's private as private is a node that wraps around names.
+ */
+Node *new_var_decl_node(ZmxProgram *program, const Token name, Node *value, const bool isConst) {
+    VarDeclNode *node = NEW_NODE(program, AST_VAR_DECL, VarDeclNode);
+    node->name = name;
+    node->value = value;
+    node->isConst = isConst;
+    return AS_NODE(node);
+}
+
+/** Allocates an assignment expression, which changes the value of a variable already set. */
+Node *new_var_assign_node(ZmxProgram *program, const Token name, Node *value) {
+    VarAssignNode *node = NEW_NODE(program, AST_VAR_ASSIGN, VarAssignNode);
+    node->name = name;
+    node->value = value;
+    return AS_NODE(node);
+}
+
+/** Allocates a node which holds the name of a variable to get its value. */
+Node *new_var_get_node(ZmxProgram *program, const Token name) {
+    VarGetNode *node = NEW_NODE(program, AST_VAR_GET, VarGetNode);
+    node->name = name;
+    return AS_NODE(node);
+}
 
 /** Returns a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos) {
@@ -94,6 +122,9 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_BINARY: return AS_PTR(BinaryNode, node)->operation.pos;
     case AST_STRING: return get_node_pos(AS_PTR(StringNode, node)->exprs.data[0]);
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(ExprStmtNode, node)->expr);
+    case AST_VAR_DECL: return AS_PTR(VarDeclNode, node)->name.pos;
+    case AST_VAR_ASSIGN: return AS_PTR(VarAssignNode, node)->name.pos;
+    case AST_VAR_GET: return AS_PTR(VarGetNode, node)->name.pos;
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
     default: UNREACHABLE_ERROR();
     }
@@ -102,19 +133,12 @@ SourcePosition get_node_pos(const Node *node) {
 /** Frees all the contents of the passed node. */
 static void free_node_contents(Node *node) {
     switch (node->type) {
-    case AST_ERROR:
-    case AST_LITERAL:
-    case AST_KEYWORD:
-    case AST_UNARY:
-    case AST_BINARY:
-    case AST_EXPR_STMT:
-    case AST_EOF:
-        break; // Nothing to free.
-
     case AST_STRING:
         FREE_DA(&AS_PTR(StringNode, node)->exprs);
         break;
-    default: UNREACHABLE_ERROR();
+
+    default:
+        break; // Nothing to free.
     }
 }
 

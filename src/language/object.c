@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "allocator.h"
+#include "char_buffer.h"
 #include "object.h"
 #include "program.h"
 
@@ -66,6 +67,15 @@ StringObj *new_string_obj(ZmxProgram *program, const char *string) {
     object->string[object->length] = '\0';
     table_set(&program->internedStrings, AS_OBJ(object), AS_OBJ(new_null_obj(program)));
     return object;
+}
+
+/** Returns an allocated string object from a length based string (may not be NUL terminated). */
+StringObj *string_obj_from_len(ZmxProgram *program, const char *string, const u32 length) {
+    CharBuffer terminated = create_char_buffer();
+    buffer_append_string_len(&terminated, string, length);
+    StringObj *asObj = new_string_obj(program, terminated.text);
+    free_char_buffer(&terminated);
+    return asObj;
 }
 
 /** Returns a new allocated function object with a name to it and its members initialized. */

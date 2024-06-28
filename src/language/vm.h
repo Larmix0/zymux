@@ -1,8 +1,9 @@
 #ifndef VM_H
 #define VM_H
 
-#include "object.h"
 #include "emitter.h"
+#include "hash_table.h"
+#include "object.h"
 
 /** Holds a frame around of information around the currently executing function object. */
 typedef struct {
@@ -20,6 +21,7 @@ typedef struct {
     InstrSize instrSize; /** The size of the number instruction to be read after the opcode. */
     CallStack callStack; /** Holds the entire call stack of stack frames. */
     StackFrame *frame; /** The current frame which holds the bytecode we're executing. */
+    Table globals; /** A table of global variable key names and values. */
 
     /** 
      * The stack that keeps track of objects while executing.

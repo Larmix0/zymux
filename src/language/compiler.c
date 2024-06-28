@@ -1,3 +1,5 @@
+#include <stdarg.h>
+
 #include "debug_ast.h"
 #include "debug_bytecode.h"
 #include "debug_token.h"
@@ -6,12 +8,29 @@
 #include "lexer.h"
 #include "parser.h"
 
+/** Abstraction for appending global variables in the compiler. */
+#define APPEND_GLOBAL(compiler, var) \
+    APPEND_DA(&(compiler)->globals, var)
+
+/** Abstraction for simply appending a local variable at the end of the 2d array in the compiler. */
+#define APPEND_LOCAL(compiler, var) \
+    APPEND_DA(&(compiler)->locals.data[compiler->locals.length - 1], var)
+
 static void compile_node(Compiler *compiler, const Node *node);
+
+/** Reports a compilation error on a specific node's main token. */
+static void compiler_error(Compiler *compiler, const Node *erroredNode, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    zmx_user_error(compiler->program, get_node_pos(erroredNode), "Compiler error", format, &args);
+    va_end(args);
+}
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
 Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool isDebugging) {
     Compiler compiler = {
-        .program = program, .ast = ast, .isDebugging = isDebugging,
+        .isDebugging = isDebugging, .program = program, .ast = ast,
+        .globals = CREATE_DA(), .locals = CREATE_DA(), .scopeDepth = 0,
         .func = new_func_obj(program, new_string_obj(program, "<main>"), -1)
     };
     return compiler;
@@ -19,9 +38,25 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool isDebugg
 
 /** Frees all memory the compiler owns. */
 void free_compiler(Compiler *compiler) {
-    // Do nothing for now as the compiler still doesn't own any memory.
-    // Later on when we add things like keeping track of variables at compilation time,
-    // the compiler will start to own memory it should free here.
+    FREE_DA(&compiler->globals);
+    FREE_DA(&compiler->locals);
+}
+
+static Variable create_variable(
+    const bool isPrivate, const bool isConst, const Token name, const u32 scope
+) {
+    Variable var = {.isPrivate = isPrivate, .isConst = isConst, .name = name, .scope = scope};
+    return var;
+}
+
+/** Returns the index of the name in the array of globals. Returns -1 if not present. */
+static i64 get_global_index(ClosedVariables globals, Token name) {
+    for (u32 i = 0; i < globals.length; i++) {
+        if (equal_token(globals.data[i].name, name)) {
+            return (i64)i;
+        }
+    }
+    return -1;
 }
 
 /** Compiles a literal value which is by adding it's obj form in the constants pool. */
@@ -122,6 +157,65 @@ static void compile_expr_stmt(Compiler *compiler, const ExprStmtNode *node) {
     emit_instr(compiler, OP_POP, get_node_pos(node->expr));
 }
 
+/** Compiles a variable delcaration statement. */
+static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
+    compile_node(compiler, node->value);
+    Token name = node->name;
+    Obj *varName = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
+
+    Variable declaredVar = create_variable(false, node->isConst, name, compiler->scopeDepth);
+    if (compiler->scopeDepth == 0) {
+        if (get_global_index(compiler->globals, name) != -1) {
+            compiler_error(compiler, AS_NODE(node), "Can't redeclare global variable.");
+        }
+        APPEND_GLOBAL(compiler, declaredVar);
+        emit_const(compiler, OP_DECLARE_GLOBAL, varName, name.pos);
+    } else {
+        // TODO: local variables code here.
+    }
+}
+
+/** Compiles a variable assignment expression. */
+static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
+    compile_node(compiler, node->value);
+    Token name = node->name;
+    Obj *varName = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
+    if (compiler->scopeDepth > 0) {
+        // TODO: handle assigning locals., otherwise fall off to the globals.
+    }
+
+    i64 globalIdx = get_global_index(compiler->globals, name);
+    if (globalIdx >= 0 && compiler->globals.data[globalIdx].isConst) {
+        compiler_error(compiler, AS_NODE(node), "Can't assign to const variable.");
+    } else if (globalIdx == -1) {
+        compiler_error(
+            compiler, AS_NODE(node), "Assigned variable \"%.*s\" hasn't been declared.",
+            name.pos.length, name.lexeme
+        );
+    }
+    emit_const(compiler, OP_ASSIGN_GLOBAL, varName, name.pos);
+}
+
+/** Compiles a name that is used to get the value of a variable. */
+static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
+    Token name = node->name;
+    Obj *varName = AS_OBJ(
+        string_obj_from_len(compiler->program, name.lexeme, name.pos.length)
+    );
+    if (compiler->scopeDepth > 0) {
+        // TODO: check for locals here and emit if they exist, otherwise fall off to the globals.
+    }
+
+    // It must be global now.
+    if (get_global_index(compiler->globals, name) == -1) {
+        compiler_error(
+            compiler, AS_NODE(node), "Variable \"%.*s\" hasn't been declared.",
+            name.pos.length, name.lexeme
+        );
+    }
+    emit_const(compiler, OP_GET_GLOBAL, varName, node->name.pos);
+}
+
 /** Compiles an EOF node. */
 static void compile_eof(Compiler *compiler, const EofNode *node) {
     emit_instr(compiler, OP_END, node->pos);
@@ -136,6 +230,9 @@ static void compile_node(Compiler *compiler, const Node *node) {
         case AST_UNARY: compile_unary(compiler, AS_PTR(UnaryNode, node)); break;
         case AST_BINARY: compile_binary(compiler, AS_PTR(BinaryNode, node)); break;
         case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
+        case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;
+        case AST_VAR_ASSIGN: compile_var_assign(compiler, AS_PTR(VarAssignNode, node)); break;
+        case AST_VAR_GET: compile_var_get(compiler, AS_PTR(VarGetNode, node)); break;
         case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
         case AST_ERROR: break; // Do nothing on erroneous nodes.
         default: UNREACHABLE_ERROR();

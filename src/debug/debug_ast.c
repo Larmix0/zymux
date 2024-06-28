@@ -61,6 +61,26 @@ static void append_expr_stmt_node(CharBuffer *astString, const ExprStmtNode *nod
     eval_node(astString, node->expr);
 }
 
+/** Appends a variable declaration statement's information. */
+static void append_var_decl_node(CharBuffer *astString, const VarDeclNode *node) {
+    buffer_append_string(astString, node->isConst ? "const " : "let ");
+    buffer_append_token(astString, node->name);
+    buffer_append_string(astString, "= ");
+    eval_node(astString, node->value);
+}
+
+/** Appends a variable assignment. */
+static void append_var_assign_node(CharBuffer *astString, const VarAssignNode *node) {
+    buffer_append_token(astString, node->name);
+    buffer_append_string(astString, "= ");
+    eval_node(astString, node->value);
+}
+
+/** Appends the name of a variable whose value is to be extracted in the program. */
+static void append_var_get_node(CharBuffer *astString, const VarGetNode *node) {
+    buffer_append_token(astString, node->name);
+}
+
 /** Appends an EOF string to the AST string. */
 static void append_eof_node(CharBuffer *astString) {
     buffer_append_string(astString, "EOF");
@@ -83,6 +103,9 @@ static void eval_node(CharBuffer *astString, const Node *node) {
     case AST_UNARY: append_unary_node(astString, AS_PTR(UnaryNode, node)); break;
     case AST_BINARY: append_binary_node(astString, AS_PTR(BinaryNode, node)); break;
     case AST_EXPR_STMT: append_expr_stmt_node(astString, AS_PTR(ExprStmtNode, node)); break;
+    case AST_VAR_DECL: append_var_decl_node(astString, AS_PTR(VarDeclNode, node)); break;
+    case AST_VAR_ASSIGN: append_var_assign_node(astString, AS_PTR(VarAssignNode, node)); break;
+    case AST_VAR_GET: append_var_get_node(astString, AS_PTR(VarGetNode, node)); break;
     case AST_EOF: append_eof_node(astString); break;
     default: UNREACHABLE_ERROR();
     }

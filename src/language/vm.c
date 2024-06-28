@@ -205,7 +205,7 @@ static StackFrame create_stack_frame(FuncObj *func, Obj **sp) {
 /** Returns a VM initialized from the passed func. */
 Vm create_vm(ZmxProgram *program, FuncObj *func) {
     Vm vm = {
-        .program = program, .instrSize = INSTR_ONE_BYTE,
+        .program = program, .instrSize = INSTR_ONE_BYTE, .globals = create_table(),
         .callStack = CREATE_DA(), .frame = NULL, .stack = CREATE_STACK()
     };
 
@@ -217,6 +217,7 @@ Vm create_vm(ZmxProgram *program, FuncObj *func) {
 
 /** Frees all memory that the passed VM allocated. */
 void free_vm(Vm *vm) {
+    free_table(&vm->globals);
     FREE_DA(&vm->callStack);
     FREE_STACK(vm);
 }
@@ -318,6 +319,18 @@ bool interpret(Vm *vm) {
             }
             DROP_AMOUNT(vm, amount);
             PUSH(vm, AS_OBJ(string));
+            break;
+        }
+        case OP_DECLARE_GLOBAL:
+            table_set(&vm->globals, READ_CONST(vm), PEEK(vm));
+            DROP(vm);
+            break;
+        case OP_ASSIGN_GLOBAL:
+            table_set(&vm->globals, READ_CONST(vm), PEEK(vm));
+            break;
+        case OP_GET_GLOBAL: {
+            Obj *value = table_get(&vm->globals, READ_CONST(vm));
+            PUSH(vm, value);
             break;
         }
         case OP_POP:

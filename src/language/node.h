@@ -17,6 +17,9 @@ typedef enum {
     AST_UNARY,
     AST_BINARY,
     AST_EXPR_STMT,
+    AST_VAR_DECL,
+    AST_VAR_ASSIGN,
+    AST_VAR_GET,
     AST_EOF
 } AstType;
 
@@ -90,6 +93,27 @@ typedef struct {
     Node *expr;
 } ExprStmtNode;
 
+/** Holds a variable declaration statement */
+typedef struct {
+    Node node;
+    Token name;
+    Node *value;
+    bool isConst;
+} VarDeclNode;
+
+/** An assignment expression used to change the value of an already declared variable. */
+typedef struct {
+    Node node;
+    Token name;
+    Node *value;
+} VarAssignNode;
+
+/** Represents an expression that attempts to get the value of a specific variable. */
+typedef struct {
+    Node node;
+    Token name;
+} VarGetNode;
+
 /** Node that simply represents EOF and holds the its position. */
 typedef struct {
     Node node;
@@ -117,7 +141,21 @@ Node *new_binary_node(ZmxProgram *program, Node *lhs, const Token operation, Nod
 /** Allocates an expression statement node, which just holds an expression. */
 Node *new_expr_stmt_node(ZmxProgram *program, Node *expr);
 
-/** Returns a node which holds the position an EOF token. */
+/** 
+ * Allocates a variable declaration node.
+ * 
+ * Variable delcaration is the first variable assignment which also includes constness.
+ * It doesn't include whether or not it's private as private is a node that wraps around names.
+ */
+Node *new_var_decl_node(ZmxProgram *program, const Token name, Node *value, const bool isConst);
+
+/** Allocates an assignment expression, which changes the value of a variable already set. */
+Node *new_var_assign_node(ZmxProgram *program, const Token name, Node *value);
+
+/** Allocates a node which holds the name of a variable to get its value. */
+Node *new_var_get_node(ZmxProgram *program, const Token name);
+
+/** Allocates a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos);
 
 /** Returns the source position of an arbitrary node. */
