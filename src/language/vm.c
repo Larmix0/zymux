@@ -253,7 +253,12 @@ bool interpret(Vm *vm) {
             break;
         case OP_SUBTRACT: MATH_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) - NUM_VAL(BIN_RIGHT(vm))); break;
         case OP_MULTIPLY: MATH_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) * NUM_VAL(BIN_RIGHT(vm))); break;
-        case OP_DIVIDE: MATH_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) / NUM_VAL(BIN_RIGHT(vm))); break;
+        case OP_DIVIDE:
+            if (NUM_VAL(BIN_RIGHT(vm)) == 0) {
+                return runtime_error(vm, "Can't divide by 0.");
+            }
+            MATH_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) / NUM_VAL(BIN_RIGHT(vm)));
+            break;
         case OP_MODULO:
             // Modulo doesn't handle floats in C, so use fmod() if there's a float in the operation.
             MATH_BIN_OP(
