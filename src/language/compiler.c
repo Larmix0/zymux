@@ -83,7 +83,8 @@ static void compile_literal(Compiler *compiler, const LiteralNode *node) {
  * Compiles the node which holds all information of a string (including interpolation).
  * 
  * It alternates between emitting a string const and compiling an interpolated expression.
- * When is compiled, an instruction to convert the expression's result to a string is also emitted.
+ * When it's an interpolated expression, an instruction to convert the expression's result to
+ * a string is also emitted.
  * 
  * At the end, we emit an instruction to build a "finished" string from all the string literals
  * and converted expressions that are on the top of the stack.
