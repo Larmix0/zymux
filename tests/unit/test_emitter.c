@@ -52,17 +52,15 @@ PRIVATE_TEST_CASE(test_emit_const) {
         defaultCompiler, OP_LOAD_CONST, AS_OBJ(new_int_obj(defaultCompiler->program, 72)),
         create_src_pos(1, 2, 3)
     );
-    // TODO: when more const-based instructions and more objects get added,
-    // change the const loading instruction here with something else, and the object to StringObj.
     emit_const(
-        defaultCompiler, OP_LOAD_CONST, AS_OBJ(new_int_obj(defaultCompiler->program, 14)),
+        defaultCompiler, OP_GET_GLOBAL, AS_OBJ(new_string_obj(defaultCompiler->program, "name")),
         create_src_pos(54, 336, 101)
     );
 
     u8 *bytecode = defaultCompiler->func->bytecode.data;
     ASSERT_UINT8_EQUAL(bytecode[0], OP_LOAD_CONST);
     ASSERT_UINT8_EQUAL(bytecode[1], 0);
-    ASSERT_UINT8_EQUAL(bytecode[2], OP_LOAD_CONST);
+    ASSERT_UINT8_EQUAL(bytecode[2], OP_GET_GLOBAL);
     ASSERT_UINT8_EQUAL(bytecode[3], 1);
 
     SourcePosition *positions = defaultCompiler->func->positions.data;
@@ -73,10 +71,10 @@ PRIVATE_TEST_CASE(test_emit_const) {
 
     Obj **constPool = defaultCompiler->func->constPool.data;
     ASSERT_INT_EQUAL(constPool[bytecode[1]]->type, OBJ_INT);
-    ASSERT_INT_EQUAL(constPool[bytecode[3]]->type, OBJ_INT);
+    ASSERT_INT_EQUAL(constPool[bytecode[3]]->type, OBJ_STRING);
 
     ASSERT_INT_EQUAL(AS_PTR(IntObj, constPool[bytecode[1]])->number, 72);
-    ASSERT_INT_EQUAL(AS_PTR(IntObj, constPool[bytecode[3]])->number, 14);
+    ASSERT_STRING_EQUAL(AS_PTR(StringObj, constPool[bytecode[3]])->string, "name");
 }
 
 PRIVATE_TEST_CASE(test_number_read_and_write) {

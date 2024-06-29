@@ -47,22 +47,3 @@ Optimization:
             Gotta bench mark the performance in math expressions before doing it everywhere, though.
 
 ----------------------------------------------------------------------------------------------------
-Code for a buffer append using variadic arguments just in case.
-
-/** Appends to the buffer a format using an already made VA list. */
-void buffer_append_va(CharBuffer *buffer, const char *format, va_list *args) {
-    va_list argsForLength;
-    va_copy(argsForLength, *args);
-
-    const int formatLength = vsnprintf(NULL, 0, format, argsForLength);
-    if (buffer->length + formatLength + 1 > buffer->capacity) {
-        buffer->capacity += formatLength * 2;
-        buffer->data = ZMX_REALLOC_ARRAY(buffer->data, buffer->capacity, sizeof(char));
-    }
-    // -1 because char buffer's take NUL into account. +1 to length of format is for writing NUL.
-    vsnprintf(buffer->data + buffer->length - 1, formatLength + 1, format, args);
-    buffer->length += formatLength;
-}
-----------------------------------------------------------------------------------------------------
-
-Visit TODOs again after implementing the hash table.

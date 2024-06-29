@@ -122,16 +122,7 @@ bool equal_obj(const Obj *left, const Obj *right) {
     
     case OBJ_BOOL: return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
     case OBJ_NULL: return true; // All nulls are the same.
-    case OBJ_STRING:
-        // TODO: this is temporary. Once interning is added, do an address equality check.
-        if (AS_PTR(StringObj, left)->length != AS_PTR(StringObj, right)->length) {
-            return false;
-        }
-        return strncmp(
-            AS_PTR(StringObj, left)->string,
-            AS_PTR(StringObj, right)->string,
-            AS_PTR(StringObj, left)->length
-        ) == 0;
+    case OBJ_STRING: return AS_PTR(StringObj, left) == AS_PTR(StringObj, right);
     default:
         UNREACHABLE_ERROR();
     }

@@ -186,7 +186,7 @@ static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
     Token name = node->name;
     Obj *varName = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
     if (compiler->scopeDepth > 0) {
-        // TODO: handle assigning locals., otherwise fall off to the globals.
+        // TODO: handle assigning locals, otherwise fall off to the globals.
     }
 
     i64 globalIdx = get_global_index(compiler->globals, name);

@@ -97,7 +97,6 @@
 /** An array of just integers to store the indices of each function in the call stack. */
 DECLARE_DA_STRUCT(IntArray, int);
 
-// TODO: Add better documentation describing the method used for recompiling with debugging.
 /**
  * From an integer array representing the stack trace + starting file,
  * retrace and compile the whole program and walk through the constant pool of each function
