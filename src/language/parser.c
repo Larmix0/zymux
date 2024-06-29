@@ -95,7 +95,10 @@ static Node *string(Parser *parser) {
     while (!MATCH(parser, TOKEN_STRING_END)) {
         if (nextIsString) {
             Token literal = CONSUME(parser, TOKEN_STRING_LIT, "Expected a string literal.");
-            APPEND_DA(&exprs, new_literal_node(parser->program, literal));
+            // Don't append if the string's empty and has interpolation next. (For optimization).
+            if (literal.stringVal.length > 0 || CHECK(parser, TOKEN_STRING_END)) {
+                APPEND_DA(&exprs, new_literal_node(parser->program, literal));
+            }
         } else {
             APPEND_DA(&exprs, expression(parser));
         }

@@ -66,5 +66,3 @@ void buffer_append_va(CharBuffer *buffer, const char *format, va_list *args) {
 ----------------------------------------------------------------------------------------------------
 
 Visit TODOs again after implementing the hash table.
-
-Optimize/fix: interpolated strings building always starts with an empty string.

@@ -89,14 +89,18 @@ static void compile_literal(Compiler *compiler, const LiteralNode *node) {
  * and converted expressions that are on the top of the stack.
  */
 static void compile_string(Compiler *compiler, const StringNode *node) {
-    bool nextIsInterpolated = false;
+    // Figure out whether the first node is a string or interpolation.
+    Node *first = node->exprs.data[0];
+    bool nextIsString = first->type == AST_LITERAL
+            && AS_PTR(LiteralNode, first)->value.type == TOKEN_STRING_LIT;
+
     for (u32 i = 0; i < node->exprs.length; i++) {
         compile_node(compiler, node->exprs.data[i]);
-        if (nextIsInterpolated) {
+        if (!nextIsString) {
             // Converts interpolated expression into a string.
             emit_number(compiler, OP_AS, TYPE_STRING, get_node_pos(node->exprs.data[i]));
         }
-        nextIsInterpolated = !nextIsInterpolated;
+        nextIsString = !nextIsString;
     }
     emit_number(compiler, OP_FINISH_STRING, node->exprs.length, get_node_pos(node->exprs.data[0]));
 }
