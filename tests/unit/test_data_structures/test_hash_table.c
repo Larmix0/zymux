@@ -19,6 +19,33 @@ DECLARE_TEARDOWN(table_teardown) {
     free_zmx_program(&defaultProgram);
 }
 
+/** Tests that the function for getting a key string object from a C string works. */
+PRIVATE_TEST_CASE(test_table_get_string) {
+    expand_table(&defaultTable);
+    char *keySomething = "Something.";
+    char *keyName = "Name";
+    Obj *somethingAsObj = AS_OBJ(new_string_obj(&defaultProgram, keySomething));
+    Obj *nameAsObj = AS_OBJ(new_string_obj(&defaultProgram, keyName));
+    ASSERT_NULL(table_get_string(&defaultTable, keySomething, hash_string(keySomething)));
+    ASSERT_NULL(table_get_string(&defaultTable, nameAsObj, hash_string(nameAsObj)));
+
+    table_set(&defaultTable, somethingAsObj, new_null_obj(&defaultProgram));
+    Obj *foundSomething = table_get_string(&defaultTable, keySomething, hash_string(keySomething));
+    ASSERT_NOT_NULL(foundSomething);
+    ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundSomething)->string, keySomething);
+
+    table_set(&defaultTable, nameAsObj, new_null_obj(&defaultProgram));
+    Obj *foundName = table_get_string(&defaultTable, keyName, hash_string(keyName));
+    ASSERT_NOT_NULL(foundName);
+    ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundName)->string, keyName);
+
+    table_delete(&defaultTable, somethingAsObj);
+    ASSERT_NULL(table_get_string(&defaultTable, keySomething, hash_string(keySomething)));
+    foundName = table_get_string(&defaultTable, keyName, hash_string(keyName));
+    ASSERT_NOT_NULL(foundName);
+    ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundName)->string, keyName);
+}
+
 /** Tests that the table's deletion works properly and back shifts elements if optimal. */
 PRIVATE_TEST_CASE(test_table_delete) {
     expand_table(&defaultTable);
@@ -196,5 +223,6 @@ void test_hash_table() {
     TEST(test_table_get);
     TEST(test_table_set);
     TEST(test_table_delete);
+    TEST(test_table_get_string);
     RESET_FIXTURE();
 }
