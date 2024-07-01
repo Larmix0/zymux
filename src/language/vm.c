@@ -337,6 +337,14 @@ bool interpret(Vm *vm) {
             PUSH(vm, value);
             break;
         }
+        case OP_ASSIGN_LOCAL:
+            vm->stack.objects[READ_NUMBER(vm)] = PEEK(vm);
+            break;
+        case OP_GET_LOCAL: {
+            Obj *value = vm->stack.objects[READ_NUMBER(vm)];
+            PUSH(vm, value);
+            break;
+        }
         case OP_POP:
             DROP(vm);
             break;

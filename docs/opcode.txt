@@ -143,8 +143,21 @@ OP_ASSIGN_GLOBAL:
     Assigned variable must've been already declared at some visible scope which is being reassigned.
 
 OP_GET_GLOBAL:
-    Reads a string const which is the name of the variable whose value is to be extracted from
+    Reads a string const, which is the name of the variable whose value is to be extracted from
     the VM's globals.
+
+OP_ASSIGN_LOCAL:
+    Read an index number (which is that of the variable to be reassigned in the stack),
+    and changes its object/value to the object currently at the top of the stack.
+    Variable must've already been declared beforehand at some accessible local scope.
+
+    Note on declaring locals: they don't utilize any instructions as we simply load their values
+    on the stack and use their indices on the stack as a way to keep track of them.
+
+OP_GET_LOCAL:
+    Reads an index number
+    (which is the index in the stack of the variable whose value is to be extracted),
+    then uses it to index into the stack and push that object to the top again.
 
 OP_END:
     Ends the currently executing VM.

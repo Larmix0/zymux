@@ -239,15 +239,24 @@ static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
     Token name = node->name;
     Obj *varName = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
     if (compiler->scopeDepth > 0) {
-        // TODO: handle assigning locals, otherwise fall off to the globals.
+        // TODO: potentially wrap this whole thing in a function that returns whether or not we
+        // TODO: should fall off to globals.
+        i64 localIdx = get_closed_var_index(*CURRENT_LOCALS(compiler), name);
+        if (localIdx != -1) {
+            emit_number(compiler, OP_ASSIGN_LOCAL, localIdx, node->name.pos);
+            return;
+        } else {
+            // TODO: Call a function that attempts to find variables above the current closure.
+        }
     }
 
+    // It must be global now.
     i64 globalIdx = get_closed_var_index(compiler->globals, name);
     if (globalIdx >= 0 && compiler->globals.data[globalIdx].isConst) {
         compiler_error(compiler, AS_NODE(node), "Can't assign to const variable.");
     } else if (globalIdx == -1) {
         compiler_error(
-            compiler, AS_NODE(node), "Assigned variable \"%.*s\" hasn't been declared.",
+            compiler, AS_NODE(node), "Assigned variable \"%.*s\" doesn't exist.",
             name.pos.length, name.lexeme
         );
     }
@@ -261,13 +270,21 @@ static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
         string_obj_from_len(compiler->program, name.lexeme, name.pos.length)
     );
     if (compiler->scopeDepth > 0) {
-        // TODO: check for locals here and emit if they exist, otherwise fall off to the globals.
+        // TODO: potentially wrap this whole thing in a function that returns whether or not we
+        // TODO: should fall off to globals.
+        i64 localIdx = get_closed_var_index(*CURRENT_LOCALS(compiler), name);
+        if (localIdx != -1) {
+            emit_number(compiler, OP_GET_LOCAL, localIdx, node->name.pos);
+            return;
+        } else {
+            // TODO: Call a function that attempts to find variables above the current closure.
+        }
     }
 
     // It must be global now.
     if (get_closed_var_index(compiler->globals, name) == -1) {
         compiler_error(
-            compiler, AS_NODE(node), "Variable \"%.*s\" hasn't been declared.",
+            compiler, AS_NODE(node), "Variable \"%.*s\" doesn't exist.",
             name.pos.length, name.lexeme
         );
     }
