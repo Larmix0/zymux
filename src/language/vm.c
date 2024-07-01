@@ -192,12 +192,13 @@ static void reallocate_stack(Vm *vm) {
     
     for (u32 i = 0; i < vm->callStack.length; i++) {
         vm->callStack.data[i].sp = &vm->stack.objects[vm->callStack.data[i].sp - originalStack];
+        vm->callStack.data[i].bp = &vm->stack.objects[vm->callStack.data[i].bp - originalStack];
     }
 }
 
 /** Returns a stack frame to hold information about the currently executing function. */
 static StackFrame create_stack_frame(FuncObj *func, Obj **sp) {
-    StackFrame frame = {.func = func, .ip = func->bytecode.data, .sp = sp};
+    StackFrame frame = {.func = func, .ip = func->bytecode.data, .sp = sp, .bp = sp};
     return frame;
 }
 
@@ -338,10 +339,10 @@ bool interpret(Vm *vm) {
             break;
         }
         case OP_ASSIGN_LOCAL:
-            vm->stack.objects[READ_NUMBER(vm)] = PEEK(vm);
+            vm->frame->bp[READ_NUMBER(vm)] = PEEK(vm);
             break;
         case OP_GET_LOCAL: {
-            Obj *value = vm->stack.objects[READ_NUMBER(vm)];
+            Obj *value = vm->frame->bp[READ_NUMBER(vm)];
             PUSH(vm, value);
             break;
         }

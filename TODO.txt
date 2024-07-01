@@ -48,5 +48,4 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-Add BP to frames and use "vm->frame->bp" instead of the temporary "vm->stacks.objects" in VM's code.
 Add parenthesizing nodes to change precedence (and test that it works).
