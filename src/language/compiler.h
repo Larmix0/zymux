@@ -9,13 +9,13 @@ typedef struct {
     bool isPrivate; /** Whether it's private or publicly accessible from the outside. */
     bool isConst; /** Whether it's changeable. */
     Token name; /** Name of the variable. */
-    u32 scope; /** How deep is the variable's scope. */
+    u32 scope; /** How deep is the variable's scope relative to the closure it's on. */
 } Variable;
 
-/** An array of variables at a given scope. */
+/** An array of variables that a specific closure has (which is 1 or more scopes inside a func). */
 DECLARE_DA_STRUCT(ClosedVariables, Variable);
 
-/** The array of scopes (each function has its scope of variables). */
+/** The array of variable's inside a function, which may include multiple scopes. */
 DECLARE_DA_STRUCT(ClosedVariablesArray, ClosedVariables);
 
 /** The compiler for a Zymux program. */
@@ -25,8 +25,8 @@ typedef struct Compiler {
     NodeArray ast; /** The whole AST that is being compiled. */
     FuncObj *func; /** The "function" whose bytecode is currently being added while compiling. */
 
-    ClosedVariables globals; /** The array of global variables. */
-    ClosedVariablesArray locals; /** All variables ordered as an array of func scope closures. */
+    ClosedVariables globals; /** Covers just the top-level global variables scope. */
+    ClosedVariablesArray locals; /** All non-global variables as an array of func closures. */
     u32 scopeDepth; /** How deep the current scope is. */
 } Compiler;
 

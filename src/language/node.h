@@ -17,6 +17,7 @@ typedef enum {
     AST_UNARY,
     AST_BINARY,
     AST_EXPR_STMT,
+    AST_BLOCK,
     AST_VAR_DECL,
     AST_VAR_ASSIGN,
     AST_VAR_GET,
@@ -93,6 +94,12 @@ typedef struct {
     Node *expr;
 } ExprStmtNode;
 
+/** A block, which holds multiple statements/declarations. */
+typedef struct {
+    Node node;
+    NodeArray stmts;
+} BlockNode;
+
 /** Holds a variable declaration statement */
 typedef struct {
     Node node;
@@ -140,6 +147,9 @@ Node *new_binary_node(ZmxProgram *program, Node *lhs, const Token operation, Nod
 
 /** Allocates an expression statement node, which just holds an expression. */
 Node *new_expr_stmt_node(ZmxProgram *program, Node *expr);
+
+/** ALlocates a block that holds multiple statements/declarations. */
+Node *new_block_node(ZmxProgram *program, const NodeArray stmts);
 
 /** 
  * Allocates a variable declaration node.

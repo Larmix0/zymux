@@ -8,13 +8,14 @@
 #include "lexer.h"
 #include "parser.h"
 
-/** Abstraction for appending global variables in the compiler. */
-#define APPEND_GLOBAL(compiler, var) \
-    APPEND_DA(&(compiler)->globals, var)
+/** Returns the outermost closure of scopes. */
+#define CURRENT_LOCALS(compiler) (&(compiler)->locals.data[(compiler)->locals.length - 1])
 
-/** Abstraction for simply appending a local variable at the end of the 2d array in the compiler. */
-#define APPEND_LOCAL(compiler, var) \
-    APPEND_DA(&(compiler)->locals.data[compiler->locals.length - 1], var)
+/** The position of the previous opcode. Defaults to (0, 0, 0) if there aren't any. */
+#define PREVIOUS_OPCODE_POS(compiler) \
+    (compiler)->func->positions.length == 0 \
+        ? create_src_pos(0, 0, 0) \
+        : (compiler)->func->positions.data[(compiler)->func->positions.length - 1]
 
 static void compile_node(Compiler *compiler, const Node *node);
 
@@ -33,13 +34,18 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool isDebugg
         .globals = CREATE_DA(), .locals = CREATE_DA(), .scopeDepth = 0,
         .func = new_func_obj(program, new_string_obj(program, "<main>"), -1)
     };
+    // Add the default, permanent closure for locals not covered by functions.
+    APPEND_DA(&compiler.locals, (ClosedVariables)CREATE_DA());
     return compiler;
 }
 
 /** Frees all memory the compiler owns. */
 void free_compiler(Compiler *compiler) {
-    FREE_DA(&compiler->globals);
+    for (u32 i = 0; i < compiler->locals.length; i++) {
+        FREE_DA(&compiler->locals.data[i]);
+    }
     FREE_DA(&compiler->locals);
+    FREE_DA(&compiler->globals);
 }
 
 static Variable create_variable(
@@ -49,11 +55,29 @@ static Variable create_variable(
     return var;
 }
 
-/** Returns the index of the name in the array of globals. Returns -1 if not present. */
-static i64 get_global_index(ClosedVariables globals, Token name) {
-    for (u32 i = 0; i < globals.length; i++) {
-        if (equal_token(globals.data[i].name, name)) {
-            return (i64)i;
+/** Returns the index of the name in the array of variables. Returns -1 if not present. */
+static i64 get_closed_var_index(ClosedVariables variables, Token name) {
+    for (i64 i = (i64)variables.length - 1; i >= 0; i--) {
+        if (equal_token(variables.data[i].name, name)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/** 
+ * Returns the index of the passed variable name searching only in the top scope of the closure.
+ * 
+ * Returns -1 if the variable's not present at the highest scope of the closure, even if it's on
+ * other scopes.
+ */
+static i64 get_top_scope_var_index(ClosedVariables variables, Token name, const u32 scope) {
+    for (i64 i = (i64)variables.length - 1; i >= 0; i--) {
+        if (variables.data[i].scope != scope) {
+            break; // Fall into not found.
+        }
+        if (equal_token(variables.data[i].name, name)) {
+            return i;
         }
     }
     return -1;
@@ -162,6 +186,31 @@ static void compile_expr_stmt(Compiler *compiler, const ExprStmtNode *node) {
     emit_instr(compiler, OP_POP, get_node_pos(node->expr));
 }
 
+/** Begins a scope that's one layer deeper. */
+static void add_scope(Compiler *compiler) {
+    compiler->scopeDepth++;
+}
+
+/** Collapses the outermost scope, its variables and sends their respective pop instructions. */
+static void collapse_scope(Compiler *compiler) {
+    ClosedVariables *currentClosure = CURRENT_LOCALS(compiler);
+    while (currentClosure->length > 0 
+            && currentClosure->data[currentClosure->length - 1].scope == compiler->scopeDepth) {
+        emit_instr(compiler, OP_POP, PREVIOUS_OPCODE_POS(compiler));
+        DROP_DA(currentClosure);
+    }
+    compiler->scopeDepth--;
+}
+
+/** Compiles the array of statements in a block under the depth of the given scope. */
+static void compile_block(Compiler *compiler, const BlockNode *node) {
+    add_scope(compiler);
+    for (u32 i = 0; i < node->stmts.length; i++) {
+        compile_node(compiler, node->stmts.data[i]);
+    }
+    collapse_scope(compiler);
+}
+
 /** Compiles a variable delcaration statement. */
 static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
     compile_node(compiler, node->value);
@@ -170,13 +219,16 @@ static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
 
     Variable declaredVar = create_variable(false, node->isConst, name, compiler->scopeDepth);
     if (compiler->scopeDepth == 0) {
-        if (get_global_index(compiler->globals, name) != -1) {
+        if (get_closed_var_index(compiler->globals, name) != -1) {
             compiler_error(compiler, AS_NODE(node), "Can't redeclare global variable.");
         }
-        APPEND_GLOBAL(compiler, declaredVar);
+        APPEND_DA(&(compiler)->globals, declaredVar);
         emit_const(compiler, OP_DECLARE_GLOBAL, varName, name.pos);
     } else {
-        // TODO: local variables code here.
+        if (get_top_scope_var_index(*CURRENT_LOCALS(compiler), name, compiler->scopeDepth) != -1) {
+            compiler_error(compiler, AS_NODE(node), "Can't redeclare local variable.");
+        }
+        APPEND_DA(CURRENT_LOCALS(compiler), declaredVar);
     }
 }
 
@@ -189,7 +241,7 @@ static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
         // TODO: handle assigning locals, otherwise fall off to the globals.
     }
 
-    i64 globalIdx = get_global_index(compiler->globals, name);
+    i64 globalIdx = get_closed_var_index(compiler->globals, name);
     if (globalIdx >= 0 && compiler->globals.data[globalIdx].isConst) {
         compiler_error(compiler, AS_NODE(node), "Can't assign to const variable.");
     } else if (globalIdx == -1) {
@@ -212,7 +264,7 @@ static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
     }
 
     // It must be global now.
-    if (get_global_index(compiler->globals, name) == -1) {
+    if (get_closed_var_index(compiler->globals, name) == -1) {
         compiler_error(
             compiler, AS_NODE(node), "Variable \"%.*s\" hasn't been declared.",
             name.pos.length, name.lexeme
@@ -235,6 +287,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
         case AST_UNARY: compile_unary(compiler, AS_PTR(UnaryNode, node)); break;
         case AST_BINARY: compile_binary(compiler, AS_PTR(BinaryNode, node)); break;
         case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
+        case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node)); break;
         case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;
         case AST_VAR_ASSIGN: compile_var_assign(compiler, AS_PTR(VarAssignNode, node)); break;
         case AST_VAR_GET: compile_var_get(compiler, AS_PTR(VarGetNode, node)); break;

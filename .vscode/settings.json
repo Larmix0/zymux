@@ -30,7 +30,8 @@
         "token.h": "c",
         "parser.h": "c",
         "hash_table.h": "c",
-        "system_error": "c"
+        "system_error": "c",
+        "string": "c"
     },
     "cSpell.words": [
         "Zymux"

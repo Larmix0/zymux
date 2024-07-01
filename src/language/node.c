@@ -71,6 +71,13 @@ Node *new_expr_stmt_node(ZmxProgram *program, Node *expr) {
     return AS_NODE(node);
 }
 
+/** ALlocates a block that holds multiple statements/declarations. */
+Node *new_block_node(ZmxProgram *program, const NodeArray stmts) {
+    BlockNode *node = NEW_NODE(program, AST_BLOCK, BlockNode);
+    node->stmts = stmts;
+    return AS_NODE(node);
+}
+
 /** 
  * Allocates a variable declaration node.
  * 
@@ -114,6 +121,7 @@ Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos) {
  * token inside it.
  */
 SourcePosition get_node_pos(const Node *node) {
+    // TODO: is indexing the first element potentially gonna make us index an empty array?
     switch (node->type) {
     case AST_ERROR: return create_src_pos(0, 0, 0);
     case AST_LITERAL: return AS_PTR(LiteralNode, node)->value.pos;
@@ -122,6 +130,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_BINARY: return AS_PTR(BinaryNode, node)->operation.pos;
     case AST_STRING: return get_node_pos(AS_PTR(StringNode, node)->exprs.data[0]);
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(ExprStmtNode, node)->expr);
+    case AST_BLOCK: return get_node_pos(AS_PTR(BlockNode, node)->stmts.data[0]);
     case AST_VAR_DECL: return AS_PTR(VarDeclNode, node)->name.pos;
     case AST_VAR_ASSIGN: return AS_PTR(VarAssignNode, node)->name.pos;
     case AST_VAR_GET: return AS_PTR(VarGetNode, node)->name.pos;
@@ -135,6 +144,9 @@ static void free_node_contents(Node *node) {
     switch (node->type) {
     case AST_STRING:
         FREE_DA(&AS_PTR(StringNode, node)->exprs);
+        break;
+    case AST_BLOCK:
+        FREE_DA(&AS_PTR(BlockNode, node)->stmts);
         break;
 
     default:

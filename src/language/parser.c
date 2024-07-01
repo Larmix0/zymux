@@ -20,6 +20,7 @@
 #define IS_EOF(parser) (CHECK(parser, TOKEN_EOF))
 
 static Node *expression(Parser *parser);
+static Node *declaration(Parser *parser);
 
 /** Returns an initialized parser. */
 Parser create_parser(ZmxProgram *program, TokenArray tokens) {
@@ -229,10 +230,23 @@ static Node *expression_stmt(Parser *parser) {
     return new_expr_stmt_node(parser->program, node);
 }
 
+/** A block statement which holds other statements/declarations in a deeper scope. */
+static Node *block(Parser *parser) {
+    NodeArray stmts = CREATE_DA();
+    while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser)) {
+        APPEND_DA(&stmts, declaration(parser));
+    }
+    CONSUME(parser, TOKEN_RCURLY, "Expected closing \"}\" for block.");
+    return new_block_node(parser->program, stmts);
+}
+
 /** Parses and returns a statement or expression-statement. */
 static Node *statement(Parser *parser) {
     Node *node;
     switch (ADVANCE_PEEK(parser).type) {
+    case TOKEN_LCURLY:
+        node = block(parser);
+        break;
     default:
         RETREAT(parser);
         node = expression_stmt(parser);
