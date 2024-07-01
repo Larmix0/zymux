@@ -215,7 +215,7 @@ static void compile_block(Compiler *compiler, const BlockNode *node) {
 static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
     compile_node(compiler, node->value);
     Token name = node->name;
-    Obj *varName = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
+    Obj *nameAsObj = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
 
     Variable declaredVar = create_variable(false, node->isConst, name, compiler->scopeDepth);
     if (compiler->scopeDepth == 0) {
@@ -223,8 +223,9 @@ static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
             compiler_error(compiler, AS_NODE(node), "Can't redeclare global variable.");
         }
         APPEND_DA(&(compiler)->globals, declaredVar);
-        emit_const(compiler, OP_DECLARE_GLOBAL, varName, name.pos);
+        emit_const(compiler, OP_DECLARE_GLOBAL, nameAsObj, name.pos);
     } else {
+        // Just let the previously compiled value sit on the stack as a declaration.
         if (get_top_scope_var_index(*CURRENT_LOCALS(compiler), name, compiler->scopeDepth) != -1) {
             compiler_error(compiler, AS_NODE(node), "Can't redeclare local variable.");
         }

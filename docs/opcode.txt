@@ -142,5 +142,9 @@ OP_ASSIGN_GLOBAL:
     is the value to the key.
     Assigned variable must've been already declared at some visible scope which is being reassigned.
 
+OP_GET_GLOBAL:
+    Reads a string const which is the name of the variable whose value is to be extracted from
+    the VM's globals.
+
 OP_END:
     Ends the currently executing VM.
