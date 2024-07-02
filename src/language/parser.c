@@ -128,6 +128,11 @@ static Node *primary(Parser *parser) {
         return string(parser);
     case TOKEN_IDENTIFIER:
         return new_var_get_node(parser->program, PEEK_PREVIOUS(parser));
+    case TOKEN_LPAR: {
+        Node *parenthesized = expression(parser);
+        CONSUME(parser, TOKEN_RPAR, "Expected \")\" after parenthesized expression.");
+        return new_parentheses_node(parser->program, parenthesized);
+    }
     default:
         parser_error_at(parser, &PEEK_PREVIOUS(parser), true, "Invalid expression.");
         return new_error_node(parser->program);

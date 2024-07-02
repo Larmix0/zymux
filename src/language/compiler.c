@@ -177,6 +177,11 @@ static void compile_binary(Compiler *compiler, const BinaryNode *node) {
     emit_instr(compiler, binaryOp, node->operation.pos);
 }
 
+/** Compiles the stored parenthesized expression. */
+static void compile_parentheses(Compiler *compiler, const ParenthesesNode *node) {
+    compile_node(compiler, node->expr);
+}
+
 /** 
  * Compiles an expression statement.
  * It's just an expression node that pops the resulting value afterwards.
@@ -304,6 +309,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
         case AST_KEYWORD: compile_keyword(compiler, AS_PTR(KeywordNode, node)); break;
         case AST_UNARY: compile_unary(compiler, AS_PTR(UnaryNode, node)); break;
         case AST_BINARY: compile_binary(compiler, AS_PTR(BinaryNode, node)); break;
+        case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
         case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
         case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node)); break;
         case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;

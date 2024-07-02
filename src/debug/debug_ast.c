@@ -56,6 +56,13 @@ static void append_binary_node(CharBuffer *astString, const BinaryNode *node) {
     eval_node(astString, node->rhs);
 }
 
+/** Appends a parentheses node, which just orders an expression's precedence manually. */
+static void append_parentheses_node(CharBuffer *astString, const ParenthesesNode *node) {
+    putchar('(');
+    eval_node(astString, node->expr);
+    putchar(')');
+}
+
 /** Appends an expression statement, which is just an expression that ends in semicolon. */
 static void append_expr_stmt_node(CharBuffer *astString, const ExprStmtNode *node) {
     eval_node(astString, node->expr);
@@ -110,6 +117,7 @@ static void eval_node(CharBuffer *astString, const Node *node) {
     case AST_KEYWORD: append_keyword_node(astString, AS_PTR(KeywordNode, node)); break;
     case AST_UNARY: append_unary_node(astString, AS_PTR(UnaryNode, node)); break;
     case AST_BINARY: append_binary_node(astString, AS_PTR(BinaryNode, node)); break;
+    case AST_PARENTHESES: append_parentheses_node(astString, AS_PTR(ParenthesesNode, node)); break;
     case AST_EXPR_STMT: append_expr_stmt_node(astString, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: append_block_node(astString, AS_PTR(BlockNode, node)); break;
     case AST_VAR_DECL: append_var_decl_node(astString, AS_PTR(VarDeclNode, node)); break;

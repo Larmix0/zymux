@@ -64,6 +64,13 @@ Node *new_binary_node(ZmxProgram *program, Node *lhs, const Token operation, Nod
     return AS_NODE(node);
 }
 
+/** Allocates a parentheses node which wraps an expression inside it to dictate precedence. */
+Node *new_parentheses_node(ZmxProgram *program, Node *expr) {
+    ParenthesesNode *node = NEW_NODE(program, AST_PARENTHESES, ParenthesesNode);
+    node->expr = expr;
+    return AS_NODE(node);
+}
+
 /** Allocates an expression statement node, which just holds an expression. */
 Node *new_expr_stmt_node(ZmxProgram *program, Node *expr) {
     ExprStmtNode *node = NEW_NODE(program, AST_EXPR_STMT, ExprStmtNode);
@@ -129,6 +136,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_UNARY: return AS_PTR(UnaryNode, node)->operation.pos;
     case AST_BINARY: return AS_PTR(BinaryNode, node)->operation.pos;
     case AST_STRING: return get_node_pos(AS_PTR(StringNode, node)->exprs.data[0]);
+    case AST_PARENTHESES: return get_node_pos(AS_PTR(ParenthesesNode, node)->expr);
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(ExprStmtNode, node)->expr);
     case AST_BLOCK: return get_node_pos(AS_PTR(BlockNode, node)->stmts.data[0]);
     case AST_VAR_DECL: return AS_PTR(VarDeclNode, node)->name.pos;
