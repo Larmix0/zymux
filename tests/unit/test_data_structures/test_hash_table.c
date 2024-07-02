@@ -22,28 +22,28 @@ DECLARE_TEARDOWN(table_teardown) {
 /** Tests that the function for getting a key string object from a C string works. */
 PRIVATE_TEST_CASE(test_table_get_string) {
     expand_table(&defaultTable);
-    char *keySomething = "Something.";
-    char *keyName = "Name";
-    Obj *somethingAsObj = AS_OBJ(new_string_obj(&defaultProgram, keySomething));
-    Obj *nameAsObj = AS_OBJ(new_string_obj(&defaultProgram, keyName));
-    ASSERT_NULL(table_get_string(&defaultTable, keySomething, hash_string(keySomething)));
-    ASSERT_NULL(table_get_string(&defaultTable, nameAsObj, hash_string(nameAsObj)));
+    char *something = "Something.";
+    char *name = "Name";
+    Obj *somethingAsObj = AS_OBJ(new_string_obj(&defaultProgram, something));
+    Obj *nameAsObj = AS_OBJ(new_string_obj(&defaultProgram, name));
+    ASSERT_NULL(table_get_string(&defaultTable, something, hash_string(something)));
+    ASSERT_NULL(table_get_string(&defaultTable, name, hash_string(name)));
 
-    table_set(&defaultTable, somethingAsObj, new_null_obj(&defaultProgram));
-    Obj *foundSomething = table_get_string(&defaultTable, keySomething, hash_string(keySomething));
+    table_set(&defaultTable, somethingAsObj, AS_OBJ(new_null_obj(&defaultProgram)));
+    Obj *foundSomething = table_get_string(&defaultTable, something, hash_string(something));
     ASSERT_NOT_NULL(foundSomething);
-    ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundSomething)->string, keySomething);
+    ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundSomething)->string, something);
 
-    table_set(&defaultTable, nameAsObj, new_null_obj(&defaultProgram));
-    Obj *foundName = table_get_string(&defaultTable, keyName, hash_string(keyName));
+    table_set(&defaultTable, nameAsObj, AS_OBJ(new_null_obj(&defaultProgram)));
+    Obj *foundName = table_get_string(&defaultTable, name, hash_string(name));
     ASSERT_NOT_NULL(foundName);
-    ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundName)->string, keyName);
+    ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundName)->string, name);
 
     table_delete(&defaultTable, somethingAsObj);
-    ASSERT_NULL(table_get_string(&defaultTable, keySomething, hash_string(keySomething)));
-    foundName = table_get_string(&defaultTable, keyName, hash_string(keyName));
+    ASSERT_NULL(table_get_string(&defaultTable, something, hash_string(something)));
+    foundName = table_get_string(&defaultTable, name, hash_string(name));
     ASSERT_NOT_NULL(foundName);
-    ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundName)->string, keyName);
+    ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundName)->string, name);
 }
 
 /** Tests that the table's deletion works properly and back shifts elements if optimal. */
