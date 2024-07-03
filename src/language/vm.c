@@ -141,6 +141,20 @@ static void reset_program(ZmxProgram *program) {
 }
 
 /** 
+ * Frees the passed VM and reinitializes it.
+ * 
+ * This is mostly for memory optimization before recompiling the program after it errored,
+ * as the VM's allocated memory would be useless after the error.
+ */
+static void reset_vm(Vm *vm) {
+    ZmxProgram *program = vm->program;
+    program->gc.vm = NULL;
+    free_vm(vm);
+    *vm = create_vm(program, new_func_obj(program, new_string_obj(program, "<Error>"), -1));
+    program->gc.vm = vm;
+}
+
+/** 
  * Reports a runtime error.
  * 
  * Because the original compilation doesn't include bytecode positions (for optimization),
@@ -154,22 +168,22 @@ static void reset_program(ZmxProgram *program) {
  * meaning every executable function is in a constant pool of objects created at compilation time.
  */
 static bool runtime_error(Vm *vm, const char *format, ...) {
+    vm->program->gc.protectNewObjs = true;
     const u32 bytecodeIdx = vm->frame->ip - vm->frame->func->bytecode.data;
     IntArray framesIndices = copy_const_indices(vm->callStack);
-
-    ZmxProgram *program = vm->program;
-    reset_program(program);
-    free_vm(vm);
-    // Recreate a new empty VM to avoid a double free later.
-    *vm = create_vm(program, new_func_obj(program, new_string_obj(program, "<Error>"), -1));
+    reset_program(vm->program);
+    reset_vm(vm);
+    
     FuncObj *erroredFunc = copy_errored_func(vm->program, framesIndices);
     FREE_DA(&framesIndices);
-
     va_list args;
     va_start(args, format);
     zmx_user_error(
         vm->program, erroredFunc->positions.data[bytecodeIdx], "Runtime error", format, &args
     );
+
+    vm->program->gc.protectNewObjs = false;
+    GC_CLEAR_PROTECTED(&vm->program->gc);
     va_end(args);
     return false;
 }
@@ -381,6 +395,7 @@ bool interpret_source(ZmxProgram *program, char *source) {
     free_compiler(&compiler);
 
     interpret(&vm);
+    program->gc.vm = NULL;
     free_vm(&vm);
     return !program->hasErrored;
 }
