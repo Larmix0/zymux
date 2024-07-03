@@ -58,9 +58,9 @@ static void append_binary_node(CharBuffer *astString, const BinaryNode *node) {
 
 /** Appends a parentheses node, which just orders an expression's precedence manually. */
 static void append_parentheses_node(CharBuffer *astString, const ParenthesesNode *node) {
-    putchar('(');
+    buffer_append_char(astString, '(');
     eval_node(astString, node->expr);
-    putchar(')');
+    buffer_append_char(astString, ')');
 }
 
 /** Appends an expression statement, which is just an expression that ends in semicolon. */
