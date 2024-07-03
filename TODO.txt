@@ -52,6 +52,6 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-Test the compiler more now that keeping track of global/local variables has been added.
+Test the compiler more once closures are added and variable compilation checking is fully done.
 
 Add the POP_AMOUNT instruction.

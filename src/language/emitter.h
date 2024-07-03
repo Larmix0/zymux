@@ -61,6 +61,7 @@ typedef enum {
     OP_ASSIGN_LOCAL,
     OP_GET_LOCAL,
     OP_POP,
+    OP_POP_AMOUNT,
     OP_END
 } OpCode;
 

@@ -98,6 +98,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const InstrFormat
     case OP_ASSIGN_LOCAL: print_number_instr("ASSIGN_LOCAL", func, &idx, size); break;
     case OP_GET_LOCAL: print_number_instr("GET_LOCAL", func, &idx, size); break;
     case OP_POP: print_bare_instr("POP", &idx); break;
+    case OP_POP_AMOUNT: print_number_instr("POP_AMOUNT", func, &idx, size); break;
     case OP_END: print_bare_instr("END", &idx); break;
     default: UNREACHABLE_ERROR();
     }

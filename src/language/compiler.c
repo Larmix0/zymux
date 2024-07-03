@@ -201,11 +201,13 @@ static void add_scope(Compiler *compiler) {
 /** Collapses the outermost scope, its variables and sends their respective pop instructions. */
 static void collapse_scope(Compiler *compiler) {
     ClosedVariables *currentClosure = CURRENT_LOCALS(compiler);
+    u32 poppedAmount = 0;
     while (currentClosure->length > 0 
             && currentClosure->data[currentClosure->length - 1].scope == compiler->scopeDepth) {
-        emit_instr(compiler, OP_POP, PREVIOUS_OPCODE_POS(compiler));
         DROP_DA(currentClosure);
+        poppedAmount++;
     }
+    emit_number(compiler, OP_POP_AMOUNT, poppedAmount, PREVIOUS_OPCODE_POS(compiler));
     compiler->scopeDepth--;
 }
 
@@ -376,7 +378,7 @@ Compiler compile_source(ZmxProgram *program, char *source, const bool debugBytec
     if (!program->hasErrored && debugBytecode && DEBUG_COMPILER) {
         print_bytecode(compiler.func);
     }
-    
+
     free_lexer(&lexer);
     free_parser(&parser);
     free_all_nodes(program);

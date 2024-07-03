@@ -372,6 +372,9 @@ static bool interpret(Vm *vm) {
         case OP_POP:
             DROP(vm);
             break;
+        case OP_POP_AMOUNT:
+            DROP_AMOUNT(vm, READ_NUMBER(vm));
+            break;
         case OP_END:
             return true;
         default:

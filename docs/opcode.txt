@@ -104,7 +104,10 @@ OP_AS:
         The topmost element (integer of 3) is popped and a string version of it is pushed ("3").
 
 OP_POP:
-    Simply pops one object from the stack and disposes of it.
+    Pops one object from the top of the stack and disposes of it.
+
+OP_POP_AMOUNT:
+    Reads a number, which is how many elements to pop off of the top of the stack.
 
 OP_FINISH_STRING:
     Expects a number of string elements to be on top of the stack that are to be concatenated
