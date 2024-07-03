@@ -148,9 +148,12 @@ static void reset_program(ZmxProgram *program) {
  */
 static void reset_vm(Vm *vm) {
     ZmxProgram *program = vm->program;
+    vm->program->gc.protectNewObjs = true;
     program->gc.vm = NULL;
     free_vm(vm);
     *vm = create_vm(program, new_func_obj(program, new_string_obj(program, "<Error>"), -1));
+    vm->program->gc.protectNewObjs = false;
+    GC_CLEAR_PROTECTED(&vm->program->gc);
     program->gc.vm = vm;
 }
 
@@ -168,7 +171,6 @@ static void reset_vm(Vm *vm) {
  * meaning every executable function is in a constant pool of objects created at compilation time.
  */
 static bool runtime_error(Vm *vm, const char *format, ...) {
-    vm->program->gc.protectNewObjs = true;
     const u32 bytecodeIdx = vm->frame->ip - vm->frame->func->bytecode.data;
     IntArray framesIndices = copy_const_indices(vm->callStack);
     reset_program(vm->program);
@@ -181,9 +183,6 @@ static bool runtime_error(Vm *vm, const char *format, ...) {
     zmx_user_error(
         vm->program, erroredFunc->positions.data[bytecodeIdx], "Runtime error", format, &args
     );
-
-    vm->program->gc.protectNewObjs = false;
-    GC_CLEAR_PROTECTED(&vm->program->gc);
     va_end(args);
     return false;
 }
