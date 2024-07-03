@@ -31,8 +31,9 @@ typedef enum {
 
 /** Base object struct for all objects in Zymux (for type punning). */
 typedef struct Obj {
-    Obj *next;
-    ObjType type;
+    Obj *next; /** Linked list of all objects to make sure we can always access all of them. */
+    ObjType type; /** The type of the object. */
+    bool isReachable; /** Whether or not the object is reachable or could be collected. */
 } Obj;
 
 /** Holds an array of objects, which is an array of pointers to them. */
@@ -148,6 +149,12 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object);
  * using Zymux's printing.
  */
 void print_obj(const Obj *object, const bool debugPrint);
+
+/** Returns a readable C string from the passed object type enum. */
+char *obj_type_as_string(ObjType type);
+
+/** Frees the contents of the passed object. */
+void free_obj(Obj *object);
 
 /** Frees all allocated objects stored in the passed program. */
 void free_all_objs(ZmxProgram *program);

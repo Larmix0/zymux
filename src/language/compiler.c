@@ -29,6 +29,7 @@ static void compiler_error(Compiler *compiler, const Node *erroredNode, const ch
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
 Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool isDebugging) {
+    program->gc.protectNewObjs = true;
     Compiler compiler = {
         .isDebugging = isDebugging, .program = program, .ast = ast,
         .globals = CREATE_DA(), .locals = CREATE_DA(), .scopeDepth = 0,
@@ -36,6 +37,7 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool isDebugg
     };
     // Add the default, permanent closure for locals not covered by functions.
     APPEND_DA(&compiler.locals, (ClosedVariables)CREATE_DA());
+    program->gc.protectNewObjs = false;
     return compiler;
 }
 
@@ -326,7 +328,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
  * 
  * Returns whether or not we've errored.
  */
-bool compile(Compiler *compiler) {
+static bool compile(Compiler *compiler) {
     for (u32 i = 0; i < compiler->ast.length; i++) {
         compile_node(compiler, compiler->ast.data[i]);
     }
@@ -335,19 +337,21 @@ bool compile(Compiler *compiler) {
 }
 
 /** 
- * Returns a compiler whose main func is fully compiled.
+ * Returns a compiled compiler. Either it's compiled or everything is set to 0/NULL if errored.
  * 
  * debugByteCode controls whether or not we keep track of the positions of each bytecode,
  * and also whether or not we should print the lexed tokens, parsed AST, and compiled bytecode.
- * 
- * Returns NULL instead of the main function if an error has occurred during any point
- * of the compilation.
  */
-FuncObj *compile_source(ZmxProgram *program, char *source, const bool debugBytecode) {
+Compiler compile_source(ZmxProgram *program, char *source, const bool debugBytecode) {
+    Compiler emptyCompiler = {
+        .isDebugging = false, .program = NULL, .ast = CREATE_DA(),
+        .globals = CREATE_DA(), .locals = CREATE_DA(), .scopeDepth = 0, .func = NULL
+    };
+
     Lexer lexer = create_lexer(program, source);
     if (!lex(&lexer)) {
         free_lexer(&lexer);
-        return NULL;
+        return emptyCompiler;
     }
     if (debugBytecode && DEBUG_LEXER) {
         print_tokens(lexer.tokens);
@@ -358,20 +362,23 @@ FuncObj *compile_source(ZmxProgram *program, char *source, const bool debugBytec
         free_lexer(&lexer);
         free_parser(&parser);
         free_all_nodes(program);
-        return NULL;
+        return emptyCompiler;
     }
     if (debugBytecode && DEBUG_PARSER) {
         print_ast(&parser.ast);
     }
 
     Compiler compiler = create_compiler(program, parser.ast, debugBytecode);
+    // Set this compiler as the one being garbage collected. Now compiler's objects can be GC'd.
+    program->gc.compiler = &compiler;
+    GC_CLEAR_PROTECTED(&program->gc);
     compile(&compiler);
     if (!program->hasErrored && debugBytecode && DEBUG_COMPILER) {
         print_bytecode(compiler.func);
     }
+    
     free_lexer(&lexer);
     free_parser(&parser);
-    free_compiler(&compiler);
     free_all_nodes(program);
-    return program->hasErrored ? NULL : compiler.func;
+    return compiler;
 }

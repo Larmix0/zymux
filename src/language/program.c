@@ -5,13 +5,14 @@
 #include "object.h"
 #include "program.h"
 
-/** Returns an initialized Zymux program with the file and whether or not to show errors. */
+/** Returns an initialized zymux program with the parameters. */
 ZmxProgram create_zmx_program(char *file, const bool showErrors) {
     ZmxProgram program = {
         .hasErrored = false, .showErrors = showErrors,
         .allNodes = NULL, .allObjs = NULL, .mainFile = NULL, .currentFile = NULL,
         .internedStrings = create_table(),
-        .internedFalse = NULL, .internedTrue = NULL, .internedNull = NULL
+        .internedFalse = NULL, .internedTrue = NULL, .internedNull = NULL,
+        .gc = create_empty_gc()
     };
     intern_objs(&program);
     program.mainFile = new_string_obj(&program, file);
@@ -28,4 +29,5 @@ ZmxProgram create_zmx_program(char *file, const bool showErrors) {
 void free_zmx_program(ZmxProgram *program) {
     free_all_objs(program);
     free_table(&program->internedStrings);
+    GC_CLEAR_PROTECTED(&program->gc);
 }

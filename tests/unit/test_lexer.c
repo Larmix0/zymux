@@ -11,9 +11,10 @@
 /** The last token which was appended to the lexer. */
 #define LAST_TOKEN(lexer) ((lexer)->tokens.data[(lexer)->tokens.length - 1])
 
-char *defaultSource = "float && var (); $'str {2 * 3}' break; 22 44.2"
+/** A default source string for testing. */
+static char *defaultSource = "float && var (); $'str {2 * 3}' break; 22 44.2"
     "\n// single line\n hey /*muti-\nline*/ end";
-Lexer *defaultLexer;
+static Lexer *defaultLexer; /** The default lexer to hold and lex the default source. */
 
 /** A setup to initialize the default lexer. */
 PRIVATE_DECLARE_SETUP(setup_default_lexer) {

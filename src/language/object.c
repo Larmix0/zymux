@@ -11,13 +11,32 @@
 #define NEW_OBJ(program, objType, actualType) \
     ((actualType *)new_obj(program, objType, sizeof(actualType)))
 
+void print_obj(const Obj *object, const bool debugPrint);
+char *obj_type_as_string(ObjType type);
+
 /** Allocates a new object of the passed type and size. */
 static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) {
     Obj *object = ALLOC(size);
-    object->type = type;
+#if DEBUG_GC_PRINT
+    printf("Allocate %p | %s (%zu bytes)\n", (void*)object, obj_type_as_string(type), size);
+#endif
 
+    program->gc.allocated += size;
+    if (program->gc.allocated > program->gc.nextCollection ) {
+        program->gc.nextCollection *= COLLECTION_GROWTH;
+        gc_collect(program);
+    }
+#if DEBUG_GC_ALWAYS
+    gc_collect(program);
+#endif
+
+    object->isReachable = false;
+    object->type = type;
     object->next = program->allObjs;
     program->allObjs = object;
+    if (program->gc.protectNewObjs) {
+        APPEND_DA(&program->gc.protected, object);
+    }
     return object;
 }
 
@@ -65,7 +84,7 @@ StringObj *new_string_obj(ZmxProgram *program, const char *string) {
     object->string = ARRAY_ALLOC(object->length + 1, char);
     strncpy(object->string, string, object->length);
     object->string[object->length] = '\0';
-    table_set(&program->internedStrings, AS_OBJ(object), AS_OBJ(new_null_obj(program)));
+    table_set(&program->internedStrings, AS_OBJ(object), AS_OBJ(program->internedNull));
     return object;
 }
 
@@ -227,21 +246,34 @@ void print_obj(const Obj *object, const bool debugPrint) {
     }
 }
 
+/** Returns a readable C string from the passed object type enum. */
+char *obj_type_as_string(ObjType type) {
+    switch (type) {
+    case OBJ_INT: return "INTEGER";
+    case OBJ_FLOAT: return "FLOAT";
+    case OBJ_BOOL: return "BOOL";
+    case OBJ_NULL: return "NULL";
+    case OBJ_STRING: return "STRING";
+    case OBJ_FUNC: return "FUNCTION";
+    default: UNREACHABLE_ERROR();
+    }
+}
+
 /** 
- * Frees the contents of any given object.
+ * Frees the contents of the passed object.
  * 
  * Note that any objects which have other objects inside them (like a function with a string name)
  * shouldn't free that object, as it was already stored in a Zymux program struct,
  * which will free it later anyways.
  */
-static void free_obj_contents(Obj *object) {
-    switch (object->type) {
-        case OBJ_INT:
-        case OBJ_FLOAT:
-        case OBJ_BOOL:
-        case OBJ_NULL:
-            return;
+void free_obj(Obj *object) {
+#if DEBUG_GC_PRINT
+    printf("Free %p | %s (", (void*)object, obj_type_as_string(object->type));
+    print_obj(object, true);
+    printf(")\n");
+#endif
 
+    switch (object->type) {
         case OBJ_STRING:
             free(AS_PTR(StringObj, object)->string);
             break;
@@ -253,8 +285,9 @@ static void free_obj_contents(Obj *object) {
             break;
         }
         default:
-            UNREACHABLE_ERROR();
+            break; // The object itself doesn't own any memory.
     }
+    free(object);
 }
 
 /** Frees all objects that were allocated and placed inside the passed program. */
@@ -266,8 +299,7 @@ void free_all_objs(ZmxProgram *program) {
     Obj *current = program->allObjs;
     Obj *next = current->next;
     while (current != NULL) {
-        free_obj_contents(current);
-        free(current);
+        free_obj(current);
         current = next;
         if (next != NULL) {
             next = next->next;

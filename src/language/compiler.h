@@ -36,15 +36,12 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool isDebugg
 /** Frees all memory the compiler owns. */
 void free_compiler(Compiler *compiler);
 
-/** Compiles all the bytecode of the passed. */
-bool compile(Compiler *compiler);
-
 /** 
- * Returns a compiler whose main func is fully compiled.
+ * Returns a compiled compiler. Either it's compiled or everything is set to 0/NULL if errored.
  * 
- * debugByteCodePos controls whether or not we keep track of the positions of each bytecode,
+ * debugByteCode controls whether or not we keep track of the positions of each bytecode,
  * and also whether or not we should print the lexed tokens, parsed AST, and compiled bytecode.
  */
-FuncObj *compile_source(ZmxProgram *program, char *source, const bool debugBytecode);
+Compiler compile_source(ZmxProgram *program, char *source, const bool debugBytecode);
 
 #endif

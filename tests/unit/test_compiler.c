@@ -10,8 +10,10 @@ PRIVATE_TEST_CASE(test_compile_expr) {
     ZmxProgram program = create_zmx_program("no_file", false);
     char *source = "3 + 4 * --9 * 2 / 7 ** 6 / -2;"
         "$\"start {1 + 2} middle {'inner' + ' string'}\" + \" end.\";";
-    FuncObj *compiledFunc = compile_source(&program, source, false);
-    ASSERT_NOT_NULL(compiledFunc);
+    Compiler compiled = compile_source(&program, source, false);
+    FuncObj *func = compiled.func;
+    free_compiler(&compiled);
+    ASSERT_NOT_NULL(func);
 
     const u8 expected[] = {
         OP_LOAD_CONST, 0, OP_LOAD_CONST, 1, OP_LOAD_CONST, 2, OP_MINUS, OP_MINUS, OP_MULTIPLY,
@@ -22,7 +24,7 @@ PRIVATE_TEST_CASE(test_compile_expr) {
         OP_AS, 3, OP_FINISH_STRING, 4, OP_LOAD_CONST, 13, OP_FINISH_STRING, 1, OP_ADD, OP_POP,
         OP_END
     };
-    ASSERT_BYTES_EQUAL(compiledFunc->bytecode.data, expected, compiledFunc->bytecode.length);
+    ASSERT_BYTES_EQUAL(func->bytecode.data, expected, func->bytecode.length);
     free_zmx_program(&program);
 }
 

@@ -2,7 +2,7 @@
 
 #include "char_buffer.c"
 
-CharBuffer defaultBuffer;
+CharBuffer defaultBuffer; /** The default buffer for testing. */
 
 /** Setup to automatically create a default buffer that is only initialized. */
 PRIVATE_DECLARE_SETUP(buffer_setup) {

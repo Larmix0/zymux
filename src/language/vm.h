@@ -5,6 +5,9 @@
 #include "hash_table.h"
 #include "object.h"
 
+/** Resolves to the length of the stack. */
+#define STACK_LENGTH(vm) ((vm)->frame->sp - (vm)->stack.objects)
+
 /** Holds a frame around of information around the currently executing function object. */
 typedef struct {
     FuncObj *func; /** Current executing function. */
@@ -17,7 +20,7 @@ typedef struct {
 DECLARE_DA_STRUCT(CallStack, StackFrame);
 
 /** Zymux's virtual machine for interpreting the bytecode. */
-typedef struct {
+typedef struct Vm {
     ZmxProgram *program; /** The Zymux program for general information and allocations. */
     InstrSize instrSize; /** The size of the number instruction to be read after the opcode. */
     CallStack callStack; /** Holds the entire call stack of stack frames. */
@@ -48,9 +51,6 @@ Vm create_vm(ZmxProgram *program, FuncObj *func);
 
 /** Frees all memory that the passed VM allocated. */
 void free_vm(Vm *vm);
-
-/** Executes all the bytecode in the passed VM's function object. */
-bool interpret(Vm *vm);
 
 /** 
  * Simply executes the passed source string and frees all memory used except the program's.

@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#include "gc.h"
 #include "hash_table.h"
 
 typedef struct Node Node;
@@ -13,19 +14,21 @@ typedef struct NullObj NullObj;
 
 /** Stores the state of Zymux throughout the entire execution of the program. */
 typedef struct ZmxProgram {
-    bool hasErrored;
-    bool showErrors;
+    bool hasErrored; /** Whether the program has had any kind of errors. */
+    bool showErrors; /** Whether or not error messages should be displayed and printed. */
     
-    Node *allNodes;
-    Obj *allObjs;
+    Node *allNodes; /** All nodes in a linked list to make freeing them easier */
+    Obj *allObjs; /** All objects in a linked list to make freeing them easier and for the GC. */
 
-    StringObj *mainFile;
-    StringObj *currentFile;
+    StringObj *mainFile; /** The first/main file which the program executed on.*/
+    StringObj *currentFile; /** The current file being executed. */
 
-    Table internedStrings;
-    NullObj *internedNull;
-    BoolObj *internedTrue;
-    BoolObj *internedFalse;
+    Table internedStrings; /** Hash set of all strings that are interned. */
+    NullObj *internedNull; /** An interned null. */
+    BoolObj *internedTrue; /** An interned boolean of true. */
+    BoolObj *internedFalse; /** An interned boolean of false. */
+
+    Gc gc; /** The garbage collector for the program's objects. */
 } ZmxProgram;
 
 /** Returns an initialized zymux program with the parameters. */

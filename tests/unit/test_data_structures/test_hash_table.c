@@ -4,12 +4,13 @@
 
 #include "hash_table.c"
 
-static ZmxProgram defaultProgram;
-static Table defaultTable;
+static ZmxProgram defaultProgram; /** Default program for storing objects. */
+static Table defaultTable; /** Default table for testing. */
 
 /** Setup for initializing the global hash table. */
 DECLARE_SETUP(table_setup) {
     defaultProgram = create_zmx_program("Table test.", false);
+    defaultProgram.gc.protectNewObjs = true;
     defaultTable = create_table();
 }
 

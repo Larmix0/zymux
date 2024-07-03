@@ -7,6 +7,7 @@
 
 #include "compiler.h"
 #include "file.h"
+#include "gc.h"
 #include "lexer.h"
 #include "parser.h"
 #include "program.h"
@@ -23,6 +24,7 @@ static void run_zmx_file(char *file) {
     char *source = alloc_source(file);
     ZmxProgram program = create_zmx_program(file, true);
     interpret_source(&program, source);
+    
     free_zmx_program(&program);
     free(source);
 }

@@ -21,6 +21,7 @@
 #include "debug_token.c"
 #include "debug_bytecode.c"
 #include "debug_runtime.c"
+#include "gc.c"
 #include "report_error.c"
 
 /** Main function of the unit tests that calls all file testers. */

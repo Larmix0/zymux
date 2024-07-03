@@ -28,7 +28,6 @@
 #define READ_CONST(vm) ((vm)->frame->func->constPool.data[READ_NUMBER(vm)])
 
 #define CREATE_STACK() {.objects = NULL, .capacity = 0}
-#define STACK_LENGTH(vm) ((vm)->frame->sp - (vm)->stack.objects)
 #define PUSH(vm, obj) \
     do { \
         if ((vm)->stack.capacity < STACK_LENGTH(vm) + 1) { \
@@ -104,8 +103,11 @@ DECLARE_DA_STRUCT(IntArray, int);
  */
 static FuncObj *copy_errored_func(ZmxProgram *program, const IntArray framesIndices) {
     char *mainSource = alloc_source(program->currentFile->string);
-    FuncObj *current = compile_source(program, mainSource, true);
+    Compiler compiled = compile_source(program, mainSource, true);
+    FuncObj *current = compiled.func;
+    free_compiler(&compiled);
     free(mainSource);
+
     for (u32 i = 0; i < framesIndices.length; i++) {
         current = AS_PTR(FuncObj, current->constPool.data[framesIndices.data[i]]);
     }
@@ -131,9 +133,11 @@ static void reset_program(ZmxProgram *program) {
     char *mainName = ARRAY_ALLOC(program->mainFile->length + 1, char);
     strncpy(mainName, program->mainFile->string, program->mainFile->length);
     mainName[program->mainFile->length] = '\0';
+    Gc gc = program->gc;
     free_zmx_program(program);
     *program = create_zmx_program(mainName, true);
-    free(mainName);   
+    program->gc = gc;
+    free(mainName);
 }
 
 /** 
@@ -223,7 +227,7 @@ void free_vm(Vm *vm) {
 }
 
 /** Executes all the bytecode in the passed VM's function object. */
-bool interpret(Vm *vm) {
+static bool interpret(Vm *vm) {
     while (true) {
 #if DEBUG_RUNTIME == 1
         print_runtime_state(
@@ -303,13 +307,16 @@ bool interpret(Vm *vm) {
             break;
         }
         case OP_AS: {
-            const Obj *original = POP(vm);
+            const Obj *original = PEEK(vm);
+            Obj *converted;
             switch (READ_NUMBER(vm)) {
             // TODO: implement other types.
-            case TYPE_BOOL: PUSH(vm, AS_OBJ(as_bool(vm->program, original))); break;
-            case TYPE_STRING: PUSH(vm, AS_OBJ(as_string(vm->program, original))); break;
+            case TYPE_BOOL: converted = AS_OBJ(as_bool(vm->program, original)); break;
+            case TYPE_STRING: converted = AS_OBJ(as_string(vm->program, original)); break;
             default: UNREACHABLE_ERROR();
             }
+            DROP(vm);
+            PUSH(vm, converted);
             break;
         }
         case OP_FINISH_STRING: {
@@ -363,12 +370,16 @@ bool interpret(Vm *vm) {
  * This is because Zymux sometimes extra VMs for imported modules.
  */
 bool interpret_source(ZmxProgram *program, char *source) {
-    FuncObj *mainFunc = compile_source(program, source, DEBUG_COMPILER);
-    if (mainFunc == NULL) {
-        return false;
+    Compiler compiler = compile_source(program, source, DEBUG_COMPILER);
+    if (compiler.func == NULL) {
+        return false; // Failed to compile.
     }
 
-    Vm vm = create_vm(program, mainFunc);
+    Vm vm = create_vm(program, compiler.func);
+    program->gc.vm = &vm;
+    program->gc.compiler = NULL;
+    free_compiler(&compiler);
+
     interpret(&vm);
     free_vm(&vm);
     return !program->hasErrored;

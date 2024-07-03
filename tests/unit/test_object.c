@@ -7,6 +7,7 @@ ZmxProgram *defaultProgram; /** Default program to have objects stored inside of
 PRIVATE_DECLARE_SETUP(setup_default_program) {
     defaultProgram = TYPE_ALLOC(ZmxProgram);
     *defaultProgram = create_zmx_program("no_file", false);
+    defaultProgram->gc.protectNewObjs = true;
 }
 
 PRIVATE_DECLARE_TEARDOWN(teardown_default_program) {
@@ -16,6 +17,7 @@ PRIVATE_DECLARE_TEARDOWN(teardown_default_program) {
 
 PRIVATE_TEST_CASE(test_new_obj) {
     IntObj *integer = NEW_OBJ(defaultProgram, OBJ_INT, IntObj);
+    integer->number = 0; // To avoid uninitialized errors when GC printing is on.
     ASSERT_INT_EQUAL(sizeof(*integer), sizeof(IntObj));
     ASSERT_TRUE(AS_OBJ(integer)->type == OBJ_INT);
 }

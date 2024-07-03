@@ -23,6 +23,10 @@ Issue warnings for weird edge cases for the language. Example:
     AST finding the expression condition of an if/while to be an assignment.
 (Allow warnings to be disabled with a certain flag or something)
 
+When importing a new module and setting a new VM temporarily, change the GC's vm to that VM until
+it finishes executing the module, after that set it back to the older VM so the GC can work on its
+objects. This should be fine to do if only one module can be creating/collecting objects at a time.
+
 ----------------------------------------------------------------------------------------------------
 
 Optimization:
@@ -47,3 +51,7 @@ Optimization:
             Gotta bench mark the performance in math expressions before doing it everywhere, though.
 
 ----------------------------------------------------------------------------------------------------
+
+Test the compiler more now that keeping track of global/local variables has been added.
+
+Add the POP_AMOUNT instruction.
