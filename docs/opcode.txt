@@ -64,7 +64,7 @@ Boolean:
 ----------------------------------------------------------------------------------------------------
 
 Equality:
-    Checks if the top 2 elements of the stack are considered equal in Zymux.
+    Checks if the top 2 objects of the stack are considered equal in Zymux.
     Pops them, then pushes a boolean depending on the results.
 
     Includes:
@@ -96,24 +96,18 @@ OP_LOAD_CONST:
     It loads that object into the top of the stack.
 
 OP_AS:
-    Converts the topmost element of the stack to a certain data type.
+    Converts the topmost object of the stack to a certain data type.
     That data type is a DataType enum number read after the instruction.
 
     Example:
         Integer 3 is the top of the stack. Then, OP_AS reads a string data type enum after.
-        The topmost element (integer of 3) is popped and a string version of it is pushed ("3").
-
-OP_POP:
-    Pops one object from the top of the stack and disposes of it.
-
-OP_POP_AMOUNT:
-    Reads a number, which is how many elements to pop off of the top of the stack.
+        The topmost object (integer of 3) is popped and a string version of it is pushed ("3").
 
 OP_FINISH_STRING:
-    Expects a number of string elements to be on top of the stack that are to be concatenated
-    to form a string. Reads a number after the instruction to indicate how many elements to
+    Expects a number of string objects to be on top of the stack that are to be concatenated
+    to form a string. Reads a number after the instruction to indicate how many string objects to
     concatenate. The concatenation is done from the deepest/lowest in the stack to
-    the top/most recent element being concatenated last.
+    the top/most recent object being concatenated last.
     This opcode is done on every string, even non-interpolated one string objects.
 
     Example:
@@ -161,6 +155,19 @@ OP_GET_LOCAL:
     Reads an index number
     (which is the index in the stack of the variable whose value is to be extracted),
     then uses it to index into the stack and push that object to the top again.
+
+OP_JUMP:
+    Reads a number, which is how many bytes to increment the IP.
+
+OP_POP_JUMP_IF_FALSE:
+    Increments IP a read number after the instruction if the topmost object on the stack is falsey,
+    and always pops that object off the stack regardless of its falsiness.
+
+OP_POP:
+    Pops one object from the top of the stack and disposes of it.
+
+OP_POP_AMOUNT:
+    Reads a number, which is how many objects to pop off of the top of the stack.
 
 OP_END:
     Ends the currently executing VM.

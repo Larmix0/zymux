@@ -114,6 +114,18 @@ Node *new_var_get_node(ZmxProgram *program, const Token name) {
     return AS_NODE(node);
 }
 
+
+/** Allocates an if-else statement with their condition. The else branch can optionally be NULL. */
+Node *new_if_else_node(
+    ZmxProgram *program, Node *condition, BlockNode *ifBranch, Node *elseBranch
+) {
+    IfElseNode *node = NEW_NODE(program, AST_IF_ELSE, IfElseNode);
+    node->condition = condition;
+    node->ifBranch = ifBranch;
+    node->elseBranch = elseBranch;
+    return AS_NODE(node);
+}
+
 /** Returns a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos) {
     EofNode *node = NEW_NODE(program, AST_EOF, EofNode);
@@ -142,6 +154,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_VAR_DECL: return AS_PTR(VarDeclNode, node)->name.pos;
     case AST_VAR_ASSIGN: return AS_PTR(VarAssignNode, node)->name.pos;
     case AST_VAR_GET: return AS_PTR(VarGetNode, node)->name.pos;
+    case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
     default: UNREACHABLE_ERROR();
     }

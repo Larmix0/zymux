@@ -96,6 +96,18 @@ static void append_var_get_node(CharBuffer *astString, const VarGetNode *node) {
     buffer_append_token(astString, node->name);
 }
 
+/** Appends a representation of an if-else statement where the else is optional. */
+static void append_if_else_node(CharBuffer *astString, const IfElseNode *node) {
+    buffer_append_string(astString, "<if> ");
+    eval_node(astString, node->condition);
+    buffer_append_string(astString, "-> ");
+    eval_node(astString, AS_NODE(node->ifBranch));
+    if (node->elseBranch != NULL) {
+        buffer_append_string(astString, "<else> -> ");
+        eval_node(astString, node->elseBranch);
+    }
+}
+
 /** Appends an EOF string to the AST string. */
 static void append_eof_node(CharBuffer *astString) {
     buffer_append_string(astString, "EOF");
@@ -123,6 +135,7 @@ static void eval_node(CharBuffer *astString, const Node *node) {
     case AST_VAR_DECL: append_var_decl_node(astString, AS_PTR(VarDeclNode, node)); break;
     case AST_VAR_ASSIGN: append_var_assign_node(astString, AS_PTR(VarAssignNode, node)); break;
     case AST_VAR_GET: append_var_get_node(astString, AS_PTR(VarGetNode, node)); break;
+    case AST_IF_ELSE: append_if_else_node(astString, AS_PTR(IfElseNode, node)); break;
     case AST_EOF: append_eof_node(astString); break;
     default: UNREACHABLE_ERROR();
     }

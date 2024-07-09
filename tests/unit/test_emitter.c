@@ -35,15 +35,39 @@ PRIVATE_TEST_CASE(test_emit_instr) {
     emit_instr(defaultCompiler, OP_ADD, create_src_pos(1, 1, 1));
     emit_instr(defaultCompiler, OP_END, create_src_pos(99, 100, 100));
 
-    u8 *bytecode = defaultCompiler->func->bytecode.data;
-    ASSERT_UINT8_EQUAL(bytecode[0], OP_LOAD_CONST);
-    ASSERT_UINT8_EQUAL(bytecode[1], OP_ADD);
-    ASSERT_UINT8_EQUAL(bytecode[2], OP_END);
+    ByteArray *bytecode = &defaultCompiler->func->bytecode;
+    ASSERT_UINT8_EQUAL(bytecode->data[0], OP_LOAD_CONST);
+    ASSERT_UINT8_EQUAL(bytecode->data[1], OP_ADD);
+    ASSERT_UINT8_EQUAL(bytecode->data[2], OP_END);
 
-    SourcePosition *positions = defaultCompiler->func->positions.data;
-    ASSERT_TRUE(equal_position(positions[0], create_src_pos(1, 12, 6)));
-    ASSERT_TRUE(equal_position(positions[1], create_src_pos(1, 1, 1)));
-    ASSERT_TRUE(equal_position(positions[2], create_src_pos(99, 100, 100)));
+    SourcePositionArray *positions = &defaultCompiler->func->positions;
+    ASSERT_TRUE(equal_position(positions->data[0], create_src_pos(1, 12, 6)));
+    ASSERT_TRUE(equal_position(positions->data[1], create_src_pos(1, 1, 1)));
+    ASSERT_TRUE(equal_position(positions->data[2], create_src_pos(99, 100, 100)));
+}
+
+/** Tests that insertion and removal work properly during emittion of bytecode. */
+PRIVATE_TEST_CASE(test_insert_and_remove) {
+    ByteArray *bytecode = &defaultCompiler->func->bytecode;
+    emit_instr(defaultCompiler, OP_LOAD_CONST, create_src_pos(1, 12, 6));
+    emit_instr(defaultCompiler, OP_ADD, create_src_pos(1, 1, 1));
+    emit_instr(defaultCompiler, OP_END, create_src_pos(99, 100, 100));
+
+    insert_byte(defaultCompiler, OP_ARG_16, 1);
+    insert_byte(defaultCompiler, OP_ARG_32, 3);
+
+    ASSERT_UINT8_EQUAL(bytecode->data[0], OP_LOAD_CONST);
+    ASSERT_UINT8_EQUAL(bytecode->data[1], OP_ARG_16);
+    ASSERT_UINT8_EQUAL(bytecode->data[2], OP_ADD);
+    ASSERT_UINT8_EQUAL(bytecode->data[3], OP_ARG_32);
+    ASSERT_UINT8_EQUAL(bytecode->data[4], OP_END);
+
+    remove_byte(defaultCompiler, 2);
+    remove_byte(defaultCompiler, 3);
+
+    ASSERT_UINT8_EQUAL(bytecode->data[0], OP_LOAD_CONST);
+    ASSERT_UINT8_EQUAL(bytecode->data[1], OP_ARG_16);
+    ASSERT_UINT8_EQUAL(bytecode->data[2], OP_ARG_32);
 }
 
 /** Tests the function which appends objects onto the constant pull and emits their index. */
@@ -57,24 +81,24 @@ PRIVATE_TEST_CASE(test_emit_const) {
         create_src_pos(54, 336, 101)
     );
 
-    u8 *bytecode = defaultCompiler->func->bytecode.data;
-    ASSERT_UINT8_EQUAL(bytecode[0], OP_LOAD_CONST);
-    ASSERT_UINT8_EQUAL(bytecode[1], 0);
-    ASSERT_UINT8_EQUAL(bytecode[2], OP_GET_GLOBAL);
-    ASSERT_UINT8_EQUAL(bytecode[3], 1);
+    ByteArray *bytecode = &defaultCompiler->func->bytecode;
+    ASSERT_UINT8_EQUAL(bytecode->data[0], OP_LOAD_CONST);
+    ASSERT_UINT8_EQUAL(bytecode->data[1], 0);
+    ASSERT_UINT8_EQUAL(bytecode->data[2], OP_GET_GLOBAL);
+    ASSERT_UINT8_EQUAL(bytecode->data[3], 1);
 
-    SourcePosition *positions = defaultCompiler->func->positions.data;
-    ASSERT_TRUE(equal_position(positions[0], create_src_pos(1, 2, 3)));
-    ASSERT_TRUE(equal_position(positions[1], create_src_pos(1, 2, 3)));
-    ASSERT_TRUE(equal_position(positions[2], create_src_pos(54, 336, 101)));
-    ASSERT_TRUE(equal_position(positions[3], create_src_pos(54, 336, 101)));
+    SourcePositionArray *positions = &defaultCompiler->func->positions;
+    ASSERT_TRUE(equal_position(positions->data[0], create_src_pos(1, 2, 3)));
+    ASSERT_TRUE(equal_position(positions->data[1], create_src_pos(1, 2, 3)));
+    ASSERT_TRUE(equal_position(positions->data[2], create_src_pos(54, 336, 101)));
+    ASSERT_TRUE(equal_position(positions->data[3], create_src_pos(54, 336, 101)));
 
     Obj **constPool = defaultCompiler->func->constPool.data;
-    ASSERT_INT_EQUAL(constPool[bytecode[1]]->type, OBJ_INT);
-    ASSERT_INT_EQUAL(constPool[bytecode[3]]->type, OBJ_STRING);
+    ASSERT_INT_EQUAL(constPool[bytecode->data[1]]->type, OBJ_INT);
+    ASSERT_INT_EQUAL(constPool[bytecode->data[3]]->type, OBJ_STRING);
 
-    ASSERT_INT_EQUAL(AS_PTR(IntObj, constPool[bytecode[1]])->number, 72);
-    ASSERT_STRING_EQUAL(AS_PTR(StringObj, constPool[bytecode[3]])->string, "name");
+    ASSERT_INT_EQUAL(AS_PTR(IntObj, constPool[bytecode->data[1]])->number, 72);
+    ASSERT_STRING_EQUAL(AS_PTR(StringObj, constPool[bytecode->data[3]])->string, "name");
 }
 
 PRIVATE_TEST_CASE(test_number_read_and_write) {
@@ -93,25 +117,26 @@ PRIVATE_TEST_CASE(test_number_read_and_write) {
     actual = read_number(defaultCompiler->func, 8, &size);
     ASSERT_UINT32_EQUAL(actual, U16_MAX + 100);
 
-    SourcePosition *positions = defaultCompiler->func->positions.data;
-    ASSERT_TRUE(equal_position(positions[0], create_src_pos(3, 4, 5)));
-    ASSERT_TRUE(equal_position(positions[1], create_src_pos(3, 4, 5)));
-    ASSERT_TRUE(equal_position(positions[2], create_src_pos(333, 44, 58)));
-    ASSERT_TRUE(equal_position(positions[3], create_src_pos(333, 44, 58)));
-    ASSERT_TRUE(equal_position(positions[4], create_src_pos(333, 44, 58)));
-    ASSERT_TRUE(equal_position(positions[5], create_src_pos(333, 44, 58)));
-    ASSERT_TRUE(equal_position(positions[6], create_src_pos(1, 0, 1)));
-    ASSERT_TRUE(equal_position(positions[7], create_src_pos(1, 0, 1)));
-    ASSERT_TRUE(equal_position(positions[8], create_src_pos(1, 0, 1)));
-    ASSERT_TRUE(equal_position(positions[9], create_src_pos(1, 0, 1)));
-    ASSERT_TRUE(equal_position(positions[10], create_src_pos(1, 0, 1)));
-    ASSERT_TRUE(equal_position(positions[11], create_src_pos(1, 0, 1)));
+    SourcePositionArray *positions = &defaultCompiler->func->positions;
+    ASSERT_TRUE(equal_position(positions->data[0], create_src_pos(3, 4, 5)));
+    ASSERT_TRUE(equal_position(positions->data[1], create_src_pos(3, 4, 5)));
+    ASSERT_TRUE(equal_position(positions->data[2], create_src_pos(333, 44, 58)));
+    ASSERT_TRUE(equal_position(positions->data[3], create_src_pos(333, 44, 58)));
+    ASSERT_TRUE(equal_position(positions->data[4], create_src_pos(333, 44, 58)));
+    ASSERT_TRUE(equal_position(positions->data[5], create_src_pos(333, 44, 58)));
+    ASSERT_TRUE(equal_position(positions->data[6], create_src_pos(1, 0, 1)));
+    ASSERT_TRUE(equal_position(positions->data[7], create_src_pos(1, 0, 1)));
+    ASSERT_TRUE(equal_position(positions->data[8], create_src_pos(1, 0, 1)));
+    ASSERT_TRUE(equal_position(positions->data[9], create_src_pos(1, 0, 1)));
+    ASSERT_TRUE(equal_position(positions->data[10], create_src_pos(1, 0, 1)));
+    ASSERT_TRUE(equal_position(positions->data[11], create_src_pos(1, 0, 1)));
 }
 
 /** Tests emitter.c. */
 void test_emitter() {
     MAKE_FIXTURE(setup_default_compiler, teardown_default_compiler);
     TEST(test_emit_instr);
+    TEST(test_insert_and_remove);
     TEST(test_emit_const);
     TEST(test_number_read_and_write);
     RESET_FIXTURE();

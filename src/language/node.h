@@ -22,6 +22,7 @@ typedef enum {
     AST_VAR_DECL,
     AST_VAR_ASSIGN,
     AST_VAR_GET,
+    AST_IF_ELSE,
     AST_EOF
 } AstType;
 
@@ -128,6 +129,14 @@ typedef struct {
     Token name;
 } VarGetNode;
 
+/** Represents a full conditional if-else statement in a node where the else part is optional. */
+typedef struct {
+    Node node;
+    Node *condition;
+    BlockNode *ifBranch;
+    Node *elseBranch; /** Could be a block or another if-else. */
+} IfElseNode;
+
 /** Node that simply represents EOF and holds the its position. */
 typedef struct {
     Node node;
@@ -174,6 +183,9 @@ Node *new_var_assign_node(ZmxProgram *program, const Token name, Node *value);
 
 /** Allocates a node which holds the name of a variable to get its value. */
 Node *new_var_get_node(ZmxProgram *program, const Token name);
+
+/** Allocates an if-else statement with their condition. The else branch can optionally be NULL. */
+Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBranch, Node *elseBranch);
 
 /** Allocates a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos);

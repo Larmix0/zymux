@@ -31,7 +31,7 @@
 #define DEBUG_PARSER 1
 #define DEBUG_COMPILER 1
 #define DEBUG_RUNTIME 1
-#define DEBUG_GC_PRINT 1
+#define DEBUG_GC_PRINT 0
 #define DEBUG_GC_ALWAYS 1
 
 #define I8_MAX INT8_MAX

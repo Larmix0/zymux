@@ -245,12 +245,37 @@ static Node *block(Parser *parser) {
     return new_block_node(parser->program, stmts);
 }
 
+/** 
+ * A statement which holds an if condition, a for it being truthy, and a branch for falsey.
+ * 
+ * The falsey branch (else) is optional.
+ */
+static Node *if_else(Parser *parser) {
+    Node *condition = expression(parser);
+    CONSUME(parser, TOKEN_LCURLY, "Expected \"{\" after if statement's condition.");
+    Node *ifBranch = block(parser);
+    Node *elseBranch = NULL;
+    if (MATCH(parser, TOKEN_ELSE_KW)) {
+        if (MATCH(parser, TOKEN_LCURLY)) {
+            elseBranch = block(parser);
+        } else if (MATCH(parser, TOKEN_IF_KW)) {
+            elseBranch = if_else(parser);
+        } else {
+            parser_error_at(parser, &PEEK(parser), true, "Expected \"if\" or \"{\" after else.");
+        }
+    }
+    return new_if_else_node(parser->program, condition, AS_PTR(BlockNode, ifBranch), elseBranch);
+}
+
 /** Parses and returns a statement or expression-statement. */
 static Node *statement(Parser *parser) {
     Node *node;
     switch (ADVANCE_PEEK(parser).type) {
     case TOKEN_LCURLY:
         node = block(parser);
+        break;
+    case TOKEN_IF_KW:
+        node = if_else(parser);
         break;
     default:
         RETREAT(parser);

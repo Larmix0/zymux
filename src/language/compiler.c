@@ -32,7 +32,7 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool isDebugg
     program->gc.protectNewObjs = true;
     Compiler compiler = {
         .isDebugging = isDebugging, .program = program, .ast = ast,
-        .globals = CREATE_DA(), .locals = CREATE_DA(), .scopeDepth = 0,
+        .scopeDepth = 0, .globals = CREATE_DA(), .locals = CREATE_DA(), .jumps = CREATE_DA(),
         .func = new_func_obj(program, new_string_obj(program, "<main>"), -1)
     };
     // Add the default, permanent closure for locals not covered by functions.
@@ -48,6 +48,7 @@ void free_compiler(Compiler *compiler) {
     }
     FREE_DA(&compiler->locals);
     FREE_DA(&compiler->globals);
+    FREE_DA(&compiler->jumps);
 }
 
 static Variable create_variable(
@@ -207,7 +208,9 @@ static void collapse_scope(Compiler *compiler) {
         DROP_DA(currentClosure);
         poppedAmount++;
     }
-    emit_number(compiler, OP_POP_AMOUNT, poppedAmount, PREVIOUS_OPCODE_POS(compiler));
+    if (poppedAmount > 0) {
+        emit_number(compiler, OP_POP_AMOUNT, poppedAmount, PREVIOUS_OPCODE_POS(compiler));
+    }
     compiler->scopeDepth--;
 }
 
@@ -300,6 +303,23 @@ static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
     emit_const(compiler, OP_GET_GLOBAL, varName, node->name.pos);
 }
 
+/** Compiles an if-statement and its optional else branch if it exists. */
+static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
+    ByteArray *bytecode = &compiler->func->bytecode;
+    compile_node(compiler, node->condition);
+    u32 skipIfBranch = emit_unpatched_jump(compiler, OP_POP_JUMP_IF_FALSE, get_node_pos(AS_NODE(node)));
+    compile_node(compiler, AS_NODE(node->ifBranch));
+    
+    if (node->elseBranch != NULL) {
+        u32 skipElseBranch = emit_unpatched_jump(compiler, OP_JUMP, get_node_pos(node->elseBranch));
+        patch_jump(compiler, skipIfBranch, bytecode->length - 1, true);
+        compile_node(compiler, node->elseBranch);
+        patch_jump(compiler, skipElseBranch, bytecode->length - 1, true);
+    } else {
+        patch_jump(compiler, skipIfBranch, bytecode->length - 1, true);
+    }
+}
+
 /** Compiles an EOF node. */
 static void compile_eof(Compiler *compiler, const EofNode *node) {
     emit_instr(compiler, OP_END, node->pos);
@@ -319,6 +339,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
         case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;
         case AST_VAR_ASSIGN: compile_var_assign(compiler, AS_PTR(VarAssignNode, node)); break;
         case AST_VAR_GET: compile_var_get(compiler, AS_PTR(VarGetNode, node)); break;
+        case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
         case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
         case AST_ERROR: break; // Do nothing on erroneous nodes.
         default: UNREACHABLE_ERROR();
@@ -334,6 +355,7 @@ static bool compile(Compiler *compiler) {
     for (u32 i = 0; i < compiler->ast.length; i++) {
         compile_node(compiler, compiler->ast.data[i]);
     }
+    write_jumps(compiler);
 
     return !compiler->program->hasErrored;
 }

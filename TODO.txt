@@ -50,8 +50,11 @@ Optimization:
 
             Gotta bench mark the performance in math expressions before doing it everywhere, though.
 
+
+----------------------------------------------------------------------------------------------------
+
+Ensure errors print out good messages and don't break if the error is caused by an unexpected EOF.
+
 ----------------------------------------------------------------------------------------------------
 
 Test the compiler more once closures are added and variable compilation checking is fully done.
-
-Add the POP_AMOUNT instruction.

@@ -1,6 +1,7 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
+#include "emitter.h"
 #include "node.h"
 #include "object.h"
 
@@ -23,6 +24,7 @@ typedef struct Compiler {
     bool isDebugging; /** Whether or not we should store the positions of each bytecode. */
     ZmxProgram *program; /** Zymux program to hold the program's information. */
     NodeArray ast; /** The whole AST that is being compiled. */
+    JumpArray jumps; /** An array of jumps which may change during patchings. */
     FuncObj *func; /** The "function" whose bytecode is currently being added while compiling. */
 
     ClosedVariables globals; /** Covers just the top-level global variables scope. */
