@@ -110,14 +110,14 @@ void emit_instr(Compiler *compiler, u8 instr, SourcePosition pos) {
 void emit_number(Compiler *compiler, u8 instr, const u32 number, SourcePosition pos) {
     // After the instr itself. May be incremented if there's more than one byte for the instruction.
     u32 numIdx = compiler->func->bytecode.length + 1;
-    if (number <= U8_MAX) {
+    InstrSize numSize = get_number_size(number);
+    if (numSize == INSTR_ONE_BYTE) {
         emit_instr(compiler, instr, pos);
-    } else if (number > U8_MAX && number <= U16_MAX) {
+    } else if (numSize == INSTR_ONE_BYTE) {
         emit_instr(compiler, OP_ARG_16, pos);
         emit_instr(compiler, instr, pos);
         numIdx++;
     } else {
-        // Full integer.
         emit_instr(compiler, OP_ARG_32, pos);
         emit_instr(compiler, instr, pos);
         numIdx++;
@@ -210,13 +210,20 @@ static void fix_jump_size(
 #undef EDGE_OF_FORWARD_JUMP
 }
 
-/** Fixes the array of jumps depending on the passed jump's location and how many bytes inserted. */
+/** 
+ * Fixes the array of jumps depending on the passed jump's location and how many bytes inserted.
+ * 
+ * It does so by seeing if the jump's changes affect that of any jump in the array of jumps,
+ * and after potentially making the appropriate changes to any given jump we check if the jump's
+ * size also became bigger and therefore requires more instructions than the default,
+ * which would make another recursive call to fix jumps again.
+ */
 static void fix_jumps(
     JumpArray *jumps, const Jump current, const int addedBefore, const int addedAfter
 ) {
     for (u32 i = 0; i < jumps->length; i++) {
         Jump *toFix = &jumps->data[i];
-        u32 sizeBefore = toFix->size;
+        InstrSize instrSizeBefore = get_number_size(toFix->size);
         Jump originalToFix = copy_jump(*toFix);
 
         fix_jump_size(toFix, &current, addedBefore, addedAfter);
@@ -224,16 +231,14 @@ static void fix_jumps(
             toFix->index += addedBefore + addedAfter;
         }
 
-        // Check if the fix itself made the fixed jump bigger, and should therefore do another fix.
-        InstrSize before = get_number_size(sizeBefore), after = get_number_size(toFix->size);
-        if (before == INSTR_ONE_BYTE && after != INSTR_ONE_BYTE) {
+        toFix->instrSize = get_number_size(toFix->size);
+        if (instrSizeBefore == INSTR_ONE_BYTE && toFix->instrSize != INSTR_ONE_BYTE) {
             // if it was only 1 byte before, then it must've added 1 before, and 1 or 3 after.
-            fix_jumps(jumps, originalToFix, 1, (int)after - 1);
-        } else if (before == INSTR_TWO_BYTES && after != INSTR_TWO_BYTES) {
+            fix_jumps(jumps, originalToFix, 1, (int)toFix->instrSize - 1);
+        } else if (instrSizeBefore == INSTR_TWO_BYTES && toFix->instrSize != INSTR_TWO_BYTES) {
             // Must be 2 bytes expanding to 4, so 0 before and 2 after.
             fix_jumps(jumps, originalToFix, 0, 2);
         }
-        toFix->instrSize = after;
     }
 }
 
@@ -246,9 +251,10 @@ static void write_jump(Compiler *compiler, Jump *jump) {
         return;
     }
 
+    // Insert an argument size byte, then remove the default 1 byte and finally insert the number.
     u8 argSize = instrSize == INSTR_TWO_BYTES ? OP_ARG_16 : OP_ARG_32;
-    insert_byte(compiler, argSize, jump->index - 2); // Behind the instruction itself.
-    remove_byte(compiler, jump->index); // Remove the default 1 byte to insert the larger number.
+    insert_byte(compiler, argSize, jump->index - 2);
+    remove_byte(compiler, jump->index);
     insert_number(compiler, jump->index, jump->size);
 }
 
@@ -262,7 +268,8 @@ void write_jumps(Compiler *compiler) {
         }
 
         fix_jumps(&compiler->jumps, *jump, 1, (int)jump->instrSize - 1);
-        jump->index++; // The index has been shifted to the right after inserting arg size.
+        // Only update its index/size after fixing with the old one. Also, + 1 index for arg size.
+        jump->index++;
         if (!jump->isForward) {
             // The size increases for backwards jump for each read byte + 1 arg size byte.
             jump->size += (int)jump->instrSize + 1;

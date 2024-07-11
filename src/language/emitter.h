@@ -90,7 +90,7 @@ u32 read_number(const FuncObj *function, const u32 numStart, InstrSize *size);
 /** Emits an instruction followed by an idx after to be used for an object in the const pool. */
 void emit_const(Compiler *compiler, u8 instr, Obj *constant, SourcePosition pos);
 
-/** Emits a normal jump instruction with a number after that represents the size of the jump. */
+/** Emits a normal jump instruction which is already patched. */
 void emit_jump(
     Compiler *compiler, u8 instr, const u32 jumpSize, const bool isForward, SourcePosition pos
 );
@@ -98,7 +98,7 @@ void emit_jump(
 /** 
  * Emits a default unfinished jump, which will have the actual jump itself inserted/patched later.
  * 
- * Returns the index where the unpatched jump is located in the bytecode.
+ * Returns the index where the jump is supposed to be inserted in the bytecode.
  */
 u32 emit_unpatched_jump(Compiler *compiler, u8 instr, SourcePosition pos);
 

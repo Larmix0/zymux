@@ -307,7 +307,9 @@ static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
 static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     ByteArray *bytecode = &compiler->func->bytecode;
     compile_node(compiler, node->condition);
-    u32 skipIfBranch = emit_unpatched_jump(compiler, OP_POP_JUMP_IF_FALSE, get_node_pos(AS_NODE(node)));
+    u32 skipIfBranch = emit_unpatched_jump(
+        compiler, OP_POP_JUMP_IF_FALSE, get_node_pos(AS_NODE(node))
+    );
     compile_node(compiler, AS_NODE(node->ifBranch));
     
     if (node->elseBranch != NULL) {
