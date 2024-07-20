@@ -58,3 +58,6 @@ Ensure errors print out good messages and don't break if the error is caused by 
 ----------------------------------------------------------------------------------------------------
 
 Test the compiler more once closures are added and variable compilation checking is fully done.
+
+Don't forget TODOs in code before commiting. Some things are intentionally left bugged out
+in emitter.c to be fixed right before commiting.

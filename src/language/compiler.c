@@ -314,11 +314,11 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     
     if (node->elseBranch != NULL) {
         u32 skipElseBranch = emit_unpatched_jump(compiler, OP_JUMP, get_node_pos(node->elseBranch));
-        patch_jump(compiler, skipIfBranch, bytecode->length - 1, true);
+        patch_jump(compiler, skipIfBranch, bytecode->length, true);
         compile_node(compiler, node->elseBranch);
-        patch_jump(compiler, skipElseBranch, bytecode->length - 1, true);
+        patch_jump(compiler, skipElseBranch, bytecode->length, true);
     } else {
-        patch_jump(compiler, skipIfBranch, bytecode->length - 1, true);
+        patch_jump(compiler, skipIfBranch, bytecode->length, true);
     }
 }
 

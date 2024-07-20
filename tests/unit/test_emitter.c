@@ -132,6 +132,77 @@ PRIVATE_TEST_CASE(test_number_read_and_write) {
     ASSERT_TRUE(equal_position(positions->data[11], create_src_pos(1, 0, 1)));
 }
 
+/** Tests that 1 byte sized jumps work properly. */
+PRIVATE_TEST_CASE(test_small_jumps) {
+    ByteArray *bytecode = &defaultCompiler->func->bytecode;
+    SourcePosition pos = create_src_pos(0, 0, 0);
+    const u32 firstJump = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
+    for (int i = 0; i < 5; i++) {
+        emit_instr(defaultCompiler, OP_TRUE, pos);
+    }
+    patch_jump(defaultCompiler, firstJump, bytecode->length - 1, true);
+    emit_jump(defaultCompiler, OP_JUMP, 0, false, pos);
+    emit_instr(defaultCompiler, OP_END, pos);
+    write_jumps(defaultCompiler);
+
+    const u8 expected[] = {
+        OP_JUMP, 4, OP_TRUE, OP_TRUE, OP_TRUE, OP_TRUE, OP_TRUE, OP_JUMP, 9, OP_END
+    };
+    ASSERT_SIZE_T_EQUAL(bytecode->length, sizeof(expected));
+    ASSERT_BYTES_EQUAL(bytecode->data, expected, bytecode->length);
+}
+
+/** Makes assertions for a specific jump with the passed information. */
+static void assert_large_jump(
+    const u8 jumpInstr, const u8 argSize, const u32 argSizeIdx, const u32 expectedSize
+) {
+    ByteArray *bytecode = &defaultCompiler->func->bytecode;
+    ASSERT_UINT8_EQUAL(bytecode->data[argSizeIdx], argSize);
+    ASSERT_UINT8_EQUAL(bytecode->data[argSizeIdx + 1], jumpInstr);
+
+    InstrSize readSize = argSize == OP_ARG_16 ? INSTR_TWO_BYTES : INSTR_FOUR_BYTES;
+    ASSERT_TRUE(readSize == get_number_size(expectedSize));
+    const u32 insertedNumber = read_number(defaultCompiler->func, argSizeIdx + 2, &readSize);
+    ASSERT_UINT32_EQUAL(insertedNumber, expectedSize);
+}
+
+/** Tests that jumps over 1 byte in size work and get resolved correctly. */
+PRIVATE_TEST_CASE(test_large_jumps) {
+    ByteArray *bytecode = &defaultCompiler->func->bytecode;
+    SourcePosition pos = create_src_pos(0, 0, 0);
+
+    emit_instr(defaultCompiler, OP_TRUE, pos);
+    const u32 forwardOne = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
+    const u32 forwardTwo = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
+    const u32 forwardThree = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
+
+    for (int i = 0; i < U8_MAX - 4; i++) {
+        emit_instr(defaultCompiler, OP_TRUE, pos);
+    }
+    patch_jump(defaultCompiler, forwardOne, bytecode->length - 1, true);
+
+    for (int i = 0; i < U16_MAX + 10; i++) {
+        emit_instr(defaultCompiler, OP_TRUE, pos);
+    }
+    emit_jump(defaultCompiler, OP_JUMP, 3, false, pos);
+    patch_jump(defaultCompiler, forwardTwo, bytecode->length - 2, true);
+
+    emit_jump(defaultCompiler, OP_JUMP, bytecode->length - (U16_MAX - 5), false, pos);
+    emit_jump(defaultCompiler, OP_JUMP, 1, false, pos);
+    emit_instr(defaultCompiler, OP_END, pos);
+    patch_jump(defaultCompiler, forwardThree, bytecode->length - 1, true);
+
+    write_jumps(defaultCompiler);
+
+    assert_large_jump(OP_JUMP, OP_ARG_16, 1, 262);
+    assert_large_jump(OP_JUMP, OP_ARG_32, 5, 65802);
+    assert_large_jump(OP_JUMP, OP_ARG_32, 11, 65814);
+
+    assert_large_jump(OP_JUMP, OP_ARG_32, 65813, 65814);    
+    assert_large_jump(OP_JUMP, OP_ARG_32, 65819, 65540);
+    assert_large_jump(OP_JUMP, OP_ARG_32, 65825, 65830);
+}
+
 /** Tests emitter.c. */
 void test_emitter() {
     MAKE_FIXTURE(setup_default_compiler, teardown_default_compiler);
@@ -139,5 +210,7 @@ void test_emitter() {
     TEST(test_insert_and_remove);
     TEST(test_emit_const);
     TEST(test_number_read_and_write);
+    TEST(test_small_jumps);
+    TEST(test_large_jumps);
     RESET_FIXTURE();
 }

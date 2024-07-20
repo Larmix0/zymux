@@ -71,8 +71,11 @@ typedef enum {
 typedef struct {
     u32 index; /** The index of the first byte of the jump in bytecode. */
     u32 size; /** The amount of bytes to jump over. */
+    i64 indexOffset; /** The change in index that occured during fixing. */
+    i64 sizeOffset; /** The change in size that occured during fixing. */
     InstrSize instrSize; /** The bytes after the instruction which represent the jump. */
     bool isForward; /** Whether the jump is forwards or backwards. */
+    bool isResolved; /** Whether its offsets for other jumps have been resolved or not. */
 } Jump;
 
 /** An array of jumps that may change later. */
@@ -90,9 +93,13 @@ u32 read_number(const FuncObj *function, const u32 numStart, InstrSize *size);
 /** Emits an instruction followed by an idx after to be used for an object in the const pool. */
 void emit_const(Compiler *compiler, u8 instr, Obj *constant, SourcePosition pos);
 
-/** Emits a normal jump instruction which is already patched. */
+/** 
+ * Emits a normal jump instruction which is already patched.
+ * 
+ * The jump starts from the current byte and uses the passed "to" as the jump destination.
+ */
 void emit_jump(
-    Compiler *compiler, u8 instr, const u32 jumpSize, const bool isForward, SourcePosition pos
+    Compiler *compiler, u8 instr, const u32 to, const bool isForward, SourcePosition pos
 );
 
 /** 

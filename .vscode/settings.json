@@ -32,7 +32,8 @@
         "hash_table.h": "c",
         "system_error": "c",
         "string": "c",
-        "initializer_list": "c"
+        "initializer_list": "c",
+        "debug_bytecode.h": "c"
     },
     "cSpell.words": [
         "Zymux"
