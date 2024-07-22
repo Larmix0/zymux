@@ -2,6 +2,9 @@
 #include "emitter.h"
 
 static void adjust_jump(Jump *jump, const i64 adjustment);
+static void fix_jumps(
+    JumpArray *jumps, const u32 jumpIdx, const int addedBefore, const int addedAfter
+);
 
 /** Appends pos needed amount of times for func's positions length to match bytecode's length. */
 static void fill_instr_positions(FuncObj *func, SourcePosition pos) {
@@ -26,7 +29,7 @@ static Jump create_jump(const u32 index, const u32 size, const bool isForward) {
         .index = index, .size = size, .isForward = isForward, .isResolved = false,
         .instrSize = INSTR_ONE_BYTE, .indexOffset = 0, .sizeOffset = 0
     };
-    // Default offset after reading depending on forwardness.
+    // Default offset after reading, relative to the jump instruction, and depending on forwardness.
     jump.size += isForward ? -2 : 2;
     jump.instrSize = get_number_size(jump.size);
     if (jump.instrSize != INSTR_ONE_BYTE && !isForward) {
@@ -45,7 +48,7 @@ static void adjust_jump(Jump *jump, const i64 adjustment) {
     if (jump->instrSize != before && !jump->isForward) {
         adjust_jump(jump, jump->instrSize - before);
         if (before == INSTR_ONE_BYTE) {
-            jump->sizeOffset++; // Go over arg size.
+            jump->sizeOffset++; // Go over the newely added arg size byte.
         }
     }
 }
@@ -125,11 +128,14 @@ void emit_instr(Compiler *compiler, u8 instr, SourcePosition pos) {
  * 
  * It starts emitting the number in order of the largest (leftmost) byte first,
  * then goes 1 byte to the right till the rightmost byte.
+ * 
+ * The index of the number to be inserted starts after the instruction itself. It may be incremented
+ * if there's more than one byte for the instruction (an arg size byte is to be added).
  */
 void emit_number(Compiler *compiler, u8 instr, const u32 number, SourcePosition pos) {
-    // After the instr itself. May be incremented if there's more than one byte for the instruction.
     u32 numIdx = compiler->func->bytecode.length + 1;
     InstrSize numSize = get_number_size(number);
+
     if (numSize == INSTR_ONE_BYTE) {
         emit_instr(compiler, instr, pos);
     } else if (numSize == INSTR_ONE_BYTE) {
@@ -167,13 +173,13 @@ void emit_const(Compiler *compiler, u8 instr, Obj *constant, SourcePosition pos)
 }
 
 /** 
- * Emits a default unfinished jump, which will have the actual jump itself inserted/patched later.
+ * Emits a default empty/unfinished jump, which will have the actual jump itself put on later.
  * 
  * Returns the index of the jump instruction
  */
 u32 emit_unpatched_jump(Compiler *compiler, u8 instr, SourcePosition pos) {
     emit_instr(compiler, instr, pos);
-    emit_instr(compiler, 0, pos); // Default to 1 empty byte.
+    emit_instr(compiler, 0, pos);
     return compiler->func->bytecode.length - 2;
 }
 
@@ -196,7 +202,21 @@ void emit_jump(
     patch_jump(compiler, jumpIdx, to, isForward);
 }
 
-/** Fixes the passed jump depending on the jump and its passed additions. */
+/** 
+ * Fixes the passed jump depending on the jump and its passed additions.
+ * 
+ * If the jump is fully within toFix's jump, then we add all of the added bytes as an extra
+ * number to jump over (this includes both forward and backward jumps).
+ * 
+ * If toFix is specifically a backwards jump, and its destination is the passed jump to be fixed
+ * from, then we also add the extra bytes to jump over both addedBefore and addedAfter.
+ * We add addedAfter to skip over the jump bytes and go to the instruction directly.
+ * 
+ * If there is addedBefore, then that is the arg size byte, and if there's ever an arg size byte
+ * then that byte should become the destination instead of the jump instruction itself.
+ * This is because we want to know the size of the jump to be read before reading it, so if there's
+ * a size byte, we read it before the jump itself.
+ */
 static void fix_size(
     Jump *toFix, const Jump *jump, const int addedBefore, const int addedAfter
 ) {
@@ -204,33 +224,58 @@ static void fix_size(
 #define FORWARD_JUMP_DEST(jump) ((jump)->index + 2 + (jump)->size)
 #define BACKWARD_JUMP_DEST(jump) ((jump)->index + 2 - (jump)->size)
 
-#define FULLY_IN_JUMP(jump, checked) \
+#define FULLY_WITHIN_JUMP(jump, checked) \
     ((!(jump)->isForward \
         && (jump)->index > (checked)->index && BACKWARD_JUMP_DEST(jump) < (checked)->index) \
     || ((jump)->isForward \
         && ((jump)->index < (checked)->index && FORWARD_JUMP_DEST(jump) > (checked)->index)))
-
 #define DEST_OF_BACKWARD_JUMP(jump, checked) \
     (!(jump)->isForward \
         && (jump)->index > (checked)->index && BACKWARD_JUMP_DEST(jump) == (checked)->index)
 
-    if (FULLY_IN_JUMP(toFix, jump) || DEST_OF_BACKWARD_JUMP(toFix, jump)) {
+    if (FULLY_WITHIN_JUMP(toFix, jump) || DEST_OF_BACKWARD_JUMP(toFix, jump)) {
         adjust_jump(toFix, addedBefore + addedAfter);
     }
 
 #undef FORWARD_JUMP_DEST
 #undef BACKWARD_JUMP_DEST
-#undef FULLY_IN_JUMP
+#undef FULLY_WITHIN_JUMP
 #undef DEST_OF_BACKWARD_JUMP
+}
+
+/** 
+ * Modifies and fixes jump's size if it's instrSize has changed from "before".
+ * 
+ * if it was 1 byte before but not after, then it must've added 1 arg size byte before,
+ * and 1 or 3 extra bytes (on top of the original one) after as the jump size.
+ * 
+ * However, if it was 2 bytes before and has changed, then we know it must have turned from 2 to 4
+ * bytes. But 2 bytes itself may get resolved and modify the bytecode, so depending on a boolean
+ * of whether or not it's been resolved, we add an extra 0 bytes before and 2 after
+ * (indicating that the arg size just changed from 16 bits to 32 bits, but not adding an extra byte)
+ * while the 2 bytes after are the extra added bytes going from 2 to 4.
+ * 
+ * If it's not been resolved then we add 1 before (the arg 32 bit byte), and 3 bytes after
+ * (going from the default 1 byte read to a 4 byte read).
+ */
+static void ensure_size(JumpArray *jumps, InstrSize before, Jump *jump, const u32 jumpIdx) {
+    if (before == INSTR_ONE_BYTE && jump->instrSize != INSTR_ONE_BYTE) {
+        fix_jumps(jumps, jumpIdx, 1, jump->instrSize - 1);
+    } else if (before == INSTR_TWO_BYTES && jump->instrSize != INSTR_TWO_BYTES) {
+        if (jump->isResolved) {
+            fix_jumps(jumps, jumpIdx, 0, 2);
+        } else {
+            fix_jumps(jumps, jumpIdx, 1, 3);
+        }
+    }
 }
 
 /** 
  * Fixes the array of jumps depending on the passed jump's location and how many bytes inserted.
  * 
  * It does so by seeing if the jump's changes affect that of any jump in the array of jumps,
- * and after potentially making the appropriate changes to any given jump we check if the jump's
- * size also became bigger and therefore requires more instructions,
- * which would make another recursive call to fix jumps again.
+ * and after potentially making the appropriate changes to any given jump we ensure whether
+ * the jump's size also became bigger and therefore requires more instructions.
  */
 static void fix_jumps(
     JumpArray *jumps, const u32 jumpIdx, const int addedBefore, const int addedAfter
@@ -248,17 +293,7 @@ static void fix_jumps(
             toFix->indexOffset += addedBefore + addedAfter; // Jump is and gets resolved beforehand.
         }
 
-        if (instrSizeBefore == INSTR_ONE_BYTE && toFix->instrSize != INSTR_ONE_BYTE) {
-            // if it was 1 byte before, then it must've added 1 arg size before, and 1 or 3 after.
-            fix_jumps(jumps, i, 1, toFix->instrSize - 1);
-        } else if (instrSizeBefore == INSTR_TWO_BYTES && toFix->instrSize != INSTR_TWO_BYTES) {
-            // If it was already resolved, then resolve the added 2. Otherwise, resolve all bytes.
-            if (toFix->isResolved) {
-                fix_jumps(jumps, i, 0, 2);
-            } else {
-                fix_jumps(jumps, i, 1, 3);
-            }
-        }
+        ensure_size(jumps, instrSizeBefore, toFix, i);
     }
     jump->indexOffset += addedBefore;
     jump->isResolved = true;
@@ -274,14 +309,14 @@ static void write_jump(Compiler *compiler, Jump *jump) {
         return;
     }
 
-    // Insert an argument size byte, then remove the default 1 byte and finally insert the number.
+    // Insert an argument size byte, then remove the default 1 byte and insert the actual number.
     u8 argSize = jump->instrSize == INSTR_TWO_BYTES ? OP_ARG_16 : OP_ARG_32;
     insert_byte(compiler, argSize, index - 1);
     remove_byte(compiler, index + 1);
     insert_number(compiler, index + 1, size);
 }
 
-/** Writes all the jumps of the compiler in the actual bytecode. */
+/** Writes all the jumps of the compiler in the actual bytecode after fixing/resolving them. */
 void write_jumps(Compiler *compiler) {
     JumpArray *jumps = &compiler->jumps;
     for (u32 i = 0; i < jumps->length; i++) {
