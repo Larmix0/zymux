@@ -57,7 +57,7 @@ Ensure errors print out good messages and don't break if the error is caused by 
 
 ----------------------------------------------------------------------------------------------------
 
-Test the compiler more once closures are added and variable compilation checking is fully done.
+Change the name of enums in InstrFormat enum to have a prefix different from InstrSize.
 
-Don't forget TODOs in code before commiting. Some things are intentionally left bugged out
-in emitter.c to be fixed right before commiting.
+Commit:
+    Add more large jump test asserts and refactor ensure_size()

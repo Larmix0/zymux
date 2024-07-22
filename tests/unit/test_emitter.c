@@ -172,35 +172,52 @@ PRIVATE_TEST_CASE(test_large_jumps) {
     SourcePosition pos = create_src_pos(0, 0, 0);
 
     emit_instr(defaultCompiler, OP_TRUE, pos);
-    const u32 forwardOne = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
-    const u32 forwardTwo = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
-    const u32 forwardThree = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
+    const u32 forwardTwoBytes = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
+    const u32 forwardToBackJump = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
+    const u32 forwardTwoToFourBytes = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
+    const u32 forwardToEnd = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
 
     for (int i = 0; i < U8_MAX - 4; i++) {
         emit_instr(defaultCompiler, OP_TRUE, pos);
     }
-    patch_jump(defaultCompiler, forwardOne, bytecode->length - 1, true);
+    bytecode->data[bytecode->length - 1] = OP_FALSE;
+    patch_jump(defaultCompiler, forwardTwoBytes, bytecode->length - 1, true);
 
     for (int i = 0; i < U16_MAX + 10; i++) {
         emit_instr(defaultCompiler, OP_TRUE, pos);
     }
+    bytecode->data[bytecode->length - U8_MAX - 9] = OP_FALSE;
+    patch_jump(defaultCompiler, forwardTwoToFourBytes, bytecode->length - U8_MAX - 9, true);
     emit_jump(defaultCompiler, OP_JUMP, 3, false, pos);
-    patch_jump(defaultCompiler, forwardTwo, bytecode->length - 2, true);
+    patch_jump(defaultCompiler, forwardToBackJump, bytecode->length - 2, true);
+    emit_jump(defaultCompiler, OP_JUMP, bytecode->length - 2, false, pos);
 
+    bytecode->data[bytecode->length - (U16_MAX - 5)] = OP_FALSE;
     emit_jump(defaultCompiler, OP_JUMP, bytecode->length - (U16_MAX - 5), false, pos);
     emit_jump(defaultCompiler, OP_JUMP, 1, false, pos);
     emit_instr(defaultCompiler, OP_END, pos);
-    patch_jump(defaultCompiler, forwardThree, bytecode->length - 1, true);
+    patch_jump(defaultCompiler, forwardToEnd, bytecode->length - 1, true);
 
     write_jumps(defaultCompiler);
 
-    assert_large_jump(OP_JUMP, OP_ARG_16, 1, 262);
-    assert_large_jump(OP_JUMP, OP_ARG_32, 5, 65802);
-    assert_large_jump(OP_JUMP, OP_ARG_32, 11, 65814);
+#include "debug_bytecode.h"
+    InstrSize instrSize = INSTR_ONE_BYTE;
+    for (u32 i = 0; i < 300;) {
+        i = print_instr(defaultCompiler->func, i, &instrSize, INSTR_NORMAL);
+    }
+    for (u32 i = bytecode->length - 300; i < bytecode->length;) {
+        i = print_instr(defaultCompiler->func, i, &instrSize, INSTR_NORMAL);
+    }
 
-    assert_large_jump(OP_JUMP, OP_ARG_32, 65813, 65814);    
-    assert_large_jump(OP_JUMP, OP_ARG_32, 65819, 65540);
-    assert_large_jump(OP_JUMP, OP_ARG_32, 65825, 65830);
+    assert_large_jump(OP_JUMP, OP_ARG_16, 1, 268);
+    assert_large_jump(OP_JUMP, OP_ARG_32, 5, 65808);
+    assert_large_jump(OP_JUMP, OP_ARG_32, 11, 65538);
+    assert_large_jump(OP_JUMP, OP_ARG_32, 17, 65816);
+
+    assert_large_jump(OP_JUMP, OP_ARG_32, 65819, 65820);
+    ASSERT_UINT8_EQUAL(bytecode->data[65826], 8);
+    assert_large_jump(OP_JUMP, OP_ARG_32, 65827, 65540);
+    assert_large_jump(OP_JUMP, OP_ARG_32, 65833, 65838);
 }
 
 /** Tests emitter.c. */

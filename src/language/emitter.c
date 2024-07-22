@@ -259,9 +259,13 @@ static void fix_size(
  * (going from the default 1 byte read to a 4 byte read).
  */
 static void ensure_size(JumpArray *jumps, InstrSize before, Jump *jump, const u32 jumpIdx) {
-    if (before == INSTR_ONE_BYTE && jump->instrSize != INSTR_ONE_BYTE) {
+    if (before == jump->instrSize) {
+        return; // Nothing changed.
+    }
+
+    if (before == INSTR_ONE_BYTE) {
         fix_jumps(jumps, jumpIdx, 1, jump->instrSize - 1);
-    } else if (before == INSTR_TWO_BYTES && jump->instrSize != INSTR_TWO_BYTES) {
+    } else if (before == INSTR_TWO_BYTES) {
         if (jump->isResolved) {
             fix_jumps(jumps, jumpIdx, 0, 2);
         } else {
