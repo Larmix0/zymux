@@ -56,8 +56,3 @@ Optimization:
 Ensure errors print out good messages and don't break if the error is caused by an unexpected EOF.
 
 ----------------------------------------------------------------------------------------------------
-
-Change the name of enums in InstrFormat enum to have a prefix different from InstrSize.
-
-Commit:
-    Add more large jump test asserts and refactor ensure_size()

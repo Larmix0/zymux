@@ -203,10 +203,10 @@ PRIVATE_TEST_CASE(test_large_jumps) {
 #include "debug_bytecode.h"
     InstrSize instrSize = INSTR_ONE_BYTE;
     for (u32 i = 0; i < 300;) {
-        i = print_instr(defaultCompiler->func, i, &instrSize, INSTR_NORMAL);
+        i = print_instr(defaultCompiler->func, i, &instrSize, FORMAT_NORMAL);
     }
     for (u32 i = bytecode->length - 300; i < bytecode->length;) {
-        i = print_instr(defaultCompiler->func, i, &instrSize, INSTR_NORMAL);
+        i = print_instr(defaultCompiler->func, i, &instrSize, FORMAT_NORMAL);
     }
 
     assert_large_jump(OP_JUMP, OP_ARG_16, 1, 268);

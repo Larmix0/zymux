@@ -5,13 +5,13 @@
 #include "emitter.h"
 
 typedef enum {
-    INSTR_NO_LINE_OR_PAD,
-    INSTR_NO_LINE,
-    INSTR_NORMAL
-} InstrFormat;
+    FORMAT_NO_LINE_OR_PAD,
+    FORMAT_NO_LINE,
+    FORMAT_NORMAL
+} BytecodeFormat;
 
 /** Prints a single instruction depending on format, and modifies idx's value accordingly. */
-u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, InstrFormat format);
+u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, BytecodeFormat format);
 
 /**
  * Prints all of the bytecode stored inside function.

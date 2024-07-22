@@ -53,16 +53,16 @@ static void print_const_instr(
 }
 
 /** Prints a single instruction depending on format, and modifies idx's value accordingly. */
-u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const InstrFormat format) {
+u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFormat format) {
     switch (format) {
-    case INSTR_NORMAL:
+    case FORMAT_NORMAL:
         printf("%-10d", func->positions.data[idx].line);
         printf("%11d   ", idx);
         break;
-    case INSTR_NO_LINE:
+    case FORMAT_NO_LINE:
         printf("%11d   ", idx);
         break;
-    case INSTR_NO_LINE_OR_PAD:
+    case FORMAT_NO_LINE_OR_PAD:
         printf("%d ", idx);
         break;
     default:
@@ -136,6 +136,6 @@ void print_bytecode(const FuncObj *func) {
     InstrSize size = INSTR_ONE_BYTE;
     // Loop doesn't increment the index, as print_instr()'s return does that instead.
     for (u32 idx = 0; idx < func->bytecode.length;) {
-        idx = print_instr(func, idx, &size, HAS_POS_INFO(func) ? INSTR_NORMAL : INSTR_NO_LINE);
+        idx = print_instr(func, idx, &size, HAS_POS_INFO(func) ? FORMAT_NORMAL : FORMAT_NO_LINE);
     }
 }

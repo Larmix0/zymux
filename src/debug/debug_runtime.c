@@ -27,5 +27,5 @@ void print_runtime_state(
         print_stack(stack, stackLength);
     }
     putchar('\n');
-    print_instr(func, bytecodeOffset, &size, INSTR_NO_LINE_OR_PAD);
+    print_instr(func, bytecodeOffset, &size, FORMAT_NO_LINE_OR_PAD);
 }
