@@ -20,8 +20,8 @@
 #define READ_NUMBER(vm) \
     ((vm)->frame->ip += (vm)->instrSize, \
     read_number( \
-        (vm)->frame->func, (vm)->frame->ip - (vm)->frame->func->bytecode.data - (vm)->instrSize, \
-        &(vm)->instrSize \
+        &(vm)->frame->func->bytecode, \
+        (vm)->frame->ip - (vm)->frame->func->bytecode.data - (vm)->instrSize, &(vm)->instrSize \
     ))
 
 /** Reads the upcoming number and uses it to index an object in the current constant pool. */

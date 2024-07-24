@@ -16,7 +16,7 @@ char *obj_type_as_string(ObjType type);
 
 /** Allocates a new object of the passed type and size. */
 static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) {
-    Obj *object = ALLOC(size);
+    Obj *object = ALLOC(size); // TODO: use normal malloc and collect + retry once if NULL.
 #if DEBUG_GC_PRINT
     printf("Allocate %p | %s (%zu bytes)\n", (void*)object, obj_type_as_string(type), size);
 #endif

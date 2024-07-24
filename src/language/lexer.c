@@ -892,9 +892,11 @@ static void lex_token(Lexer *lexer) {
     case '.': one_or_default(lexer, TOKEN_DOT, '.', TOKEN_DOT_DOT); break;
     
     case '&': 
-        two_or_default(lexer, TOKEN_AMPER, '&', TOKEN_AMPER_AMPER, '=', TOKEN_AMPER_EQ); break;
+        two_or_default(lexer, TOKEN_AMPER, '&', TOKEN_AMPER_AMPER, '=', TOKEN_AMPER_EQ);
+        break;
     case '|': 
-        two_or_default(lexer, TOKEN_BAR, '|', TOKEN_BAR_BAR, '=', TOKEN_BAR_EQ); break;
+        two_or_default(lexer, TOKEN_BAR, '|', TOKEN_BAR_BAR, '=', TOKEN_BAR_EQ);
+        break;
 
     case '*':
         two_compound_assigns(lexer, '*', TOKEN_STAR, TOKEN_STAR_EQ, TOKEN_EXPO, TOKEN_EXPO_EQ);
@@ -919,14 +921,12 @@ static void lex_token(Lexer *lexer) {
     default:
         if (IS_ALPHA(current)) {
             lex_name(lexer);
-            return;
-        }
-        if (IS_DIGIT(current)) {
+        } else if (IS_DIGIT(current)) {
             RETREAT(lexer);
             lex_number(lexer);
-            return;
+        } else {
+            unsupported_syntax(lexer);
         }
-        unsupported_syntax(lexer);
     }
 }
 

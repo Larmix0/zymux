@@ -72,9 +72,7 @@ u32 get_hash(const Obj *object) {
     case OBJ_BOOL: return AS_PTR(BoolObj, object)->boolean ? 1 : 0;
     case OBJ_NULL: return 2;
 
-    default:
-        // Anything else shouldn't have been called to begin with.
-        UNREACHABLE_ERROR();
+    default: UNREACHABLE_ERROR(); // Anything else shouldn't have been called to begin with.
     }
 }
 
@@ -132,7 +130,8 @@ static void expand_table(Table *oldTable) {
 /** Gets the passed key's respective entry in the hash table, empty or not. */
 static Entry *get_entry_of_key(Table *table, Obj *key) {
     if (table->entries == NULL) {
-        expand_table(table); // The whole table was a NULL, so we set it to return an empty entry.
+        // The whole entries array was NULL, so we set the array to then return an empty entry.
+        expand_table(table);
     }
     
     u32 index = GET_ENTRY_IDX(get_hash(key), table);
@@ -209,7 +208,7 @@ void table_set(Table *table, Obj *key, Obj *value) {
 bool table_delete(Table *table, Obj *key) {
     Entry *entry = get_entry_of_key(table, key);
     if (EMPTY_ENTRY(entry)) {
-        return false; // Empty.
+        return false; // Doesn't exist.
     }
 
     make_entry_empty(entry);

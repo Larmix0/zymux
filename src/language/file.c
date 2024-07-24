@@ -25,8 +25,7 @@ static PathType get_path_type(const char *path) {
     
     if (S_ISDIR(statBuffer.st_mode)) {
         return PATH_DIRECTORY;
-    }
-    if (S_ISREG(statBuffer.st_mode)) {
+    } else if (S_ISREG(statBuffer.st_mode)) {
         return PATH_FILE;
     }
     return PATH_OTHER;

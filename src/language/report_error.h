@@ -5,6 +5,17 @@
 #include <stdarg.h>
 #include <stdlib.h>
 
+#include "constants.h"
+
+/** Places an instantiated struct that holds information of a line in C source code. */
+#define SOURCE_INFO ((SourceInfo){.file = __FILE__, .func = __func__, .line = __LINE__})
+
+#if ENABLE_ASSERTS
+    #define ASSERT(condition, message) (zmx_assert(SOURCE_INFO, condition, message))
+#else
+    #define ASSERT(condition, message) do {} while (false)
+#endif
+
 /** Reports an error relating to the user's operating system.*/
 #define OS_ERROR(...) (os_error(__VA_ARGS__))
 
@@ -36,9 +47,6 @@
 
 /** Reports a file-related error. */
 #define FILE_ERROR(...) (file_error(__VA_ARGS__))
-
-/** Places an instantiated struct that holds information of a line in C source code. */
-#define SOURCE_INFO ((SourceInfo){.file = __FILE__, .func = __func__, .line = __LINE__})
 
 /** Forward declaration to avoid circular include. */
 typedef struct ZmxProgram ZmxProgram;
@@ -83,5 +91,8 @@ void zmx_user_error(
     ZmxProgram *program, const SourcePosition pos, const char *errorName,
     const char *format, va_list *args
 );
+
+/** Asserts a condition and errors with the passed message if the condition is false. */
+void zmx_assert(const SourceInfo info, const bool condition, const char *message);
 
 #endif

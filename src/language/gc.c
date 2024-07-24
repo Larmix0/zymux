@@ -99,7 +99,7 @@ static void gc_mark(ZmxProgram *program) {
     if (gc->vm != NULL) {
         mark_vm(gc->vm);
     }
-    // Mark the program's objects themselves.
+    // Mark the program's stored objects.
     mark_obj(AS_OBJ(program->currentFile));
     mark_obj(AS_OBJ(program->mainFile));
     mark_obj(AS_OBJ(program->internedNull));
@@ -120,16 +120,17 @@ static void gc_mark(ZmxProgram *program) {
  */
 static void table_delete_weak_references(Table *table, ZmxProgram *program) {
     for (u32 i = 0; i < table->capacity; i++) {
-        if (EMPTY_ENTRY(&table->entries[i])) {
+        Entry *entry = &table->entries[i];
+        if (EMPTY_ENTRY(entry)) {
             continue;
         }
 
-        if (!table->entries[i].key->isReachable) {
+        if (!entry->key->isReachable) {
             // Delete entire entry if the key itself is gonna be sweeped.
-            table_delete(table, table->entries[i].key);
-        } else if (!table->entries[i].value->isReachable) {
-            // Reset the value to NULL if the key isn't getting sweeped but the value is.
-            table->entries[i].value = AS_OBJ(new_null_obj(program));
+            table_delete(table, entry->key);
+        } else if (!entry->value->isReachable) {
+            // Set the value to null if the key isn't getting sweeped but the value is.
+            entry->value = AS_OBJ(new_null_obj(program));
         }
     }
 }

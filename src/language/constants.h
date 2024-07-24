@@ -9,17 +9,14 @@
 #define WINDOWS_OS 2
 
 #if defined(__unix__) || defined(__unix) || defined(unix) || defined(__APPLE__)
-#define OS UNIX_OS
-#define PATH_DELIMITER '/'
-
+    #define OS UNIX_OS
+    #define PATH_DELIMITER '/'
 #elif defined(_WIN32) || defined(__CYGWIN__)
-#define OS WINDOWS_OS
-#define PATH_DELIMITER '\\'
-
+    #define OS WINDOWS_OS
+    #define PATH_DELIMITER '\\'
 #else
-#define OS UNKNOWN_OS
-#define PATH_DELIMITER '\0'
-
+    #define OS UNKNOWN_OS
+    #define PATH_DELIMITER '\0'
 #endif
 
 #define DEFAULT_COLOR "\033[0m"
@@ -33,6 +30,9 @@
 #define DEBUG_RUNTIME 1
 #define DEBUG_GC_PRINT 0
 #define DEBUG_GC_ALWAYS 1
+
+#define ENABLE_ASSERTS 1
+#define ENABLE_DEFAULT_UNREACHABLE 1 /** Can disable so compiler warns for missing switch cases. */
 
 #define I8_MAX INT8_MAX
 #define I16_MAX INT16_MAX

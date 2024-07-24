@@ -61,6 +61,8 @@ static void adjust_jump(Jump *jump, const i64 adjustment) {
  */
 static void insert_byte(Compiler *compiler, u8 byte, const u32 index) {
     ByteArray *bytecode = &compiler->func->bytecode;
+    ASSERT(index <= bytecode->length, "Inserting byte outside bytecode boundary.");
+
     for (u32 i = index; i < bytecode->length; i++) {
         u8 originalByte = bytecode->data[i];
         bytecode->data[i] = byte;
@@ -83,6 +85,8 @@ static void insert_byte(Compiler *compiler, u8 byte, const u32 index) {
 /** Removes a byte at the passed index, and removes its corresponding position if its tracked. */
 static void remove_byte(Compiler *compiler, const u32 index) {
     ByteArray *bytecode = &compiler->func->bytecode;
+    ASSERT(index < bytecode->length, "Removing byte outside bytecode boundary.");
+
     for (u32 i = index; i < bytecode->length - 1; i++) {  
         bytecode->data[i] = bytecode->data[i + 1];
     }
@@ -156,10 +160,11 @@ void emit_number(Compiler *compiler, u8 instr, const u32 number, SourcePosition 
  * The amount of bytes read depends on the passed instruction size. Worth mentioning that the 
  * instruction size pointer is automatically set to 1 byte for next reads after being called.
  */
-u32 read_number(const FuncObj *function, const u32 numStart, InstrSize *size) {
+u32 read_number(const ByteArray *bytecode, const u32 numStart, InstrSize *size) {
+    ASSERT(numStart + *size - 1 < bytecode->length, "Reading outside bytecode boundary.");
     u32 total = 0;
     for (int i = 0; i < (int)*size; i++) {
-        total = (total << 8) | function->bytecode.data[numStart + i];
+        total = (total << 8) | bytecode->data[numStart + i];
     }
     *size = INSTR_ONE_BYTE;
     return total;

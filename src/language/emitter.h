@@ -88,7 +88,7 @@ void emit_instr(Compiler *compiler, u8 instr, SourcePosition pos);
 void emit_number(Compiler *compiler, u8 instr, const u32 number, SourcePosition pos);
 
 /** Reads a number that's a max size of a U32 which begins from numStart as an index in bytecode. */
-u32 read_number(const FuncObj *function, const u32 numStart, InstrSize *size);
+u32 read_number(const ByteArray *bytecode, const u32 numStart, InstrSize *size);
 
 /** Emits an instruction followed by an idx after to be used for an object in the const pool. */
 void emit_const(Compiler *compiler, u8 instr, Obj *constant, SourcePosition pos);

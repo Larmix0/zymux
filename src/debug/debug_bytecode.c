@@ -21,7 +21,7 @@ static u32 print_number_instr(
 ) {
     print_bare_instr(instrName, idx);
     *idx += *size;
-    const u32 number = read_number(func, *idx - *size, size);
+    const u32 number = read_number(&func->bytecode, *idx - *size, size);
     printf(" %u", number);
     return number;
 }

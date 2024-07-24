@@ -108,13 +108,13 @@ PRIVATE_TEST_CASE(test_number_read_and_write) {
     emit_number(defaultCompiler, OP_FINISH_STRING, U16_MAX + 100, create_src_pos(1, 0, 1));
     
     InstrSize size = INSTR_ONE_BYTE;
-    u32 actual = read_number(defaultCompiler->func, 1, &size);
+    u32 actual = read_number(&defaultCompiler->func->bytecode, 1, &size);
     ASSERT_UINT32_EQUAL(actual, TYPE_FLOAT);
     size = INSTR_TWO_BYTES;
-    actual = read_number(defaultCompiler->func, 4, &size);
+    actual = read_number(&defaultCompiler->func->bytecode, 4, &size);
     ASSERT_UINT32_EQUAL(actual, U8_MAX + 100);
     size = INSTR_FOUR_BYTES;
-    actual = read_number(defaultCompiler->func, 8, &size);
+    actual = read_number(&defaultCompiler->func->bytecode, 8, &size);
     ASSERT_UINT32_EQUAL(actual, U16_MAX + 100);
 
     SourcePositionArray *positions = &defaultCompiler->func->positions;
@@ -162,8 +162,8 @@ static void assert_large_jump(
 
     InstrSize readSize = argSize == OP_ARG_16 ? INSTR_TWO_BYTES : INSTR_FOUR_BYTES;
     ASSERT_TRUE(readSize == get_number_size(expectedSize));
-    const u32 insertedNumber = read_number(defaultCompiler->func, argSizeIdx + 2, &readSize);
-    ASSERT_UINT32_EQUAL(insertedNumber, expectedSize);
+    const u32 inserted = read_number(&defaultCompiler->func->bytecode, argSizeIdx + 2, &readSize);
+    ASSERT_UINT32_EQUAL(inserted, expectedSize);
 }
 
 /** Tests that jumps over 1 byte in size work and get resolved correctly. */
@@ -199,15 +199,6 @@ PRIVATE_TEST_CASE(test_large_jumps) {
     patch_jump(defaultCompiler, forwardToEnd, bytecode->length - 1, true);
 
     write_jumps(defaultCompiler);
-
-#include "debug_bytecode.h"
-    InstrSize instrSize = INSTR_ONE_BYTE;
-    for (u32 i = 0; i < 300;) {
-        i = print_instr(defaultCompiler->func, i, &instrSize, FORMAT_NORMAL);
-    }
-    for (u32 i = bytecode->length - 300; i < bytecode->length;) {
-        i = print_instr(defaultCompiler->func, i, &instrSize, FORMAT_NORMAL);
-    }
 
     assert_large_jump(OP_JUMP, OP_ARG_16, 1, 268);
     assert_large_jump(OP_JUMP, OP_ARG_32, 5, 65808);

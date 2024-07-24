@@ -83,6 +83,7 @@ void buffer_append_char(CharBuffer *buffer, const char ch) {
  * and then replace the new last character (the character to be actually popped) with NUL.
  */
 char buffer_pop(CharBuffer *buffer) {
+    ASSERT(buffer->length > 1, "Can't pop from an empty char buffer.");
     char popped = buffer->text[buffer->length - 2];
     buffer->text[buffer->length - 2] = '\0';
     buffer->length--;
