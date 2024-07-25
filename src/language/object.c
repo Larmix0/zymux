@@ -131,7 +131,8 @@ void intern_objs(ZmxProgram *program) {
 bool equal_obj(const Obj *left, const Obj *right) {
     if (IS_NUM(left) && IS_NUM(right)) {
         return NUM_VAL(left) == NUM_VAL(right);
-    } else if (left->type != right->type) {
+    }
+    if (left->type != right->type) {
         return false;
     }
 

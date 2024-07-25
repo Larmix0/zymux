@@ -244,7 +244,8 @@ Obj *table_get_string(Table *table, const char *string, const u32 hash) {
         Entry *entry = &table->entries[index];
         if (EMPTY_ENTRY(entry)) {
             return NULL;
-        } else if (entry->key->type != OBJ_STRING) {
+        }
+        if (entry->key->type != OBJ_STRING) {
             index = GET_ENTRY_IDX(index + 1, table);
             continue;
         }

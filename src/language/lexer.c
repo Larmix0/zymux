@@ -252,11 +252,7 @@ static void ignore_whitespace(Lexer *lexer) {
 static void one_or_default(
     Lexer *lexer, const TokenType defaultType, const char expected, const TokenType expectedType
 ) {
-    if (MATCH(lexer, expected)) {
-        append_lexed(lexer, expectedType);
-    } else {
-        append_lexed(lexer, defaultType);
-    }
+    append_lexed(lexer, MATCH(lexer, expected) ? expectedType : defaultType);
 }
 
 /** 
@@ -450,13 +446,14 @@ static void finish_float(Lexer *lexer) {
     }
     if (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
         invalid_literal(lexer, false, "Invalid float literal.");
-    } else {
-        // Create a terminated version of the lexeme to use strtod on it.
-        char *terminatedLexeme = alloc_current_lexeme(lexer);
-        ZmxFloat floatVal = strtod(terminatedLexeme, NULL);
-        free(terminatedLexeme);
-        append_lexed_float(lexer, floatVal);
+        return;
     }
+    
+    // Create a terminated version of the lexeme to use strtod on it.
+    char *terminatedLexeme = alloc_current_lexeme(lexer);
+    ZmxFloat floatVal = strtod(terminatedLexeme, NULL);
+    free(terminatedLexeme);
+    append_lexed_float(lexer, floatVal);
 }
 
 /** Lexes and appends a "normal" number, which is a decimal integer or float. */
@@ -723,7 +720,7 @@ static void finish_string(Lexer *lexer, StringLexer *string) {
 
 /** Read all upcoming metadata characters in a row and report them in one error. */
 static void repeated_metadata_error(Lexer *lexer) {
-    while (!IS_EOF(lexer) && (PEEK(lexer) == '#' || PEEK(lexer) == '$')) {
+    while (PEEK(lexer) == '#' || PEEK(lexer) == '$') {
         ADVANCE(lexer);
     }
     append_lexed_error(lexer, "Can't repeat \"$\" or \"#\" on string.");

@@ -52,12 +52,3 @@ Optimization:
 
 
 ----------------------------------------------------------------------------------------------------
-
-Ensure errors print out good messages and don't break if the error is caused by an unexpected EOF.
-
-----------------------------------------------------------------------------------------------------
-
-Recheck const-correctness.
-
-Ensure we handle EOFs cases properly (in lexing and parsing).
-Usually added to loops or if we peek next elements without checking current first.

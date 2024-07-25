@@ -14,8 +14,7 @@
 #define CONSUME(parser, expected, message) \
     (CHECK(parser, expected) \
         ? ADVANCE_PEEK(parser) \
-        : (parser_error_missing(parser, &PEEK_PREVIOUS(parser), true, message), \
-            PEEK(parser)))
+        : (parser_error_missing(parser, &PEEK_PREVIOUS(parser), true, message), PEEK(parser)))
             
 #define IS_EOF(parser) (CHECK(parser, TOKEN_EOF))
 
@@ -144,9 +143,8 @@ static Node *unary(Parser *parser) {
     if (CHECK(parser, TOKEN_MINUS) || CHECK(parser, TOKEN_BANG)) {
         Token operation = ADVANCE_PEEK(parser);
         return new_unary_node(parser->program, operation, unary(parser));
-    } else {
-        return primary(parser);
-    }    
+    }
+    return primary(parser);    
 }
 
 /** Handles the precedence of exponents, which is tighter than terms and factors. */
@@ -248,7 +246,7 @@ static Node *block(Parser *parser) {
 /** 
  * A statement which holds an if condition, a for it being truthy, and a branch for falsey.
  * 
- * The falsey branch (else) is optional.
+ * The falsey branch (else) is optional, and either contains a block or another if-else statement.
  */
 static Node *if_else(Parser *parser) {
     Node *condition = expression(parser);
