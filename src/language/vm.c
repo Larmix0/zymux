@@ -283,13 +283,13 @@ static bool interpret(Vm *vm) {
             MATH_BIN_OP(vm, "multiplication", NUM_VAL(BIN_LEFT(vm)) * NUM_VAL(BIN_RIGHT(vm)));
             break;
         case OP_DIVIDE:
-            if (NUM_VAL(BIN_RIGHT(vm)) == 0) {
+            if (IS_NUM(BIN_LEFT(vm)) && IS_NUM(BIN_RIGHT(vm)) && NUM_VAL(BIN_RIGHT(vm)) == 0) {
                 return runtime_error(vm, "Can't divide by 0.");
             }
             MATH_BIN_OP(vm, "division", NUM_VAL(BIN_LEFT(vm)) / NUM_VAL(BIN_RIGHT(vm)));
             break;
         case OP_MODULO:
-            if (NUM_VAL(BIN_RIGHT(vm)) == 0) {
+            if (IS_NUM(BIN_LEFT(vm)) && IS_NUM(BIN_RIGHT(vm)) && NUM_VAL(BIN_RIGHT(vm)) == 0) {
                 return runtime_error(vm, "Can't modulo by 0.");
             }
             // Modulo doesn't handle floats in C, so use fmod() if there's a float in the operation.
