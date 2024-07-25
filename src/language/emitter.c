@@ -7,14 +7,14 @@ static void fix_jumps(
 );
 
 /** Appends pos needed amount of times for func's positions length to match bytecode's length. */
-static void fill_instr_positions(FuncObj *func, SourcePosition pos) {
+static void fill_instr_positions(FuncObj *func, const SourcePosition pos) {
     while (func->positions.length < func->bytecode.length) {
         APPEND_DA(&func->positions, pos);
     }
 }
 
 /** Returns the instruction size of the passed number. */
-static InstrSize get_number_size(u32 number) {
+static InstrSize get_number_size(const u32 number) {
     if (number <= U8_MAX) {
         return INSTR_ONE_BYTE;
     } else if (number > U8_MAX && number <= U16_MAX) {
@@ -120,7 +120,7 @@ static void insert_number(Compiler *compiler, const u32 startIdx, const u32 numb
  * Emits/appends a single byte instruction to the passed compiler's current function.
  * Also appends bytePos as debugging info to the positions array if enabled.
  */
-void emit_instr(Compiler *compiler, u8 instr, SourcePosition pos) {
+void emit_instr(Compiler *compiler, const u8 instr, const SourcePosition pos) {
     APPEND_DA(&compiler->func->bytecode, instr);
     if (compiler->isDebugging) {
         fill_instr_positions(compiler->func, pos);
@@ -136,7 +136,7 @@ void emit_instr(Compiler *compiler, u8 instr, SourcePosition pos) {
  * The index of the number to be inserted starts after the instruction itself. It may be incremented
  * if there's more than one byte for the instruction (an arg size byte is to be added).
  */
-void emit_number(Compiler *compiler, u8 instr, const u32 number, SourcePosition pos) {
+void emit_number(Compiler *compiler, const u8 instr, const u32 number, const SourcePosition pos) {
     u32 numIdx = compiler->func->bytecode.length + 1;
     InstrSize numSize = get_number_size(number);
 
@@ -171,7 +171,7 @@ u32 read_number(const ByteArray *bytecode, const u32 numStart, InstrSize *size) 
 }
 
 /** Emits an instruction followed by an idx after to be used for an object in the const pool. */
-void emit_const(Compiler *compiler, u8 instr, Obj *constant, SourcePosition pos) {
+void emit_const(Compiler *compiler, const u8 instr, Obj *constant, const SourcePosition pos) {
     APPEND_DA(&compiler->func->constPool, constant);
     const u32 constIdx = compiler->func->constPool.length - 1;
     emit_number(compiler, instr, constIdx, pos);
@@ -182,7 +182,7 @@ void emit_const(Compiler *compiler, u8 instr, Obj *constant, SourcePosition pos)
  * 
  * Returns the index of the jump instruction
  */
-u32 emit_unpatched_jump(Compiler *compiler, u8 instr, SourcePosition pos) {
+u32 emit_unpatched_jump(Compiler *compiler, const u8 instr, const SourcePosition pos) {
     emit_instr(compiler, instr, pos);
     emit_instr(compiler, 0, pos);
     return compiler->func->bytecode.length - 2;
@@ -191,8 +191,7 @@ u32 emit_unpatched_jump(Compiler *compiler, u8 instr, SourcePosition pos) {
 /** Patches a jump in the compiler from the passed jump information. */
 void patch_jump(Compiler *compiler, const u32 start, const u32 end, const bool isForward) {
     u32 jumpSize = end > start ? end - start : start - end;
-    Jump jump = create_jump(start, jumpSize, isForward);
-    APPEND_DA(&compiler->jumps, jump);
+    APPEND_DA(&compiler->jumps, create_jump(start, jumpSize, isForward));
 }
 
 /** 
@@ -201,7 +200,7 @@ void patch_jump(Compiler *compiler, const u32 start, const u32 end, const bool i
  * The jump starts from the current byte and uses the passed "to" as the jump destination.
  */
 void emit_jump(
-    Compiler *compiler, u8 instr, const u32 to, const bool isForward, SourcePosition pos
+    Compiler *compiler, const u8 instr, const u32 to, const bool isForward, const SourcePosition pos
 ) {
     u32 jumpIdx = emit_unpatched_jump(compiler, instr, pos);
     patch_jump(compiler, jumpIdx, to, isForward);
@@ -263,7 +262,7 @@ static void fix_size(
  * If it's not been resolved then we add 1 before (the arg 32 bit byte), and 3 bytes after
  * (going from the default 1 byte read to a 4 byte read).
  */
-static void ensure_size(JumpArray *jumps, InstrSize before, Jump *jump, const u32 jumpIdx) {
+static void ensure_size(JumpArray *jumps, const InstrSize before, Jump *jump, const u32 jumpIdx) {
     if (before == jump->instrSize) {
         return; // Nothing changed.
     }

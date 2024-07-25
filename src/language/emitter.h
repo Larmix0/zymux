@@ -82,16 +82,16 @@ typedef struct {
 DECLARE_DA_STRUCT(JumpArray, Jump);
 
 /** Emits a single byte of some kind to the compiler's bytecode. */
-void emit_instr(Compiler *compiler, u8 instr, SourcePosition pos);
+void emit_instr(Compiler *compiler, u8 instr, const SourcePosition pos);
 
 /** Emits a 1 byte instruction followed by a number that's at most the size of a U32. */
-void emit_number(Compiler *compiler, u8 instr, const u32 number, SourcePosition pos);
+void emit_number(Compiler *compiler, u8 instr, const u32 number, const SourcePosition pos);
 
 /** Reads a number that's a max size of a U32 which begins from numStart as an index in bytecode. */
 u32 read_number(const ByteArray *bytecode, const u32 numStart, InstrSize *size);
 
 /** Emits an instruction followed by an idx after to be used for an object in the const pool. */
-void emit_const(Compiler *compiler, u8 instr, Obj *constant, SourcePosition pos);
+void emit_const(Compiler *compiler, u8 instr, Obj *constant, const SourcePosition pos);
 
 /** 
  * Emits a normal jump instruction which is already patched.
@@ -99,7 +99,7 @@ void emit_const(Compiler *compiler, u8 instr, Obj *constant, SourcePosition pos)
  * The jump starts from the current byte and uses the passed "to" as the jump destination.
  */
 void emit_jump(
-    Compiler *compiler, u8 instr, const u32 to, const bool isForward, SourcePosition pos
+    Compiler *compiler, u8 instr, const u32 to, const bool isForward, const SourcePosition pos
 );
 
 /** 
@@ -107,7 +107,7 @@ void emit_jump(
  * 
  * Returns the index where the jump is supposed to be inserted in the bytecode.
  */
-u32 emit_unpatched_jump(Compiler *compiler, u8 instr, SourcePosition pos);
+u32 emit_unpatched_jump(Compiler *compiler, u8 instr, const SourcePosition pos);
 
 /** Patches a jump in the compiler from the passed jump information. */
 void patch_jump(Compiler *compiler, const u32 start, const u32 end, const bool isForward);

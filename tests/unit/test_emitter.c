@@ -135,7 +135,7 @@ PRIVATE_TEST_CASE(test_number_read_and_write) {
 /** Tests that 1 byte sized jumps work properly. */
 PRIVATE_TEST_CASE(test_small_jumps) {
     ByteArray *bytecode = &defaultCompiler->func->bytecode;
-    SourcePosition pos = create_src_pos(0, 0, 0);
+    const SourcePosition pos = create_src_pos(0, 0, 0);
     const u32 firstJump = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
     for (int i = 0; i < 5; i++) {
         emit_instr(defaultCompiler, OP_TRUE, pos);
@@ -169,7 +169,7 @@ static void assert_large_jump(
 /** Tests that jumps over 1 byte in size work and get resolved correctly. */
 PRIVATE_TEST_CASE(test_large_jumps) {
     ByteArray *bytecode = &defaultCompiler->func->bytecode;
-    SourcePosition pos = create_src_pos(0, 0, 0);
+    const SourcePosition pos = create_src_pos(0, 0, 0);
 
     emit_instr(defaultCompiler, OP_TRUE, pos);
     const u32 forwardTwoBytes = emit_unpatched_jump(defaultCompiler, OP_JUMP, pos);
