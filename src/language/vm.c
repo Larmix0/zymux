@@ -327,6 +327,10 @@ static bool interpret(Vm *vm) {
             } else if (PEEK(vm)->type == OBJ_FLOAT) {
                 const ZmxFloat negated = -AS_PTR(FloatObj, POP(vm))->number;
                 PUSH(vm, AS_OBJ(new_float_obj(vm->program, negated)));
+            } else {
+                return runtime_error(
+                    vm, "Can't negate object of type %s.", obj_type_as_string(PEEK(vm)->type)
+                );
             }
             break;
         case OP_NOT: {
