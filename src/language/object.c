@@ -249,12 +249,12 @@ void print_obj(const Obj *object, const bool debugPrint) {
 /** Returns a readable C string from the passed object type enum. */
 char *obj_type_as_string(ObjType type) {
     switch (type) {
-    case OBJ_INT: return "INTEGER";
-    case OBJ_FLOAT: return "FLOAT";
-    case OBJ_BOOL: return "BOOL";
-    case OBJ_NULL: return "NULL";
-    case OBJ_STRING: return "STRING";
-    case OBJ_FUNC: return "FUNCTION";
+    case OBJ_INT: return "integer";
+    case OBJ_FLOAT: return "float";
+    case OBJ_BOOL: return "bool";
+    case OBJ_NULL: return "null";
+    case OBJ_STRING: return "string";
+    case OBJ_FUNC: return "function";
     default: UNREACHABLE_ERROR();
     }
 }

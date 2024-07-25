@@ -48,6 +48,12 @@
 /** Resolves to a boolean of whether or not either of the binary numbers in the stack are floats. */
 #define BIN_HAS_FLOAT(vm) (BIN_LEFT(vm)->type == OBJ_FLOAT || BIN_RIGHT(vm)->type == OBJ_FLOAT)
 
+#define BIN_OP_ERROR(vm, opString) \
+    (runtime_error( \
+        vm, "Can't perform %s between %s and %s.", \
+        opString, obj_type_as_string(BIN_LEFT(vm)->type), obj_type_as_string(BIN_RIGHT(vm)->type)) \
+    )
+
 /** 
  * Pushes resultNum and drops the last 2 elements (from the binary operation).
  * 
@@ -55,11 +61,13 @@
  * as the appropriate integer or float object after the binary operands have been dropped.
  * 
  * Used by passing a binary operation but not popping its operands from the stack while doing that.
+ * 
+ * Prints opString as the bugged operation if an error occurs.
  */
-#define MATH_BIN_OP(vm, resultNum) \
+#define MATH_BIN_OP(vm, opString, resultNum) \
     do { \
         if (!IS_NUM(BIN_LEFT(vm)) || !IS_NUM(BIN_RIGHT(vm))) { \
-            return runtime_error(vm, "Expected number in operation."); \
+            return BIN_OP_ERROR(vm, opString); \
         } \
         Obj *resultObj = BIN_HAS_FLOAT(vm) ? AS_OBJ(new_float_obj((vm)->program, resultNum)) \
             : AS_OBJ(new_int_obj((vm)->program, resultNum)); \
@@ -85,10 +93,10 @@
     } while (false)
 
 /** BOOL_BIN_OP() wrapper which errors if the operands of the operation aren't both numbers. */
-#define NUM_BOOL_BIN_OP(vm, resultBool) \
+#define NUM_BOOL_BIN_OP(vm, opString, resultBool) \
     do { \
         if (!IS_NUM(BIN_LEFT(vm)) || !IS_NUM(BIN_RIGHT(vm))) { \
-            return runtime_error(vm, "Expected number in operation."); \
+            return BIN_OP_ERROR(vm, opString); \
         } \
         BOOL_BIN_OP(vm, resultBool); \
     } while (false)
@@ -265,16 +273,20 @@ static bool interpret(Vm *vm) {
                 DROP_AMOUNT(vm, 2);
                 PUSH(vm, result);
             } else {
-                MATH_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) + NUM_VAL(BIN_RIGHT(vm)));
+                MATH_BIN_OP(vm, "addition", NUM_VAL(BIN_LEFT(vm)) + NUM_VAL(BIN_RIGHT(vm)));
             }
             break;
-        case OP_SUBTRACT: MATH_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) - NUM_VAL(BIN_RIGHT(vm))); break;
-        case OP_MULTIPLY: MATH_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) * NUM_VAL(BIN_RIGHT(vm))); break;
+        case OP_SUBTRACT:
+            MATH_BIN_OP(vm, "subtraction", NUM_VAL(BIN_LEFT(vm)) - NUM_VAL(BIN_RIGHT(vm)));
+            break;
+        case OP_MULTIPLY:
+            MATH_BIN_OP(vm, "multiplication", NUM_VAL(BIN_LEFT(vm)) * NUM_VAL(BIN_RIGHT(vm)));
+            break;
         case OP_DIVIDE:
             if (NUM_VAL(BIN_RIGHT(vm)) == 0) {
                 return runtime_error(vm, "Can't divide by 0.");
             }
-            MATH_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) / NUM_VAL(BIN_RIGHT(vm)));
+            MATH_BIN_OP(vm, "division", NUM_VAL(BIN_LEFT(vm)) / NUM_VAL(BIN_RIGHT(vm)));
             break;
         case OP_MODULO:
             if (NUM_VAL(BIN_RIGHT(vm)) == 0) {
@@ -282,13 +294,13 @@ static bool interpret(Vm *vm) {
             }
             // Modulo doesn't handle floats in C, so use fmod() if there's a float in the operation.
             MATH_BIN_OP(
-                vm,
+                vm, "modulo",
                 BIN_HAS_FLOAT(vm) ? fmod(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm)))
                     : AS_PTR(IntObj, BIN_LEFT(vm))->number % AS_PTR(IntObj, BIN_RIGHT(vm))->number
             );
             break;
         case OP_EXPONENT:
-            MATH_BIN_OP(vm, pow(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm))));
+            MATH_BIN_OP(vm, "exponentiation", pow(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm))));
             break;
         case OP_EQ:
             BOOL_BIN_OP(vm, equal_obj(BIN_LEFT(vm), BIN_RIGHT(vm)));
@@ -297,16 +309,16 @@ static bool interpret(Vm *vm) {
             BOOL_BIN_OP(vm, !equal_obj(BIN_LEFT(vm), BIN_RIGHT(vm)));
             break;
         case OP_GREATER:
-            NUM_BOOL_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) > NUM_VAL(BIN_RIGHT(vm)));
+            NUM_BOOL_BIN_OP(vm, "comparison", NUM_VAL(BIN_LEFT(vm)) > NUM_VAL(BIN_RIGHT(vm)));
             break;
         case OP_GREATER_EQ:
-            NUM_BOOL_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) >= NUM_VAL(BIN_RIGHT(vm)));
+            NUM_BOOL_BIN_OP(vm, "comparison", NUM_VAL(BIN_LEFT(vm)) >= NUM_VAL(BIN_RIGHT(vm)));
             break;
         case OP_LESS:
-            NUM_BOOL_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) < NUM_VAL(BIN_RIGHT(vm)));
+            NUM_BOOL_BIN_OP(vm, "comparison", NUM_VAL(BIN_LEFT(vm)) < NUM_VAL(BIN_RIGHT(vm)));
             break;
         case OP_LESS_EQ:
-            NUM_BOOL_BIN_OP(vm, NUM_VAL(BIN_LEFT(vm)) >= NUM_VAL(BIN_RIGHT(vm)));
+            NUM_BOOL_BIN_OP(vm, "comparison", NUM_VAL(BIN_LEFT(vm)) >= NUM_VAL(BIN_RIGHT(vm)));
             break;
         case OP_MINUS:
             if (PEEK(vm)->type == OBJ_INT) {
