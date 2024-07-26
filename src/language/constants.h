@@ -32,7 +32,6 @@
 #define DEBUG_GC_ALWAYS 1
 
 #define ENABLE_ASSERTS 1
-#define ENABLE_DEFAULT_UNREACHABLE 1 /** Can disable so compiler warns for missing switch cases. */
 
 #define I8_MAX INT8_MAX
 #define I16_MAX INT16_MAX
