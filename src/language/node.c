@@ -126,6 +126,14 @@ Node *new_if_else_node(
     return AS_NODE(node);
 }
 
+/** Allocates a while loop statement. */
+Node *new_while_node(ZmxProgram *program, Node *condition, BlockNode *body) {
+    WhileNode *node = NEW_NODE(program, AST_WHILE, WhileNode);;
+    node->condition = condition;
+    node->body = body;
+    return AS_NODE(node);
+}
+
 /** Returns a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos) {
     EofNode *node = NEW_NODE(program, AST_EOF, EofNode);
@@ -155,6 +163,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_VAR_ASSIGN: return AS_PTR(VarAssignNode, node)->name.pos;
     case AST_VAR_GET: return AS_PTR(VarGetNode, node)->name.pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
+    case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
     default: UNREACHABLE_ERROR();
     }

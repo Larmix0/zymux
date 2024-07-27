@@ -23,6 +23,7 @@ typedef enum {
     AST_VAR_ASSIGN,
     AST_VAR_GET,
     AST_IF_ELSE,
+    AST_WHILE,
     AST_EOF
 } AstType;
 
@@ -137,6 +138,13 @@ typedef struct {
     Node *elseBranch; /** Could be a block or another if-else. */
 } IfElseNode;
 
+/** A while loop which executes a block repeatedly while its condition evaluates to true. */
+typedef struct {
+    Node node;
+    Node *condition;
+    BlockNode *body;
+} WhileNode;
+
 /** Node that simply represents EOF and holds the its position. */
 typedef struct {
     Node node;
@@ -186,6 +194,9 @@ Node *new_var_get_node(ZmxProgram *program, const Token name);
 
 /** Allocates an if-else statement with their condition. The else branch can optionally be NULL. */
 Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBranch, Node *elseBranch);
+
+/** Allocates a while loop statement. */
+Node *new_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
 
 /** Allocates a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos);

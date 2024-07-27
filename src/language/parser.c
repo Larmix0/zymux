@@ -265,6 +265,14 @@ static Node *if_else(Parser *parser) {
     return new_if_else_node(parser->program, condition, AS_PTR(BlockNode, ifBranch), elseBranch);
 }
 
+/** A while loop executes a block inside it as long as the loop's condition evalutes to true. */
+static Node *while_loop(Parser *parser) {
+    Node *condition = expression(parser);
+    CONSUME(parser, TOKEN_LCURLY, "Expected \"{\" after while loop's condition.");
+    Node *body = block(parser);
+    return new_while_node(parser->program, condition, AS_PTR(BlockNode, body));
+}
+
 /** Parses and returns a statement or expression-statement. */
 static Node *statement(Parser *parser) {
     Node *node;
@@ -274,6 +282,9 @@ static Node *statement(Parser *parser) {
         break;
     case TOKEN_IF_KW:
         node = if_else(parser);
+        break;
+    case TOKEN_WHILE_KW:
+        node = while_loop(parser);
         break;
     default:
         RETREAT(parser);

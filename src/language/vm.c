@@ -390,6 +390,11 @@ static bool interpret(Vm *vm) {
             vm->frame->ip += jump;
             break;
         }
+        case OP_JUMP_BACK: {
+            u32 jump = READ_NUMBER(vm);
+            vm->frame->ip -= jump;
+            break;
+        }
         case OP_POP_JUMP_IF_FALSE: {
             u32 jump = READ_NUMBER(vm);
             if (!(as_bool(vm->program, PEEK(vm))->boolean)) {

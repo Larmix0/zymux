@@ -322,6 +322,17 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     }
 }
 
+/** Compiles a while loop which executes its body statements as long as its condition is truthy. */
+static void compile_while(Compiler *compiler, const WhileNode *node) {
+    u32 condition = compiler->func->bytecode.length;
+    compile_node(compiler, node->condition);
+
+    u32 skipLoop = emit_unpatched_jump(compiler, OP_POP_JUMP_IF_FALSE, get_node_pos(AS_NODE(node)));
+    compile_node(compiler, AS_NODE(node->body));
+    emit_jump(compiler, OP_JUMP_BACK, condition, false, PREVIOUS_OPCODE_POS(compiler));
+    patch_jump(compiler, skipLoop, compiler->func->bytecode.length, true);
+}
+
 /** Compiles an EOF node. */
 static void compile_eof(Compiler *compiler, const EofNode *node) {
     emit_instr(compiler, OP_END, node->pos);
@@ -342,6 +353,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
         case AST_VAR_ASSIGN: compile_var_assign(compiler, AS_PTR(VarAssignNode, node)); break;
         case AST_VAR_GET: compile_var_get(compiler, AS_PTR(VarGetNode, node)); break;
         case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
+        case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;
         case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
         case AST_ERROR: break; // Do nothing on erroneous nodes.
         default: UNREACHABLE_ERROR();

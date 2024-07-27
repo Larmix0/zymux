@@ -108,6 +108,14 @@ static void append_if_else_node(CharBuffer *astString, const IfElseNode *node) {
     }
 }
 
+/** Appends a while loop, its condition, and body. */
+static void append_while_node(CharBuffer *astString, const WhileNode *node) {
+    buffer_append_string(astString, "<while> ");
+    eval_node(astString, node->condition);
+    buffer_append_string(astString, "-> ");
+    eval_node(astString, AS_NODE(node->body));
+}
+
 /** Appends an EOF string to the AST string. */
 static void append_eof_node(CharBuffer *astString) {
     buffer_append_string(astString, "EOF");
@@ -136,6 +144,7 @@ static void eval_node(CharBuffer *astString, const Node *node) {
     case AST_VAR_ASSIGN: append_var_assign_node(astString, AS_PTR(VarAssignNode, node)); break;
     case AST_VAR_GET: append_var_get_node(astString, AS_PTR(VarGetNode, node)); break;
     case AST_IF_ELSE: append_if_else_node(astString, AS_PTR(IfElseNode, node)); break;
+    case AST_WHILE: append_while_node(astString, AS_PTR(WhileNode, node)); break;
     case AST_EOF: append_eof_node(astString); break;
     default: UNREACHABLE_ERROR();
     }

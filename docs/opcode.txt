@@ -159,6 +159,9 @@ OP_GET_LOCAL:
 OP_JUMP:
     Reads a number, which is how many bytes to increment the IP.
 
+OP_JUMP_BACK:
+    Reads a number, which is how many bytes to decrement the IP.
+
 OP_POP_JUMP_IF_FALSE:
     Increments IP a read number after the instruction if the topmost object on the stack is falsey,
     and always pops that object off the stack regardless of its falsiness.
