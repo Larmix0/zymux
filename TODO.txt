@@ -53,5 +53,4 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-Should object returns be converted to the base object?
 Fix get_node_pos() when returning first element of array which could be empty.

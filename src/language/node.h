@@ -107,6 +107,7 @@ typedef struct {
 typedef struct {
     Node node;
     NodeArray stmts;
+    SourcePosition pos;
 } BlockNode;
 
 /** Holds a variable declaration statement */
@@ -176,7 +177,7 @@ Node *new_parentheses_node(ZmxProgram *program, Node *expr);
 Node *new_expr_stmt_node(ZmxProgram *program, Node *expr);
 
 /** ALlocates a block that holds multiple statements/declarations. */
-Node *new_block_node(ZmxProgram *program, const NodeArray stmts);
+Node *new_block_node(ZmxProgram *program, const NodeArray stmts, const SourcePosition pos);
 
 /** 
  * Allocates a variable declaration node.

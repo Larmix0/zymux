@@ -95,8 +95,9 @@ static Node *string(Parser *parser) {
     while (!MATCH(parser, TOKEN_STRING_END)) {
         if (nextIsString) {
             Token literal = CONSUME(parser, TOKEN_STRING_LIT, "Expected a string literal.");
-            // Don't append if the string's empty and has interpolation next. (For optimization).
-            if (literal.stringVal.length > 0 || CHECK(parser, TOKEN_STRING_END)) {
+            bool emptyString = literal.stringVal.length > 0;
+            bool onlyString = CHECK(parser, TOKEN_STRING_END) && exprs.length == 0;
+            if (emptyString || onlyString) {
                 APPEND_DA(&exprs, new_literal_node(parser->program, literal));
             }
         } else {
@@ -192,7 +193,6 @@ static Node *comparison(Parser *parser) {
     return expr;
 }
 
-/** Handles equal and not equal's precedence (which are executed after other comparisons). */
 static Node *equality(Parser *parser) {
     Node *expr = comparison(parser);
     while (CHECK(parser, TOKEN_EQ_EQ) || CHECK(parser, TOKEN_BANG_EQ)) {
@@ -235,12 +235,13 @@ static Node *expression_stmt(Parser *parser) {
 
 /** A block statement which holds other statements/declarations in a deeper scope. */
 static Node *block(Parser *parser) {
+    SourcePosition pos = PEEK_PREVIOUS(parser).pos;
     NodeArray stmts = CREATE_DA();
     while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser)) {
         APPEND_DA(&stmts, declaration(parser));
     }
     CONSUME(parser, TOKEN_RCURLY, "Expected closing \"}\" for block.");
-    return new_block_node(parser->program, stmts);
+    return new_block_node(parser->program, stmts, pos);
 }
 
 /** 
@@ -386,7 +387,6 @@ static Node *declaration(Parser *parser) {
  * Parses the array of tokens in the parser.
  * 
  * Places the parsed nodes inside the passed parser's ast field.
- * Returns whether or not the parsing was successful.
  */
 bool parse(Parser *parser) {
     while (!IS_EOF(parser)) {
