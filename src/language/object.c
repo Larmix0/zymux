@@ -108,6 +108,14 @@ FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx) 
     return object;
 }
 
+/** Returns an iterator which wraps around an iterable object being iterated on. */
+IteratorObj *new_iterator_obj(ZmxProgram *program, Obj *iterable) {
+    IteratorObj *object = NEW_OBJ(program, OBJ_ITERATOR, IteratorObj);
+    object->iterable = iterable;
+    object->iteration = 0;
+    return object;
+}
+
 /** Allocates some objects for interning and puts them in the passed program. */
 void intern_objs(ZmxProgram *program) {
     program->internedTrue = NEW_OBJ(program, OBJ_BOOL, BoolObj);
@@ -117,6 +125,39 @@ void intern_objs(ZmxProgram *program) {
     program->internedFalse->boolean = false;
 
     program->internedNull = NEW_OBJ(program, OBJ_NULL, NullObj);
+}
+
+/** Returns whether or not the passed object is something that can be iterated over. */
+bool is_iterable(const Obj *object) {
+    switch (object->type) {
+    case OBJ_STRING:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
+/** 
+ * Iterates over an object that is assumed to be iterable.
+ * Returns the iterated element of the iterable, or NULL if the iterator's exhausted.
+ * 
+ * Passing a non-iterable is considered unreachable.
+ */
+Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
+    ASSERT(is_iterable(iterator->iterable), "Attempted to iterate over non-iterable object.");
+
+    switch (iterator->iterable->type) {
+    case OBJ_STRING: {
+        StringObj *iterable = AS_PTR(StringObj, iterator->iterable);
+        if (iterator->iteration >= iterable->length) {
+            return NULL;
+        }
+        return AS_OBJ(string_obj_from_len(program, iterable->string + iterator->iteration++, 1));
+    }
+    default:
+        UNREACHABLE_ERROR();
+    }
 }
 
 /** 
@@ -138,6 +179,7 @@ bool equal_obj(const Obj *left, const Obj *right) {
 
     switch (left->type) {
     case OBJ_FUNC:
+    case OBJ_ITERATOR:
         return left == right; // Compare addresses directly.
     
     case OBJ_BOOL: return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
@@ -165,6 +207,7 @@ StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringO
 
 /** Returns the passed object as a string value. */
 StringObj *as_string(ZmxProgram *program, const Obj *object) {
+    // TODO: just use a char buffer instead of a traditional string.
     char *string;
     switch (object->type) {
     case OBJ_INT: {
@@ -181,8 +224,11 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
         snprintf(string, length + 1, ZMX_FLOAT_FMT, value);
         break;
     }
+    // TODO: make func and iterator conversion "<func/iterator {name}>" instead of "{name}".
     case OBJ_FUNC:
         return new_string_obj(program, AS_PTR(FuncObj, object)->name->string);
+    case OBJ_ITERATOR:
+        return as_string(program, AS_PTR(IteratorObj, object)->iterable);
     case OBJ_BOOL:
         return new_string_obj(program, AS_PTR(BoolObj, object)->boolean ? "true" : "false");
     case OBJ_NULL:
@@ -202,6 +248,7 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     bool result;
     switch (object->type) {
     case OBJ_FUNC:
+    case OBJ_ITERATOR:
         // Always considered "truthy".
         result = true;
         break;
@@ -240,7 +287,12 @@ void print_obj(const Obj *object, const bool debugPrint) {
         }
         break;
     case OBJ_FUNC:
-        printf("<func \"%s\">", AS_PTR(FuncObj, object)->name->string);
+        printf("<func %s>", AS_PTR(FuncObj, object)->name->string);
+        break;
+    case OBJ_ITERATOR:
+        printf("<iterator ");
+        print_obj(AS_PTR(IteratorObj, object)->iterable, debugPrint);
+        putchar('>');
         break;
     default:
         UNREACHABLE_ERROR();
@@ -256,6 +308,7 @@ char *obj_type_as_string(ObjType type) {
     case OBJ_NULL: return "null";
     case OBJ_STRING: return "string";
     case OBJ_FUNC: return "function";
+    case OBJ_ITERATOR: return "iterator";
     default: UNREACHABLE_ERROR();
     }
 }

@@ -24,6 +24,7 @@ typedef enum {
     AST_VAR_GET,
     AST_IF_ELSE,
     AST_WHILE,
+    AST_FOR,
     AST_EOF
 } AstType;
 
@@ -146,6 +147,14 @@ typedef struct {
     BlockNode *body;
 } WhileNode;
 
+/** A for in loop, which executes until we fully iterated through the loop's iterable. */
+typedef struct {
+    Node node;
+    Token loopVar;
+    Node *iterable; /** An expression which should result in an iterable object at runtime. */
+    BlockNode *body;
+} ForNode;
+
 /** Node that simply represents EOF and holds the its position. */
 typedef struct {
     Node node;
@@ -193,11 +202,14 @@ Node *new_var_assign_node(ZmxProgram *program, const Token name, Node *value);
 /** Allocates a node which holds the name of a variable to get its value. */
 Node *new_var_get_node(ZmxProgram *program, const Token name);
 
-/** Allocates an if-else statement with their condition. The else branch can optionally be NULL. */
+/** Allocates an if-else node with their condition. The else branch can optionally be NULL. */
 Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBranch, Node *elseBranch);
 
-/** Allocates a while loop statement. */
+/** Allocates a while loop node. */
 Node *new_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
+
+/** Allocates a for loop node. */
+Node *new_for_node(ZmxProgram *program, Token loopVar, Node *iterable, BlockNode *body);
 
 /** Allocates a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos);

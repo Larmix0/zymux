@@ -129,8 +129,17 @@ Node *new_if_else_node(
 
 /** Allocates a while loop statement. */
 Node *new_while_node(ZmxProgram *program, Node *condition, BlockNode *body) {
-    WhileNode *node = NEW_NODE(program, AST_WHILE, WhileNode);;
+    WhileNode *node = NEW_NODE(program, AST_WHILE, WhileNode);
     node->condition = condition;
+    node->body = body;
+    return AS_NODE(node);
+}
+
+/** Allocates a for loop node, which is a for-in loop for Zymux. */
+Node *new_for_node(ZmxProgram *program, Token loopVar, Node *iterable, BlockNode *body) {
+    ForNode *node = NEW_NODE(program, AST_FOR, ForNode);
+    node->loopVar = loopVar;
+    node->iterable = iterable;
     node->body = body;
     return AS_NODE(node);
 }
@@ -166,13 +175,14 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_VAR_GET: return AS_PTR(VarGetNode, node)->name.pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
+    case AST_FOR: return AS_PTR(ForNode, node)->loopVar.pos;
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
     default: UNREACHABLE_ERROR();
     }
 }
 
-/** Frees all the contents of the passed node. */
-static void free_node_contents(Node *node) {
+/** Frees the passed node and its allocated members. */
+static void free_node(Node *node) {
     switch (node->type) {
     case AST_STRING:
         FREE_DA(&AS_PTR(StringNode, node)->exprs);
@@ -180,10 +190,10 @@ static void free_node_contents(Node *node) {
     case AST_BLOCK:
         FREE_DA(&AS_PTR(BlockNode, node)->stmts);
         break;
-
     default:
         break; // Nothing to free.
     }
+    free(node);
 }
 
 
@@ -196,8 +206,7 @@ void free_all_nodes(ZmxProgram *program) {
     Node *current = program->allNodes;
     Node *next = current->next;
     while (current != NULL) {
-        free_node_contents(current);
-        free(current);
+        free_node(current);
         current = next;
         if (next != NULL) {
             next = next->next;

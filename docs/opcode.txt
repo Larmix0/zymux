@@ -103,6 +103,10 @@ OP_AS:
         Integer 3 is the top of the stack. Then, OP_AS reads a string data type enum after.
         The topmost object (integer of 3) is popped and a string version of it is pushed ("3").
 
+OP_MAKE_ITER:
+    Grabs the topmost object in the stack and wraps it inside a new iterator object.
+    If the topmost object is not iterable, then it causes a runtime error.
+
 OP_FINISH_STRING:
     Expects a number of string objects to be on top of the stack that are to be concatenated
     to form a string. Reads a number after the instruction to indicate how many string objects to
@@ -161,6 +165,13 @@ OP_JUMP:
 
 OP_JUMP_BACK:
     Reads a number, which is how many bytes to decrement the IP.
+
+OP_ITER_OR_JUMP:
+    Assuming the second to last object in the stack is a local variable, and the topmost is
+    an iterator object, it reads a number and calls the iteration function on the iterator at
+    the top of the stack. If the iterator returned a signal that it's exhausted, then it jumps
+    forward the number that it read, otherwise assigns the local at the second to last stack spot
+    without making a jump. 
 
 OP_POP_JUMP_IF_FALSE:
     Increments IP a read number after the instruction if the topmost object on the stack is falsey,

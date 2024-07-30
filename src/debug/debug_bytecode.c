@@ -91,6 +91,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_MINUS: print_bare_instr("MINUS", &idx); break;
     case OP_NOT: print_bare_instr("NOT", &idx); break;
     case OP_AS: print_data_type_instr("AS", func, &idx, size); break;
+    case OP_MAKE_ITER: print_bare_instr("TURN_ITER", &idx); break;
     case OP_FINISH_STRING: print_number_instr("FINISH_STRING", func, &idx, size); break;
     case OP_DECLARE_GLOBAL: print_const_instr("DECLARE_GLOBAL", func, &idx, size); break;
     case OP_ASSIGN_GLOBAL: print_const_instr("ASSIGN_GLOBAL", func, &idx, size); break;
@@ -99,6 +100,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_GET_LOCAL: print_number_instr("GET_LOCAL", func, &idx, size); break;
     case OP_JUMP: print_number_instr("JUMP", func, &idx, size); break;
     case OP_JUMP_BACK: print_number_instr("JUMP_BACK", func, &idx, size); break;
+    case OP_ITER_OR_JUMP: print_number_instr("ITER_OR_JUMP", func, &idx, size); break;
     case OP_POP_JUMP_IF_FALSE: print_number_instr("POP_JUMP_IF_FALSE", func, &idx, size); break;
     case OP_POP: print_bare_instr("POP", &idx); break;
     case OP_POP_AMOUNT: print_number_instr("POP_AMOUNT", func, &idx, size); break;
@@ -109,6 +111,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     return idx;
 }
 
+/** Prints a line seperator for bytecode output. */
 static void print_separator(const FuncObj *func) {
     if (HAS_POS_INFO(func)) {
         printf("----------");

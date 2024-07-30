@@ -274,6 +274,17 @@ static Node *while_loop(Parser *parser) {
     return new_while_node(parser->program, condition, AS_PTR(BlockNode, body));
 }
 
+/** Zymux uses for-in loops, which iterate over the elements of an iterable object. */
+static Node *for_loop(Parser *parser) {
+    Token loopVar = CONSUME(parser, TOKEN_IDENTIFIER, "Expected loop variable after \"for\".");
+    CONSUME(parser, TOKEN_IN_KW, "Expected \"in\" after for loop's variable name.");
+    Node *iterable = expression(parser);
+
+    CONSUME(parser, TOKEN_LCURLY, "Expected \"{\" after for loop's iterable.");
+    Node *body = block(parser);
+    return new_for_node(parser->program, loopVar, iterable, AS_PTR(BlockNode, body));
+}
+
 /** Parses and returns a statement or expression-statement. */
 static Node *statement(Parser *parser) {
     Node *node;
@@ -286,6 +297,9 @@ static Node *statement(Parser *parser) {
         break;
     case TOKEN_WHILE_KW:
         node = while_loop(parser);
+        break;
+    case TOKEN_FOR_KW:
+        node = for_loop(parser);
         break;
     default:
         RETREAT(parser);

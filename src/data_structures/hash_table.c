@@ -21,10 +21,8 @@ bool is_hashable(const Obj *object) {
     case OBJ_NULL:
     case OBJ_STRING:
         return true;
-    case OBJ_FUNC:
-        return false;
     default:
-        UNREACHABLE_ERROR();
+        return false;
     }
 }
 
@@ -65,14 +63,15 @@ u32 hash_string(const char *string) {
  * If the object passed is not hashable it'll become an unreachable error.
  */
 u32 get_hash(const Obj *object) {
+    ASSERT(is_hashable(object), "Tried to get hash of an unhashable object.");
+
     switch (object->type) {
     case OBJ_INT: return hash_int(AS_PTR(IntObj, object)->number);
     case OBJ_FLOAT: return hash_float(AS_PTR(FloatObj, object)->number);
     case OBJ_STRING: return AS_PTR(StringObj, object)->hash;
     case OBJ_BOOL: return AS_PTR(BoolObj, object)->boolean ? 1 : 0;
     case OBJ_NULL: return 2;
-
-    default: UNREACHABLE_ERROR(); // Anything else shouldn't have been called to begin with.
+    default: UNREACHABLE_ERROR();
     }
 }
 

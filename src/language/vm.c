@@ -339,16 +339,24 @@ static bool interpret(Vm *vm) {
             break;
         }
         case OP_AS: {
-            const Obj *original = PEEK(vm);
             Obj *converted;
             switch (READ_NUMBER(vm)) {
             // TODO: implement other types.
-            case TYPE_BOOL: converted = AS_OBJ(as_bool(vm->program, original)); break;
-            case TYPE_STRING: converted = AS_OBJ(as_string(vm->program, original)); break;
+            case TYPE_BOOL: converted = AS_OBJ(as_bool(vm->program, PEEK(vm))); break;
+            case TYPE_STRING: converted = AS_OBJ(as_string(vm->program, PEEK(vm))); break;
             default: UNREACHABLE_ERROR();
             }
-            DROP(vm);
-            PUSH(vm, converted);
+            PEEK(vm) = AS_OBJ(converted);
+            break;
+        }
+        case OP_MAKE_ITER: {
+            if (!is_iterable(PEEK(vm))) {
+                return runtime_error(
+                    vm, "Can't iterate over object of type %s.", obj_type_as_string(PEEK(vm)->type)
+                );
+            }
+            IteratorObj *iterator = new_iterator_obj(vm->program, PEEK(vm));
+            PEEK(vm) = AS_OBJ(iterator);
             break;
         }
         case OP_FINISH_STRING: {
@@ -393,6 +401,20 @@ static bool interpret(Vm *vm) {
         case OP_JUMP_BACK: {
             u32 jump = READ_NUMBER(vm);
             vm->frame->ip -= jump;
+            break;
+        }
+        case OP_ITER_OR_JUMP: {
+            ASSERT(PEEK(vm)->type == OBJ_ITERATOR, "Must iterate with an iterator.");
+            IteratorObj *iterator = AS_PTR(IteratorObj, PEEK(vm));
+            ASSERT(is_iterable(iterator->iterable),"Can't iterate over non-iterable.");
+
+            u32 jump = READ_NUMBER(vm);
+            Obj *element = iterate(vm->program, iterator);
+            if (element == NULL) {
+                vm->frame->ip += jump;
+            } else {
+                PEEK_DEPTH(vm, 1) = element;
+            }
             break;
         }
         case OP_POP_JUMP_IF_FALSE: {

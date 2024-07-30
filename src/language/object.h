@@ -26,7 +26,8 @@ typedef enum {
     OBJ_BOOL,
     OBJ_NULL,
     OBJ_STRING,
-    OBJ_FUNC
+    OBJ_FUNC,
+    OBJ_ITERATOR
 } ObjType;
 
 /** Base object struct for all objects in Zymux (for type punning). */
@@ -86,7 +87,7 @@ typedef struct StringObj {
 typedef struct {
     Obj obj;
 
-    /** Name of the function. It gets a special name if it's the top-level code. */
+    /** Name of the function. It gets a special name if it's the top-level code's function. */
     StringObj *name;
 
     /** Stores the emitted bytecode of the function. */
@@ -104,6 +105,13 @@ typedef struct {
      */
     int constIdx;
 } FuncObj;
+
+/** An iterator, which holds an iterable object which it iterates over its elements 1 by 1. */
+typedef struct {
+    Obj obj;
+    Obj *iterable; /** Object being iterated over. Must be an object that can be iterated on.*/
+    u32 iteration; /** The n-th iteration of its elements we're on. */
+} IteratorObj;
 
 /** Returns a new allocated integer object. */
 IntObj *new_int_obj(ZmxProgram *program, const ZmxInt number);
@@ -126,8 +134,22 @@ StringObj *string_obj_from_len(ZmxProgram *program, const char *string, const u3
 /** Returns a new allocated function object. */
 FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx);
 
+/** Returns an iterator which wraps around an iterable object being iterated on. */
+IteratorObj *new_iterator_obj(ZmxProgram *program, Obj *iterable);
+
 /** Allocates some objects for interning and puts them in the passed program. */
 void intern_objs(ZmxProgram *program);
+
+/** Returns whether or not the passed object is something that can be iterated over. */
+bool is_iterable(const Obj *object);
+
+/** 
+ * Iterates over an object that is assumed to be iterable.
+ * Returns the iterated element of the iterable.
+ * 
+ * Passing a non-iterable is considered unreachable.
+ */
+Obj *iterate(ZmxProgram *program, IteratorObj *iterator);
 
 /** Returns whether or not 2 objects are considered equal. */
 bool equal_obj(const Obj *left, const Obj *right);

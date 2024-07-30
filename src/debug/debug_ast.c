@@ -116,6 +116,16 @@ static void append_while_node(CharBuffer *astString, const WhileNode *node) {
     eval_node(astString, AS_NODE(node->body));
 }
 
+/** Appends a for loop, which also includes the loop's variable, iterable, and body. */
+static void append_for_node(CharBuffer *astString, const ForNode *node) {
+    buffer_append_string(astString, "<for> ");
+    buffer_append_token(astString, node->loopVar);
+    buffer_append_string(astString, "<in> ");
+    eval_node(astString, node->iterable);
+    buffer_append_string(astString, "-> ");
+    eval_node(astString, AS_NODE(node->body));
+}
+
 /** Appends an EOF string to the AST string. */
 static void append_eof_node(CharBuffer *astString) {
     buffer_append_string(astString, "EOF");
@@ -145,6 +155,7 @@ static void eval_node(CharBuffer *astString, const Node *node) {
     case AST_VAR_GET: append_var_get_node(astString, AS_PTR(VarGetNode, node)); break;
     case AST_IF_ELSE: append_if_else_node(astString, AS_PTR(IfElseNode, node)); break;
     case AST_WHILE: append_while_node(astString, AS_PTR(WhileNode, node)); break;
+    case AST_FOR: append_for_node(astString, AS_PTR(ForNode, node)); break;
     case AST_EOF: append_eof_node(astString); break;
     default: UNREACHABLE_ERROR();
     }

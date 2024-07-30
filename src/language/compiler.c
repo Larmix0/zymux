@@ -208,7 +208,9 @@ static void collapse_scope(Compiler *compiler) {
         DROP_DA(currentClosure);
         poppedAmount++;
     }
-    if (poppedAmount > 0) {
+    if (poppedAmount == 1) {
+        emit_instr(compiler, OP_POP, PREVIOUS_OPCODE_POS(compiler));
+    } else if (poppedAmount > 1) {
         emit_number(compiler, OP_POP_AMOUNT, poppedAmount, PREVIOUS_OPCODE_POS(compiler));
     }
     compiler->scopeDepth--;
@@ -333,6 +335,28 @@ static void compile_while(Compiler *compiler, const WhileNode *node) {
     patch_jump(compiler, skipLoop, compiler->func->bytecode.length, true);
 }
 
+/** Compiles a for loop, which loops as long as its iterable isn't fully exhausted. */
+static void compile_for(Compiler *compiler, const ForNode *node) {
+    add_scope(compiler);
+    emit_instr(compiler, OP_NULL, node->loopVar.pos);
+    APPEND_DA(
+        CURRENT_LOCALS(compiler), create_variable(false, false, node->loopVar, compiler->scopeDepth)
+    );
+    APPEND_DA(
+        CURRENT_LOCALS(compiler),
+        create_variable(false, false, create_normal_token("<iter>", 0), compiler->scopeDepth)
+    );
+
+    compile_node(compiler, node->iterable);
+    emit_instr(compiler, OP_MAKE_ITER, get_node_pos(node->iterable));
+    u32 iterStart = emit_unpatched_jump(compiler, OP_ITER_OR_JUMP, get_node_pos(node->iterable));
+
+    compile_node(compiler, AS_NODE(node->body));
+    emit_jump(compiler, OP_JUMP_BACK, iterStart, false, PREVIOUS_OPCODE_POS(compiler));
+    patch_jump(compiler, iterStart, compiler->func->bytecode.length, true);
+    collapse_scope(compiler);
+}
+
 /** Compiles an EOF node. */
 static void compile_eof(Compiler *compiler, const EofNode *node) {
     emit_instr(compiler, OP_END, node->pos);
@@ -354,6 +378,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
         case AST_VAR_GET: compile_var_get(compiler, AS_PTR(VarGetNode, node)); break;
         case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
         case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;
+        case AST_FOR: compile_for(compiler, AS_PTR(ForNode, node)); break;
         case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
         case AST_ERROR: break; // Do nothing on erroneous nodes.
         default: UNREACHABLE_ERROR();
