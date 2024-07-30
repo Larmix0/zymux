@@ -16,7 +16,12 @@ char *obj_type_string(ObjType type);
 
 /** Allocates a new object of the passed type and size. */
 static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) {
-    Obj *object = ALLOC(size); // TODO: use normal malloc and collect + retry once if NULL.
+    Obj *object = malloc(size);
+    if (object == NULL) {
+        // GC then retry once more with the macro that automatically errors on allocation failure.
+        gc_collect(program);
+        object = ALLOC(size);
+    }
 #if DEBUG_GC_PRINT
     printf("Allocate %p | %s (%zu bytes)\n", (void*)object, obj_type_string(type), size);
 #endif
