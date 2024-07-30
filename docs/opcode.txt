@@ -173,7 +173,7 @@ OP_ITER_OR_JUMP:
     forward the number that it read, otherwise assigns the local at the second to last stack spot
     without making a jump. 
 
-OP_POP_JUMP_IF_FALSE:
+OP_POP_JUMP_IF_NOT:
     Increments IP a read number after the instruction if the topmost object on the stack is falsey,
     and always pops that object off the stack regardless of its falsiness.
 

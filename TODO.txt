@@ -53,8 +53,6 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-- Rename POP_JUMP_IF_FALSE to POP_JUMP_IF_NOT.
-
 - Get rid of unreachables on non-returning, enum-exhaustive switches, and perhaps place
 the unreachable error outside the switch for returning, enum-exhaustive switches.
 This will be sufficient (I hope?) to stop the compiler from warning us for no return values,
@@ -62,8 +60,6 @@ while still not having a default case for enum-exhaustive switches
 (so we get compiler warning if we forget to add a new enum case to the switch).
 
 - Don't forget to improve to_string() when converting iterators and functions to strings. 
-
-- Don't arbitrarily put things on the stack without checking len (especially when declaring locals).
 
 - Add actual documentation explanation of how/why we emit bytecode a certain way in compiling.
 Same for parsing.

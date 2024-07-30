@@ -317,7 +317,7 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     ByteArray *bytecode = &compiler->func->bytecode;
     compile_node(compiler, node->condition);
     u32 skipIfBranch = emit_unpatched_jump(
-        compiler, OP_POP_JUMP_IF_FALSE, get_node_pos(AS_NODE(node))
+        compiler, OP_POP_JUMP_IF_NOT, get_node_pos(AS_NODE(node))
     );
     compile_node(compiler, AS_NODE(node->ifBranch));
     
@@ -336,7 +336,7 @@ static void compile_while(Compiler *compiler, const WhileNode *node) {
     u32 condition = compiler->func->bytecode.length;
     compile_node(compiler, node->condition);
 
-    u32 skipLoop = emit_unpatched_jump(compiler, OP_POP_JUMP_IF_FALSE, get_node_pos(AS_NODE(node)));
+    u32 skipLoop = emit_unpatched_jump(compiler, OP_POP_JUMP_IF_NOT, get_node_pos(AS_NODE(node)));
     compile_node(compiler, AS_NODE(node->body));
     emit_jump(compiler, OP_JUMP_BACK, condition, false, PREVIOUS_OPCODE_POS(compiler));
     patch_jump(compiler, skipLoop, compiler->func->bytecode.length, true);
