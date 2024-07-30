@@ -37,9 +37,9 @@ static void append_string_node(CharBuffer *astString, const StringNode *node) {
     }
 }
 
-/** Appends a bare keyword using token_type_as_string. */
+/** Appends a node which just holds a keyword token. */
 static void append_keyword_node(CharBuffer *astString, const KeywordNode *node) {
-    buffer_append_string(astString, token_type_as_string(node->keyword));
+    buffer_append_string(astString, token_type_string(node->keyword));
     buffer_append_char(astString, ' ');
 }
 

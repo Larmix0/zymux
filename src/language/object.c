@@ -12,13 +12,13 @@
     ((actualType *)new_obj(program, objType, sizeof(actualType)))
 
 void print_obj(const Obj *object, const bool debugPrint);
-char *obj_type_as_string(ObjType type);
+char *obj_type_string(ObjType type);
 
 /** Allocates a new object of the passed type and size. */
 static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) {
     Obj *object = ALLOC(size); // TODO: use normal malloc and collect + retry once if NULL.
 #if DEBUG_GC_PRINT
-    printf("Allocate %p | %s (%zu bytes)\n", (void*)object, obj_type_as_string(type), size);
+    printf("Allocate %p | %s (%zu bytes)\n", (void*)object, obj_type_string(type), size);
 #endif
 
     program->gc.allocated += size;
@@ -300,7 +300,7 @@ void print_obj(const Obj *object, const bool debugPrint) {
 }
 
 /** Returns a readable C string from the passed object type enum. */
-char *obj_type_as_string(ObjType type) {
+char *obj_type_string(ObjType type) {
     switch (type) {
     case OBJ_INT: return "integer";
     case OBJ_FLOAT: return "float";
@@ -322,7 +322,7 @@ char *obj_type_as_string(ObjType type) {
  */
 void free_obj(Obj *object) {
 #if DEBUG_GC_PRINT
-    printf("Free %p | %s (", (void*)object, obj_type_as_string(object->type));
+    printf("Free %p | %s (", (void*)object, obj_type_string(object->type));
     print_obj(object, true);
     printf(")\n");
 #endif

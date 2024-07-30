@@ -79,7 +79,7 @@ static void compare_lexed(Lexer *lexer, TokenArray *expectedArray, const bool co
             equal_token(lexed, expected),
             "Token %d (lexeme=\"%.*s\" type=%s) != (lexeme=\"%s\", type=%s)",
             tokenIdx + 1, lexed.pos.length, lexed.lexeme,
-            token_type_as_string(lexed.type), expected.lexeme, token_type_as_string(expected.type)
+            token_type_string(lexed.type), expected.lexeme, token_type_string(expected.type)
         );
         if (compareSpots) {
             ASSERT_INT_EQUAL(lexed.pos.line, expected.pos.line);

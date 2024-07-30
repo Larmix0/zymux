@@ -41,7 +41,7 @@ static void mark_obj(Obj *object) {
     }
 
 #if DEBUG_GC_PRINT
-    printf("Mark %p | %s (", (void*)object, obj_type_as_string(object->type));
+    printf("Mark %p | %s (", (void*)object, obj_type_string(object->type));
     print_obj(object, true);
     printf(")\n");
 #endif

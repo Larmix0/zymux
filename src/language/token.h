@@ -111,7 +111,7 @@ typedef struct {
 DECLARE_DA_STRUCT(TokenArray, Token);
 
 /** Returns the passed token type as a string literal in all uppercase. */
-char *token_type_as_string(const TokenType type);
+char *token_type_string(const TokenType type);
 
 /** Creates a "normal" token, which is a token that doesn't have any union values. */
 Token create_normal_token(char *lexeme, const TokenType type);

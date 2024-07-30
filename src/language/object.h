@@ -173,7 +173,7 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object);
 void print_obj(const Obj *object, const bool debugPrint);
 
 /** Returns a readable C string from the passed object type enum. */
-char *obj_type_as_string(ObjType type);
+char *obj_type_string(ObjType type);
 
 /** Frees the contents of the passed object. */
 void free_obj(Obj *object);

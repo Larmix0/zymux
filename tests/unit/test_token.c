@@ -6,9 +6,9 @@
 
 /** Tests if converting a token type to a string literal works properly. */
 PRIVATE_TEST_CASE(test_token_type_to_string) {
-    ASSERT_STRING_EQUAL(token_type_as_string(TOKEN_LIST_KW), "LIST");
-    ASSERT_STRING_EQUAL(token_type_as_string(TOKEN_GREATER), "GREATER");
-    ASSERT_STRING_EQUAL(token_type_as_string(TOKEN_IDENTIFIER), "IDENTIFIER");
+    ASSERT_STRING_EQUAL(token_type_string(TOKEN_LIST_KW), "LIST");
+    ASSERT_STRING_EQUAL(token_type_string(TOKEN_GREATER), "GREATER");
+    ASSERT_STRING_EQUAL(token_type_string(TOKEN_IDENTIFIER), "IDENTIFIER");
 }
 
 /** Tests if the functions for creating arbitrary non-positioned tokens work. */

@@ -5,7 +5,7 @@
 #include "token.h"
 
 /** Returns the passed type as a string literal in all uppercase. */
-char *token_type_as_string(const TokenType type) {
+char *token_type_string(const TokenType type) {
     switch (type) {
         case TOKEN_STRING_KW: return "STRING";
         case TOKEN_INT_KW: return "INT";

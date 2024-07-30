@@ -51,7 +51,7 @@
 #define BIN_OP_ERROR(vm, opString) \
     (runtime_error( \
         vm, "Can't perform %s between %s and %s.", \
-        opString, obj_type_as_string(BIN_LEFT(vm)->type), obj_type_as_string(BIN_RIGHT(vm)->type)) \
+        opString, obj_type_string(BIN_LEFT(vm)->type), obj_type_string(BIN_RIGHT(vm)->type)) \
     )
 
 /** 
@@ -329,7 +329,7 @@ static bool interpret(Vm *vm) {
                 PUSH(vm, AS_OBJ(new_float_obj(vm->program, negated)));
             } else {
                 return runtime_error(
-                    vm, "Can't negate object of type %s.", obj_type_as_string(PEEK(vm)->type)
+                    vm, "Can't negate object of type %s.", obj_type_string(PEEK(vm)->type)
                 );
             }
             break;
@@ -341,7 +341,6 @@ static bool interpret(Vm *vm) {
         case OP_AS: {
             Obj *converted;
             switch (READ_NUMBER(vm)) {
-            // TODO: implement other types.
             case TYPE_BOOL: converted = AS_OBJ(as_bool(vm->program, PEEK(vm))); break;
             case TYPE_STRING: converted = AS_OBJ(as_string(vm->program, PEEK(vm))); break;
             default: UNREACHABLE_ERROR();
@@ -352,7 +351,7 @@ static bool interpret(Vm *vm) {
         case OP_MAKE_ITER: {
             if (!is_iterable(PEEK(vm))) {
                 return runtime_error(
-                    vm, "Can't iterate over object of type %s.", obj_type_as_string(PEEK(vm)->type)
+                    vm, "Can't iterate over object of type %s.", obj_type_string(PEEK(vm)->type)
                 );
             }
             IteratorObj *iterator = new_iterator_obj(vm->program, PEEK(vm));
