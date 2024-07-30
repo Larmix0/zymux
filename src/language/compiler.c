@@ -130,7 +130,10 @@ static void compile_string(Compiler *compiler, const StringNode *node) {
         }
         nextIsString = !nextIsString;
     }
-    emit_number(compiler, OP_FINISH_STRING, node->exprs.length, get_node_pos(node->exprs.data[0]));
+    // Only finish (concatenate) if there's more than one string as optimization.
+    if (node->exprs.length > 1) {
+        emit_number(compiler, OP_FINISH_STRING, node->exprs.length, get_node_pos(AS_NODE(node)));
+    }
 }
 
 /** Compiles a keyword node, which is one that holds a bare keyword and it's position. */

@@ -67,5 +67,3 @@ while still not having a default case for enum-exhaustive switches
 
 - Add actual documentation explanation of how/why we emit bytecode a certain way in compiling.
 Same for parsing.
-
-- Don't emit OP_FINISH_STRING if its argument is about to be 1 (just finishing a single string).
