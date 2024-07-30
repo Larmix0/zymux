@@ -20,7 +20,7 @@ typedef struct {
 CharBuffer create_char_buffer();
 
 /** Appends the length amount of characters in strings to buffer. */
-void buffer_append_string_len(CharBuffer *buffer, const char *string, const int length);
+void buffer_append_string_len(CharBuffer *buffer, const char *string, const size_t length);
 
 /** Appends the passed string to the buffer. */
 void buffer_append_string(CharBuffer *buffer, const char *string);

@@ -205,41 +205,38 @@ StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringO
 // TODO: objects which can error during conversion can simply change the program's hasErrored
 // and/or return NULL?
 
-/** Returns the passed object as a string value. */
+/** Returns the passed object as a string object. */
 StringObj *as_string(ZmxProgram *program, const Obj *object) {
-    // TODO: just use a char buffer instead of a traditional string.
-    char *string;
+    CharBuffer string = create_char_buffer();
     switch (object->type) {
-    case OBJ_INT: {
-        ZmxInt value = AS_PTR(IntObj, object)->number;
-        const int length = snprintf(NULL, 0, ZMX_INT_FMT, value);
-        string = ARRAY_ALLOC(length + 1, char);
-        snprintf(string, length + 1, ZMX_INT_FMT, value);
+    case OBJ_INT:
+        buffer_append_format(&string, ZMX_INT_FMT, AS_PTR(IntObj, object)->number);
         break;
-    }
-    case OBJ_FLOAT: {
-        ZmxFloat value = AS_PTR(FloatObj, object)->number;
-        const int length = snprintf(NULL, 0, ZMX_FLOAT_FMT, value);
-        string = ARRAY_ALLOC(length + 1, char);
-        snprintf(string, length + 1, ZMX_FLOAT_FMT, value);
+    case OBJ_FLOAT:
+        buffer_append_format(&string, ZMX_FLOAT_FMT, AS_PTR(FloatObj, object)->number);
         break;
-    }
-    // TODO: make func and iterator conversion "<func/iterator {name}>" instead of "{name}".
     case OBJ_FUNC:
-        return new_string_obj(program, AS_PTR(FuncObj, object)->name->string);
+        buffer_append_format(&string, "<func %s>", AS_PTR(FuncObj, object)->name->string);
+        break;
     case OBJ_ITERATOR:
-        return as_string(program, AS_PTR(IteratorObj, object)->iterable);
+        buffer_append_format(
+            &string, "<iterator %s>", as_string(program, AS_PTR(IteratorObj, object)->iterable)
+        );
+        break;
     case OBJ_BOOL:
-        return new_string_obj(program, AS_PTR(BoolObj, object)->boolean ? "true" : "false");
+        buffer_append_string(&string, AS_PTR(BoolObj, object)->boolean ? "true" : "false");
+        break;
     case OBJ_NULL:
-        return new_string_obj(program, "null");
+        buffer_append_string(&string, "null");
+        break;
     case OBJ_STRING:
-        return new_string_obj(program, AS_PTR(StringObj, object)->string);
+        buffer_append_string(&string, AS_PTR(StringObj, object)->string);
+        break;
     default:
         UNREACHABLE_ERROR();
     }
-    StringObj *result = new_string_obj(program, string);
-    free(string);
+    StringObj *result = new_string_obj(program, string.text);
+    free_char_buffer(&string);
     return result;
 }
 

@@ -13,7 +13,7 @@ CharBuffer create_char_buffer() {
 }
 
 /** Appends a string of length with strncat. */
-void buffer_append_string_len(CharBuffer *buffer, const char *string, const int length) {
+void buffer_append_string_len(CharBuffer *buffer, const char *string, const size_t length) {
     if (buffer->length + length + 1 > buffer->capacity) {
         buffer->capacity += length * 2;
         buffer->text = ARRAY_REALLOC(buffer->text, buffer->capacity, sizeof(char));

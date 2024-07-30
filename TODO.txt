@@ -59,7 +59,5 @@ This will be sufficient (I hope?) to stop the compiler from warning us for no re
 while still not having a default case for enum-exhaustive switches
 (so we get compiler warning if we forget to add a new enum case to the switch).
 
-- Don't forget to improve to_string() when converting iterators and functions to strings. 
-
 - Add actual documentation explanation of how/why we emit bytecode a certain way in compiling.
 Same for parsing.
