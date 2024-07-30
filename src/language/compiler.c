@@ -257,10 +257,14 @@ static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
         // TODO: should fall off to globals.
         i64 localIdx = get_closed_var_index(*CURRENT_LOCALS(compiler), name);
         if (localIdx != -1) {
+            if (CURRENT_LOCALS(compiler)->data[localIdx].isConst) {
+                compiler_error(compiler, AS_NODE(node), "Can't assign to const variable.");
+            }
             emit_number(compiler, OP_ASSIGN_LOCAL, localIdx, node->name.pos);
             return;
         } else {
             // TODO: Call a function that attempts to find variables above the current closure.
+            // TODO: otherwise fall off to globals.
         }
     }
 
