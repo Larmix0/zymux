@@ -52,8 +52,15 @@ static void mark_obj(Obj *object) {
         FuncObj *func = AS_PTR(FuncObj, object);
         mark_obj(AS_OBJ(func->name));
         mark_obj_array(func->constPool);
+        break;
     }
-    default: break;
+    case OBJ_ITERATOR: {
+        IteratorObj *iterator = AS_PTR(IteratorObj, object);
+        mark_obj(AS_OBJ(iterator->iterable));
+        break;
+    }
+    default:
+        break;
     }
 }
 
