@@ -116,7 +116,7 @@ static void print_separator(const FuncObj *func) {
     if (HAS_POS_INFO(func)) {
         printf("----------");
     }
-    printf("--------------------\n");
+    printf("-----------------------\n");
 }
 
 /** 
@@ -127,14 +127,15 @@ static void print_separator(const FuncObj *func) {
  * but in that the loop won't end up triggering and printing anything anyways.
  */
 void print_bytecode(const FuncObj *func) {
-    print_separator(func);
+    printf("-------------------- BYTECODE START --------------------\n");
     print_obj(AS_OBJ(func), true);
     putchar('\n');
     print_separator(func);
+    printf("|  ");
     if (HAS_POS_INFO(func)) {
-        printf("Line    | ");
+        printf("Line | ");
     }
-    printf("Instruction | OpCode\n");
+    printf("Instruction | Opcode  |\n");
     print_separator(func);
 
     InstrSize size = INSTR_ONE_BYTE;
@@ -142,4 +143,5 @@ void print_bytecode(const FuncObj *func) {
     for (u32 idx = 0; idx < func->bytecode.length;) {
         idx = print_instr(func, idx, &size, HAS_POS_INFO(func) ? FORMAT_NORMAL : FORMAT_NO_LINE);
     }
+    printf("-------------------- BYTECODE END --------------------\n");
 }

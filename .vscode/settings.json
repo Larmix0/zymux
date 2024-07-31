@@ -33,7 +33,8 @@
         "system_error": "c",
         "string": "c",
         "initializer_list": "c",
-        "debug_bytecode.h": "c"
+        "debug_bytecode.h": "c",
+        "debug_ast.h": "c"
     },
     "cSpell.words": [
         "Zymux"

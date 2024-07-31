@@ -8,6 +8,10 @@
 #include "dynamic_array.h"
 #include "lexer.h"
 
+#if DEBUG_TOKENS
+    #include "debug_tokens.h"
+#endif
+
 #define CURRENT_TOKEN_LENGTH(lexer) ((lexer)->current - (lexer)->tokenStart)
 #define START_TOKEN(lexer) \
     ((lexer)->tokenStart = (lexer)->current, (lexer)->tokenColumn = (lexer)->column)
@@ -941,6 +945,9 @@ bool lex(Lexer *lexer) {
             break;
         }
     }
-    
+
+#if DEBUG_TOKENS
+    print_tokens(lexer->tokens);
+#endif
     return !lexer->program->hasErrored;
 }

@@ -1,10 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "debug_ast.h"
-#include "debug_bytecode.h"
-#include "debug_token.h"
-
 #include "compiler.h"
 #include "file.h"
 #include "gc.h"

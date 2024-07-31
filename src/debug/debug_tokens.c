@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "debug_token.h"
+#include "debug_tokens.h"
 #include "char_buffer.h"
 #include "report_error.h"
 
@@ -29,10 +29,11 @@ static void print_token(const Token token) {
 
 /** Prints an entire array of tokens. */
 void print_tokens(const TokenArray tokens) {
-    printf("Tokens:\n");
+    printf("-------------------- TOKENS START --------------------\n");
     for (u32 i = 0; i < tokens.length; i++) {
         printf(INDENT);
         print_token(tokens.data[i]);
         putchar('\n');
     }
+    printf("-------------------- TOKENS END --------------------\n");
 }

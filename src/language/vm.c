@@ -3,13 +3,18 @@
 #include <string.h>
 
 #include "allocator.h"
-#include "debug_runtime.h"
 #include "char_buffer.h"
 #include "compiler.h"
 #include "emitter.h"
 #include "file.h"
 #include "object.h"
 #include "vm.h"
+
+#if DEBUG_RUNTIME
+    #include <stdio.h>
+
+    #include "debug_runtime.h"
+#endif
 
 /** Reads the current instruction and increments IP to prepare for the next one. */
 #define READ_INSTR(vm) (*(vm)->frame->ip++)
@@ -247,10 +252,14 @@ void free_vm(Vm *vm) {
     FREE_STACK(vm);
 }
 
-/** Executes all the bytecode in the passed VM's function object. */
-static bool interpret(Vm *vm) {
+/** 
+ * Executes all the bytecode in the passed VM's function object.
+ * 
+ * Returns whether or not executing the VM was successful (no errors).
+ */
+static bool execute_vm(Vm *vm) {
     while (true) {
-#if DEBUG_RUNTIME == 1
+#if DEBUG_RUNTIME
         print_runtime_state(
             vm->frame->func, vm->stack.objects, STACK_LENGTH(vm),
             vm->frame->ip - vm->frame->func->bytecode.data, vm->instrSize
@@ -439,16 +448,28 @@ static bool interpret(Vm *vm) {
 }
 
 /** 
- * Simply executes the passed source string and frees all memory used except the program's.
+ * Main function for interpreting a virtual machine.
  * 
- * This is because Zymux sometimes extra VMs for imported modules.
+ * Wrapper around execute_vm() for debugging.
+ * Returns whether or not we encountered a runtime error during execution.
  */
+bool interpret(Vm *vm) {
+#if DEBUG_RUNTIME
+    printf("-------------------- VM START --------------------\n");
+#endif
+    const bool succeeded = execute_vm(vm);
+#if DEBUG_RUNTIME
+    printf("-------------------- VM END --------------------\n");
+#endif
+    return succeeded;
+}
+
+/** Simply executes the passed source string and frees all used memory except the program's. */
 bool interpret_source(ZmxProgram *program, char *source) {
-    Compiler compiler = compile_source(program, source, DEBUG_COMPILER);
+    Compiler compiler = compile_source(program, source, DEBUG_BYTECODE);
     if (compiler.func == NULL) {
         return false; // Failed to compile.
     }
-
     Vm vm = create_vm(program, compiler.func);
     program->gc.vm = &vm;
     program->gc.compiler = NULL;

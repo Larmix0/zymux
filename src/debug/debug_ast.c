@@ -166,8 +166,7 @@ static void eval_node(CharBuffer *astString, const Node *node) {
 
 /** Prints the entire passed ast. */
 void print_ast(const NodeArray *ast) {
-    printf("Abstract syntax tree:\n");
-
+    printf("-------------------- AST START --------------------\n");
     CharBuffer astString = create_char_buffer();
     for (u32 i = 0; i < ast->length; i++) {
         buffer_append_string(&astString, INDENT);
@@ -179,6 +178,7 @@ void print_ast(const NodeArray *ast) {
     }
     printf("%s", astString.text);
     free_char_buffer(&astString);
+    printf("-------------------- AST END --------------------\n");
 }
 
 /** Allocates a string representation of the AST using the debug delimiter. */

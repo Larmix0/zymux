@@ -52,6 +52,9 @@ Vm create_vm(ZmxProgram *program, FuncObj *func);
 /** Frees all memory that the passed VM allocated. */
 void free_vm(Vm *vm);
 
+/** Executes all the bytecode in the passed VM's function object. */
+bool interpreet(Vm *vm);
+
 /** 
  * Simply executes the passed source string and frees all memory used except the program's.
  * 

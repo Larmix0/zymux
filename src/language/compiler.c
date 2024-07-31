@@ -1,12 +1,13 @@
 #include <stdarg.h>
 
-#include "debug_ast.h"
-#include "debug_bytecode.h"
-#include "debug_token.h"
 #include "compiler.h"
 #include "emitter.h"
 #include "lexer.h"
 #include "parser.h"
+
+#if DEBUG_BYTECODE
+    #include "debug_bytecode.h"
+#endif
 
 /** Returns the outermost closure of scopes. */
 #define CURRENT_LOCALS(compiler) (&(compiler)->locals.data[(compiler)->locals.length - 1])
@@ -28,10 +29,10 @@ static void compiler_error(Compiler *compiler, const Node *erroredNode, const ch
 }
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
-Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool isDebugging) {
+Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPositions) {
     program->gc.protectNewObjs = true;
     Compiler compiler = {
-        .isDebugging = isDebugging, .program = program, .ast = ast,
+        .trackPositions = trackPositions, .program = program, .ast = ast,
         .scopeDepth = 0, .globals = CREATE_DA(), .locals = CREATE_DA(), .jumps = CREATE_DA(),
         .func = new_func_obj(program, new_string_obj(program, "<main>"), -1)
     };
@@ -395,26 +396,28 @@ static void compile_node(Compiler *compiler, const Node *node) {
 /** 
  * Compiles bytecode from the AST inside compiler into it's func.
  * 
- * Returns whether or not we've errored.
+ * Returns whether or not compilation was successful.
  */
-static bool compile(Compiler *compiler) {
+bool compile(Compiler *compiler) {
     for (u32 i = 0; i < compiler->ast.length; i++) {
         compile_node(compiler, compiler->ast.data[i]);
     }
     write_jumps(compiler);
 
+#if DEBUG_BYTECODE
+    print_bytecode(compiler->func);
+#endif
     return !compiler->program->hasErrored;
 }
 
 /** 
  * Returns a compiled compiler. Either it's compiled or everything is set to 0/NULL if errored.
  * 
- * debugByteCode controls whether or not we keep track of the positions of each bytecode,
- * and also whether or not we should print the lexed tokens, parsed AST, and compiled bytecode.
+ * trackPositions is whether we should store positions for bytecodes or not.
  */
-Compiler compile_source(ZmxProgram *program, char *source, const bool debugBytecode) {
+Compiler compile_source(ZmxProgram *program, char *source, const bool trackPositions) {
     Compiler emptyCompiler = {
-        .isDebugging = false, .program = NULL, .ast = CREATE_DA(),
+        .trackPositions = false, .program = NULL, .ast = CREATE_DA(),
         .globals = CREATE_DA(), .locals = CREATE_DA(), .scopeDepth = 0, .func = NULL
     };
 
@@ -422,9 +425,6 @@ Compiler compile_source(ZmxProgram *program, char *source, const bool debugBytec
     if (!lex(&lexer)) {
         free_lexer(&lexer);
         return emptyCompiler;
-    }
-    if (debugBytecode && DEBUG_LEXER) {
-        print_tokens(lexer.tokens);
     }
 
     Parser parser = create_parser(program, lexer.tokens);
@@ -434,18 +434,12 @@ Compiler compile_source(ZmxProgram *program, char *source, const bool debugBytec
         free_all_nodes(program);
         return emptyCompiler;
     }
-    if (debugBytecode && DEBUG_PARSER) {
-        print_ast(&parser.ast);
-    }
 
-    Compiler compiler = create_compiler(program, parser.ast, debugBytecode);
+    Compiler compiler = create_compiler(program, parser.ast, trackPositions);
     // Set this compiler as the one being garbage collected. Now compiler's objects can be GC'd.
     program->gc.compiler = &compiler;
     GC_CLEAR_PROTECTED(&program->gc);
     compile(&compiler);
-    if (!program->hasErrored && debugBytecode && DEBUG_COMPILER) {
-        print_bytecode(compiler.func);
-    }
 
     free_lexer(&lexer);
     free_parser(&parser);

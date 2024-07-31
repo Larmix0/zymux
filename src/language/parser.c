@@ -2,6 +2,10 @@
 #include "parser.h"
 #include "report_error.h"
 
+#if DEBUG_AST
+    #include "debug_ast.h"
+#endif
+
 #define PEEK(parser) (*(parser)->current)
 #define PEEK_PREVIOUS(parser) (*((parser)->current - 1))
 #define CHECK(parser, expected) (PEEK(parser).type == (expected))
@@ -401,6 +405,7 @@ static Node *declaration(Parser *parser) {
  * Parses the array of tokens in the parser.
  * 
  * Places the parsed nodes inside the passed parser's ast field.
+ * Returns whether or not parsing was successful.
  */
 bool parse(Parser *parser) {
     while (!IS_EOF(parser)) {
@@ -408,5 +413,8 @@ bool parse(Parser *parser) {
     }
     APPEND_DA(&parser->ast, new_eof_node(parser->program, PEEK(parser).pos));
 
+#if DEBUG_AST
+    print_ast(&parser->ast);
+#endif
     return !parser->program->hasErrored;
 }

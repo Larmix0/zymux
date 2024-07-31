@@ -24,9 +24,9 @@
 #define RED "\033[31m"
 #define YELLOW "\033[33m"
 
-#define DEBUG_LEXER 1
-#define DEBUG_PARSER 1
-#define DEBUG_COMPILER 1
+#define DEBUG_TOKENS 1
+#define DEBUG_AST 1
+#define DEBUG_BYTECODE 1
 #define DEBUG_RUNTIME 1
 #define DEBUG_GC_PRINT 0
 #define DEBUG_GC_ALWAYS 1

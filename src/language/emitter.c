@@ -70,7 +70,7 @@ static void insert_byte(Compiler *compiler, u8 byte, const u32 index) {
     }
     APPEND_DA(bytecode, byte);
 
-    if (compiler->isDebugging) {
+    if (compiler->trackPositions) {
         SourcePositionArray *positions = &compiler->func->positions;
         SourcePosition pos = positions->data[index - 1];
         for (u32 i = index; i < positions->length; i++) {
@@ -92,7 +92,7 @@ static void remove_byte(Compiler *compiler, const u32 index) {
     }
     DROP_DA(bytecode);
 
-    if (compiler->isDebugging) {
+    if (compiler->trackPositions) {
         SourcePositionArray *positions = &compiler->func->positions;
         for (u32 i = index; i < positions->length - 1; i++) {
             positions->data[i] = positions->data[i + 1];
@@ -122,7 +122,7 @@ static void insert_number(Compiler *compiler, const u32 startIdx, const u32 numb
  */
 void emit_instr(Compiler *compiler, const u8 instr, const SourcePosition pos) {
     APPEND_DA(&compiler->func->bytecode, instr);
-    if (compiler->isDebugging) {
+    if (compiler->trackPositions) {
         fill_instr_positions(compiler->func, pos);
     }
 }
