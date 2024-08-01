@@ -58,6 +58,3 @@ the unreachable error outside the switch for returning, enum-exhaustive switches
 This will be sufficient (I hope?) to stop the compiler from warning us for no return values,
 while still not having a default case for enum-exhaustive switches
 (so we get compiler warning if we forget to add a new enum case to the switch).
-
-- Add actual documentation explanation of how/why we emit bytecode a certain way in compiling.
-Same for parsing.

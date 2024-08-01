@@ -143,7 +143,10 @@ static Node *primary(Parser *parser) {
     }
 }
 
-/** A unary is just a primary with a some operation to the left of it. */
+/** 
+ * A unary is just a primary with a some operation to the left of it.
+ * We allow unary to be recursive to allow something like (---10).
+ */
 static Node *unary(Parser *parser) {
     if (CHECK(parser, TOKEN_MINUS) || CHECK(parser, TOKEN_BANG)) {
         Token operation = ADVANCE_PEEK(parser);
@@ -207,11 +210,10 @@ static Node *equality(Parser *parser) {
     return expr;
 }
 
-/** Handles assignment expressions. */
+/** Handles assignment expressions. TODO: do multi-assignments and document how they're parsed. */
 static Node *assignment(Parser *parser) {
     Node *expr = equality(parser);
     if (CHECK(parser, TOKEN_ASSIGN)) {
-        // TODO: allow multi-assignments.
         Token assignLocation = ADVANCE_PEEK(parser);
         Node *value = assignment(parser);
         if (expr->type == AST_VAR_GET) {
@@ -237,7 +239,11 @@ static Node *expression_stmt(Parser *parser) {
     return new_expr_stmt_node(parser->program, node);
 }
 
-/** A block statement which holds other statements/declarations in a deeper scope. */
+/** 
+ * A block statement which holds other statements/declarations in a deeper scope.
+ * 
+ * It's basically just an array of declaration statements.
+ */
 static Node *block(Parser *parser) {
     SourcePosition pos = PEEK_PREVIOUS(parser).pos;
     NodeArray stmts = CREATE_DA();
@@ -249,9 +255,10 @@ static Node *block(Parser *parser) {
 }
 
 /** 
- * A statement which holds an if condition, a for it being truthy, and a branch for falsey.
+ * Holds an if condition expression, a block if it's truthy, and an optional if falsey block.
  * 
- * The falsey branch (else) is optional, and either contains a block or another if-else statement.
+ * The falsey branch (else) either contains a block or another if-else statement,
+ * which allows if/else-if/else statements.
  */
 static Node *if_else(Parser *parser) {
     Node *condition = expression(parser);
@@ -270,7 +277,7 @@ static Node *if_else(Parser *parser) {
     return new_if_else_node(parser->program, condition, AS_PTR(BlockNode, ifBranch), elseBranch);
 }
 
-/** A while loop executes a block inside it as long as the loop's condition evalutes to true. */
+/** A while loop executes its block statement as long as the loop's condition evalutes to true. */
 static Node *while_loop(Parser *parser) {
     Node *condition = expression(parser);
     CONSUME(parser, TOKEN_LCURLY, "Expected \"{\" after while loop's condition.");
@@ -293,18 +300,10 @@ static Node *for_loop(Parser *parser) {
 static Node *statement(Parser *parser) {
     Node *node;
     switch (ADVANCE_PEEK(parser).type) {
-    case TOKEN_LCURLY:
-        node = block(parser);
-        break;
-    case TOKEN_IF_KW:
-        node = if_else(parser);
-        break;
-    case TOKEN_WHILE_KW:
-        node = while_loop(parser);
-        break;
-    case TOKEN_FOR_KW:
-        node = for_loop(parser);
-        break;
+    case TOKEN_LCURLY: node = block(parser); break;
+    case TOKEN_IF_KW: node = if_else(parser); break;
+    case TOKEN_WHILE_KW: node = while_loop(parser); break;
+    case TOKEN_FOR_KW: node = for_loop(parser); break;
     default:
         RETREAT(parser);
         node = expression_stmt(parser);
@@ -313,7 +312,11 @@ static Node *statement(Parser *parser) {
     return node;
 }
 
-/** Returns a declared variable which is either initialized with an expression or null. */
+/** 
+ * Variable declarations initialize with an expression or default to null if nothing is provided.
+ * 
+ * TODO: add documentation for multi-variable declaration.
+ */
 static Node *var_decl(Parser *parser, const bool isConst) {
     Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected declared variable's name.");
     Node *value;
@@ -379,16 +382,12 @@ static void synchronize(Parser *parser) {
     }
 }
 
-/** Parses and returns a declaration or statement. */
+/** Parses and returns a declaration of something or a statement otherwise. */
 static Node *declaration(Parser *parser) {
     Node *node;
     switch (ADVANCE_PEEK(parser).type) {
-    case TOKEN_LET_KW:
-        node = var_decl(parser, false);
-        break;
-    case TOKEN_CONST_KW:
-        node = var_decl(parser, true);
-        break;
+    case TOKEN_LET_KW: node = var_decl(parser, false); break;
+    case TOKEN_CONST_KW: node = var_decl(parser, true); break;
     default:
         RETREAT(parser);
         node = statement(parser);

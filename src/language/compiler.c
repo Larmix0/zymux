@@ -87,7 +87,7 @@ static i64 get_top_scope_var_index(ClosedVariables variables, Token name, const 
     return -1;
 }
 
-/** Compiles a literal value which is by adding it's obj form in the constants pool. */
+/** Compiles a literal value which is by adding its obj form in the constants pool. */
 static void compile_literal(Compiler *compiler, const LiteralNode *node) {
     Token value = node->value;
     Obj *literalAsObj;
@@ -147,7 +147,7 @@ static void compile_keyword(Compiler *compiler, const KeywordNode *node) {
     }
 }
 
-/** Compiles a unary node. */
+/** Compiles a unary node, which is a normal one but with a specific operation applied to it. */
 static void compile_unary(Compiler *compiler, const UnaryNode *node) {
     compile_node(compiler, node->rhs);
 
@@ -160,7 +160,13 @@ static void compile_unary(Compiler *compiler, const UnaryNode *node) {
     emit_instr(compiler, unaryOp, node->operation.pos);
 }
 
-/** Compiles a binary node. */
+/** 
+ * Compiles a node with a value to its left and right and an operation between.
+ * 
+ * In compilation however, we compile the left side, right side and then the operation.
+ * This is to make sure both operands are accessible and loaded to the stack when applying
+ * their operations.
+ */
 static void compile_binary(Compiler *compiler, const BinaryNode *node) {
     compile_node(compiler, node->lhs);
     compile_node(compiler, node->rhs);
@@ -198,12 +204,12 @@ static void compile_expr_stmt(Compiler *compiler, const ExprStmtNode *node) {
     emit_instr(compiler, OP_POP, get_node_pos(node->expr));
 }
 
-/** Begins a scope that's one layer deeper. */
+/** Begins a scope that's one layer deeper (usually from entering a new block scope). */
 static void add_scope(Compiler *compiler) {
     compiler->scopeDepth++;
 }
 
-/** Collapses the outermost scope, its variables and sends their respective pop instructions. */
+/** Collapses the outermost scope, its variables and emits their respective pop instructions. */
 static void collapse_scope(Compiler *compiler) {
     ClosedVariables *currentClosure = CURRENT_LOCALS(compiler);
     u32 poppedAmount = 0;
@@ -229,7 +235,17 @@ static void compile_block(Compiler *compiler, const BlockNode *node) {
     collapse_scope(compiler);
 }
 
-/** Compiles a variable delcaration statement. */
+/** 
+ * Compiles a variable delcaration statement.
+ * 
+ * For globals, we'll put them in a hash table at runtime.
+ * Therefore, we emit their initialized value, followed by the declaration,
+ * then a string to be read afterwards that represents the declared variable's name.
+ * 
+ * For locals we just compile their expression value
+ * and leave it on the stack to be accessed by just indexing it.
+ * TODO: add more explanation for multi-variable declarations when they're added.
+ */
 static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
     compile_node(compiler, node->value);
     Token name = node->name;
@@ -251,7 +267,15 @@ static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
     }
 }
 
-/** Compiles a variable assignment expression. */
+/** 
+ * Compiles a variable assignment expression.
+ * 
+ * For globals it's like declarations, first we emit the value expression's bytecode,
+ * then the assign instruction followed by a string which has the assigned variable's name in it.
+ * For locals, we simply reassign the index of the stack where they're located,
+ * which is statically kept track of in the compiler.
+ * TODO: add more explanation for multi-assignments and closure upvalues when they're added.
+ */
 static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
     compile_node(compiler, node->value);
     Token name = node->name;
@@ -285,7 +309,16 @@ static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
     emit_const(compiler, OP_ASSIGN_GLOBAL, varName, name.pos);
 }
 
-/** Compiles a name that is used to get the value of a variable. */
+/** 
+ * Compiles a name that is used to get the value of a variable.
+ * 
+ * For globals, we emit the var get instruction followede by the string of the name we wanna get
+ * from the globals hash table.
+ * 
+ * For locals, we emit the local get instruction followed by the expected index of the local
+ * relative to the execution frame's base pointer (BP) at runtime.
+ * TODO: Add explanation for getting closed variables when they're added.
+ */
 static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
     Token name = node->name;
     Obj *varName = AS_OBJ(
@@ -313,7 +346,26 @@ static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
     emit_const(compiler, OP_GET_GLOBAL, varName, node->name.pos);
 }
 
-/** Compiles an if-statement and its optional else branch if it exists. */
+/** 
+ * Compiles an if-statement and its optional else branch if it exists.
+ * 
+ * Compiles the condition of the "if" then emits a conditional jump, which goes outside
+ * the "if" branch if the condition evaluates to false.
+ * Otherwise it falls off to the upcoming bytecode of the if branch.
+ * 
+ * After the if branch's bytecode there might be an optional else statement' bytecode,
+ * which is implemented by adding an extra jump after the if branch's bytecode, so that
+ * when the if branch executes, it jumps over the else statement's bytecode.
+ * After emitting the jump that skips the else on the if branch, we compile the else branch.
+ * 
+ * Example:
+ *     1 {Condition bytecode}.
+ *     2 Go to 5 if previous condition is falsy, otherwise don't.
+ *     3 {If branch bytecode}.
+ *     4 Go to 6 unconditionally.
+ *     5 {Else branch bytecode}.
+ *     6 {Bytecode after if-else statement}.
+ */
 static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     ByteArray *bytecode = &compiler->func->bytecode;
     compile_node(compiler, node->condition);
@@ -332,7 +384,22 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     }
 }
 
-/** Compiles a while loop which executes its body statements as long as its condition is truthy. */
+/** 
+ * Compiles a while loop which executes its body statements as long as its condition is truthy.
+ * 
+ * Compiles the condition expression of the while loop, then emits a conditional jump which
+ * will go over the loop's body if the condition becomes falsy.
+ * 
+ * After emitting that jump, the body is emitted followed by an unconditional backwards jump,
+ * which goes back to the condition of the while loop and the conditional jump over the body.
+ * 
+ * Example:
+ *     1 {Condition bytecode}.
+ *     2 Go to 5 if previous condition is falsy, otherwise don't.
+ *     3 {While loop body}.
+ *     4 Go to 1 unconditionally.
+ *     5 {Bytecode outside while loop}.
+ */
 static void compile_while(Compiler *compiler, const WhileNode *node) {
     u32 condition = compiler->func->bytecode.length;
     compile_node(compiler, node->condition);
@@ -343,7 +410,28 @@ static void compile_while(Compiler *compiler, const WhileNode *node) {
     patch_jump(compiler, skipLoop, compiler->func->bytecode.length, true);
 }
 
-/** Compiles a for loop, which loops as long as its iterable isn't fully exhausted. */
+/** 
+ * Compiles a for loop, which loops as long as its iterable isn't fully exhausted.
+ * 
+ * First thing the for loop does is declare the loop variable inside the scope and set it to null.
+ * After that, we load the object being iterated on, and wrap it around an iterator object.
+ * 
+ * Then, we start a loop where the first instruction attempts to iterate over the created iterator,
+ * and if it can't because it's exhausted, it jumps outside the loop, otherwise assigns the iterated
+ * element to the loop variable and falls to the bytecode of the loop's body.
+ * 
+ * Finally, there's an unconditional jump back instruction artificially added after the loop's body
+ * to jump back to the "iterate or jump outside loop" instruction.
+ * 
+ * Example:
+ *     1 Load null (as a temporary place to hold the loop variable).
+ *     2 {Load the thing being iterated/looped on}.
+ *     3 Wrap the iterable on an iterator object to prepare for the loop.
+ *     4 Try to iterate the iterator and assign it to the loop variable, or if exhausted go to 7.
+ *     5 {For loop body}.
+ *     6 Go to 4 unconditionally.
+ *     7 {Bytecode outside for loop}.
+ */
 static void compile_for(Compiler *compiler, const ForNode *node) {
     add_scope(compiler);
     emit_instr(compiler, OP_NULL, node->loopVar.pos);
@@ -365,7 +453,7 @@ static void compile_for(Compiler *compiler, const ForNode *node) {
     collapse_scope(compiler);
 }
 
-/** Compiles an EOF node. */
+/** Compiles an EOF node, which is placed to indicate the end of the bytecode. */
 static void compile_eof(Compiler *compiler, const EofNode *node) {
     emit_instr(compiler, OP_END, node->pos);
 }
