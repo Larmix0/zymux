@@ -59,8 +59,13 @@ static void mark_obj(Obj *object) {
         mark_obj(AS_OBJ(iterator->iterable));
         break;
     }
-    default:
+    case OBJ_INT:
+    case OBJ_FLOAT:
+    case OBJ_BOOL:
+    case OBJ_NULL:
+    case OBJ_STRING:
         break;
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
 }
 

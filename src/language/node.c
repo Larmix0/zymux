@@ -177,8 +177,8 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
     case AST_FOR: return AS_PTR(ForNode, node)->loopVar.pos;
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
-    default: UNREACHABLE_ERROR();
     }
+    UNREACHABLE_ERROR();
 }
 
 /** Frees the passed node and its allocated members. */
@@ -190,13 +190,27 @@ static void free_node(Node *node) {
     case AST_BLOCK:
         FREE_DA(&AS_PTR(BlockNode, node)->stmts);
         break;
-    default:
+    case AST_ERROR:
+    case AST_LITERAL:
+    case AST_KEYWORD:
+    case AST_UNARY:
+    case AST_BINARY:
+    case AST_PARENTHESES:
+    case AST_EXPR_STMT:
+    case AST_VAR_DECL:
+    case AST_VAR_ASSIGN:
+    case AST_VAR_GET:
+    case AST_IF_ELSE:
+    case AST_WHILE:
+    case AST_FOR:
+    case AST_EOF:
         break; // Nothing to free.
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     free(node);
 }
 
-
+// TODO: change
 /** Frees all nodes that were allocated and placed inside the passed program. */
 void free_all_nodes(ZmxProgram *program) {
     if (program->allNodes == NULL) {

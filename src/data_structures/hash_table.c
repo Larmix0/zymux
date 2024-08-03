@@ -21,9 +21,11 @@ bool is_hashable(const Obj *object) {
     case OBJ_NULL:
     case OBJ_STRING:
         return true;
-    default:
+    case OBJ_FUNC:
+    case OBJ_ITERATOR:
         return false;
     }
+    UNREACHABLE_ERROR();
 }
 
 /** Hashes the 64 bit Zymux integer into an unsigned 32 bit hash number and returns it. */
@@ -71,8 +73,12 @@ u32 get_hash(const Obj *object) {
     case OBJ_STRING: return AS_PTR(StringObj, object)->hash;
     case OBJ_BOOL: return AS_PTR(BoolObj, object)->boolean ? 1 : 0;
     case OBJ_NULL: return 2;
-    default: UNREACHABLE_ERROR();
+
+    case OBJ_FUNC:
+    case OBJ_ITERATOR:
+        UNREACHABLE_ERROR();
     }
+    UNREACHABLE_ERROR();
 }
 
 /** Creates an empty hash table. */

@@ -37,7 +37,7 @@ static void print_data_type_instr(
     case TYPE_FLOAT: printf("float"); break;
     case TYPE_BOOL: printf("bool"); break;
     case TYPE_STRING: printf("string"); break;
-    default: UNREACHABLE_ERROR();
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     putchar(')');
 }
@@ -65,8 +65,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case FORMAT_NO_LINE_OR_PAD:
         printf("%d ", idx);
         break;
-    default:
-        UNREACHABLE_ERROR();
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
 
     switch (func->bytecode.data[idx]) {
@@ -105,7 +104,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_POP: print_bare_instr("POP", &idx); break;
     case OP_POP_AMOUNT: print_number_instr("POP_AMOUNT", func, &idx, size); break;
     case OP_END: print_bare_instr("END", &idx); break;
-    default: UNREACHABLE_ERROR();
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     putchar('\n');
     return idx;

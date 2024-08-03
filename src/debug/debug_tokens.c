@@ -12,17 +12,17 @@ static void print_token(const Token token) {
         token.pos.line, token.pos.column, token_type_string(token.type)
     );
     switch (token.type) {
-        case TOKEN_INT_LIT:
-            printf(", integer=" ZMX_INT_FMT, token.intVal);
-            break;
-        case TOKEN_FLOAT_LIT:
-            printf(", float=" ZMX_FLOAT_FMT, token.floatVal);
-            break;
-        case TOKEN_STRING_LIT:
-            printf(", string=\"%s\"", token.stringVal.text);
-            break;
-        default:
-            break; // Add nothing to the token's print.
+    case TOKEN_INT_LIT:
+        printf(", integer=" ZMX_INT_FMT, token.intVal);
+        break;
+    case TOKEN_FLOAT_LIT:
+        printf(", float=" ZMX_FLOAT_FMT, token.floatVal);
+        break;
+    case TOKEN_STRING_LIT:
+        printf(", string=\"%s\"", token.stringVal.text);
+        break;
+    default:
+        break; // Add nothing to the token's print.
     }
     putchar(')');
 }

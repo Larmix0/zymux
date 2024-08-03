@@ -3,11 +3,14 @@ This will (likely) be deleted once Zymux's development is mostly finished.
 
 ----------------------------------------------------------------------------------------------------
 
+Allow backslashes at lexer to skip escapes (like skipping a newline before it happens).
+Also, allow escaping actual escapes in strings?
+
 Name the slash/backslash that seperates folders of imports "delimiter".
 
 "nothing" keyword which assigns to nothing. Useful for throwaway assignments in multi-assignments.
 Also, maybe can be used with "is" in order to mean an "empty" datatype
-(like 0 for int, "" for strings, [] for lists, and {} for maps).
+(like 0 for int, "" for strings, [] for lists, and {} for maps instead of null?).
 
 Because every function in Zymux is created during compilation as a constant (and not runtime),
 we can actually attach an integer "constIdx" to each function,
@@ -50,11 +53,4 @@ Optimization:
 
             Gotta bench mark the performance in math expressions before doing it everywhere, though.
 
-
 ----------------------------------------------------------------------------------------------------
-
-- Get rid of unreachables on non-returning, enum-exhaustive switches, and perhaps place
-the unreachable error outside the switch for returning, enum-exhaustive switches.
-This will be sufficient (I hope?) to stop the compiler from warning us for no return values,
-while still not having a default case for enum-exhaustive switches
-(so we get compiler warning if we forget to add a new enum case to the switch).

@@ -10,10 +10,18 @@
 /** Places an instantiated struct that holds information of a line in C source code. */
 #define SOURCE_INFO ((SourceInfo){.file = __FILE__, .func = __func__, .line = __LINE__})
 
-#if ENABLE_ASSERTS
+#if ASSERTS_ENABLED
+    /** 
+     * Asserts a passed condition and spits an assert error if it's falsy with a message.
+     * Currently enabled.
+     */
     #define ASSERT(condition, message) (zmx_assert(SOURCE_INFO, condition, message))
 #else
-    #define ASSERT(condition, message) do {} while (false)
+    /** 
+     * Asserts a passed condition and spits an assert error if it's falsy with a message.
+     * Currently disabled, so no assertions are actually being executed (for performance).
+     */
+    #define ASSERT(condition, message)
 #endif
 
 /** Reports an error relating to the user's operating system.*/
@@ -44,6 +52,25 @@
         "Reached an unreachable part of Zymux's internal code " \
         "(Please report this error to the developer(s) of Zymux, as this should never appear)" \
     ), abort())
+
+#if UNREACHABLE_DEFAULT_ENABLED
+    /** 
+     * Allows enum-exhaustive switches to toggle the default case for compiler warnings.
+     * 
+     * Currently enabled, so switches that use this will have a default case
+     * which spits an unreachable if it occurs.
+     */
+    #define TOGGLEABLE_DEFAULT_UNREACHABLE() default: UNREACHABLE_ERROR()
+#else
+    /** 
+     * Allows enum-exhaustive switches to toggle on/off the default case for compiler warnings.
+     * 
+     * Currently disabled, so switches that use this will not change in any way.
+     * This is mostly to allow the compiler to spit warnings on switches that are supposed to fully
+     * exhaust an enum, so we don't forget to add any enums to a switch.
+     */
+    #define TOGGLEABLE_DEFAULT_UNREACHABLE()
+#endif
 
 /** Reports a file-related error. */
 #define FILE_ERROR(...) (file_error(__VA_ARGS__))

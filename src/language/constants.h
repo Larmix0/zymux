@@ -31,7 +31,11 @@
 #define DEBUG_GC_PRINT 0
 #define DEBUG_GC_ALWAYS 1
 
-#define ENABLE_ASSERTS 1
+/** Allows assertions or disables them from the code for performance. */
+#define ASSERTS_ENABLED 0
+
+/** Allows us to disable default unreachables on enum-exhaustive switches so they throw warnings. */
+#define UNREACHABLE_DEFAULT_ENABLED 0
 
 #define I8_MAX INT8_MAX
 #define I16_MAX INT16_MAX

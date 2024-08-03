@@ -142,6 +142,7 @@ static void eval_node(CharBuffer *astString, const Node *node) {
 
     buffer_append_char(astString, '(');
     switch (node->type) {
+    case AST_LITERAL: UNREACHABLE_ERROR(); // Handled at the top of the function.
     case AST_ERROR: append_error_node(astString); break;
     case AST_STRING: append_string_node(astString, AS_PTR(StringNode, node)); break;
     case AST_KEYWORD: append_keyword_node(astString, AS_PTR(KeywordNode, node)); break;
@@ -157,7 +158,7 @@ static void eval_node(CharBuffer *astString, const Node *node) {
     case AST_WHILE: append_while_node(astString, AS_PTR(WhileNode, node)); break;
     case AST_FOR: append_for_node(astString, AS_PTR(ForNode, node)); break;
     case AST_EOF: append_eof_node(astString); break;
-    default: UNREACHABLE_ERROR();
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     // Ensures string never has whitespace before closing parenthesis.
     buffer_pop(astString);

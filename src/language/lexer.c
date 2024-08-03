@@ -655,11 +655,11 @@ static void interpolation_start(Lexer *lexer, StringLexer *string, CharBuffer *b
 /** Appends and advances over an escape character made up of a backslash and another character. */
 static void escape_character(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
     switch (PEEK_NEXT(lexer)) {
-        case 'n': buffer_append_char(buffer, '\n'); break;
-        case 't': buffer_append_char(buffer, '\t'); break;
-        case 'r': buffer_append_char(buffer, '\r'); break;
-        case 'b': buffer_append_char(buffer, '\b'); break;
-        default: buffer_append_char(buffer, PEEK_NEXT(lexer)); break;
+    case 'n': buffer_append_char(buffer, '\n'); break;
+    case 't': buffer_append_char(buffer, '\t'); break;
+    case 'r': buffer_append_char(buffer, '\r'); break;
+    case 'b': buffer_append_char(buffer, '\b'); break;
+    default: buffer_append_char(buffer, PEEK_NEXT(lexer)); break;
     }
     string->escapes++;
     ADVANCE_DOUBLE(lexer);

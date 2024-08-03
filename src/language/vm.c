@@ -352,7 +352,10 @@ static bool execute_vm(Vm *vm) {
             switch (READ_NUMBER(vm)) {
             case TYPE_BOOL: converted = AS_OBJ(as_bool(vm->program, PEEK(vm))); break;
             case TYPE_STRING: converted = AS_OBJ(as_string(vm->program, PEEK(vm))); break;
-            default: UNREACHABLE_ERROR();
+            // TODO: add as_int() and as_float() implementations.
+            case TYPE_INT: UNREACHABLE_ERROR();
+            case TYPE_FLOAT: UNREACHABLE_ERROR();
+            TOGGLEABLE_DEFAULT_UNREACHABLE();
             }
             PEEK(vm) = AS_OBJ(converted);
             break;
@@ -441,8 +444,7 @@ static bool execute_vm(Vm *vm) {
             break;
         case OP_END:
             return true;
-        default:
-            UNREACHABLE_ERROR();
+        TOGGLEABLE_DEFAULT_UNREACHABLE();
         }
     }
 }

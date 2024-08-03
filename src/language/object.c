@@ -138,9 +138,15 @@ bool is_iterable(const Obj *object) {
     case OBJ_STRING:
         return true;
 
-    default:
+    case OBJ_INT:
+    case OBJ_FLOAT:
+    case OBJ_BOOL:
+    case OBJ_NULL:
+    case OBJ_FUNC:
+    case OBJ_ITERATOR:
         return false;
     }
+    UNREACHABLE_ERROR();
 }
 
 /** 
@@ -160,9 +166,16 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
         }
         return AS_OBJ(string_obj_from_len(program, iterable->string + iterator->iteration++, 1));
     }
-    default:
+
+    case OBJ_INT:
+    case OBJ_FLOAT:
+    case OBJ_BOOL:
+    case OBJ_NULL:
+    case OBJ_FUNC:
+    case OBJ_ITERATOR:
         UNREACHABLE_ERROR();
     }
+    UNREACHABLE_ERROR();
 }
 
 /** 
@@ -188,11 +201,14 @@ bool equal_obj(const Obj *left, const Obj *right) {
         return left == right; // Compare addresses directly.
     
     case OBJ_BOOL: return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
-    case OBJ_NULL: return true; // All nulls are the same.
+    case OBJ_NULL: return true;
     case OBJ_STRING: return AS_PTR(StringObj, left) == AS_PTR(StringObj, right);
-    default:
-        UNREACHABLE_ERROR();
+
+    case OBJ_INT:
+    case OBJ_FLOAT:
+        UNREACHABLE_ERROR(); // Ints and floats were handled at the top.
     }
+    UNREACHABLE_ERROR();
 }
 
 /** Returns a new string object that is formed from concatenating left with right. */
@@ -237,8 +253,7 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
     case OBJ_STRING:
         buffer_append_string(&string, AS_PTR(StringObj, object)->string);
         break;
-    default:
-        UNREACHABLE_ERROR();
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     StringObj *result = new_string_obj(program, string.text);
     free_char_buffer(&string);
@@ -260,7 +275,7 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     case OBJ_STRING: result = AS_PTR(StringObj, object)->length != 0; break;
     case OBJ_BOOL: result = AS_PTR(BoolObj, object)->boolean; break;
     case OBJ_NULL: result = false; break;
-    default: UNREACHABLE_ERROR();
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     return new_bool_obj(program, result);
 }
@@ -296,8 +311,7 @@ void print_obj(const Obj *object, const bool debugPrint) {
         print_obj(AS_PTR(IteratorObj, object)->iterable, debugPrint);
         putchar('>');
         break;
-    default:
-        UNREACHABLE_ERROR();
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
 }
 
@@ -311,8 +325,8 @@ char *obj_type_string(ObjType type) {
     case OBJ_STRING: return "string";
     case OBJ_FUNC: return "function";
     case OBJ_ITERATOR: return "iterator";
-    default: UNREACHABLE_ERROR();
     }
+    UNREACHABLE_ERROR();
 }
 
 /** 
@@ -330,18 +344,23 @@ void free_obj(Obj *object) {
 #endif
 
     switch (object->type) {
-        case OBJ_STRING:
-            free(AS_PTR(StringObj, object)->string);
-            break;
-        case OBJ_FUNC: {
-            FuncObj *func = AS_PTR(FuncObj, object);
-            FREE_DA(&func->bytecode);
-            FREE_DA(&func->constPool);
-            FREE_DA(&func->positions);
-            break;
-        }
-        default:
-            break; // The object itself doesn't own any memory.
+    case OBJ_STRING:
+        free(AS_PTR(StringObj, object)->string);
+        break;
+    case OBJ_FUNC: {
+        FuncObj *func = AS_PTR(FuncObj, object);
+        FREE_DA(&func->bytecode);
+        FREE_DA(&func->constPool);
+        FREE_DA(&func->positions);
+        break;
+    }
+    case OBJ_INT:
+    case OBJ_FLOAT:
+    case OBJ_BOOL:
+    case OBJ_NULL:
+    case OBJ_ITERATOR:
+        break; // The object itself doesn't own any memory.
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     free(object);
 }

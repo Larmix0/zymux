@@ -461,23 +461,23 @@ static void compile_eof(Compiler *compiler, const EofNode *node) {
 /** Compiles the bytecode for the passed node into the compiler's currently compiling function. */
 static void compile_node(Compiler *compiler, const Node *node) {
     switch (node->type) {
-        case AST_LITERAL: compile_literal(compiler, AS_PTR(LiteralNode, node)); break;
-        case AST_STRING: compile_string(compiler, AS_PTR(StringNode, node)); break;
-        case AST_KEYWORD: compile_keyword(compiler, AS_PTR(KeywordNode, node)); break;
-        case AST_UNARY: compile_unary(compiler, AS_PTR(UnaryNode, node)); break;
-        case AST_BINARY: compile_binary(compiler, AS_PTR(BinaryNode, node)); break;
-        case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
-        case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
-        case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node)); break;
-        case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;
-        case AST_VAR_ASSIGN: compile_var_assign(compiler, AS_PTR(VarAssignNode, node)); break;
-        case AST_VAR_GET: compile_var_get(compiler, AS_PTR(VarGetNode, node)); break;
-        case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
-        case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;
-        case AST_FOR: compile_for(compiler, AS_PTR(ForNode, node)); break;
-        case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
-        case AST_ERROR: break; // Do nothing on erroneous nodes.
-        default: UNREACHABLE_ERROR();
+    case AST_LITERAL: compile_literal(compiler, AS_PTR(LiteralNode, node)); break;
+    case AST_STRING: compile_string(compiler, AS_PTR(StringNode, node)); break;
+    case AST_KEYWORD: compile_keyword(compiler, AS_PTR(KeywordNode, node)); break;
+    case AST_UNARY: compile_unary(compiler, AS_PTR(UnaryNode, node)); break;
+    case AST_BINARY: compile_binary(compiler, AS_PTR(BinaryNode, node)); break;
+    case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
+    case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
+    case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node)); break;
+    case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;
+    case AST_VAR_ASSIGN: compile_var_assign(compiler, AS_PTR(VarAssignNode, node)); break;
+    case AST_VAR_GET: compile_var_get(compiler, AS_PTR(VarGetNode, node)); break;
+    case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
+    case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;
+    case AST_FOR: compile_for(compiler, AS_PTR(ForNode, node)); break;
+    case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
+    case AST_ERROR: break; // Do nothing on erroneous nodes.
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
 }
 
