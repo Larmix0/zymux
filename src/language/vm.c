@@ -265,7 +265,8 @@ static bool execute_vm(Vm *vm) {
             vm->frame->ip - vm->frame->func->bytecode.data, vm->instrSize
         );
 #endif
-        switch (READ_INSTR(vm)) {
+        const OpCode opcode = READ_INSTR(vm);
+        switch (opcode) {
         case OP_LOAD_CONST:
             PUSH(vm, READ_CONST(vm));
             break;
@@ -349,7 +350,8 @@ static bool execute_vm(Vm *vm) {
         }
         case OP_AS: {
             Obj *converted;
-            switch (READ_NUMBER(vm)) {
+            DataType conversionType = READ_NUMBER(vm);
+            switch (conversionType) {
             case TYPE_BOOL: converted = AS_OBJ(as_bool(vm->program, PEEK(vm))); break;
             case TYPE_STRING: converted = AS_OBJ(as_string(vm->program, PEEK(vm))); break;
             // TODO: add as_int() and as_float() implementations.

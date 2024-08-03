@@ -68,7 +68,8 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
 
-    switch (func->bytecode.data[idx]) {
+    const OpCode opcode = func->bytecode.data[idx];
+    switch (opcode) {
     case OP_LOAD_CONST: print_const_instr("LOAD_CONST", func, &idx, size); break;
     case OP_ARG_16: print_bare_instr("ARG_16", &idx); *size = INSTR_TWO_BYTES; break;
     case OP_ARG_32: print_bare_instr("ARG_32", &idx); *size = INSTR_FOUR_BYTES; break;

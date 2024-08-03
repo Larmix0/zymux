@@ -32,7 +32,7 @@
 #define DEBUG_GC_ALWAYS 1
 
 /** Allows assertions or disables them from the code for performance. */
-#define ASSERTS_ENABLED 0
+#define ASSERTS_ENABLED 1
 
 /** Allows us to disable default unreachables on enum-exhaustive switches so they throw warnings. */
 #define UNREACHABLE_DEFAULT_ENABLED 0
