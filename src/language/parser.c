@@ -15,10 +15,10 @@
 #define RETREAT(parser) ((parser)->current--)
 
 #define MATCH(parser, expected) (CHECK(parser, expected) ? (ADVANCE(parser), true) : false)
-#define CONSUME(parser, expected, message) \
+#define CONSUME(parser, expected, ...) \
     (CHECK(parser, expected) \
         ? ADVANCE_PEEK(parser) \
-        : (parser_error_missing(parser, &PEEK_PREVIOUS(parser), true, message), PEEK(parser)))
+        : (parser_error_missing(parser, &PEEK_PREVIOUS(parser), true, __VA_ARGS__), PEEK(parser)))
             
 #define IS_EOF(parser) (CHECK(parser, TOKEN_EOF))
 
@@ -124,8 +124,6 @@ static Node *primary(Parser *parser) {
     case TOKEN_TRUE_KW:
     case TOKEN_FALSE_KW:
     case TOKEN_NULL_KW:
-    case TOKEN_BREAK_KW:
-    case TOKEN_CONTINUE_KW:
         return new_keyword_node(parser->program, PEEK_PREVIOUS(parser));
     case TOKEN_INT_LIT:
     case TOKEN_FLOAT_LIT:
@@ -322,6 +320,17 @@ static Node *for_loop(Parser *parser) {
     return new_for_node(parser->program, loopVar, iterable, AS_PTR(BlockNode, body));
 }
 
+/** A keyword statement followed by a semicolon to jump somewhere in a loop. */
+static Node *jump_keyword(Parser *parser) {
+    Token keyword = PEEK_PREVIOUS(parser);
+    Node *node = new_keyword_node(parser->program, keyword);
+    CONSUME(
+        parser, TOKEN_SEMICOLON,
+        "Expected \";\" after \"%.*s\".", keyword.pos.length, keyword.lexeme
+    );
+    return node;
+}
+
 /** Parses and returns a statement or expression-statement. */
 static Node *statement(Parser *parser) {
     Node *node;
@@ -330,6 +339,8 @@ static Node *statement(Parser *parser) {
     case TOKEN_IF_KW: node = if_else(parser); break;
     case TOKEN_WHILE_KW: node = while_loop(parser); break;
     case TOKEN_FOR_KW: node = for_loop(parser); break;
+    case TOKEN_CONTINUE_KW: node = jump_keyword(parser); break;
+    case TOKEN_BREAK_KW: node = jump_keyword(parser); break;
     default:
         RETREAT(parser);
         node = expression_stmt(parser);
