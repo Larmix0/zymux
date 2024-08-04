@@ -61,6 +61,7 @@ typedef enum {
     OP_GET_GLOBAL,
     OP_ASSIGN_LOCAL,
     OP_GET_LOCAL,
+    OP_CALL,
     OP_JUMP,
     OP_JUMP_BACK,
     OP_ITER_OR_JUMP,

@@ -71,6 +71,14 @@ Node *new_parentheses_node(ZmxProgram *program, Node *expr) {
     return AS_NODE(node);
 }
 
+/** Allocates a call node, which simply wraps around a callee expression with some optional args. */
+Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args) {
+    CallNode *node = NEW_NODE(program, AST_CALL, CallNode);
+    node->callee = callee;
+    node->args = args;
+    return AS_NODE(node);
+}
+
 /** Allocates an expression statement node, which just holds an expression. */
 Node *new_expr_stmt_node(ZmxProgram *program, Node *expr) {
     ExprStmtNode *node = NEW_NODE(program, AST_EXPR_STMT, ExprStmtNode);
@@ -168,6 +176,7 @@ SourcePosition get_node_pos(const Node *node) {
     // Can safely index 0 here since a string node is gauranteed to at least have one empty string.
     case AST_STRING: return get_node_pos(AS_PTR(StringNode, node)->exprs.data[0]);
     case AST_PARENTHESES: return get_node_pos(AS_PTR(ParenthesesNode, node)->expr);
+    case AST_CALL: return get_node_pos(AS_PTR(CallNode, node)->callee);
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(ExprStmtNode, node)->expr);
     case AST_BLOCK: return AS_PTR(BlockNode, node)->pos;
     case AST_VAR_DECL: return AS_PTR(VarDeclNode, node)->name.pos;
@@ -196,6 +205,7 @@ static void free_node(Node *node) {
     case AST_UNARY:
     case AST_BINARY:
     case AST_PARENTHESES:
+    case AST_CALL:
     case AST_EXPR_STMT:
     case AST_VAR_DECL:
     case AST_VAR_ASSIGN:

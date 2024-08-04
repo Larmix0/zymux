@@ -63,6 +63,18 @@ static void append_parentheses_node(CharBuffer *astString, const ParenthesesNode
     buffer_append_char(astString, ')');
 }
 
+/** Appends a call with some arguments on an expression that is suppoed to be callable. */
+static void append_call_node(CharBuffer *astString, const CallNode *node) {
+    buffer_append_format(astString, "<Call> ");
+    eval_node(astString, node->callee);
+    if (node->args.length != 0) {
+        buffer_append_string(astString, "-> ");
+    }
+    for (u32 i = 0; i < node->args.length; i++) {
+        eval_node(astString, node->args.data[i]);
+    }
+}
+
 /** Appends an expression statement, which is just an expression that ends in semicolon. */
 static void append_expr_stmt_node(CharBuffer *astString, const ExprStmtNode *node) {
     eval_node(astString, node->expr);
@@ -149,6 +161,7 @@ static void eval_node(CharBuffer *astString, const Node *node) {
     case AST_UNARY: append_unary_node(astString, AS_PTR(UnaryNode, node)); break;
     case AST_BINARY: append_binary_node(astString, AS_PTR(BinaryNode, node)); break;
     case AST_PARENTHESES: append_parentheses_node(astString, AS_PTR(ParenthesesNode, node)); break;
+    case AST_CALL: append_call_node(astString, AS_PTR(CallNode, node)); break;
     case AST_EXPR_STMT: append_expr_stmt_node(astString, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: append_block_node(astString, AS_PTR(BlockNode, node)); break;
     case AST_VAR_DECL: append_var_decl_node(astString, AS_PTR(VarDeclNode, node)); break;

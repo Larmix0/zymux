@@ -97,6 +97,7 @@ static Node *string(Parser *parser) {
     NodeArray exprs = CREATE_DA();
     bool nextIsString = true;
     while (!MATCH(parser, TOKEN_STRING_END)) {
+        ASSERT(!IS_EOF(parser), "No string_end token to parse.");
         if (nextIsString) {
             Token literal = CONSUME(parser, TOKEN_STRING_LIT, "Expected a string literal.");
             bool emptyString = literal.stringVal.length > 0;
@@ -144,6 +145,29 @@ static Node *primary(Parser *parser) {
 }
 
 /** 
+ * Handles parsing calls, which are an expression followed by a pair of parentheses.
+ * 
+ * Calls can be recursive, like calling a function which is returned by a called function
+ * Example: someFunc()();
+ * TODO: allow keyword arguments and optional arguments.
+ */
+static Node *call(Parser *parser) {
+    Node *expr = primary(parser);
+    while (MATCH(parser, TOKEN_LPAR)) {
+        NodeArray args = CREATE_DA();
+        if (!MATCH(parser, TOKEN_RPAR)) {
+            APPEND_DA(&args, expression(parser));
+            while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser)) {
+                CONSUME(parser, TOKEN_COMMA, "Expected \",\" or \")\" after argument.");
+                APPEND_DA(&args, expression(parser));
+            }
+        }
+        expr = new_call_node(parser->program, expr, args);
+    }
+    return expr;
+}
+
+/** 
  * A unary is just a primary with a some operation to the left of it.
  * We allow unary to be recursive to allow something like (---10).
  */
@@ -152,7 +176,7 @@ static Node *unary(Parser *parser) {
         Token operation = ADVANCE_PEEK(parser);
         return new_unary_node(parser->program, operation, unary(parser));
     }
-    return primary(parser);    
+    return call(parser);    
 }
 
 /** Handles the precedence of exponents, which is tighter than terms and factors. */

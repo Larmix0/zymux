@@ -196,6 +196,23 @@ static void compile_parentheses(Compiler *compiler, const ParenthesesNode *node)
 }
 
 /** 
+ * Compiles a call to a callable object.
+ * 
+ * First, we compile the callee (the object being called), then compile the arguments left to right.
+ * After that, we emit a call operation that has a number proceeding it, which represents how many
+ * argument objects are gonna be loaded on the stack.
+ * 
+ * Note that the callee is also reliably found one spot deeper in the stack than the first argument.
+ */
+static void compile_call(Compiler *compiler, const CallNode *node) {
+    compile_node(compiler, node->callee);
+    for (u32 i = 0; i < node->args.length; i++) {
+        compile_node(compiler, node->args.data[i]);
+    }
+    emit_number(compiler, OP_CALL, node->args.length, get_node_pos(AS_NODE(node)));
+}
+
+/** 
  * Compiles an expression statement.
  * It's just an expression node that pops the resulting value afterwards.
  */
@@ -467,6 +484,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_UNARY: compile_unary(compiler, AS_PTR(UnaryNode, node)); break;
     case AST_BINARY: compile_binary(compiler, AS_PTR(BinaryNode, node)); break;
     case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
+    case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;
     case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node)); break;
     case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;

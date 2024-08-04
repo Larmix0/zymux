@@ -54,3 +54,5 @@ Optimization:
             Gotta bench mark the performance in math expressions before doing it everywhere, though.
 
 ----------------------------------------------------------------------------------------------------
+
+Ensure const-correctness in variables created on the interpreter loop.

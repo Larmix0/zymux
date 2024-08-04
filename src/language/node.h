@@ -17,6 +17,7 @@ typedef enum {
     AST_UNARY,
     AST_BINARY,
     AST_PARENTHESES,
+    AST_CALL,
     AST_EXPR_STMT,
     AST_BLOCK,
     AST_VAR_DECL,
@@ -93,6 +94,13 @@ typedef struct {
     Node node;
     Node *expr;
 } ParenthesesNode;
+
+/** Wraps something in a call to it. */
+typedef struct {
+    Node node;
+    Node *callee;
+    NodeArray args;
+} CallNode;
 
 /**
  * An expression statement is a statement that just holds an expression followed by a semicolon.
@@ -179,8 +187,11 @@ Node *new_unary_node(ZmxProgram *program, const Token operation, Node *rhs);
 /** Allocates a binary node, which holds information of an operation done between 2 operands. */
 Node *new_binary_node(ZmxProgram *program, Node *lhs, const Token operation, Node *rhs);
 
-/** Allocates a parentheses node which wraps an expression inside it to dictate precedence. */
+/** Allocates a parentheses node, which wraps an expression inside it to dictate precedence. */
 Node *new_parentheses_node(ZmxProgram *program, Node *expr);
+
+/** Allocates a call node, which simply wraps around a callee expression with some optional args. */
+Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args);
 
 /** Allocates an expression statement node, which just holds an expression. */
 Node *new_expr_stmt_node(ZmxProgram *program, Node *expr);

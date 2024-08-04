@@ -252,6 +252,23 @@ void free_vm(Vm *vm) {
     FREE_STACK(vm);
 }
 
+/** Attempts to call the passed object. Returns whether or not it managed to call it. */
+static bool call(Vm *vm, Obj *callee) {
+    switch (callee->type) {
+    case OBJ_FUNC:
+        return true; // TODO: add actual code for calling funcs once the user can write them.
+
+    case OBJ_INT:
+    case OBJ_FLOAT:
+    case OBJ_BOOL:
+    case OBJ_NULL:
+    case OBJ_STRING:
+    case OBJ_ITERATOR:
+        return false;
+    }
+    UNREACHABLE_ERROR();
+}
+
 /** 
  * Executes all the bytecode in the passed VM's function object.
  * 
@@ -404,6 +421,15 @@ static bool execute_vm(Vm *vm) {
         case OP_GET_LOCAL: {
             Obj *value = vm->frame->bp[READ_NUMBER(vm)];
             PUSH(vm, value);
+            break;
+        }
+        case OP_CALL: {
+            u32 argAmount = READ_NUMBER(vm);
+            if (!call(vm, PEEK_DEPTH(vm, argAmount))) {
+                return runtime_error(
+                    vm, "Can't call object of type %s.", obj_type_string(PEEK(vm)->type)
+                );
+            }
             break;
         }
         case OP_JUMP: {
