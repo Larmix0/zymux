@@ -124,6 +124,8 @@ static Node *primary(Parser *parser) {
     case TOKEN_TRUE_KW:
     case TOKEN_FALSE_KW:
     case TOKEN_NULL_KW:
+    case TOKEN_BREAK_KW:
+    case TOKEN_CONTINUE_KW:
         return new_keyword_node(parser->program, PEEK_PREVIOUS(parser));
     case TOKEN_INT_LIT:
     case TOKEN_FLOAT_LIT:
@@ -389,7 +391,6 @@ static void synchronize(Parser *parser) {
         case TOKEN_CONST_KW:
         case TOKEN_RETURN_KW:
         case TOKEN_PRIVATE_KW:
-        case TOKEN_BREAK_KW:
         case TOKEN_CONTINUE_KW:
         case TOKEN_INIT_KW:
         case TOKEN_ABSTRACT_KW:

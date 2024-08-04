@@ -18,6 +18,13 @@
         ? create_src_pos(0, 0, 0) \
         : (compiler)->func->positions.data[(compiler)->func->positions.length - 1]
 
+/** Holds some type of scope that is usually created by {} blocks.*/
+typedef enum {
+    SCOPE_NONE, /** Indicates that a scope shouldn't be added. */
+    SCOPE_NORMAL, /** A non-special block scope, which is also encapsulated by all other types. */
+    SCOPE_LOOP /** Indicates that the scope was created by some loop. */
+} ScopeType;
+
 static void compile_node(Compiler *compiler, const Node *node);
 
 /** Reports a compilation error on a specific node's main token. */
@@ -33,8 +40,9 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPos
     program->gc.protectNewObjs = true;
     Compiler compiler = {
         .trackPositions = trackPositions, .program = program, .ast = ast,
-        .scopeDepth = 0, .globals = CREATE_DA(), .locals = CREATE_DA(), .jumps = CREATE_DA(),
-        .func = new_func_obj(program, new_string_obj(program, "<main>"), -1)
+        .globals = CREATE_DA(), .locals = CREATE_DA(), .jumps = CREATE_DA(),
+        .func = new_func_obj(program, new_string_obj(program, "<main>"), -1),
+        .scopeDepth = 0, .loopDepth = 0
     };
     // Add the default, permanent closure for locals not covered by functions.
     APPEND_DA(&compiler.locals, (ClosedVariables)CREATE_DA());
@@ -222,12 +230,23 @@ static void compile_expr_stmt(Compiler *compiler, const ExprStmtNode *node) {
 }
 
 /** Begins a scope that's one layer deeper (usually from entering a new block scope). */
-static void add_scope(Compiler *compiler) {
+static void add_scope(Compiler *compiler, const ScopeType type) {
+    if (type == SCOPE_NONE) {
+        return;
+    }
+
     compiler->scopeDepth++;
+    if (type == SCOPE_LOOP) {
+        compiler->loopDepth++;
+    }
 }
 
 /** Collapses the outermost scope, its variables and emits their respective pop instructions. */
-static void collapse_scope(Compiler *compiler) {
+static void collapse_scope(Compiler *compiler, ScopeType type) {
+    if (type == SCOPE_NONE) {
+        return;
+    }
+
     ClosedVariables *currentClosure = CURRENT_LOCALS(compiler);
     u32 poppedAmount = 0;
     while (currentClosure->length > 0 
@@ -240,16 +259,20 @@ static void collapse_scope(Compiler *compiler) {
     } else if (poppedAmount > 1) {
         emit_number(compiler, OP_POP_AMOUNT, poppedAmount, PREVIOUS_OPCODE_POS(compiler));
     }
+
+    if (type == SCOPE_LOOP) {
+        compiler->loopDepth--;
+    }   
     compiler->scopeDepth--;
 }
 
 /** Compiles the array of statements in a block under the depth of the given scope. */
-static void compile_block(Compiler *compiler, const BlockNode *node) {
-    add_scope(compiler);
+static void compile_block(Compiler *compiler, const BlockNode *node, const ScopeType type) {
+    add_scope(compiler, type);
     for (u32 i = 0; i < node->stmts.length; i++) {
         compile_node(compiler, node->stmts.data[i]);
     }
-    collapse_scope(compiler);
+    collapse_scope(compiler, type);
 }
 
 /** 
@@ -422,7 +445,7 @@ static void compile_while(Compiler *compiler, const WhileNode *node) {
     compile_node(compiler, node->condition);
 
     u32 skipLoop = emit_unpatched_jump(compiler, OP_POP_JUMP_IF_NOT, get_node_pos(AS_NODE(node)));
-    compile_node(compiler, AS_NODE(node->body));
+    compile_block(compiler, node->body, SCOPE_LOOP);
     emit_jump(compiler, OP_JUMP_BACK, condition, false, PREVIOUS_OPCODE_POS(compiler));
     patch_jump(compiler, skipLoop, compiler->func->bytecode.length, true);
 }
@@ -450,7 +473,7 @@ static void compile_while(Compiler *compiler, const WhileNode *node) {
  *     7 {Bytecode outside for loop}.
  */
 static void compile_for(Compiler *compiler, const ForNode *node) {
-    add_scope(compiler);
+    add_scope(compiler, SCOPE_LOOP);
     emit_instr(compiler, OP_NULL, node->loopVar.pos);
     APPEND_DA(
         CURRENT_LOCALS(compiler), create_variable(false, false, node->loopVar, compiler->scopeDepth)
@@ -464,10 +487,15 @@ static void compile_for(Compiler *compiler, const ForNode *node) {
     emit_instr(compiler, OP_MAKE_ITER, get_node_pos(node->iterable));
     u32 iterStart = emit_unpatched_jump(compiler, OP_ITER_OR_JUMP, get_node_pos(node->iterable));
 
-    compile_node(compiler, AS_NODE(node->body));
+    compile_block(compiler, node->body, SCOPE_NONE);
+    // Pop 2 so we emit 2 pops less, thus keeping the loop var and iterator until loop is finished.
+    DROP_DA(CURRENT_LOCALS(compiler));
+    DROP_DA(CURRENT_LOCALS(compiler));
+    collapse_scope(compiler, SCOPE_LOOP);
+
     emit_jump(compiler, OP_JUMP_BACK, iterStart, false, PREVIOUS_OPCODE_POS(compiler));
     patch_jump(compiler, iterStart, compiler->func->bytecode.length, true);
-    collapse_scope(compiler);
+    emit_number(compiler, OP_POP_AMOUNT, 2, PREVIOUS_OPCODE_POS(compiler)); // Pop them after loop.
 }
 
 /** Compiles an EOF node, which is placed to indicate the end of the bytecode. */
@@ -486,7 +514,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
     case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;
     case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
-    case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node)); break;
+    case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node), SCOPE_NORMAL); break;
     case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;
     case AST_VAR_ASSIGN: compile_var_assign(compiler, AS_PTR(VarAssignNode, node)); break;
     case AST_VAR_GET: compile_var_get(compiler, AS_PTR(VarGetNode, node)); break;

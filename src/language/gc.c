@@ -129,8 +129,15 @@ static void gc_mark(ZmxProgram *program) {
  * The problem with this is that simply freeing an object doesn't remove it from the table,
  * so we end up with dangling pointers if we don't manually delete the elements from the table
  * before their memory is freed.
+ * 
+ * Also, we can't delete keys as we go from the table, because their deletion might shift the next
+ * element (which may also need to be deleted) back 1 spot, making us never iterating over that key.
+ * For example, if key 2 and 3 are both to be deleted, and key 3 has a psl > 0,
+ * then directly deleting key 2 will shift key 3 to its spot, while the loop changes the i to 3,
+ * meaning that the loop skips over key 3 entirely.
  */
 static void table_delete_weak_references(Table *table, ZmxProgram *program) {
+    ObjArray deletedKeys = CREATE_DA();
     for (u32 i = 0; i < table->capacity; i++) {
         Entry *entry = &table->entries[i];
         if (EMPTY_ENTRY(entry)) {
@@ -138,13 +145,16 @@ static void table_delete_weak_references(Table *table, ZmxProgram *program) {
         }
 
         if (!entry->key->isReachable) {
-            // Delete entire entry if the key itself is gonna be sweeped.
-            table_delete(table, entry->key);
+            APPEND_DA(&deletedKeys, entry->key);
         } else if (!entry->value->isReachable) {
             // Set the value to null if the key isn't getting sweeped but the value is.
             entry->value = AS_OBJ(new_null_obj(program));
         }
     }
+    for (u32 i = 0; i < deletedKeys.length; i++) {
+        table_delete(table, deletedKeys.data[i]);
+    }
+    FREE_DA(&deletedKeys);
 }
 
 /** Deletes all non-reachable objects, and resets reachable ones to prepare for the next GC. */
@@ -161,18 +171,17 @@ static void gc_sweep(ZmxProgram *program) {
     while (current != NULL) {
         if (current->isReachable) {
             current->isReachable = false;
-        } else {
-            Obj *unreachable = current;
+            previous = current;
             current = current->next;
-            if (previous == NULL) {
-                program->allObjs = current;
-            } else {
-                previous->next = current;
-            }
-            free_obj(unreachable);
+        } else if (previous == NULL) {
+            program->allObjs = current->next;
+            free_obj(current);
+            current = program->allObjs;
+        } else {
+            previous->next = current->next;
+            free_obj(current);
+            current = previous->next;
         }
-        previous = current;
-        current = previous->next;
     }
 }
 

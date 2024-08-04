@@ -30,6 +30,7 @@ typedef struct Compiler {
     ClosedVariables globals; /** Covers just the top-level global variables scope. */
     ClosedVariablesArray locals; /** All non-global variables as an array of func closures. */
     u32 scopeDepth; /** How deep the current scope is. */
+    u32 loopDepth; /** How many of our scopes are created by loops. */
 } Compiler;
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
