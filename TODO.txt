@@ -56,3 +56,5 @@ Optimization:
 ----------------------------------------------------------------------------------------------------
 
 Ensure const-correctness in variables created on the interpreter loop.
+
+Add opcode docs for OP_CALL.

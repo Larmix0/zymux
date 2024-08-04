@@ -24,11 +24,14 @@ typedef struct Compiler {
     bool trackPositions; /** Whether or not we should store the positions of each bytecode. */
     ZmxProgram *program; /** Zymux program to hold the program's information. */
     NodeArray ast; /** The whole AST that is being compiled. */
-    JumpArray jumps; /** An array of jumps which may change during patchings. */
     FuncObj *func; /** The "function" whose bytecode is currently being added while compiling. */
 
     ClosedVariables globals; /** Covers just the top-level global variables scope. */
     ClosedVariablesArray locals; /** All non-global variables as an array of func closures. */
+
+    JumpArray jumps; /** An array of jumps which may change during patchings. */
+    u32 continueIdx; /** Bytecode index where new continue statements jump to if inside a loop. */
+
     u32 scopeDepth; /** How deep the current scope is. */
     u32 loopDepth; /** How many of our scopes are created by loops. */
 } Compiler;
