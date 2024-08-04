@@ -75,7 +75,7 @@ static void parser_error_missing(
 
     if (shouldPanic) {
         parser->isPanicking = true;
-        parser->syncSpot = beforeMissing;
+        parser->syncSpot = beforeMissing + 1;
     }
     // Errors out the character after the token located before the missing one.
     const SourcePosition errorPos = create_src_pos(
