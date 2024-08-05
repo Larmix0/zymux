@@ -41,7 +41,7 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPos
         .trackPositions = trackPositions, .program = program, .ast = ast,
         .globals = CREATE_DA(), .locals = CREATE_DA(), .jumps = CREATE_DA(),
         .func = new_func_obj(program, new_string_obj(program, "<main>"), -1),
-        .continueIdx = 0, .scopeDepth = 0, .loopDepth = 0
+        .breaks = CREATE_DA(), .continues = CREATE_DA(), .scopeDepth = 0, .loopDepth = 0
     };
     // Add the default, permanent closure for locals not covered by functions.
     APPEND_DA(&compiler.locals, (ClosedVariables)CREATE_DA());
@@ -57,6 +57,8 @@ void free_compiler(Compiler *compiler) {
     FREE_DA(&compiler->locals);
     FREE_DA(&compiler->globals);
     FREE_DA(&compiler->jumps);
+    FREE_DA(&compiler->continues);
+    FREE_DA(&compiler->breaks);
 }
 
 static Variable create_variable(
@@ -144,18 +146,25 @@ static void compile_string(Compiler *compiler, const StringNode *node) {
     }
 }
 
+/** Handles and compiles a loop control statement (like continue or break). */
+static void loop_control(
+    Compiler *compiler, const KeywordNode *node, U32Array *loopControlArray, const char *stringRepr
+) {
+    if (compiler->loopDepth == 0) {
+        compiler_error(compiler, AS_NODE(node), "Can only use \"%s\" inside a loop.", stringRepr);
+    }
+    u32 controlSpot = emit_unpatched_jump(compiler, 0, node->pos);
+    APPEND_DA(loopControlArray, controlSpot);
+}
+
 /** Compiles a keyword node, which is one that holds a bare keyword and it's position. */
 static void compile_keyword(Compiler *compiler, const KeywordNode *node) {
     switch (node->keyword) {
     case TOKEN_TRUE_KW: emit_instr(compiler, OP_TRUE, node->pos); break;
     case TOKEN_FALSE_KW: emit_instr(compiler, OP_FALSE, node->pos); break;
     case TOKEN_NULL_KW: emit_instr(compiler, OP_NULL, node->pos); break;
-    case TOKEN_CONTINUE_KW:
-        if (compiler->loopDepth == 0) {
-            compiler_error(compiler, AS_NODE(node), "Can only use \"continue\" inside a loop.");
-        }
-        emit_jump(compiler, OP_JUMP_BACK, compiler->continueIdx, false, node->pos);
-        break;
+    case TOKEN_CONTINUE_KW: loop_control(compiler, node, &compiler->continues, "continue"); break;
+    case TOKEN_BREAK_KW: loop_control(compiler, node, &compiler->breaks, "break"); break;
     default: UNREACHABLE_ERROR();
     }
 }
@@ -426,6 +435,40 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     }
 }
 
+/** Patches a u32 array of jump indices, which jump to the same place (like breaks or continues). */
+static void patch_jumps(Compiler *compiler, U32Array jumps, const u32 to, const bool isForward) {
+    for (u32 i = 0; i < jumps.length; i++) {
+        u32 from = jumps.data[i];
+        patch_jump(compiler, from, to, isForward);
+        if (isForward) {
+            compiler->func->bytecode.data[from] = OP_JUMP;
+        } else {
+            compiler->func->bytecode.data[from] = OP_JUMP_BACK;
+        }
+    }
+}
+
+/** Starts new arrays for control loop statements (breaks and continues). */
+static void start_loop_controls(Compiler *compiler, U32Array *oldBreaks, U32Array *oldContinues) {
+    *oldBreaks = compiler->breaks;
+    *oldContinues = compiler->continues;
+    INIT_DA(&compiler->breaks);
+    INIT_DA(&compiler->continues);
+}
+
+/** Finishes the arrays of control loops (breaks/continues) and switches to the previous ones. */
+static void finish_loop_controls(
+    Compiler *compiler, U32Array oldBreaks, const u32 breakTo, const bool breakIsForward,
+    U32Array oldContinues, const u32 continueTo, const bool continueIsForward
+) {
+    patch_jumps(compiler, compiler->breaks, breakTo, breakIsForward);
+    patch_jumps(compiler, compiler->continues, continueTo, continueIsForward);
+    FREE_DA(&compiler->breaks);
+    FREE_DA(&compiler->continues);
+    compiler->breaks = oldBreaks;
+    compiler->continues = oldContinues;
+}
+
 /** 
  * Compiles a while loop which executes its body statements as long as its condition is truthy.
  * 
@@ -444,15 +487,17 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
  */
 static void compile_while(Compiler *compiler, const WhileNode *node) {
     u32 condition = compiler->func->bytecode.length;
-    const u32 previousContinue = compiler->continueIdx;
-    compiler->continueIdx = condition;
     compile_node(compiler, node->condition);
-
     u32 skipLoop = emit_unpatched_jump(compiler, OP_POP_JUMP_IF_NOT, get_node_pos(AS_NODE(node)));
+
+    U32Array oldBreaks, oldContinues;
+    start_loop_controls(compiler, &oldBreaks, &oldContinues);
     scoped_block(compiler, node->body, SCOPE_LOOP);
-    compiler->continueIdx = previousContinue;
     emit_jump(compiler, OP_JUMP_BACK, condition, false, PREVIOUS_OPCODE_POS(compiler));
-    patch_jump(compiler, skipLoop, compiler->func->bytecode.length, true);
+    
+    const u32 loopExit = compiler->func->bytecode.length;
+    patch_jump(compiler, skipLoop, loopExit, true);
+    finish_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, condition, false);
 }
 
 /** 
@@ -492,17 +537,19 @@ static void compile_for(Compiler *compiler, const ForNode *node) {
     emit_instr(compiler, OP_MAKE_ITER, get_node_pos(node->iterable));
     u32 iterStart = emit_unpatched_jump(compiler, OP_ITER_OR_JUMP, get_node_pos(node->iterable));
 
-    const u32 previousContinue = compiler->continueIdx;
-    compiler->continueIdx = iterStart;
+    U32Array oldBreaks, oldContinues;
+    start_loop_controls(compiler, &oldBreaks, &oldContinues);
     block(compiler, node->body);
-    compiler->continueIdx = previousContinue;
+    patch_jumps(compiler, compiler->continues, iterStart, false);
     // Pop 2 so we emit 2 pops less, thus keeping the loop var and iterator until loop is finished.
     DROP_DA(CURRENT_LOCALS(compiler));
     DROP_DA(CURRENT_LOCALS(compiler));
     collapse_scope(compiler, SCOPE_LOOP);
-
     emit_jump(compiler, OP_JUMP_BACK, iterStart, false, PREVIOUS_OPCODE_POS(compiler));
-    patch_jump(compiler, iterStart, compiler->func->bytecode.length, true);
+
+    const u32 loopExit = compiler->func->bytecode.length;
+    patch_jump(compiler, iterStart, loopExit, true);
+    finish_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, iterStart, false);
     emit_number(compiler, OP_POP_AMOUNT, 2, PREVIOUS_OPCODE_POS(compiler)); // Pop them after loop.
 }
 

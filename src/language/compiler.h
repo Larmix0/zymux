@@ -19,6 +19,9 @@ DECLARE_DA_STRUCT(ClosedVariables, Variable);
 /** The array of variable's inside a function, which may include multiple scopes. */
 DECLARE_DA_STRUCT(ClosedVariablesArray, ClosedVariables);
 
+/** An array of unsigned 32 bit integers to hold indices of arrays in them. */
+DECLARE_DA_STRUCT(U32Array, u32);
+
 /** The compiler for a Zymux program. */
 typedef struct Compiler {
     bool trackPositions; /** Whether or not we should store the positions of each bytecode. */
@@ -30,7 +33,8 @@ typedef struct Compiler {
     ClosedVariablesArray locals; /** All non-global variables as an array of func closures. */
 
     JumpArray jumps; /** An array of jumps which may change during patchings. */
-    u32 continueIdx; /** Bytecode index where new continue statements jump to if inside a loop. */
+    U32Array continues; /** Bytecode indices where new continues jump to if inside a loop. */
+    U32Array breaks; /** Bytecode indices where new breaks jump to if inside a loop. */
 
     u32 scopeDepth; /** How deep the current scope is. */
     u32 loopDepth; /** How many of our scopes are created by loops. */
