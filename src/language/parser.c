@@ -309,6 +309,16 @@ static Node *while_loop(Parser *parser) {
     return new_while_node(parser->program, condition, AS_PTR(BlockNode, body));
 }
 
+/** Executes a block, then decides to do it again or not depending on a condition at the bottom. */
+static Node *do_while_loop(Parser *parser) {
+    CONSUME(parser, TOKEN_LCURLY, "Expected \"{\" after \"do\".");
+    Node *body = block(parser);
+    CONSUME(parser, TOKEN_WHILE_KW, "Expected \"while\" after do while loop's body");
+    Node *condition = expression(parser);
+    CONSUME(parser, TOKEN_SEMICOLON, "Expected \";\" after do while loop's condition.");
+    return new_do_while_node(parser->program, condition, AS_PTR(BlockNode, body));
+}
+
 /** Zymux uses for-in loops, which iterate over the elements of an iterable object. */
 static Node *for_loop(Parser *parser) {
     Token loopVar = CONSUME(parser, TOKEN_IDENTIFIER, "Expected loop variable after \"for\".");
@@ -338,6 +348,7 @@ static Node *statement(Parser *parser) {
     case TOKEN_LCURLY: node = block(parser); break;
     case TOKEN_IF_KW: node = if_else(parser); break;
     case TOKEN_WHILE_KW: node = while_loop(parser); break;
+    case TOKEN_DO_KW: node = do_while_loop(parser); break;
     case TOKEN_FOR_KW: node = for_loop(parser); break;
     case TOKEN_CONTINUE_KW: node = jump_keyword(parser); break;
     case TOKEN_BREAK_KW: node = jump_keyword(parser); break;

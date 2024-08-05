@@ -143,6 +143,14 @@ Node *new_while_node(ZmxProgram *program, Node *condition, BlockNode *body) {
     return AS_NODE(node);
 }
 
+/** Allocates a do while loop node. */
+Node *new_do_while_node(ZmxProgram *program, Node *condition, BlockNode *body) {
+    DoWhileNode *node = NEW_NODE(program, AST_DO_WHILE, DoWhileNode);
+    node->condition = condition;
+    node->body = body;
+    return AS_NODE(node);
+}
+
 /** Allocates a for loop node, which is a for-in loop for Zymux. */
 Node *new_for_node(ZmxProgram *program, Token loopVar, Node *iterable, BlockNode *body) {
     ForNode *node = NEW_NODE(program, AST_FOR, ForNode);
@@ -184,6 +192,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_VAR_GET: return AS_PTR(VarGetNode, node)->name.pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
+    case AST_DO_WHILE: return AS_PTR(DoWhileNode, node)->body->pos;
     case AST_FOR: return AS_PTR(ForNode, node)->loopVar.pos;
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
     }
@@ -212,6 +221,7 @@ static void free_node(Node *node) {
     case AST_VAR_GET:
     case AST_IF_ELSE:
     case AST_WHILE:
+    case AST_DO_WHILE:
     case AST_FOR:
     case AST_EOF:
         break; // Nothing to free.

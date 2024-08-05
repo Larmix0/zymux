@@ -66,6 +66,7 @@ typedef enum {
     OP_JUMP_BACK,
     OP_ITER_OR_JUMP,
     OP_POP_JUMP_IF_NOT,
+    OP_POP_JUMP_BACK_IF,
     OP_POP,
     OP_POP_AMOUNT,
     OP_END

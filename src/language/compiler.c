@@ -486,18 +486,47 @@ static void finish_loop_controls(
  *     5 {Bytecode outside while loop}.
  */
 static void compile_while(Compiler *compiler, const WhileNode *node) {
-    u32 condition = compiler->func->bytecode.length;
+    const u32 condition = compiler->func->bytecode.length;
     compile_node(compiler, node->condition);
-    u32 skipLoop = emit_unpatched_jump(compiler, OP_POP_JUMP_IF_NOT, get_node_pos(AS_NODE(node)));
+    const u32 skipLoop = emit_unpatched_jump(
+        compiler, OP_POP_JUMP_IF_NOT, get_node_pos(AS_NODE(node))
+    );
 
     U32Array oldBreaks, oldContinues;
     start_loop_controls(compiler, &oldBreaks, &oldContinues);
     scoped_block(compiler, node->body, SCOPE_LOOP);
     emit_jump(compiler, OP_JUMP_BACK, condition, false, PREVIOUS_OPCODE_POS(compiler));
-    
+
     const u32 loopExit = compiler->func->bytecode.length;
     patch_jump(compiler, skipLoop, loopExit, true);
     finish_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, condition, false);
+}
+
+/** 
+ * Compiles a do while loop. It's a while loop, but with the condition at the bottom.
+ * 
+ * First, compile the loop itself entirely, then the loop's condition,
+ * followed by a conditional jump back, which goes to the beginning of the loop if the loop's
+ * condition evaluated to true, otherwise falls down to the code outside the loop.
+ * 
+ * Example:
+ *     1 {Do while loop body}.
+ *     2 {Condition bytecode}.
+ *     3 Go to 1 if previous condition is truthy, otherwise don't.
+ *     4 {Bytecode outside do while loop}.
+ */
+static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
+    const u32 loopStart = compiler->func->bytecode.length;
+    U32Array oldBreaks, oldContinues;
+    start_loop_controls(compiler, &oldBreaks, &oldContinues);
+    scoped_block(compiler, node->body, SCOPE_LOOP);
+    const u32 condition = compiler->func->bytecode.length;
+
+    compile_node(compiler, node->condition);
+    emit_jump(compiler, OP_POP_JUMP_BACK_IF, loopStart, false, get_node_pos(AS_NODE(node)));
+    
+    const u32 loopExit = compiler->func->bytecode.length;
+    finish_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, condition, true);
 }
 
 /** 
@@ -575,6 +604,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_VAR_GET: compile_var_get(compiler, AS_PTR(VarGetNode, node)); break;
     case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
     case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;
+    case AST_DO_WHILE: compile_do_while(compiler, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: compile_for(compiler, AS_PTR(ForNode, node)); break;
     case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
     case AST_ERROR: break; // Do nothing on erroneous nodes.

@@ -175,7 +175,11 @@ OP_ITER_OR_JUMP:
 
 OP_POP_JUMP_IF_NOT:
     Increments IP a read number after the instruction if the topmost object on the stack is falsey,
-    and always pops that object off the stack regardless of its falsiness.
+    and always pops that object off of the stack.
+
+OP_POP_JUMP_IF_NOT:
+    Decrements IP a read number after the instruction if the topmost object on the stack is truthy,
+    and always pops that object off of the stack.
 
 OP_POP:
     Pops one object from the top of the stack and disposes of it.

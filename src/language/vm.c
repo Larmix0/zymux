@@ -464,6 +464,14 @@ static bool execute_vm(Vm *vm) {
             DROP(vm);
             break;
         }
+        case OP_POP_JUMP_BACK_IF: {
+            u32 jump = READ_NUMBER(vm);
+            if (as_bool(vm->program, PEEK(vm))->boolean) {
+                vm->frame->ip -= jump;
+            }
+            DROP(vm);
+            break;
+        }
         case OP_POP:
             DROP(vm);
             break;

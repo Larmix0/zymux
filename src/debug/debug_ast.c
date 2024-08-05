@@ -128,6 +128,14 @@ static void append_while_node(CharBuffer *astString, const WhileNode *node) {
     eval_node(astString, AS_NODE(node->body));
 }
 
+/** Appends a do while loop, its body, and condition (which is after the body in do while). */
+static void append_do_while_node(CharBuffer *astString, const DoWhileNode *node) {
+    buffer_append_string(astString, "<do> ");
+    eval_node(astString, AS_NODE(node->body));
+    buffer_append_string(astString, "<while> ");
+    eval_node(astString, node->condition);
+}
+
 /** Appends a for loop, which also includes the loop's variable, iterable, and body. */
 static void append_for_node(CharBuffer *astString, const ForNode *node) {
     buffer_append_string(astString, "<for> ");
@@ -169,6 +177,7 @@ static void eval_node(CharBuffer *astString, const Node *node) {
     case AST_VAR_GET: append_var_get_node(astString, AS_PTR(VarGetNode, node)); break;
     case AST_IF_ELSE: append_if_else_node(astString, AS_PTR(IfElseNode, node)); break;
     case AST_WHILE: append_while_node(astString, AS_PTR(WhileNode, node)); break;
+    case AST_DO_WHILE: append_do_while_node(astString, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: append_for_node(astString, AS_PTR(ForNode, node)); break;
     case AST_EOF: append_eof_node(astString); break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();

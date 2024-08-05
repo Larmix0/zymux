@@ -25,6 +25,7 @@ typedef enum {
     AST_VAR_GET,
     AST_IF_ELSE,
     AST_WHILE,
+    AST_DO_WHILE,
     AST_FOR,
     AST_EOF
 } AstType;
@@ -155,6 +156,16 @@ typedef struct {
     BlockNode *body;
 } WhileNode;
 
+/** 
+ * A do while loop. Same as a normal while loop, but the condition check is at the bottom.
+ * We could reuse the while node and add an "isDo" bool, but that would make the node larger.
+ */
+typedef struct {
+    Node node;
+    Node *condition;
+    BlockNode *body;
+} DoWhileNode;
+
 /** A for in loop, which executes until we fully iterated through the loop's iterable. */
 typedef struct {
     Node node;
@@ -218,6 +229,9 @@ Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBranch
 
 /** Allocates a while loop node. */
 Node *new_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
+
+/** Allocates a do while loop node. */
+Node *new_do_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
 
 /** Allocates a for loop node. */
 Node *new_for_node(ZmxProgram *program, Token loopVar, Node *iterable, BlockNode *body);
