@@ -367,11 +367,11 @@ static bool execute_vm(Vm *vm) {
         }
         case OP_AS: {
             Obj *converted;
-            DataType conversionType = READ_NUMBER(vm);
+            const DataType conversionType = READ_NUMBER(vm);
             switch (conversionType) {
             case TYPE_BOOL: converted = AS_OBJ(as_bool(vm->program, PEEK(vm))); break;
             case TYPE_STRING: converted = AS_OBJ(as_string(vm->program, PEEK(vm))); break;
-            // TODO: add as_int() and as_float() implementations.
+            // TODO: add as_int() and as_float() implementations once the "as" keyword is added.
             case TYPE_INT: UNREACHABLE_ERROR();
             case TYPE_FLOAT: UNREACHABLE_ERROR();
             TOGGLEABLE_DEFAULT_UNREACHABLE();
@@ -424,7 +424,7 @@ static bool execute_vm(Vm *vm) {
             break;
         }
         case OP_CALL: {
-            u32 argAmount = READ_NUMBER(vm);
+            const u32 argAmount = READ_NUMBER(vm);
             if (!call(vm, PEEK_DEPTH(vm, argAmount))) {
                 return runtime_error(
                     vm, "Can't call object of type %s.", obj_type_string(PEEK(vm)->type)
@@ -433,12 +433,12 @@ static bool execute_vm(Vm *vm) {
             break;
         }
         case OP_JUMP: {
-            u32 jump = READ_NUMBER(vm);
+            const u32 jump = READ_NUMBER(vm);
             vm->frame->ip += jump;
             break;
         }
         case OP_JUMP_BACK: {
-            u32 jump = READ_NUMBER(vm);
+            const u32 jump = READ_NUMBER(vm);
             vm->frame->ip -= jump;
             break;
         }
@@ -447,7 +447,7 @@ static bool execute_vm(Vm *vm) {
             IteratorObj *iterator = AS_PTR(IteratorObj, PEEK(vm));
             ASSERT(is_iterable(iterator->iterable),"Can't iterate over non-iterable.");
 
-            u32 jump = READ_NUMBER(vm);
+            const u32 jump = READ_NUMBER(vm);
             Obj *element = iterate(vm->program, iterator);
             if (element == NULL) {
                 vm->frame->ip += jump;
@@ -457,7 +457,7 @@ static bool execute_vm(Vm *vm) {
             break;
         }
         case OP_POP_JUMP_IF_NOT: {
-            u32 jump = READ_NUMBER(vm);
+            const u32 jump = READ_NUMBER(vm);
             if (!(as_bool(vm->program, PEEK(vm))->boolean)) {
                 vm->frame->ip += jump;
             }
@@ -465,7 +465,7 @@ static bool execute_vm(Vm *vm) {
             break;
         }
         case OP_POP_JUMP_BACK_IF: {
-            u32 jump = READ_NUMBER(vm);
+            const u32 jump = READ_NUMBER(vm);
             if (as_bool(vm->program, PEEK(vm))->boolean) {
                 vm->frame->ip -= jump;
             }
