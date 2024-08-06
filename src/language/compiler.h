@@ -44,7 +44,7 @@ typedef struct Compiler {
 Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPositions);
 
 /** 
- * Compiles bytecode from the AST inside compiler into it's func.
+ * Compiles bytecode from the AST inside compiler into its func.
  * 
  * Returns whether or not we've errored.
  */

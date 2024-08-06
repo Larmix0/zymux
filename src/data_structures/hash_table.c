@@ -36,7 +36,7 @@ static u32 hash_int(const ZmxInt number) {
 /**
  * Hashes a float object.
  * 
- * This is done by inserting its bits into a union that can reinterpret its bits as an integer,
+ * This is done by inserting its bits into a union that can reinterpret those bits as an integer,
  * then hashing it as if it was an integer.
  */
 static u32 hash_float(const ZmxFloat floatNumber) {

@@ -174,7 +174,7 @@ typedef struct {
     BlockNode *body;
 } ForNode;
 
-/** Node that simply represents EOF and holds the its position. */
+/** Node that simply represents EOF and holds its position. */
 typedef struct {
     Node node;
     SourcePosition pos;

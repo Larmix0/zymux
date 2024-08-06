@@ -497,7 +497,7 @@ static bool is_hex_digit(const char ch) {
 }
 
 /** 
- * Handles lexing an entire number, whether it's float, int, hex or others.
+ * Handles lexing an entire number, whether it is a float, int, hex or others.
  * 
  * If an alphabetical or integer character is seen at the end of a number,
  * then an error will be reported.

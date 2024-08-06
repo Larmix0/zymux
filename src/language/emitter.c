@@ -82,7 +82,7 @@ static void insert_byte(Compiler *compiler, u8 byte, const u32 index) {
     }
 }
 
-/** Removes a byte at the passed index, and removes its corresponding position if its tracked. */
+/** Removes a byte at the passed index, and removes its corresponding position if it's tracked. */
 static void remove_byte(Compiler *compiler, const u32 index) {
     ByteArray *bytecode = &compiler->func->bytecode;
     ASSERT(index < bytecode->length, "Removing byte outside bytecode boundary.");
@@ -260,7 +260,7 @@ static void fix_size(
 }
 
 /** 
- * Modifies and fixes jump's size if it's instrSize has changed from "before".
+ * Modifies and fixes jump's size if its instrSize has changed from "before".
  * 
  * if it was 1 byte before but not after, then it must've added 1 arg size byte before,
  * and 1 or 3 extra bytes (on top of the original one) after as the jump size.

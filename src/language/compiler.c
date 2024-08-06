@@ -190,7 +190,7 @@ static void loop_control(
     APPEND_DA(loopControlArray, controlSpot);
 }
 
-/** Compiles a keyword node, which is one that holds a bare keyword and it's position. */
+/** Compiles a keyword node, which is one that holds a bare keyword and its position. */
 static void compile_keyword(Compiler *compiler, const KeywordNode *node) {
     switch (node->keyword) {
     case TOKEN_TRUE_KW: emit_instr(compiler, OP_TRUE, node->pos); break;
@@ -350,7 +350,7 @@ static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
 /** 
  * Compiles a variable assignment expression.
  * 
- * For globals it's like declarations, first we emit the value expression's bytecode,
+ * For globals it is like declarations, first we emit the value expression's bytecode,
  * then the assign instruction followed by a string which has the assigned variable's name in it.
  * For locals, we simply reassign the index of the stack where they're located,
  * which is statically kept track of in the compiler.
@@ -649,7 +649,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
 }
 
 /** 
- * Compiles bytecode from the AST inside compiler into it's func.
+ * Compiles bytecode from the AST inside compiler into its func.
  * 
  * Returns whether or not compilation was successful.
  */
