@@ -160,6 +160,14 @@ OP_GET_LOCAL:
     (which is the index in the stack of the variable whose value is to be extracted),
     then uses it to index into the stack and push that object to the top again.
 
+OP_CALL:
+    Reads a number, which is the number of arguments on the stack for the calle. The topmost object
+    in the stack is the rightmost argument in code, and the deeper on the stack the more to the left
+    an argument is.
+    The calle is expected to be immediately before the first argument on the stack, and it gets
+    called with the read amount of arguments so it knows how to deal with those arguments
+    that are ordered on the stack.
+
 OP_JUMP:
     Reads a number, which is how many bytes to increment the IP.
 
