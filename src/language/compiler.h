@@ -35,9 +35,9 @@ typedef struct Compiler {
     JumpArray jumps; /** An array of jumps which may change during patchings. */
     U32Array continues; /** Bytecode indices where new continues jump to if inside a loop. */
     U32Array breaks; /** Bytecode indices where new breaks jump to if inside a loop. */
+    U32Array loopScopes; /** An array of scopes which are considered loop scopes. */
 
     u32 scopeDepth; /** How deep the current scope is. */
-    u32 loopDepth; /** How many of our scopes are created by loops. */
 } Compiler;
 
 /** Returns a compiler initialized with the passed program and parsed AST. */

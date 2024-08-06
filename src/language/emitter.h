@@ -99,6 +99,16 @@ u32 read_number(const ByteArray *bytecode, const u32 numStart, InstrSize *size);
 void emit_const(Compiler *compiler, u8 instr, Obj *constant, const SourcePosition pos);
 
 /** 
+ * Emits a default unfinished jump, which will have the actual jump itself inserted/patched later.
+ * 
+ * Returns the index where the jump is supposed to be inserted in the bytecode.
+ */
+u32 emit_unpatched_jump(Compiler *compiler, u8 instr, const SourcePosition pos);
+
+/** Patches a jump in the compiler from the passed jump information. */
+void patch_jump(Compiler *compiler, const u32 start, const u32 end, const bool isForward);
+
+/** 
  * Emits a normal jump instruction which is already patched.
  * 
  * The jump starts from the current byte and uses the passed "to" as the jump destination.
@@ -108,14 +118,10 @@ void emit_jump(
 );
 
 /** 
- * Emits a default unfinished jump, which will have the actual jump itself inserted/patched later.
- * 
- * Returns the index where the jump is supposed to be inserted in the bytecode.
+ * Emits some amount of pops in a compiler optimized manner.
+ * Doesn't emit anything if poppedAmount is 0.
  */
-u32 emit_unpatched_jump(Compiler *compiler, u8 instr, const SourcePosition pos);
-
-/** Patches a jump in the compiler from the passed jump information. */
-void patch_jump(Compiler *compiler, const u32 start, const u32 end, const bool isForward);
+void emit_pops(Compiler *compiler, const u32 poppedAmount, const SourcePosition pos);
 
 /** 
  * Writes all the jumps of the compiler in the actual bytecode.

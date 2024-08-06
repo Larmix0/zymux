@@ -12,6 +12,9 @@
 /** Returns the outermost closure of scopes. */
 #define CURRENT_LOCALS(compiler) (&(compiler)->locals.data[(compiler)->locals.length - 1])
 
+/** Resolves into a boolean of whether or not we have created any locals. */
+#define HAS_LOCALS(compiler) (CURRENT_LOCALS(compiler)->length > 0)
+
 /** The position of the previous opcode. Defaults to (0, 0, 0) if there aren't any. */
 #define PREVIOUS_OPCODE_POS(compiler) \
     (compiler)->func->positions.length == 0 \
@@ -41,9 +44,9 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPos
         .trackPositions = trackPositions, .program = program, .ast = ast,
         .globals = CREATE_DA(), .locals = CREATE_DA(), .jumps = CREATE_DA(),
         .func = new_func_obj(program, new_string_obj(program, "<main>"), -1),
-        .breaks = CREATE_DA(), .continues = CREATE_DA(), .scopeDepth = 0, .loopDepth = 0
+        .breaks = CREATE_DA(), .continues = CREATE_DA(), .loopScopes = CREATE_DA(), .scopeDepth = 0
     };
-    // Add the default, permanent closure for locals not covered by functions.
+    // Add the default, permanent closure for locals not covered by functions (like global ifs).
     APPEND_DA(&compiler.locals, (ClosedVariables)CREATE_DA());
     program->gc.protectNewObjs = false;
     return compiler;
@@ -59,6 +62,7 @@ void free_compiler(Compiler *compiler) {
     FREE_DA(&compiler->jumps);
     FREE_DA(&compiler->continues);
     FREE_DA(&compiler->breaks);
+    FREE_DA(&compiler->loopScopes);
 }
 
 static Variable create_variable(
@@ -146,13 +150,42 @@ static void compile_string(Compiler *compiler, const StringNode *node) {
     }
 }
 
-/** Handles and compiles a loop control statement (like continue or break). */
+/** 
+ * Emits the pop instructions for all top loop scope's variables.
+ * 
+ * Only emits their pop instructions, it doesn't stop keeping track of those variables
+ * in the compiler.
+ */
+static void emit_loop_pops(Compiler *compiler) {
+    ASSERT(compiler->loopScopes.length > 0, "Can't pop loop locals outside of loop.");
+    if (!HAS_LOCALS(compiler)) {
+        return; // No locals to pop.
+    }
+
+    const u32 deepestLoop = compiler->loopScopes.data[compiler->loopScopes.length - 1];
+    u32 poppedAmount = 0;
+    for (i64 i = CURRENT_LOCALS(compiler)->length - 1; i >= 0; i--) {
+        if (CURRENT_LOCALS(compiler)->data[i].scope < deepestLoop) {
+            break; // Below loop, done.
+        }
+        poppedAmount++;
+    }
+    emit_pops(compiler, poppedAmount, PREVIOUS_OPCODE_POS(compiler));
+}
+
+/** 
+ * Handles and compiles a loop control statement (like continue or break).
+ * 
+ * It initially emits the loop control jumps as pure zeroes in the bytecode,
+ * so that they can be resolved later.
+ */
 static void loop_control(
     Compiler *compiler, const KeywordNode *node, U32Array *loopControlArray, const char *stringRepr
 ) {
-    if (compiler->loopDepth == 0) {
+    if (compiler->loopScopes.length == 0) {
         compiler_error(compiler, AS_NODE(node), "Can only use \"%s\" inside a loop.", stringRepr);
     }
+    emit_loop_pops(compiler);
     u32 controlSpot = emit_unpatched_jump(compiler, 0, node->pos);
     APPEND_DA(loopControlArray, controlSpot);
 }
@@ -240,19 +273,19 @@ static void compile_call(Compiler *compiler, const CallNode *node) {
  */
 static void compile_expr_stmt(Compiler *compiler, const ExprStmtNode *node) {
     compile_node(compiler, node->expr);
-    emit_instr(compiler, OP_POP, get_node_pos(node->expr));
+    emit_pops(compiler, 1, get_node_pos(node->expr));
 }
 
-/** Begins a scope that's one layer deeper (usually from entering a new block scope). */
-static void add_scope(Compiler *compiler, const ScopeType type) {
+/** Adds a scope that's one layer deeper (usually from entering a new block scope). */
+static void push_scope(Compiler *compiler, const ScopeType type) {
     compiler->scopeDepth++;
     if (type == SCOPE_LOOP) {
-        compiler->loopDepth++;
+        APPEND_DA(&compiler->loopScopes, compiler->scopeDepth);
     }
 }
 
-/** Collapses the outermost scope, its variables and emits their respective pop instructions. */
-static void collapse_scope(Compiler *compiler, ScopeType type) {
+/** Collapses the outermost scope, its variables, and emits their respective pop instructions. */
+static void pop_scope(Compiler *compiler, ScopeType type) {
     ClosedVariables *currentClosure = CURRENT_LOCALS(compiler);
     u32 poppedAmount = 0;
     while (currentClosure->length > 0 
@@ -260,30 +293,26 @@ static void collapse_scope(Compiler *compiler, ScopeType type) {
         DROP_DA(currentClosure);
         poppedAmount++;
     }
-    if (poppedAmount == 1) {
-        emit_instr(compiler, OP_POP, PREVIOUS_OPCODE_POS(compiler));
-    } else if (poppedAmount > 1) {
-        emit_number(compiler, OP_POP_AMOUNT, poppedAmount, PREVIOUS_OPCODE_POS(compiler));
-    }
 
+    emit_pops(compiler, poppedAmount, PREVIOUS_OPCODE_POS(compiler));
     if (type == SCOPE_LOOP) {
-        compiler->loopDepth--;
+        DROP_DA(&compiler->loopScopes);
     }   
     compiler->scopeDepth--;
 }
 
-/** Compiles an array of statements (doesn't increase the scope). */
+/** Compiles an array of statements (doesn't add a scope). */
 static void block(Compiler *compiler, const BlockNode *node) {
     for (u32 i = 0; i < node->stmts.length; i++) {
         compile_node(compiler, node->stmts.data[i]);
     }
 }
 
-/** Compiles the array of statements in a block under the depth of the given scope. */
+/** Compiles the array of statements in a block under the depth of a new given scope. */
 static void scoped_block(Compiler *compiler, const BlockNode *node, const ScopeType type) {
-    add_scope(compiler, type);
+    push_scope(compiler, type);
     block(compiler, node);
-    collapse_scope(compiler, type);
+    pop_scope(compiler, type);
 }
 
 /** 
@@ -435,8 +464,13 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     }
 }
 
-/** Patches a u32 array of jump indices, which jump to the same place (like breaks or continues). */
-static void patch_jumps(Compiler *compiler, U32Array jumps, const u32 to, const bool isForward) {
+/** 
+ * Patches a u32 array of loop control (like break or continue) jump indices.
+ * Also patches the kind of loop control jump it is, which is unconditionally forward or backwards.
+ */
+static void patch_loop_control(
+    Compiler *compiler, U32Array jumps, const u32 to, const bool isForward
+) {
     for (u32 i = 0; i < jumps.length; i++) {
         u32 from = jumps.data[i];
         patch_jump(compiler, from, to, isForward);
@@ -449,7 +483,7 @@ static void patch_jumps(Compiler *compiler, U32Array jumps, const u32 to, const 
 }
 
 /** Starts new arrays for control loop statements (breaks and continues). */
-static void start_loop_controls(Compiler *compiler, U32Array *oldBreaks, U32Array *oldContinues) {
+static void push_loop_controls(Compiler *compiler, U32Array *oldBreaks, U32Array *oldContinues) {
     *oldBreaks = compiler->breaks;
     *oldContinues = compiler->continues;
     INIT_DA(&compiler->breaks);
@@ -457,12 +491,12 @@ static void start_loop_controls(Compiler *compiler, U32Array *oldBreaks, U32Arra
 }
 
 /** Finishes the arrays of control loops (breaks/continues) and switches to the previous ones. */
-static void finish_loop_controls(
+static void pop_loop_controls(
     Compiler *compiler, U32Array oldBreaks, const u32 breakTo, const bool breakIsForward,
     U32Array oldContinues, const u32 continueTo, const bool continueIsForward
 ) {
-    patch_jumps(compiler, compiler->breaks, breakTo, breakIsForward);
-    patch_jumps(compiler, compiler->continues, continueTo, continueIsForward);
+    patch_loop_control(compiler, compiler->breaks, breakTo, breakIsForward);
+    patch_loop_control(compiler, compiler->continues, continueTo, continueIsForward);
     FREE_DA(&compiler->breaks);
     FREE_DA(&compiler->continues);
     compiler->breaks = oldBreaks;
@@ -493,13 +527,13 @@ static void compile_while(Compiler *compiler, const WhileNode *node) {
     );
 
     U32Array oldBreaks, oldContinues;
-    start_loop_controls(compiler, &oldBreaks, &oldContinues);
+    push_loop_controls(compiler, &oldBreaks, &oldContinues);
     scoped_block(compiler, node->body, SCOPE_LOOP);
     emit_jump(compiler, OP_JUMP_BACK, condition, false, PREVIOUS_OPCODE_POS(compiler));
 
     const u32 loopExit = compiler->func->bytecode.length;
     patch_jump(compiler, skipLoop, loopExit, true);
-    finish_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, condition, false);
+    pop_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, condition, false);
 }
 
 /** 
@@ -518,7 +552,7 @@ static void compile_while(Compiler *compiler, const WhileNode *node) {
 static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
     const u32 loopStart = compiler->func->bytecode.length;
     U32Array oldBreaks, oldContinues;
-    start_loop_controls(compiler, &oldBreaks, &oldContinues);
+    push_loop_controls(compiler, &oldBreaks, &oldContinues);
     scoped_block(compiler, node->body, SCOPE_LOOP);
     const u32 condition = compiler->func->bytecode.length;
 
@@ -526,21 +560,27 @@ static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
     emit_jump(compiler, OP_POP_JUMP_BACK_IF, loopStart, false, get_node_pos(AS_NODE(node)));
     
     const u32 loopExit = compiler->func->bytecode.length;
-    finish_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, condition, true);
+    pop_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, condition, true);
 }
 
 /** 
  * Compiles a for loop, which loops as long as its iterable isn't fully exhausted.
  * 
- * First thing the for loop does is declare the loop variable inside the scope and set it to null.
+ * First thing the for loop does is declare the loop variable inside a new scope and set it to null.
  * After that, we load the object being iterated on, and wrap it around an iterator object.
  * 
- * Then, we start a loop where the first instruction attempts to iterate over the created iterator,
- * and if it can't because it's exhausted, it jumps outside the loop, otherwise assigns the iterated
+ * Then, we start a second scope for the loop where the first instruction attempts
+ * to iterate over the created iterator, and if it can't because it's exhausted,
+ * it jumps outside the loop, otherwise assigns the iterated
  * element to the loop variable and falls to the bytecode of the loop's body.
  * 
  * Finally, there's an unconditional jump back instruction artificially added after the loop's body
  * to jump back to the "iterate or jump outside loop" instruction.
+ * 
+ * The reason for having a loop var + iterator scope then a different one for the loop itself is so
+ * that jump statements (like break or continue) don't accidentally pop the iterator and loop var.
+ * For break, it already jumps to the place where the loop var and iterator pop instructions are,
+ * so we don't want to end up popping them multiple times. 
  * 
  * Example:
  *     1 Load null (as a temporary place to hold the loop variable).
@@ -552,7 +592,7 @@ static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
  *     7 {Bytecode outside for loop}.
  */
 static void compile_for(Compiler *compiler, const ForNode *node) {
-    add_scope(compiler, SCOPE_LOOP);
+    push_scope(compiler, SCOPE_NORMAL);
     emit_instr(compiler, OP_NULL, node->loopVar.pos);
     APPEND_DA(
         CURRENT_LOCALS(compiler), create_variable(false, false, node->loopVar, compiler->scopeDepth)
@@ -567,19 +607,15 @@ static void compile_for(Compiler *compiler, const ForNode *node) {
     u32 iterStart = emit_unpatched_jump(compiler, OP_ITER_OR_JUMP, get_node_pos(node->iterable));
 
     U32Array oldBreaks, oldContinues;
-    start_loop_controls(compiler, &oldBreaks, &oldContinues);
-    block(compiler, node->body);
-    patch_jumps(compiler, compiler->continues, iterStart, false);
-    // Pop 2 so we emit 2 pops less, thus keeping the loop var and iterator until loop is finished.
-    DROP_DA(CURRENT_LOCALS(compiler));
-    DROP_DA(CURRENT_LOCALS(compiler));
-    collapse_scope(compiler, SCOPE_LOOP);
+    push_loop_controls(compiler, &oldBreaks, &oldContinues);
+    scoped_block(compiler, node->body, SCOPE_LOOP);
+    patch_loop_control(compiler, compiler->continues, iterStart, false);
     emit_jump(compiler, OP_JUMP_BACK, iterStart, false, PREVIOUS_OPCODE_POS(compiler));
 
     const u32 loopExit = compiler->func->bytecode.length;
     patch_jump(compiler, iterStart, loopExit, true);
-    finish_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, iterStart, false);
-    emit_number(compiler, OP_POP_AMOUNT, 2, PREVIOUS_OPCODE_POS(compiler)); // Pop them after loop.
+    pop_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, iterStart, false);
+    pop_scope(compiler, SCOPE_LOOP);
 }
 
 /** Compiles an EOF node, which is placed to indicate the end of the bytecode. */

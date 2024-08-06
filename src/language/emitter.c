@@ -207,6 +207,18 @@ void emit_jump(
 }
 
 /** 
+ * Emits some amount of pops in a compiler optimized manner.
+ * Doesn't emit anything if poppedAmount is 0.
+ */
+void emit_pops(Compiler *compiler, const u32 poppedAmount, const SourcePosition pos) {
+    if (poppedAmount == 1) {
+        emit_instr(compiler, OP_POP, pos);
+    } else if (poppedAmount > 1) {
+        emit_number(compiler, OP_POP_AMOUNT, poppedAmount, pos);
+    }
+}
+
+/** 
  * Fixes the passed jump depending on the jump and its passed additions.
  * 
  * If the jump is fully within toFix's jump, then we add all of the added bytes as an extra
