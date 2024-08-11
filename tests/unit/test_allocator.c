@@ -1,8 +1,8 @@
 #include "lukip.h"
 
-#include "allocator.c"
-
 #include "constants.h"
+
+#include "allocator.c"
 
 /** Tests that all the allocation abstraction for arbitrary sizes/bytes work properly. */
 PRIVATE_TEST_CASE(test_size_allocators) {

@@ -208,13 +208,15 @@ static void free_node(Node *node) {
     case AST_BLOCK:
         FREE_DA(&AS_PTR(BlockNode, node)->stmts);
         break;
+    case AST_CALL:
+        FREE_DA(&AS_PTR(CallNode, node)->args);
+        break;
     case AST_ERROR:
     case AST_LITERAL:
     case AST_KEYWORD:
     case AST_UNARY:
     case AST_BINARY:
     case AST_PARENTHESES:
-    case AST_CALL:
     case AST_EXPR_STMT:
     case AST_VAR_DECL:
     case AST_VAR_ASSIGN:

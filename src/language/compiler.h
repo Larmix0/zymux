@@ -29,7 +29,7 @@ typedef struct Compiler {
     NodeArray ast; /** The whole AST that is being compiled. */
     FuncObj *func; /** The "function" whose bytecode is currently being added while compiling. */
 
-    ClosedVariables globals; /** Covers just the top-level global variables scope. */
+    ClosedVariables globals; /** Covers just the top-level, user-defined global variables scope. */
     ClosedVariablesArray locals; /** All non-global variables as an array of func closures. */
 
     JumpArray jumps; /** An array of jumps which may change during patchings. */

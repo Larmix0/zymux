@@ -56,3 +56,14 @@ Optimization:
 ----------------------------------------------------------------------------------------------------
 
 Test nested loops once printing is implemented.
+
+Add range objects.
+
+"can't assign/redeclare built-in name."
+
+Allow internal asserts to have formatting, and rename MEMORY_ERROR_ARGS() to MEMORY_ERROR_POS().
+Use the formatting on asserts on a few places that could use it (like global assigns in compiler).
+
+Handle multi-line while/if/for statements in the same style of our multi-line function definitions.
+
+Change escaped double quotes into single quotes?

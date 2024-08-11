@@ -1,6 +1,7 @@
 #include "lukip.h"
 
 #include "test_allocator.h"
+#include "test_built_in.h"
 #include "test_char_buffer.h"
 #include "test_compiler.h"
 #include "test_dynamic_array.h"
@@ -38,6 +39,7 @@ int main() {
     test_char_buffer();
     test_program();
     test_object();
+    test_built_in();
     test_token();
     test_lexer();
     test_node();

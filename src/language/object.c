@@ -113,6 +113,14 @@ FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx) 
     return object;
 }
 
+/** Returns a new allocated native function object. */
+NativeFuncObj *new_native_func_obj(ZmxProgram *program, NativeFunc func, StringObj *name) {
+    NativeFuncObj *object = NEW_OBJ(program, OBJ_NATIVE_FUNC, NativeFuncObj);
+    object->func = func;
+    object->name = name;
+    return object;
+}
+
 /** Returns an iterator which wraps around an iterable object being iterated on. */
 IteratorObj *new_iterator_obj(ZmxProgram *program, Obj *iterable) {
     IteratorObj *object = NEW_OBJ(program, OBJ_ITERATOR, IteratorObj);
@@ -143,6 +151,7 @@ bool is_iterable(const Obj *object) {
     case OBJ_BOOL:
     case OBJ_NULL:
     case OBJ_FUNC:
+    case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return false;
     }
@@ -172,6 +181,7 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
     case OBJ_BOOL:
     case OBJ_NULL:
     case OBJ_FUNC:
+    case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         UNREACHABLE_ERROR();
     }
@@ -197,6 +207,7 @@ bool equal_obj(const Obj *left, const Obj *right) {
 
     switch (left->type) {
     case OBJ_FUNC:
+    case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return left == right; // Compare addresses directly.
     
@@ -236,14 +247,6 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
     case OBJ_FLOAT:
         buffer_append_format(&string, ZMX_FLOAT_FMT, AS_PTR(FloatObj, object)->number);
         break;
-    case OBJ_FUNC:
-        buffer_append_format(&string, "<func %s>", AS_PTR(FuncObj, object)->name->string);
-        break;
-    case OBJ_ITERATOR:
-        buffer_append_format(
-            &string, "<iterator %s>", as_string(program, AS_PTR(IteratorObj, object)->iterable)
-        );
-        break;
     case OBJ_BOOL:
         buffer_append_string(&string, AS_PTR(BoolObj, object)->boolean ? "true" : "false");
         break;
@@ -252,6 +255,19 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
         break;
     case OBJ_STRING:
         buffer_append_string(&string, AS_PTR(StringObj, object)->string);
+        break;
+    case OBJ_FUNC:
+        buffer_append_format(&string, "<function %s>", AS_PTR(FuncObj, object)->name->string);
+        break;
+    case OBJ_NATIVE_FUNC:
+        buffer_append_format(
+            &string, "<native function %s>", AS_PTR(NativeFuncObj, object)->name->string
+        );
+        break;
+    case OBJ_ITERATOR:
+        buffer_append_format(
+            &string, "<iterator %s>", as_string(program, AS_PTR(IteratorObj, object)->iterable)
+        );
         break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
@@ -265,6 +281,7 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     bool result;
     switch (object->type) {
     case OBJ_FUNC:
+    case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         // Always considered "truthy".
         result = true;
@@ -280,9 +297,9 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     return new_bool_obj(program, result);
 }
 
-/** 
- * Prints the passed object to the console. The output depends on whether to debugPrint or not. */
+/** Prints the passed object to the console. The output depends on whether to debugPrint or not. */
 void print_obj(const Obj *object, const bool debugPrint) {
+    // TODO: potentially just make this a printing wrapper over as_string()?
     switch (object->type) {
     case OBJ_INT:
         printf(ZMX_INT_FMT, AS_PTR(IntObj, object)->number);
@@ -304,7 +321,10 @@ void print_obj(const Obj *object, const bool debugPrint) {
         }
         break;
     case OBJ_FUNC:
-        printf("<func %s>", AS_PTR(FuncObj, object)->name->string);
+        printf("<function %s>", AS_PTR(FuncObj, object)->name->string);
+        break;
+    case OBJ_NATIVE_FUNC:
+        printf("<native function %s>", AS_PTR(NativeFuncObj, object)->name->string);
         break;
     case OBJ_ITERATOR:
         printf("<iterator ");
@@ -324,6 +344,7 @@ char *obj_type_string(ObjType type) {
     case OBJ_NULL: return "null";
     case OBJ_STRING: return "string";
     case OBJ_FUNC: return "function";
+    case OBJ_NATIVE_FUNC: return "native function";
     case OBJ_ITERATOR: return "iterator";
     }
     UNREACHABLE_ERROR();
@@ -358,6 +379,7 @@ void free_obj(Obj *object) {
     case OBJ_FLOAT:
     case OBJ_BOOL:
     case OBJ_NULL:
+    case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         break; // The object itself doesn't own any memory.
     TOGGLEABLE_DEFAULT_UNREACHABLE();

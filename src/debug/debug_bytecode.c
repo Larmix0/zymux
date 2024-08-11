@@ -93,6 +93,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_AS: print_data_type_instr("AS", func, &idx, size); break;
     case OP_MAKE_ITER: print_bare_instr("TURN_ITER", &idx); break;
     case OP_FINISH_STRING: print_number_instr("FINISH_STRING", func, &idx, size); break;
+    case OP_GET_BUILT_IN: print_const_instr("GET_BUILT_IN", func, &idx, size); break;
     case OP_DECLARE_GLOBAL: print_const_instr("DECLARE_GLOBAL", func, &idx, size); break;
     case OP_ASSIGN_GLOBAL: print_const_instr("ASSIGN_GLOBAL", func, &idx, size); break;
     case OP_GET_GLOBAL: print_const_instr("GET_GLOBAL", func, &idx, size); break;

@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#include "built_in.h"
 #include "constants.h"
 #include "dynamic_array.h"
 
@@ -27,6 +28,7 @@ typedef enum {
     OBJ_NULL,
     OBJ_STRING,
     OBJ_FUNC,
+    OBJ_NATIVE_FUNC,
     OBJ_ITERATOR
 } ObjType;
 
@@ -106,6 +108,13 @@ typedef struct {
     int constIdx;
 } FuncObj;
 
+/** A built-in Zymux function whose implementation is written in C. */
+typedef struct {
+    Obj obj;
+    NativeFunc func;
+    StringObj *name;
+} NativeFuncObj;
+
 /** An iterator, which holds an iterable object which it iterates over its elements 1 by 1. */
 typedef struct {
     Obj obj;
@@ -133,6 +142,9 @@ StringObj *string_obj_from_len(ZmxProgram *program, const char *string, const u3
 
 /** Returns a new allocated function object. */
 FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx);
+
+/** Returns a new allocated native function object. */
+NativeFuncObj *new_native_func_obj(ZmxProgram *program, NativeFunc func, StringObj *name);
 
 /** Returns an iterator which wraps around an iterable object being iterated on. */
 IteratorObj *new_iterator_obj(ZmxProgram *program, Obj *iterable);

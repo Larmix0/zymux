@@ -62,4 +62,7 @@ bool interpreet(Vm *vm);
  */
 bool interpret_source(ZmxProgram *program, char *source);
 
+/** Reports a runtime error and automatically returns false. */
+bool runtime_error(Vm *vm, const char *format, ...);
+
 #endif

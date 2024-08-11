@@ -56,6 +56,7 @@ typedef enum {
     OP_AS,
     OP_MAKE_ITER,
     OP_FINISH_STRING,
+    OP_GET_BUILT_IN,
     OP_DECLARE_GLOBAL,
     OP_ASSIGN_GLOBAL,
     OP_GET_GLOBAL,

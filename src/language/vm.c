@@ -161,12 +161,11 @@ static void reset_program(ZmxProgram *program) {
  */
 static void reset_vm(Vm *vm) {
     ZmxProgram *program = vm->program;
-    vm->program->gc.protectNewObjs = true;
+    GC_SET_PROTECTION(&vm->program->gc);
     program->gc.vm = NULL;
     free_vm(vm);
     *vm = create_vm(program, new_func_obj(program, new_string_obj(program, "<Error>"), -1));
-    vm->program->gc.protectNewObjs = false;
-    GC_CLEAR_PROTECTED(&vm->program->gc);
+    GC_RESET_PROTECTION(&vm->program->gc);
     program->gc.vm = vm;
 }
 
@@ -183,7 +182,7 @@ static void reset_vm(Vm *vm) {
  * Also, this is only possible since Zymux only creates function at compilation time,
  * meaning every executable function is in a constant pool of objects created at compilation time.
  */
-static bool runtime_error(Vm *vm, const char *format, ...) {
+bool runtime_error(Vm *vm, const char *format, ...) {
     const u32 bytecodeIdx = vm->frame->ip - vm->frame->func->bytecode.data;
     IntArray framesIndices = copy_const_indices(vm->callStack);
     reset_program(vm->program);
@@ -253,10 +252,18 @@ void free_vm(Vm *vm) {
 }
 
 /** Attempts to call the passed object. Returns whether or not it managed to call it. */
-static bool call(Vm *vm, Obj *callee) {
+static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     switch (callee->type) {
+    case OBJ_NATIVE_FUNC: {
+        Obj *nativeReturn = AS_PTR(NativeFuncObj, callee)->func(vm, args, argAmount);
+        if (nativeReturn == NULL) {
+            return false;
+        }
+        PEEK_DEPTH(vm, argAmount) = nativeReturn;
+        return true;
+    }
     case OBJ_FUNC:
-        return true; // TODO: add actual code for calling funcs once the user can write them.
+        return true; // TODO: add actual code for calling funcs once user ones are writable.
 
     case OBJ_INT:
     case OBJ_FLOAT:
@@ -264,7 +271,7 @@ static bool call(Vm *vm, Obj *callee) {
     case OBJ_NULL:
     case OBJ_STRING:
     case OBJ_ITERATOR:
-        return false;
+        return runtime_error(vm, "Can't call object of type %s.", obj_type_string(PEEK(vm)->type));
     }
     UNREACHABLE_ERROR();
 }
@@ -403,6 +410,11 @@ static bool execute_vm(Vm *vm) {
             PUSH(vm, AS_OBJ(string));
             break;
         }
+        case OP_GET_BUILT_IN: {
+            Obj *value = table_get(&vm->program->builtIn, READ_CONST(vm));
+            PUSH(vm, value);
+            break;
+        }
         case OP_DECLARE_GLOBAL:
             table_set(&vm->globals, READ_CONST(vm), PEEK(vm));
             DROP(vm);
@@ -425,11 +437,10 @@ static bool execute_vm(Vm *vm) {
         }
         case OP_CALL: {
             const u32 argAmount = READ_NUMBER(vm);
-            if (!call(vm, PEEK_DEPTH(vm, argAmount))) {
-                return runtime_error(
-                    vm, "Can't call object of type %s.", obj_type_string(PEEK(vm)->type)
-                );
+            if (!call(vm, PEEK_DEPTH(vm, argAmount), vm->frame->sp - argAmount, argAmount)) {
+                return false;
             }
+            DROP_AMOUNT(vm, argAmount);
             break;
         }
         case OP_JUMP: {
@@ -488,7 +499,7 @@ static bool execute_vm(Vm *vm) {
 /** 
  * Main function for interpreting a virtual machine.
  * 
- * Wrapper around execute_vm() for debugging.
+ * Wrapper around execute_vm() for debugging and loading built-in names.
  * Returns whether or not we encountered a runtime error during execution.
  */
 bool interpret(Vm *vm) {

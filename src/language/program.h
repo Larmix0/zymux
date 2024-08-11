@@ -23,6 +23,7 @@ typedef struct ZmxProgram {
     StringObj *mainFile; /** The first/main file which the program executed on.*/
     StringObj *currentFile; /** The current file being executed. */
 
+    Table builtIn; /** The built-in functionality as name key and native object value pairs. */
     Table internedStrings; /** Hash set of all strings that are interned. */
     NullObj *internedNull; /** An interned null. */
     BoolObj *internedTrue; /** An interned boolean of true. */

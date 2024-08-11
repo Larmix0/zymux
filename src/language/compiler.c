@@ -39,7 +39,7 @@ static void compiler_error(Compiler *compiler, const Node *erroredNode, const ch
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
 Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPositions) {
-    program->gc.protectNewObjs = true;
+    GC_SET_PROTECTION(&program->gc);
     Compiler compiler = {
         .trackPositions = trackPositions, .program = program, .ast = ast,
         .globals = CREATE_DA(), .locals = CREATE_DA(), .jumps = CREATE_DA(),
@@ -48,7 +48,7 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPos
     };
     // Add the default, permanent closure for locals not covered by functions (like global ifs).
     APPEND_DA(&compiler.locals, (ClosedVariables)CREATE_DA());
-    program->gc.protectNewObjs = false;
+    GC_STOP_PROTECTION(&program->gc);
     return compiler;
 }
 
@@ -316,114 +316,236 @@ static void scoped_block(Compiler *compiler, const BlockNode *node, const ScopeT
 }
 
 /** 
+ * Declares a local variable, errors if it's already declared or is const.
+ * The declaration is simply done by letting the previously compiled value sit on the stack.
+ */
+static void declare_local(Compiler *compiler, const Variable declaredVar, const VarDeclNode *node) {
+    if (get_top_scope_var_index(
+            *CURRENT_LOCALS(compiler), node->name, compiler->scopeDepth) != -1) {
+        compiler_error(
+            compiler, AS_NODE(node), "Can't redeclare local variable \"%.*s\".",
+            node->name.pos.length, node->name.lexeme
+        );
+    }
+    // Just let the previously compiled value sit on the stack as a declaration.
+    APPEND_DA(CURRENT_LOCALS(compiler), declaredVar);
+}
+
+/** 
+ * Declares a global variable, errors if already declared or is const.
+ * 
+ * we put globals in a hash table at runtime.
+ * So, we emit their initialized value, followed by the declaration,
+ * then a string to be read afterwards that represents the declared variable's name.
+ */
+static void declare_global(
+    Compiler *compiler, Obj *nameAsObj, const Variable declaredVar, const VarDeclNode *node
+) {
+    if (get_closed_var_index(compiler->globals, node->name) != -1) {
+        compiler_error(
+            compiler, AS_NODE(node), "Can't redeclare global variable \"%.*s\".",
+            node->name.pos.length, node->name.lexeme
+        );
+    }
+    APPEND_DA(&(compiler)->globals, declaredVar);
+    emit_const(compiler, OP_DECLARE_GLOBAL, nameAsObj, node->name.pos);
+}
+
+/** 
  * Compiles a variable delcaration statement.
  * 
  * For globals, we'll put them in a hash table at runtime.
  * Therefore, we emit their initialized value, followed by the declaration,
  * then a string to be read afterwards that represents the declared variable's name.
- * 
- * For locals we just compile their expression value
- * and leave it on the stack to be accessed by just indexing it.
  * TODO: add more explanation for multi-variable declarations when they're added.
  */
 static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
     compile_node(compiler, node->value);
     Token name = node->name;
     Obj *nameAsObj = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
-
-    Variable declaredVar = create_variable(false, node->isConst, name, compiler->scopeDepth);
-    if (compiler->scopeDepth == 0) {
-        if (get_closed_var_index(compiler->globals, name) != -1) {
-            compiler_error(compiler, AS_NODE(node), "Can't redeclare global variable.");
-        }
-        APPEND_DA(&(compiler)->globals, declaredVar);
-        emit_const(compiler, OP_DECLARE_GLOBAL, nameAsObj, name.pos);
-    } else {
-        // Just let the previously compiled value sit on the stack as a declaration.
-        if (get_top_scope_var_index(*CURRENT_LOCALS(compiler), name, compiler->scopeDepth) != -1) {
-            compiler_error(compiler, AS_NODE(node), "Can't redeclare local variable.");
-        }
-        APPEND_DA(CURRENT_LOCALS(compiler), declaredVar);
+    if (table_get(&compiler->program->builtIn, nameAsObj) != NULL) {
+        compiler_error(
+            compiler, AS_NODE(node), "Can't redeclare built-in name \"%.*s\".",
+            name.pos.length, name.lexeme
+        );
+        return;
     }
+
+    const Variable declared = create_variable(false, node->isConst, name, compiler->scopeDepth);
+    if (compiler->scopeDepth == 0) {
+        declare_global(compiler, nameAsObj, declared, node);
+    } else {
+        declare_local(compiler, declared, node);
+    }
+}
+
+/** An error which occured due to an attempt to assign a constant variable. */
+static void const_assign_error(Compiler *compiler, const Node *node, const Token name) {
+    compiler_error(
+        compiler, AS_NODE(node), "Can't assign to const variable \"%.*s\".",
+        name.pos.length, name.lexeme
+    );
+}
+
+/**
+ * Attempts to emit a var assignment if it should.
+ * 
+ * we simply reassign the index of the stack where the variable's located,
+ * which is statically kept track of in the compiler.
+ * 
+ * returns true if we emitted its bytecode, even if it did error out. Otherwise if it's simply
+ * not within locals it returns false.
+ */
+static bool try_assign_local(Compiler *compiler, const VarAssignNode *node) {
+    const i64 localIdx = get_closed_var_index(*CURRENT_LOCALS(compiler), node->name);
+    if (localIdx == -1) {
+        return false;
+    }
+
+    if (CURRENT_LOCALS(compiler)->data[localIdx].isConst) {
+        const_assign_error(compiler, AS_NODE(node), node->name);
+    }
+    emit_number(compiler, OP_ASSIGN_LOCAL, localIdx, node->name.pos);
+    return true;
+}
+
+/** TODO: add assigning upvalues and their docs. Don't forget const_assign_error() if it's const. */
+static bool try_assign_upvalue(Compiler *compiler, const VarAssignNode *node) {
+    UNUSED_PARAMETER(compiler);
+    UNUSED_PARAMETER(node);
+    return false;
+}
+
+/** 
+ * Tries to emit an assignment to a global variable if the assigned variable is in globals.
+ * 
+ * Assigning globals is like declarations, first we emit the value expression's bytecode,
+ * then the assign instruction followed by a string which has the assigned variable's name in it.
+ * 
+ * Returns false if the variable isn't in globals, otherwise it returns true (even if it errored).
+ */
+static bool try_assign_global(Compiler *compiler, Obj *nameAsObj, const VarAssignNode *node) {
+    i64 globalIdx = get_closed_var_index(compiler->globals, node->name);
+    if (globalIdx == -1) {
+        return false;
+    }
+
+    ASSERT(globalIdx >= 0, "Expected positive global index.");
+    if (compiler->globals.data[globalIdx].isConst) {
+        const_assign_error(compiler, AS_NODE(node), node->name);
+    }
+    emit_const(compiler, OP_ASSIGN_GLOBAL, nameAsObj, node->name.pos);
+    return true;
 }
 
 /** 
  * Compiles a variable assignment expression.
  * 
- * For globals it is like declarations, first we emit the value expression's bytecode,
- * then the assign instruction followed by a string which has the assigned variable's name in it.
- * For locals, we simply reassign the index of the stack where they're located,
- * which is statically kept track of in the compiler.
+ * Allows global, local and outside closure assignments. Errors if the assigned variable
+ * doesn't exist or is a built-in.
  * TODO: add more explanation for multi-assignments and closure upvalues when they're added.
  */
 static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
     compile_node(compiler, node->value);
-    Token name = node->name;
-    Obj *varName = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
+    const Token name = node->name;
+    Obj *nameAsObj = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
     if (compiler->scopeDepth > 0) {
-        // TODO: potentially wrap this whole thing in a function that returns whether or not we
-        // TODO: should fall off to globals.
-        i64 localIdx = get_closed_var_index(*CURRENT_LOCALS(compiler), name);
-        if (localIdx != -1) {
-            if (CURRENT_LOCALS(compiler)->data[localIdx].isConst) {
-                compiler_error(compiler, AS_NODE(node), "Can't assign to const variable.");
-            }
-            emit_number(compiler, OP_ASSIGN_LOCAL, localIdx, node->name.pos);
+        if (try_assign_local(compiler, node) || try_assign_upvalue(compiler, node)) {
             return;
-        } else {
-            // TODO: Call a function that attempts to find variables above the current closure.
-            // TODO: otherwise fall off to globals.
         }
     }
+    if (try_assign_global(compiler, nameAsObj, node)) {
+        return;
+    }
 
-    // It must be global now.
-    i64 globalIdx = get_closed_var_index(compiler->globals, name);
-    if (globalIdx >= 0 && compiler->globals.data[globalIdx].isConst) {
-        compiler_error(compiler, AS_NODE(node), "Can't assign to const variable.");
-    } else if (globalIdx == -1) {
+    // Guaranteed error at this point. We just try to put a more informative error message.
+    if (table_get(&compiler->program->builtIn, nameAsObj) != NULL) {
+        compiler_error(
+            compiler, AS_NODE(node), "Can't assign to built-in name \"%.*s\".",
+            name.pos.length, name.lexeme
+        );
+    } else {
         compiler_error(
             compiler, AS_NODE(node), "Assigned variable \"%.*s\" doesn't exist.",
             name.pos.length, name.lexeme
         );
     }
-    emit_const(compiler, OP_ASSIGN_GLOBAL, varName, name.pos);
+}
+
+/** 
+ * Tries to emit bytecode for getting a local variable if one exists.
+ * 
+ * we emit the local get instruction followed by the expected index of the local
+ * relative to the execution frame's base pointer (BP) at runtime.
+ * 
+ * Returns whether or not it emitted a local get, or if it should attempt to get globals.
+ */
+static bool try_get_local(Compiler *compiler, const Token name) {
+    const i64 localIdx = get_closed_var_index(*CURRENT_LOCALS(compiler), name);
+    if (localIdx == -1) {
+        return false;   
+    }
+    emit_number(compiler, OP_GET_LOCAL, localIdx, name.pos);
+    return true;
+}
+
+/** TODO: add getting variable outside current closure here. */
+static bool try_get_upvalue(Compiler *compiler, const Token name) {
+    UNUSED_PARAMETER(compiler);
+    UNUSED_PARAMETER(name);
+    return false;
+}
+
+/** 
+ * Tries to emit bytecode for getting a global variable if one exists (excludes built-ins).
+ * 
+ * Emits the var get instruction followed by the string of the name we wanna get
+ * from the runtime globals hash table.
+ */
+static bool try_get_global(Compiler *compiler, Obj *nameAsObj, const Token name) {
+    if (get_closed_var_index(compiler->globals, name) == -1) {
+        return false;
+    }
+    emit_const(compiler, OP_GET_GLOBAL, nameAsObj, name.pos);
+    return true;
+}
+
+/** 
+ * Tries to emit bytecode for getting a built-in name if one exists.
+ * 
+ * Emits the var get instruction followed by the string of the name we wanna get
+ * from the loaded built-ins.
+ */
+static bool try_get_built_in(Compiler *compiler, Obj *nameAsObj, const Token name) {
+    if (table_get(&compiler->program->builtIn, nameAsObj) == NULL) {
+        return false;
+    }
+    emit_const(compiler, OP_GET_BUILT_IN, nameAsObj, name.pos);
+    return true;
 }
 
 /** 
  * Compiles a name that is used to get the value of a variable.
  * 
- * For globals, we emit the var get instruction followede by the string of the name we wanna get
- * from the globals hash table.
- * 
- * For locals, we emit the local get instruction followed by the expected index of the local
- * relative to the execution frame's base pointer (BP) at runtime.
- * TODO: Add explanation for getting closed variables when they're added.
+ * Attempts to get locals, then upvalues, then globals, and finally built-ins.
+ * Errors if the variable isn't present in any of them.
  */
 static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
-    Token name = node->name;
-    Obj *varName = AS_OBJ(
-        string_obj_from_len(compiler->program, name.lexeme, name.pos.length)
-    );
+    const Token name = node->name;
+    Obj *nameAsObj = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
+
     if (compiler->scopeDepth > 0) {
-        // TODO: potentially wrap this whole thing in a function that returns whether or not we
-        // TODO: should fall off to globals.
-        i64 localIdx = get_closed_var_index(*CURRENT_LOCALS(compiler), name);
-        if (localIdx != -1) {
-            emit_number(compiler, OP_GET_LOCAL, localIdx, node->name.pos);
+        if (try_get_local(compiler, name) || try_get_upvalue(compiler, name)) {
             return;
-        } else {
-            // TODO: Call a function that attempts to find variables above the current closure.
         }
     }
-
-    // It must be global now.
-    if (get_closed_var_index(compiler->globals, name) == -1) {
-        compiler_error(
-            compiler, AS_NODE(node), "Variable \"%.*s\" doesn't exist.",
-            name.pos.length, name.lexeme
-        );
+    if (try_get_global(compiler, nameAsObj, name) || try_get_built_in(compiler, nameAsObj, name)) {
+        return;
     }
-    emit_const(compiler, OP_GET_GLOBAL, varName, node->name.pos);
+
+    compiler_error(
+        compiler, AS_NODE(node), "Variable \"%.*s\" doesn't exist.", name.pos.length, name.lexeme
+    );
 }
 
 /** 
@@ -693,7 +815,7 @@ Compiler compile_source(ZmxProgram *program, char *source, const bool trackPosit
     Compiler compiler = create_compiler(program, parser.ast, trackPositions);
     // Set this compiler as the one being garbage collected. Now compiler's objects can be GC'd.
     program->gc.compiler = &compiler;
-    GC_CLEAR_PROTECTED(&program->gc);
+    GC_RESET_PROTECTION(&program->gc);
     compile(&compiler);
 
     free_lexer(&lexer);

@@ -9,17 +9,25 @@
 /** How many more bytes allocated before collection multiplier after each collection. */
 #define COLLECTION_GROWTH 2
 
+/** Starts protecting newly created objects from the GC. */
+#define GC_SET_PROTECTION(gc) ((gc)->protectNewObjs = true)
+
+/** Stops protecting newely created objects, but doesn't clear the protection pool itself. */
+#define GC_STOP_PROTECTION(gc) ((gc)->protectNewObjs = false)
+
 /** 
- * Clears the pool of protected elements.
+ *
+ * Clears the pool of protected objects and stops protecting new objects.
  * 
  * This is done when the protected objects have been placed at the place that would stop them
  * from being collected, and can therefore now be collected if they leave that place and become
  * unreachable.
  */
-#define GC_CLEAR_PROTECTED(gc) \
+#define GC_RESET_PROTECTION(gc) \
     do { \
         FREE_DA(&(gc)->protected); \
         INIT_DA(&(gc)->protected); \
+        (gc)->protectNewObjs = false; \
     } while (false)
 
 typedef struct Compiler Compiler;

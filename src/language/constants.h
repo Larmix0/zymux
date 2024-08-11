@@ -50,6 +50,9 @@
 #define ZMX_INT_FMT "%" PRId64
 #define ZMX_FLOAT_FMT "%lf"
 
+/** Gets rid of a compiler warning for an unused parameter. */
+#define UNUSED_PARAMETER(parameter) ((void)(parameter))
+
 /** Converts the passed pointer to a pointer of the passed type. */
 #define AS_PTR(type, value) ((type *)value)
 

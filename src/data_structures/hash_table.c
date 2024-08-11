@@ -11,7 +11,6 @@
 
 void table_set(Table *table, Obj *key, Obj *value);
 
-
 /** Returns whether or not a given object is hashable. */
 bool is_hashable(const Obj *object) {
     switch (object->type) {
@@ -22,6 +21,7 @@ bool is_hashable(const Obj *object) {
     case OBJ_STRING:
         return true;
     case OBJ_FUNC:
+    case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return false;
     }
@@ -75,6 +75,7 @@ u32 get_hash(const Obj *object) {
     case OBJ_NULL: return 2;
 
     case OBJ_FUNC:
+    case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         UNREACHABLE_ERROR();
     }

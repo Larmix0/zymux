@@ -54,6 +54,11 @@ static void mark_obj(Obj *object) {
         mark_obj_array(func->constPool);
         break;
     }
+    case OBJ_NATIVE_FUNC: {
+        NativeFuncObj *native = AS_PTR(NativeFuncObj, object);
+        mark_obj(AS_OBJ(native->name));
+        break;
+    }
     case OBJ_ITERATOR: {
         IteratorObj *iterator = AS_PTR(IteratorObj, object);
         mark_obj(AS_OBJ(iterator->iterable));
@@ -117,6 +122,7 @@ static void gc_mark(ZmxProgram *program) {
     mark_obj(AS_OBJ(program->internedNull));
     mark_obj(AS_OBJ(program->internedTrue));
     mark_obj(AS_OBJ(program->internedFalse));
+    mark_table(&program->builtIn);
 }
 
 /**
