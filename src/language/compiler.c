@@ -749,7 +749,7 @@ static void compile_for(Compiler *compiler, const ForNode *node) {
     const u32 loopExit = compiler->func->bytecode.length;
     patch_jump(compiler, iterStart, loopExit, true);
     pop_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, iterStart, false);
-    pop_scope(compiler, SCOPE_LOOP);
+    pop_scope(compiler, SCOPE_NORMAL);
 }
 
 /** Compiles an EOF node, which is placed to indicate the end of the bytecode. */

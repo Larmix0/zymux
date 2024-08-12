@@ -75,7 +75,4 @@ Change escaped double quotes into single quotes?
 
 ----------------------------------------------------------------------------------
 
-Commit message:
-    Add ranges, and include quotes in string lexemes
-
 Test "had_interpolation".
