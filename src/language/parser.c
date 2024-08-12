@@ -193,7 +193,7 @@ static Node *exponent(Parser *parser) {
 /** A factor in Zymux is multiplication, division, or modulo. */
 static Node *factor(Parser *parser) {
     Node *expr = exponent(parser);
-    while (CHECK(parser, TOKEN_STAR) || CHECK(parser, TOKEN_SLASH) || CHECK(parser, TOKEN_MODULO)) {
+    while (CHECK(parser, TOKEN_STAR) || CHECK(parser, TOKEN_SLASH) || CHECK(parser, TOKEN_PERCENT)) {
         Token operation = ADVANCE_PEEK(parser);
         Node *rhs = exponent(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
@@ -275,7 +275,7 @@ static Node *range(Parser *parser) {
 /** Handles assignment expressions. TODO: do multi-assignments and document how they're parsed. */
 static Node *assignment(Parser *parser) {
     Node *expr = range(parser);
-    if (CHECK(parser, TOKEN_ASSIGN)) {
+    if (CHECK(parser, TOKEN_EQ)) {
         Token assignLocation = ADVANCE_PEEK(parser);
         Node *value = assignment(parser);
         if (expr->type == AST_VAR_GET) {
@@ -407,8 +407,8 @@ static Node *var_decl(Parser *parser, const bool isConst) {
     Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected declared variable's name.");
     Node *value;
     if (MATCH(parser, TOKEN_SEMICOLON)) {
-        value = new_keyword_node(parser->program, create_normal_token("null", TOKEN_NULL_KW));   
-    } else if (MATCH(parser, TOKEN_ASSIGN)){
+        value = new_keyword_node(parser->program, create_token("null", TOKEN_NULL_KW));   
+    } else if (MATCH(parser, TOKEN_EQ)){
         value = expression(parser);
         CONSUME(parser, TOKEN_SEMICOLON, "Expected \";\" after variable's value.");
     } else {

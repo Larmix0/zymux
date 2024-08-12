@@ -60,7 +60,7 @@ PRIVATE_TEST_CASE(test_parser_macros) {
     Parser parser = create_parser(&program, lexer.tokens);
 
     Token one = create_int_token("1", 10);
-    Token plus = create_normal_token("+", TOKEN_PLUS);
+    Token plus = create_token("+", TOKEN_PLUS);
     Token three = create_int_token("3", 10);
     ASSERT_FALSE(IS_EOF(&parser));
     ASSERT_TRUE(equal_token(PEEK(&parser), one));

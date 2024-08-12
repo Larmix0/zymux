@@ -13,7 +13,7 @@ PRIVATE_TEST_CASE(test_token_type_to_string) {
 
 /** Tests if the functions for creating arbitrary non-positioned tokens work. */
 PRIVATE_TEST_CASE(test_token_creators) {
-    Token leftShift = create_normal_token("<<", TOKEN_LSHIFT);
+    Token leftShift = create_token("<<", TOKEN_LSHIFT);
     ASSERT_STRING_EQUAL(leftShift.lexeme, "<<");
     ASSERT_TRUE(leftShift.type == TOKEN_LSHIFT);
 

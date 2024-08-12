@@ -39,10 +39,13 @@ Optimization:
         are in front of each other in the arena. Might also increase or even decrease performance?
         Gotta benchmark it, though.
 
-    2. Change certain macros to use the normal type instead of pointer to optimize dereferencing.
+    2. Optimize node memory for unary/binary nodes by storing their operation token as just
+        the source position and a token type enum value.
+
+    3. Change certain macros to use the normal type instead of pointer to optimize dereferencing.
         (In other words, use the dot operator instead of the arrow).
 
-    3. Perhaps optimize bytecode by putting constants after the instructions themselves,
+    4. Perhaps optimize bytecode by putting constants after the instructions themselves,
         but with 1 extra byte to identify them.
         Example:
             Add operation expected 2 instructions after. They may be OP_ARG_8/16/32.
@@ -55,19 +58,10 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-Test nested loops once printing is implemented.
-
 Allow internal asserts to have formatting, and rename MEMORY_ERROR_ARGS() to MEMORY_ERROR_POS().
 Use the formatting on asserts on a few places that could use it (like global assigns in compiler).
 
 Handle multi-line while/if/for statements in the same style of our multi-line function definitions.
-
-Change TOKEN_MODULO's name to TOKEN_PERCENT (and any other punctuations to their name like that).
-
-Change create_normal_token() to create_token().
-
-Optimize node memory for unary/binary nodes by storing their operation token as just
-the source position and a token type enum value.
 
 Make more types hashable.
 

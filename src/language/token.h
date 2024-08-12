@@ -41,13 +41,13 @@ typedef enum {
     TOKEN_AMPER, TOKEN_BAR, TOKEN_CARET, TOKEN_LSHIFT, TOKEN_RSHIFT, TOKEN_TILDE,
 
     /** Compound arithmetic assignment operator. */
-    TOKEN_PLUS_EQ, TOKEN_MINUS_EQ, TOKEN_STAR_EQ, TOKEN_SLASH_EQ, TOKEN_MODULO_EQ, TOKEN_EXPO_EQ,
+    TOKEN_PLUS_EQ, TOKEN_MINUS_EQ, TOKEN_STAR_EQ, TOKEN_SLASH_EQ, TOKEN_PERCENT_EQ, TOKEN_EXPO_EQ,
 
     /** Compound bitwise assignment operator. */
     TOKEN_AMPER_EQ, TOKEN_BAR_EQ, TOKEN_CARET_EQ, TOKEN_LSHIFT_EQ, TOKEN_RSHIFT_EQ, TOKEN_TILDE_EQ,
 
     /** Arithmetic operator. */
-    TOKEN_PLUS, TOKEN_MINUS, TOKEN_STAR, TOKEN_SLASH, TOKEN_MODULO, TOKEN_EXPO,
+    TOKEN_PLUS, TOKEN_MINUS, TOKEN_STAR, TOKEN_SLASH, TOKEN_PERCENT, TOKEN_EXPO,
 
     /** Equality operator.*/
     TOKEN_EQ_EQ, TOKEN_BANG_EQ,
@@ -59,7 +59,7 @@ typedef enum {
     TOKEN_LPAR, TOKEN_RPAR, TOKEN_LSQUARE, TOKEN_RSQUARE, TOKEN_LCURLY, TOKEN_RCURLY,
 
     /** Punctuation. */
-    TOKEN_SEMICOLON, TOKEN_COMMA, TOKEN_DOT, TOKEN_QUESTION_MARK, TOKEN_COLON,
+    TOKEN_SEMICOLON, TOKEN_COMMA, TOKEN_DOT, TOKEN_DOT_DOT, TOKEN_QUESTION_MARK, TOKEN_COLON,
 
     /** Implicitly inserted (without the user writing it themselves). */
     TOKEN_INTERPOLATE, TOKEN_STRING_END, TOKEN_EOF,
@@ -67,8 +67,8 @@ typedef enum {
     /** Literal. */
     TOKEN_STRING_LIT, TOKEN_INT_LIT, TOKEN_FLOAT_LIT,
 
-    /** Miscellaneous token. */
-    TOKEN_ASSIGN, TOKEN_IDENTIFIER, TOKEN_DOT_DOT, TOKEN_ERROR
+    /** Miscellaneous. */
+    TOKEN_EQ, TOKEN_IDENTIFIER, TOKEN_ERROR
 } TokenType;
 
 /** A series of characters from the source code stored as a single unit. */
@@ -114,7 +114,7 @@ DECLARE_DA_STRUCT(TokenArray, Token);
 char *token_type_string(const TokenType type);
 
 /** Creates a "normal" token, which is a token that doesn't have any union values. */
-Token create_normal_token(char *lexeme, const TokenType type);
+Token create_token(char *lexeme, const TokenType type);
 
 /** 
  * Creates a synthetic integer literal token.

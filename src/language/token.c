@@ -55,7 +55,7 @@ char *token_type_string(const TokenType type) {
     case TOKEN_MINUS_EQ: return "MINUS_EQUAL";
     case TOKEN_STAR_EQ: return "STAR_EQUAL";
     case TOKEN_SLASH_EQ: return "SLASH_EQUAL";
-    case TOKEN_MODULO_EQ: return "MODULO_EQUAL";
+    case TOKEN_PERCENT_EQ: return "MODULO_EQUAL";
     case TOKEN_EXPO_EQ: return "EXPONENT_EQUAL";
     case TOKEN_AMPER_EQ: return "AMPERSAND_EQUAL";
     case TOKEN_BAR_EQ: return "BAR_EQUAL";
@@ -67,7 +67,7 @@ char *token_type_string(const TokenType type) {
     case TOKEN_MINUS: return "MINUS";
     case TOKEN_STAR: return "STAR";
     case TOKEN_SLASH: return "SLASH";
-    case TOKEN_MODULO: return "MODULO";
+    case TOKEN_PERCENT: return "MODULO";
     case TOKEN_EXPO: return "EXPONENT";
     case TOKEN_EQ_EQ: return "EQUAL_EQUAL";
     case TOKEN_BANG_EQ: return "BANG_EQUAL";
@@ -91,7 +91,7 @@ char *token_type_string(const TokenType type) {
     case TOKEN_STRING_LIT: return "STRING_LITERAL";
     case TOKEN_INT_LIT: return "INTEGER_LITERAL";
     case TOKEN_FLOAT_LIT: return "FLOAT_LITERAL";
-    case TOKEN_ASSIGN: return "EQUAL";
+    case TOKEN_EQ: return "EQUAL";
     case TOKEN_IDENTIFIER: return "IDENTIFIER";
     case TOKEN_DOT_DOT: return "DOT_DOT";
     case TOKEN_EOF: return "EOF";
@@ -101,7 +101,7 @@ char *token_type_string(const TokenType type) {
 }
 
 /** Creates a "normal" token, which is a token that doesn't have any union values. */
-Token create_normal_token(char *lexeme, const TokenType type) {
+Token create_token(char *lexeme, const TokenType type) {
     Token token = {.lexeme = lexeme, .pos = create_src_pos(0, 0, strlen(lexeme)), .type = type};
     return token;
 }
@@ -113,14 +113,14 @@ Token create_normal_token(char *lexeme, const TokenType type) {
  * what base we'll parse.
  */
 Token create_int_token(char *lexeme, const int base) {
-    Token token = create_normal_token(lexeme, TOKEN_INT_LIT);
+    Token token = create_token(lexeme, TOKEN_INT_LIT);
     token.intVal = strtoll(lexeme, NULL, base);
     return token;
 }
 
 /** Creates a synthetic float literal token. */
 Token create_float_token(char *lexeme) {
-    Token token = create_normal_token(lexeme, TOKEN_FLOAT_LIT);
+    Token token = create_token(lexeme, TOKEN_FLOAT_LIT);
     token.floatVal = strtod(lexeme, NULL);
     return token;
 }
@@ -133,7 +133,7 @@ Token create_float_token(char *lexeme) {
  * it shouldn't be freed until the created token itself is no longer needed.
  */
 Token create_string_token(char *string) {
-    Token token = create_normal_token(string, TOKEN_STRING_LIT);
+    Token token = create_token(string, TOKEN_STRING_LIT);
     const size_t length = strlen(string);
     token.stringVal.length = length;
     token.stringVal.text = string;

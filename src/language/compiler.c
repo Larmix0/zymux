@@ -232,7 +232,7 @@ static void compile_binary(Compiler *compiler, const BinaryNode *node) {
     case TOKEN_MINUS: binaryOp = OP_SUBTRACT; break;
     case TOKEN_STAR: binaryOp = OP_MULTIPLY; break;
     case TOKEN_SLASH: binaryOp = OP_DIVIDE; break;
-    case TOKEN_MODULO: binaryOp = OP_MODULO; break;
+    case TOKEN_PERCENT: binaryOp = OP_MODULO; break;
     case TOKEN_EXPO: binaryOp = OP_EXPONENT; break;
     case TOKEN_EQ_EQ: binaryOp = OP_EQ; break;
     case TOKEN_BANG_EQ: binaryOp = OP_NOT_EQ; break;
@@ -733,7 +733,7 @@ static void compile_for(Compiler *compiler, const ForNode *node) {
     );
     APPEND_DA(
         CURRENT_LOCALS(compiler),
-        create_variable(false, false, create_normal_token("<iter>", 0), compiler->scopeDepth)
+        create_variable(false, false, create_token("<iter>", 0), compiler->scopeDepth)
     );
 
     compile_node(compiler, node->iterable);
