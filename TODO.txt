@@ -57,13 +57,25 @@ Optimization:
 
 Test nested loops once printing is implemented.
 
-Add range objects.
-
-"can't assign/redeclare built-in name."
-
 Allow internal asserts to have formatting, and rename MEMORY_ERROR_ARGS() to MEMORY_ERROR_POS().
 Use the formatting on asserts on a few places that could use it (like global assigns in compiler).
 
 Handle multi-line while/if/for statements in the same style of our multi-line function definitions.
 
+Change TOKEN_MODULO's name to TOKEN_PERCENT (and any other punctuations to their name like that).
+
+Change create_normal_token() to create_token().
+
+Optimize node memory for unary/binary nodes by storing their operation token as just
+the source position and a token type enum value.
+
+Make more types hashable.
+
 Change escaped double quotes into single quotes?
+
+----------------------------------------------------------------------------------
+
+Commit message:
+    Add ranges, and include quotes in string lexemes
+
+Test "had_interpolation".

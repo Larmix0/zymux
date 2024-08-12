@@ -169,15 +169,15 @@ static void append_lexed_float(Lexer *lexer, const ZmxFloat floatVal) {
 }
 
 /** Appends a string that was lexed by making the string union the passed buffer. */
-static void append_lexed_string(Lexer *lexer, StringLexer *string, CharBuffer buffer) {
-    const int finalLength = buffer.length - 1; // -1 because CharBuffer counts NUL.
+static void append_lexed_string(
+    Lexer *lexer, StringLexer *string, CharBuffer buffer, const int includedQuotes
+) {
+    const u32 textLength = buffer.length - 1; // -1 because CharBuffer counts NUL.
+    const u32 quotesLength = textLength + includedQuotes; // So the lexeme includes any side quotes.
     Token token = {
         .lexeme = lexer->tokenStart, 
-        .pos = create_src_pos(
-            lexer->line, lexer->tokenColumn,
-            finalLength + string->escapes
-        ),
-        .type = TOKEN_STRING_LIT, .stringVal = {.length = finalLength, .text = buffer.text}
+        .pos = create_src_pos(lexer->line, lexer->tokenColumn, quotesLength + string->escapes),
+        .type = TOKEN_STRING_LIT, .stringVal = {.length = textLength, .text = buffer.text}
     };
     APPEND_DA(&lexer->tokens, token);
 }
@@ -590,6 +590,19 @@ static void lex_interpolation(Lexer *lexer, StringLexer *string) {
 }
 
 /** 
+ * Checks if we've just finished an interpolation.
+ * 
+ * It does so by checking if we've got any tokens and if the previous one is an interpolation token.
+ * Otherwise, it automatically returns false.
+ */
+static bool had_interpolation(Lexer *lexer) {
+    if (lexer->tokens.length != 0) {
+        return lexer->tokens.data[lexer->tokens.length - 1].type == TOKEN_INTERPOLATE;
+    }
+    return false;
+}
+
+/** 
  * Prepares to start lexing the interpolation's tokens.
  * 
  * It does so by appending the current buffer literal then a format beforehand.
@@ -602,9 +615,8 @@ static bool interpolate(Lexer *lexer, StringLexer *string, CharBuffer *buffer) {
         buffer_append_char(buffer, ADVANCE_PEEK(lexer));
         return false;
     }
-
     buffer_pop_amount(buffer, lexer->current - string->interpolationStart);
-    append_lexed_string(lexer, string, *buffer);
+    append_lexed_string(lexer, string, *buffer, (int)!had_interpolation(lexer));
     *buffer = create_char_buffer();
     lex_interpolation(lexer, string);
     return true;
@@ -718,7 +730,8 @@ static void finish_string(Lexer *lexer, StringLexer *string) {
             "Unclosed \"{\" in interpolated string."
         );
     }
-    append_lexed_string(lexer, string, buffer);
+    // If we interpolated, then we already had a token with opening quote. +1 because of closing one.
+    append_lexed_string(lexer, string, buffer, (int)!had_interpolation(lexer) + 1);
     append_implicit(lexer, TOKEN_STRING_END);
 }
 
@@ -754,6 +767,7 @@ static MetadataStatus set_string_metadata(Lexer *lexer, StringLexer *string) {
         return METADATA_SUCCESS;
     case '\'':
     case '"':
+        START_TOKEN(lexer);
         string->quote = PEEK(lexer);
         return METADATA_END;
     default:
@@ -795,7 +809,6 @@ static void lex_string(Lexer *lexer) {
         }
         ADVANCE(lexer);
     }
-    START_TOKEN(lexer);
     finish_string(lexer, &string);
 }
 

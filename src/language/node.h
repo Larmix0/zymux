@@ -17,6 +17,7 @@ typedef enum {
     AST_UNARY,
     AST_BINARY,
     AST_PARENTHESES,
+    AST_RANGE,
     AST_CALL,
     AST_EXPR_STMT,
     AST_BLOCK,
@@ -95,6 +96,18 @@ typedef struct {
     Node node;
     Node *expr;
 } ParenthesesNode;
+
+/** 
+ * Holds a number range with optional steps in the range.
+ * The numbers are stored as expression nodes which should later resolve to integers.
+ */
+typedef struct {
+    Node node;
+    Node *start; /** Where the range starts. */
+    Node *end; /** Where the range ends. */
+    Node *step; /** How many numbers change per step/iteration. */
+    SourcePosition pos; /** The location of the range in source code. */
+} RangeNode;
 
 /** Wraps something in a call to it. */
 typedef struct {
@@ -200,6 +213,11 @@ Node *new_binary_node(ZmxProgram *program, Node *lhs, const Token operation, Nod
 
 /** Allocates a parentheses node, which wraps an expression inside it to dictate precedence. */
 Node *new_parentheses_node(ZmxProgram *program, Node *expr);
+
+/** Allocates a number range node, which serves as an iterable over numbers. */
+Node *new_range_node(
+    ZmxProgram *program, Node *start, Node *end, Node *step, const SourcePosition pos
+);
 
 /** Allocates a call node, which simply wraps around a callee expression with some optional args. */
 Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args);

@@ -39,6 +39,7 @@ typedef enum {
     OP_TRUE,
     OP_FALSE,
     OP_NULL,
+    OP_RANGE,
     OP_ADD,
     OP_SUBTRACT,
     OP_MULTIPLY,

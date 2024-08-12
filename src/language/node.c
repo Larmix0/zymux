@@ -71,6 +71,18 @@ Node *new_parentheses_node(ZmxProgram *program, Node *expr) {
     return AS_NODE(node);
 }
 
+/** Allocates a number range node, which serves as an iterable over numbers. */
+Node *new_range_node(
+    ZmxProgram *program, Node *start, Node *end, Node *step, const SourcePosition pos
+) {
+    RangeNode *node = NEW_NODE(program, AST_RANGE, RangeNode);
+    node->start = start;
+    node->end = end;
+    node->step = step;
+    node->pos = pos;
+    return AS_NODE(node);
+}
+
 /** Allocates a call node, which simply wraps around a callee expression with some optional args. */
 Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args) {
     CallNode *node = NEW_NODE(program, AST_CALL, CallNode);
@@ -184,6 +196,7 @@ SourcePosition get_node_pos(const Node *node) {
     // Can safely index 0 here since a string node is gauranteed to at least have one empty string.
     case AST_STRING: return get_node_pos(AS_PTR(StringNode, node)->exprs.data[0]);
     case AST_PARENTHESES: return get_node_pos(AS_PTR(ParenthesesNode, node)->expr);
+    case AST_RANGE: return AS_PTR(RangeNode, node)->pos;
     case AST_CALL: return get_node_pos(AS_PTR(CallNode, node)->callee);
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(ExprStmtNode, node)->expr);
     case AST_BLOCK: return AS_PTR(BlockNode, node)->pos;
@@ -217,6 +230,7 @@ static void free_node(Node *node) {
     case AST_UNARY:
     case AST_BINARY:
     case AST_PARENTHESES:
+    case AST_RANGE:
     case AST_EXPR_STMT:
     case AST_VAR_DECL:
     case AST_VAR_ASSIGN:

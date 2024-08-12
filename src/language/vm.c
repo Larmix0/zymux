@@ -270,6 +270,7 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     case OBJ_BOOL:
     case OBJ_NULL:
     case OBJ_STRING:
+    case OBJ_RANGE:
     case OBJ_ITERATOR:
         return runtime_error(vm, "Can't call object of type %s.", obj_type_string(PEEK(vm)->type));
     }
@@ -299,6 +300,24 @@ static bool execute_vm(Vm *vm) {
         case OP_TRUE: PUSH(vm, AS_OBJ(new_bool_obj(vm->program, true))); break;
         case OP_FALSE: PUSH(vm, AS_OBJ(new_bool_obj(vm->program, false))); break;
         case OP_NULL: PUSH(vm, AS_OBJ(new_null_obj(vm->program))); break;
+        case OP_RANGE: {
+            Obj *step = PEEK(vm);
+            Obj *end = PEEK_DEPTH(vm, 1);
+            Obj *start = PEEK_DEPTH(vm, 2);
+            if (start->type != OBJ_INT || end->type != OBJ_INT || step->type != OBJ_INT) {
+                return runtime_error(
+                    vm, "Range takes 3 integers, got %s, %s, and %s instead.",
+                    obj_type_string(start->type), obj_type_string(end->type),
+                    obj_type_string(step->type)
+                );
+            }
+            RangeObj *range = new_range_obj(
+                vm->program, NUM_VAL(start), NUM_VAL(end), NUM_VAL(step)
+            );
+            DROP_AMOUNT(vm, 3);
+            PUSH(vm, AS_OBJ(range));
+            break;
+        }
         case OP_ADD:
             if (BIN_LEFT(vm)->type == OBJ_STRING && BIN_RIGHT(vm)->type == OBJ_STRING) {
                 Obj *result = AS_OBJ(concatenate(

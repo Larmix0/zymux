@@ -251,6 +251,18 @@ static void compile_parentheses(Compiler *compiler, const ParenthesesNode *node)
 }
 
 /** 
+ * Compiles a range expression of 3 values: start, end, and step (in that order).
+ * This means the VM will have to read the stack in reverse to make the range object.
+ */
+static void compile_range(Compiler *compiler, const RangeNode *node) {
+    compile_node(compiler, node->start);
+    compile_node(compiler, node->end);
+    compile_node(compiler, node->step);
+
+    emit_instr(compiler, OP_RANGE, node->pos);
+}
+
+/** 
  * Compiles a call to a callable object.
  * 
  * First, we compile the callee (the object being called), then compile the arguments left to right.
@@ -754,6 +766,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_UNARY: compile_unary(compiler, AS_PTR(UnaryNode, node)); break;
     case AST_BINARY: compile_binary(compiler, AS_PTR(BinaryNode, node)); break;
     case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
+    case AST_RANGE: compile_range(compiler, AS_PTR(RangeNode, node)); break;
     case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;
     case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: scoped_block(compiler, AS_PTR(BlockNode, node), SCOPE_NORMAL); break;

@@ -27,6 +27,7 @@ typedef enum {
     OBJ_BOOL,
     OBJ_NULL,
     OBJ_STRING,
+    OBJ_RANGE,
     OBJ_FUNC,
     OBJ_NATIVE_FUNC,
     OBJ_ITERATOR
@@ -78,6 +79,14 @@ typedef struct StringObj {
     u32 hash;
     char *string;
 } StringObj;
+
+/** Holds a range of integers to mostly iterate over from start to end with each iteration step. */
+typedef struct {
+    Obj obj;
+    ZmxInt start;
+    ZmxInt end;
+    ZmxInt step;
+} RangeObj;
 
 /**
  * Represents an object that holds some bytecode, its positions and a constant pool for them.
@@ -139,6 +148,11 @@ StringObj *new_string_obj(ZmxProgram *program, const char *string);
 
 /** Returns an allocated string object from a length based string (may not be NUL terminated). */
 StringObj *string_obj_from_len(ZmxProgram *program, const char *string, const u32 length);
+
+/** Returns a range object created from the passed numbers. */
+RangeObj *new_range_obj(
+    ZmxProgram *program, const ZmxInt start, const ZmxInt end, const ZmxInt step
+);
 
 /** Returns a new allocated function object. */
 FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx);

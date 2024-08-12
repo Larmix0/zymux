@@ -102,6 +102,17 @@ StringObj *string_obj_from_len(ZmxProgram *program, const char *string, const u3
     return asObj;
 }
 
+/** Returns a range object created from the passed numbers. */
+RangeObj *new_range_obj(
+    ZmxProgram *program, const ZmxInt start, const ZmxInt end, const ZmxInt step
+) {
+    RangeObj *object = NEW_OBJ(program, OBJ_RANGE, RangeObj);
+    object->start = start;
+    object->end = end;
+    object->step = step;
+    return object;
+}
+
 /** Returns a new allocated function object with a name to it and its members initialized. */
 FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx) {
     FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);
@@ -144,6 +155,7 @@ void intern_objs(ZmxProgram *program) {
 bool is_iterable(const Obj *object) {
     switch (object->type) {
     case OBJ_STRING:
+    case OBJ_RANGE:
         return true;
 
     case OBJ_INT:
@@ -169,13 +181,24 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
 
     switch (iterator->iterable->type) {
     case OBJ_STRING: {
-        StringObj *iterable = AS_PTR(StringObj, iterator->iterable);
-        if (iterator->iteration >= iterable->length) {
+        StringObj *string = AS_PTR(StringObj, iterator->iterable);
+        if (iterator->iteration >= string->length) {
             return NULL;
         }
-        return AS_OBJ(string_obj_from_len(program, iterable->string + iterator->iteration++, 1));
+        return AS_OBJ(string_obj_from_len(program, string->string + iterator->iteration++, 1));
     }
-
+    case OBJ_RANGE: {
+        RangeObj *range = AS_PTR(RangeObj, iterator->iterable);
+        const bool isIncreasing = range->start < range->end;
+        const ZmxInt result = isIncreasing ? range->start + (iterator->iteration * range->step)
+            : range->start - (iterator->iteration * range->step);
+            
+        iterator->iteration++;
+        if ((isIncreasing && result > range->end) || (!isIncreasing && result < range->end)) {
+            return NULL;
+        }
+        return AS_OBJ(new_int_obj(program, result));
+    }
     case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:
@@ -206,6 +229,7 @@ bool equal_obj(const Obj *left, const Obj *right) {
     }
 
     switch (left->type) {
+    case OBJ_RANGE:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
@@ -256,6 +280,14 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
     case OBJ_STRING:
         buffer_append_string(&string, AS_PTR(StringObj, object)->string);
         break;
+    case OBJ_RANGE: {
+        RangeObj *range = AS_PTR(RangeObj, object);
+        buffer_append_format(
+            &string, ZMX_INT_FMT ".." ZMX_INT_FMT ".." ZMX_INT_FMT,
+            range->start, range->end, range->step
+        );
+        break;
+    }
     case OBJ_FUNC:
         buffer_append_format(&string, "<function %s>", AS_PTR(FuncObj, object)->name->string);
         break;
@@ -280,6 +312,7 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
 BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     bool result;
     switch (object->type) {
+    case OBJ_RANGE:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
@@ -320,6 +353,13 @@ void print_obj(const Obj *object, const bool debugPrint) {
             printf("%s", AS_PTR(StringObj, object)->string);
         }
         break;
+    case OBJ_RANGE: {
+        RangeObj *range = AS_PTR(RangeObj, object);
+        printf(
+            ZMX_INT_FMT ".." ZMX_INT_FMT ".." ZMX_INT_FMT, range->start, range->end, range->step
+        );
+        break;
+    }
     case OBJ_FUNC:
         printf("<function %s>", AS_PTR(FuncObj, object)->name->string);
         break;
@@ -343,6 +383,7 @@ char *obj_type_string(ObjType type) {
     case OBJ_BOOL: return "bool";
     case OBJ_NULL: return "null";
     case OBJ_STRING: return "string";
+    case OBJ_RANGE: return "range";
     case OBJ_FUNC: return "function";
     case OBJ_NATIVE_FUNC: return "native function";
     case OBJ_ITERATOR: return "iterator";
@@ -379,6 +420,7 @@ void free_obj(Obj *object) {
     case OBJ_FLOAT:
     case OBJ_BOOL:
     case OBJ_NULL:
+    case OBJ_RANGE:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         break; // The object itself doesn't own any memory.

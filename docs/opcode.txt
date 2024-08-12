@@ -130,6 +130,10 @@ OP_FINISH_STRING:
 OP_NULL:
     Pushes a null object to the stack.
 
+OP_RANGE:
+    Pushes a range object by popping the 3 objects on top of the stack and using them
+    as its step, end, and start (popping them in that order).
+
 OP_GET_BUILT_IN:
     Reads a string const, which is the name of the variable whose value is to be extracted from
     the program's loaded built-ins.

@@ -224,6 +224,7 @@ static Node *comparison(Parser *parser) {
     return expr;
 }
 
+/** Precedence of checking equality or inequality. */
 static Node *equality(Parser *parser) {
     Node *expr = comparison(parser);
     while (CHECK(parser, TOKEN_EQ_EQ) || CHECK(parser, TOKEN_BANG_EQ)) {
@@ -234,9 +235,46 @@ static Node *equality(Parser *parser) {
     return expr;
 }
 
+/** 
+ * Return a potentially extended version of pos using the passed extension position if appropriate.
+ * Otherwise (like them not being on the same line), it will just return back pos as is. 
+ */
+static SourcePosition extended_position(SourcePosition pos, const Token extension) {
+    if (pos.line == extension.pos.line) {
+        pos.length = extension.pos.length + extension.pos.column - pos.column;
+    }
+    return pos;
+}
+
+/** 
+ * A range with a starting number, ending number, and an optional step number.
+ * Adding a second double dot and a step number is optional and set to 1 by default.
+ * 
+ * The steps must be positive, and the language figures out whether
+ * to subtract or add the step number based off whether the starting or ending number is bigger.
+ */
+static Node *range(Parser *parser) {
+    SourcePosition rangePos = PEEK(parser).pos;
+    Node *expr = equality(parser);
+    if (MATCH(parser, TOKEN_DOT_DOT)) {
+        Node *end = equality(parser);
+        rangePos = extended_position(rangePos, PEEK_PREVIOUS(parser));
+
+        Node *step;
+        if (MATCH(parser, TOKEN_DOT_DOT)) {
+            step = equality(parser);
+            rangePos = extended_position(rangePos, PEEK_PREVIOUS(parser));
+        } else {
+            step = new_literal_node(parser->program, create_int_token("1", 10)); // Default 1 step.            
+        }
+        expr = new_range_node(parser->program, expr, end, step, rangePos);
+    }
+    return expr;
+}
+
 /** Handles assignment expressions. TODO: do multi-assignments and document how they're parsed. */
 static Node *assignment(Parser *parser) {
-    Node *expr = equality(parser);
+    Node *expr = range(parser);
     if (CHECK(parser, TOKEN_ASSIGN)) {
         Token assignLocation = ADVANCE_PEEK(parser);
         Node *value = assignment(parser);
