@@ -445,7 +445,7 @@ static bool try_assign_global(Compiler *compiler, Obj *nameAsObj, const VarAssig
         return false;
     }
 
-    ASSERT(globalIdx >= 0, "Expected positive global index.");
+    ASSERT(globalIdx >= 0, "Expected positive global index, got %" PRId64 " instead.", globalIdx);
     if (compiler->globals.data[globalIdx].isConst) {
         const_assign_error(compiler, AS_NODE(node), node->name);
     }

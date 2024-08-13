@@ -475,9 +475,8 @@ static bool execute_vm(Vm *vm) {
         case OP_ITER_OR_JUMP: {
             ASSERT(PEEK(vm)->type == OBJ_ITERATOR, "Must iterate with an iterator.");
             IteratorObj *iterator = AS_PTR(IteratorObj, PEEK(vm));
-            ASSERT(is_iterable(iterator->iterable),"Can't iterate over non-iterable.");
-
             const u32 jump = READ_NUMBER(vm);
+            
             Obj *element = iterate(vm->program, iterator);
             if (element == NULL) {
                 vm->frame->ip += jump;

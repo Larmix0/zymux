@@ -97,7 +97,7 @@ static Node *string(Parser *parser) {
     NodeArray exprs = CREATE_DA();
     bool nextIsString = true;
     while (!MATCH(parser, TOKEN_STRING_END)) {
-        ASSERT(!IS_EOF(parser), "No string_end token to parse.");
+        ASSERT(!IS_EOF(parser), "No string end token to parse for string.");
         if (nextIsString) {
             Token literal = CONSUME(parser, TOKEN_STRING_LIT, "Expected a string literal.");
             bool emptyString = literal.stringVal.length > 0;

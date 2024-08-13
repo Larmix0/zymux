@@ -58,7 +58,4 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-Allow internal asserts to have formatting.
-Use the formatting on asserts on a few places that could use it (like global assigns in compiler).
-
 Make more types hashable.

@@ -15,7 +15,12 @@
      * Asserts a passed condition and spits an assert error if it's falsy with a message.
      * Currently enabled.
      */
-    #define ASSERT(condition, message) (zmx_assert(SOURCE_INFO, condition, message))
+    #define ASSERT(condition, ...) \
+        do { \
+            if (!(condition)) { \
+                internal_error(SOURCE_INFO, "Assert error", __VA_ARGS__); \
+            } \
+        } while (false)
 #else
     /** 
      * Asserts a passed condition and spits an assert error if it's falsy with a message.
@@ -118,8 +123,5 @@ void zmx_user_error(
     ZmxProgram *program, const SourcePosition pos, const char *errorName,
     const char *format, va_list *args
 );
-
-/** Asserts a condition and errors with the passed message if the condition is false. */
-void zmx_assert(const SourceInfo info, const bool condition, const char *message);
 
 #endif

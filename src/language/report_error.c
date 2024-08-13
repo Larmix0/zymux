@@ -166,10 +166,3 @@ void zmx_user_error(
     vfprintf(stderr, format, *args);  
     fputc('\n', stderr);
 }
-
-/** Asserts a condition and errors with the passed message if the condition is false. */
-void zmx_assert(const SourceInfo info, const bool condition, const char *message) {
-    if (!condition) {
-        internal_error(info, "Assert error", message);
-    }
-}
