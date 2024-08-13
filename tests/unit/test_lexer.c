@@ -346,10 +346,10 @@ PRIVATE_TEST_CASE(test_lex_name) {
 PRIVATE_TEST_CASE(test_lex_string) {
     char *source = "'Normal\\t string\\\\n w/escapes'"
         "#'This is a\\t raw string.\\n\\\\n'"
-        "$'Interpolated \\{ <- escaped {3 * $'And {2 + 3} is nested' + 2}'"
+        "$'Interpolated \\{ <- escaped {3 * $\"And {2 + 3} is nested\" + 2}'"
         "$#'Interpolated raw \\{2 + 3}'"
-        "$'{$'{1 + 2}'} end'"
-        "$' { $' { 7 ** 23 } ' } '"
+        "$'{$\"{1 + 2}\"} end'"
+        "$' { $\" { 7 ** 23 } \" } '"
         "'unclosed { left curly, but not interpolated.'"
         "$'{\t}Empty {}{\t}brace.{ }'";
 

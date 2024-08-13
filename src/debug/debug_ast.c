@@ -9,11 +9,11 @@ static void append_node(CharBuffer *astString, const Node *node);
 /** Abstraction for appending a token to the passed astString. */
 static void buffer_append_token(CharBuffer *astString, const Token token) {
     if (token.type == TOKEN_STRING_LIT) {
-        buffer_append_char(astString, '"'); // Append starting quote of string literal.
+        buffer_append_char(astString, '\''); // Append starting quote of string literal.
     }
     buffer_append_string_len(astString, token.lexeme, token.pos.length);
     if (token.type == TOKEN_STRING_LIT) {
-        buffer_append_char(astString, '"'); // Append ending quote of string literal.
+        buffer_append_char(astString, '\''); // Append ending quote of string literal.
     }
     buffer_append_char(astString, ' ');
 }
