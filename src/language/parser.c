@@ -135,7 +135,7 @@ static Node *primary(Parser *parser) {
         return new_var_get_node(parser->program, PEEK_PREVIOUS(parser));
     case TOKEN_LPAR: {
         Node *parenthesized = expression(parser);
-        CONSUME(parser, TOKEN_RPAR, "Expected \")\" after parenthesized expression.");
+        CONSUME(parser, TOKEN_RPAR, "Expected ')' after parenthesized expression.");
         return new_parentheses_node(parser->program, parenthesized);
     }
     default:
@@ -158,7 +158,7 @@ static Node *call(Parser *parser) {
         if (!MATCH(parser, TOKEN_RPAR)) {
             APPEND_DA(&args, expression(parser));
             while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser)) {
-                CONSUME(parser, TOKEN_COMMA, "Expected \",\" or \")\" after argument.");
+                CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after argument.");
                 APPEND_DA(&args, expression(parser));
             }
         }
@@ -297,7 +297,7 @@ static Node *expression(Parser *parser) {
 /** A statement which only holds an expression inside it. */
 static Node *expression_stmt(Parser *parser) {
     Node *node = expression(parser);
-    CONSUME(parser, TOKEN_SEMICOLON, "Expected \";\" after expression.");
+    CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after expression.");
     return new_expr_stmt_node(parser->program, node);
 }
 
@@ -312,7 +312,7 @@ static Node *block(Parser *parser) {
     while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser)) {
         APPEND_DA(&stmts, declaration(parser));
     }
-    CONSUME(parser, TOKEN_RCURLY, "Expected closing \"}\" for block.");
+    CONSUME(parser, TOKEN_RCURLY, "Expected closing '}' for block.");
     return new_block_node(parser->program, stmts, pos);
 }
 
@@ -324,7 +324,7 @@ static Node *block(Parser *parser) {
  */
 static Node *if_else(Parser *parser) {
     Node *condition = expression(parser);
-    CONSUME(parser, TOKEN_LCURLY, "Expected \"{\" after if statement's condition.");
+    CONSUME(parser, TOKEN_LCURLY, "Expected '{' after if statement's condition.");
     Node *ifBranch = block(parser);
     Node *elseBranch = NULL;
     if (MATCH(parser, TOKEN_ELSE_KW)) {
@@ -333,7 +333,7 @@ static Node *if_else(Parser *parser) {
         } else if (MATCH(parser, TOKEN_IF_KW)) {
             elseBranch = if_else(parser);
         } else {
-            parser_error_at(parser, &PEEK(parser), true, "Expected \"if\" or \"{\" after else.");
+            parser_error_at(parser, &PEEK(parser), true, "Expected 'if' or '{' after else.");
         }
     }
     return new_if_else_node(parser->program, condition, AS_PTR(BlockNode, ifBranch), elseBranch);
@@ -342,28 +342,28 @@ static Node *if_else(Parser *parser) {
 /** A while loop executes its block statement as long as the loop's condition evalutes to true. */
 static Node *while_loop(Parser *parser) {
     Node *condition = expression(parser);
-    CONSUME(parser, TOKEN_LCURLY, "Expected \"{\" after while loop's condition.");
+    CONSUME(parser, TOKEN_LCURLY, "Expected '{' after while loop's condition.");
     Node *body = block(parser);
     return new_while_node(parser->program, condition, AS_PTR(BlockNode, body));
 }
 
 /** Executes a block, then decides to do it again or not depending on a condition at the bottom. */
 static Node *do_while_loop(Parser *parser) {
-    CONSUME(parser, TOKEN_LCURLY, "Expected \"{\" after \"do\".");
+    CONSUME(parser, TOKEN_LCURLY, "Expected '{' after 'do'.");
     Node *body = block(parser);
-    CONSUME(parser, TOKEN_WHILE_KW, "Expected \"while\" after do while loop's body");
+    CONSUME(parser, TOKEN_WHILE_KW, "Expected 'while' after do while loop's body");
     Node *condition = expression(parser);
-    CONSUME(parser, TOKEN_SEMICOLON, "Expected \";\" after do while loop's condition.");
+    CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after do while loop's condition.");
     return new_do_while_node(parser->program, condition, AS_PTR(BlockNode, body));
 }
 
 /** Zymux uses for-in loops, which iterate over the elements of an iterable object. */
 static Node *for_loop(Parser *parser) {
-    Token loopVar = CONSUME(parser, TOKEN_IDENTIFIER, "Expected loop variable after \"for\".");
-    CONSUME(parser, TOKEN_IN_KW, "Expected \"in\" after for loop's variable name.");
+    Token loopVar = CONSUME(parser, TOKEN_IDENTIFIER, "Expected loop variable after 'for'.");
+    CONSUME(parser, TOKEN_IN_KW, "Expected 'in' after for loop's variable name.");
     Node *iterable = expression(parser);
 
-    CONSUME(parser, TOKEN_LCURLY, "Expected \"{\" after for loop's iterable.");
+    CONSUME(parser, TOKEN_LCURLY, "Expected '{' after for loop's iterable.");
     Node *body = block(parser);
     return new_for_node(parser->program, loopVar, iterable, AS_PTR(BlockNode, body));
 }
@@ -373,8 +373,7 @@ static Node *jump_keyword(Parser *parser) {
     Token keyword = PEEK_PREVIOUS(parser);
     Node *node = new_keyword_node(parser->program, keyword);
     CONSUME(
-        parser, TOKEN_SEMICOLON,
-        "Expected \";\" after \"%.*s\".", keyword.pos.length, keyword.lexeme
+        parser, TOKEN_SEMICOLON, "Expected ';' after '%.*s'.", keyword.pos.length, keyword.lexeme
     );
     return node;
 }
@@ -410,12 +409,12 @@ static Node *var_decl(Parser *parser, const bool isConst) {
         value = new_keyword_node(parser->program, create_token("null", TOKEN_NULL_KW));   
     } else if (MATCH(parser, TOKEN_EQ)){
         value = expression(parser);
-        CONSUME(parser, TOKEN_SEMICOLON, "Expected \";\" after variable's value.");
+        CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after variable's value.");
     } else {
         // TODO: later add a comma option that turns into multiple declaration
         // TODO: also, make this if-else chain a switch after the comma option is added.
         parser_error_missing(
-            parser, &PEEK(parser), true, "Expected \";\" or \"=\" after variable declaration."
+            parser, &PEEK(parser), true, "Expected ';' or '=' after variable declaration."
         );
     }
     return new_var_decl_node(parser->program, name, value, isConst);

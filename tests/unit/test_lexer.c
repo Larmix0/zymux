@@ -77,7 +77,7 @@ static void compare_lexed(Lexer *lexer, TokenArray *expectedArray, const bool co
         Token expected = expectedArray->data[tokenIdx];
         ASSERT_CUSTOM(
             equal_token(lexed, expected),
-            "Token %d (lexeme=\"%.*s\" type=%s) != (lexeme=\"%s\", type=%s)",
+            "Token %d (lexeme='%.*s' type=%s) != (lexeme='%s', type=%s)",
             tokenIdx + 1, lexed.pos.length, lexed.lexeme,
             token_type_string(lexed.type), expected.lexeme, token_type_string(expected.type)
         );
@@ -346,10 +346,10 @@ PRIVATE_TEST_CASE(test_lex_name) {
 PRIVATE_TEST_CASE(test_lex_string) {
     char *source = "'Normal\\t string\\\\n w/escapes'"
         "#'This is a\\t raw string.\\n\\\\n'"
-        "$'Interpolated \\{ <- escaped {3 * $\"And {2 + 3} is nested\" + 2}'"
+        "$'Interpolated \\{ <- escaped {3 * $'And {2 + 3} is nested' + 2}'"
         "$#'Interpolated raw \\{2 + 3}'"
-        "$'{$\"{1 + 2}\"} end'"
-        "$' { $\" { 7 ** 23 } \" } '"
+        "$'{$'{1 + 2}'} end'"
+        "$' { $' { 7 ** 23 } ' } '"
         "'unclosed { left curly, but not interpolated.'"
         "$'{\t}Empty {}{\t}brace.{ }'";
 

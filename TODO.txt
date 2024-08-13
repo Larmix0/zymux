@@ -64,9 +64,3 @@ Use the formatting on asserts on a few places that could use it (like global ass
 Handle multi-line while/if/for statements in the same style of our multi-line function definitions.
 
 Make more types hashable.
-
-Change escaped double quotes into single quotes?
-
-----------------------------------------------------------------------------------
-
-Test "had_interpolation".

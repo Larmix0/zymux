@@ -7,7 +7,7 @@
 /** Prints the passed token to the console. */
 static void print_token(const Token token) {
     printf(
-        "Token(lexeme=\"%.*s\", length=%d, line=%d, column=%d, type=%s",
+        "Token(lexeme='%.*s', length=%d, line=%d, column=%d, type=%s",
         token.pos.length, token.lexeme, token.pos.length,
         token.pos.line, token.pos.column, token_type_string(token.type)
     );
@@ -19,7 +19,7 @@ static void print_token(const Token token) {
         printf(", float=" ZMX_FLOAT_FMT, token.floatVal);
         break;
     case TOKEN_STRING_LIT:
-        printf(", string=\"%s\"", token.stringVal.text);
+        printf(", string='%s'", token.stringVal.text);
         break;
     default:
         break; // Add nothing to the token's print.

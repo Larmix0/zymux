@@ -20,7 +20,7 @@ typedef enum {
 static PathType get_path_type(const char *path) {
     struct stat statBuffer;
     if (stat(path, &statBuffer) != 0) {
-        FILE_ERROR("Couldn't read stat of \"%s\": %s (Errno %d).", path, strerror(errno), errno);
+        FILE_ERROR("Couldn't read stat of '%s': %s (Errno %d).", path, strerror(errno), errno);
     }
     
     if (S_ISDIR(statBuffer.st_mode)) {
@@ -66,36 +66,34 @@ static char *alloc_fixed_source(const char *source) {
 char *alloc_source(const char *path) {
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
-        FILE_ERROR(
-            "Couldn't open file \"%s\": %s (Errno %d).", path, strerror(errno), errno
-        );
+        FILE_ERROR("Couldn't open file '%s': %s (Errno %d).", path, strerror(errno), errno);
     }
 
     const PathType type = get_path_type(path);
     if (type == PATH_DIRECTORY) {
-        FILE_ERROR("Expected file, but \"%s\" is a directory.", path);
+        FILE_ERROR("Expected file, but '%s' is a directory.", path);
     } else if (type == PATH_OTHER) {
-        FILE_ERROR("Expected file, but \"%s\" isn't a file.", path);
+        FILE_ERROR("Expected file, but '%s' isn't a file.", path);
     }
 
     if (fseek(file, 0L, SEEK_END) != 0) {
-        FILE_ERROR("Couldn't seek to the end of file \"%s\" to view its length.", path);
+        FILE_ERROR("Couldn't seek to the end of file '%s' to view its length.", path);
     }
     
     const long fileLength = ftell(file);
     if (fileLength == -1) {
-        FILE_ERROR("Failed to read length of file \"%s\".", path);
+        FILE_ERROR("Failed to read length of file '%s'.", path);
     }
     if (fseek(file, 0L, SEEK_SET) != 0) {
-        FILE_ERROR("Couldn't seek to the beginning of file \"%s\" to read the source.", path);
+        FILE_ERROR("Couldn't seek to the beginning of file '%s' to read the source.", path);
     }
 
     char *source = ARRAY_ALLOC(fileLength + 1, char);
     if (fread(source, sizeof(char), fileLength, file) != (size_t)fileLength) {
-        FILE_ERROR("Failed to read the source of file \"%s\".", path);
+        FILE_ERROR("Failed to read the source of file '%s'.", path);
     }
     if (fclose(file) != 0) {
-        FILE_ERROR("Failed to close file \"%s\" after reading it.", path);
+        FILE_ERROR("Failed to close file '%s' after reading it.", path);
     }
     source[fileLength] = '\0';
     char *fixedSource = alloc_fixed_source(source);

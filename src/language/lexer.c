@@ -727,7 +727,7 @@ static void finish_string(Lexer *lexer, StringLexer *string) {
         append_error_at(
             lexer, string->interpolationStart,
             create_src_pos(lexer->line, string->interpolationColumn, 1),
-            "Unclosed \"{\" in interpolated string."
+            "Unclosed '{' in interpolated string."
         );
     }
     // If we interpolated, then we already had a token with opening quote. +1 because of closing one.
@@ -740,7 +740,7 @@ static void repeated_metadata_error(Lexer *lexer) {
     while (PEEK(lexer) == '#' || PEEK(lexer) == '$') {
         ADVANCE(lexer);
     }
-    append_lexed_error(lexer, "Can't repeat \"$\" or \"#\" on string.");
+    append_lexed_error(lexer, "Can't repeat '$' or '#' on string.");
 }
 
 /** 
@@ -774,7 +774,7 @@ static MetadataStatus set_string_metadata(Lexer *lexer, StringLexer *string) {
         // Error the non-metadata character then go back so it can be lexed normally after.
         START_TOKEN(lexer);
         ADVANCE(lexer);
-        append_lexed_error(lexer, "Expected string after \"#\" or \"$\".");
+        append_lexed_error(lexer, "Expected string after '#' or '$'.");
         RETREAT(lexer);
         START_TOKEN(lexer);
         return METADATA_MISSING_STRING_ERROR;

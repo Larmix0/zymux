@@ -183,7 +183,7 @@ static void loop_control(
     Compiler *compiler, const KeywordNode *node, U32Array *loopControlArray, const char *stringRepr
 ) {
     if (compiler->loopScopes.length == 0) {
-        compiler_error(compiler, AS_NODE(node), "Can only use \"%s\" inside a loop.", stringRepr);
+        compiler_error(compiler, AS_NODE(node), "Can only use '%s' inside a loop.", stringRepr);
     }
     emit_loop_pops(compiler);
     u32 controlSpot = emit_unpatched_jump(compiler, 0, node->pos);
@@ -335,7 +335,7 @@ static void declare_local(Compiler *compiler, const Variable declaredVar, const 
     if (get_top_scope_var_index(
             *CURRENT_LOCALS(compiler), node->name, compiler->scopeDepth) != -1) {
         compiler_error(
-            compiler, AS_NODE(node), "Can't redeclare local variable \"%.*s\".",
+            compiler, AS_NODE(node), "Can't redeclare local variable '%.*s'.",
             node->name.pos.length, node->name.lexeme
         );
     }
@@ -355,7 +355,7 @@ static void declare_global(
 ) {
     if (get_closed_var_index(compiler->globals, node->name) != -1) {
         compiler_error(
-            compiler, AS_NODE(node), "Can't redeclare global variable \"%.*s\".",
+            compiler, AS_NODE(node), "Can't redeclare global variable '%.*s'.",
             node->name.pos.length, node->name.lexeme
         );
     }
@@ -377,7 +377,7 @@ static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
     Obj *nameAsObj = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
     if (table_get(&compiler->program->builtIn, nameAsObj) != NULL) {
         compiler_error(
-            compiler, AS_NODE(node), "Can't redeclare built-in name \"%.*s\".",
+            compiler, AS_NODE(node), "Can't redeclare built-in name '%.*s'.",
             name.pos.length, name.lexeme
         );
         return;
@@ -394,7 +394,7 @@ static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
 /** An error which occured due to an attempt to assign a constant variable. */
 static void const_assign_error(Compiler *compiler, const Node *node, const Token name) {
     compiler_error(
-        compiler, AS_NODE(node), "Can't assign to const variable \"%.*s\".",
+        compiler, AS_NODE(node), "Can't assign to const variable '%.*s'.",
         name.pos.length, name.lexeme
     );
 }
@@ -473,12 +473,12 @@ static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
     // Guaranteed error at this point. We just try to put a more informative error message.
     if (table_get(&compiler->program->builtIn, nameAsObj) != NULL) {
         compiler_error(
-            compiler, AS_NODE(node), "Can't assign to built-in name \"%.*s\".",
+            compiler, AS_NODE(node), "Can't assign to built-in name '%.*s'.",
             name.pos.length, name.lexeme
         );
     } else {
         compiler_error(
-            compiler, AS_NODE(node), "Assigned variable \"%.*s\" doesn't exist.",
+            compiler, AS_NODE(node), "Assigned variable '%.*s' doesn't exist.",
             name.pos.length, name.lexeme
         );
     }
@@ -556,7 +556,7 @@ static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
     }
 
     compiler_error(
-        compiler, AS_NODE(node), "Variable \"%.*s\" doesn't exist.", name.pos.length, name.lexeme
+        compiler, AS_NODE(node), "Variable '%.*s' doesn't exist.", name.pos.length, name.lexeme
     );
 }
 

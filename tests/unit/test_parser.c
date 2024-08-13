@@ -94,7 +94,7 @@ PRIVATE_TEST_CASE(test_parser_macros) {
 /** Tests that the parser handles expressions correctly. */
 PRIVATE_TEST_CASE(test_parser_expression) {
     CharBuffer actual = source_to_ast_string(
-        "3 <= 2; 10 --10; (2 * 10) ** 5 / 4 - 9; 0 * 0xff ** ----0 % 1; $\"start {1 + 2} end\";"
+        "3 <= 2; 10 --10; (2 * 10) ** 5 / 4 - 9; 0 * 0xff ** ----0 % 1; $'start {1 + 2} end';"
     );
     CharBuffer expected = create_char_buffer();
     buffer_append_ast_strings(
@@ -103,7 +103,7 @@ PRIVATE_TEST_CASE(test_parser_expression) {
         "((- 10 (- 10)))",
         "((- (/ (** (((* 2 10) ) 5) 4) 9))",
         "((% (* 0 (** 0xff (- (- (- (- 0)))))) 1))",
-        "((<String> \"\"start \" (+ 1 2) \" end\"\"))"
+        "((<String> ''start ' (+ 1 2) ' end''))"
     );
     ASSERT_STRING_EQUAL(actual.text, expected.text);
     free_char_buffer(&actual);

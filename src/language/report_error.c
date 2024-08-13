@@ -108,7 +108,7 @@ void os_error(const char *format, ...) {
 void internal_error(const SourceInfo info, const char *errorName, const char *format, ...) {
     fprintf(
         stderr,
-        "Zymux implementation [file=\"%s\", func=%s(), line=%d]:\n" INDENT RED "%s: " DEFAULT_COLOR,
+        "Zymux implementation [file='%s', func=%s(), line=%d]:\n" INDENT RED "%s: " DEFAULT_COLOR,
         info.file, info.func, info.line, errorName
     );
 
@@ -160,7 +160,7 @@ void zmx_user_error(
 
     show_zmx_error_line(program->currentFile->string, pos);
     fprintf(
-        stderr, "line %d in \"%s\":\n" INDENT RED "%s: " DEFAULT_COLOR,
+        stderr, "line %d in '%s':\n" INDENT RED "%s: " DEFAULT_COLOR,
         pos.line, program->currentFile->string, errorName
     );
     vfprintf(stderr, format, *args);  

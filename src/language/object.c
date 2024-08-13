@@ -348,7 +348,7 @@ void print_obj(const Obj *object, const bool debugPrint) {
         break;
     case OBJ_STRING:
         if (debugPrint) {
-            printf("\"%s\"", AS_PTR(StringObj, object)->string);
+            printf("'%s'", AS_PTR(StringObj, object)->string);
         } else {
             printf("%s", AS_PTR(StringObj, object)->string);
         }
