@@ -229,16 +229,16 @@ bool equal_obj(const Obj *left, const Obj *right) {
     }
 
     switch (left->type) {
+    case OBJ_STRING:
     case OBJ_RANGE:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return left == right; // Compare addresses directly.
-    
-    case OBJ_BOOL: return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
-    case OBJ_NULL: return true;
-    case OBJ_STRING: return AS_PTR(StringObj, left) == AS_PTR(StringObj, right);
-
+    case OBJ_BOOL:
+        return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
+    case OBJ_NULL:
+        return true;
     case OBJ_INT:
     case OBJ_FLOAT:
         UNREACHABLE_ERROR(); // Ints and floats were handled at the top.

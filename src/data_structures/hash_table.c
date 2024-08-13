@@ -259,8 +259,10 @@ Obj *table_get_string(Table *table, const char *string, const u32 hash) {
         }
         
         StringObj *key = AS_PTR(StringObj, entry->key);
-        if (key->hash == hash && (size_t)key->length == strlen(string) 
-                && strncmp(key->string, string, key->length) == 0) {
+        if (
+            key->hash == hash && (size_t)key->length == strlen(string) 
+            && strncmp(key->string, string, key->length) == 0
+        ) {
             return entry->key;
         }
         index = GET_ENTRY_IDX(index + 1, table);

@@ -215,8 +215,10 @@ static Node *term(Parser *parser) {
 /** Comparisons handle any comparison operations other than equal and unequal. */
 static Node *comparison(Parser *parser) {
     Node *expr = term(parser);
-    while (CHECK(parser, TOKEN_GREATER) || CHECK(parser, TOKEN_GREATER_EQ)
-            || CHECK(parser, TOKEN_LESS) || CHECK(parser, TOKEN_LESS_EQ)) {
+    while (
+        CHECK(parser, TOKEN_GREATER) || CHECK(parser, TOKEN_GREATER_EQ)
+        || CHECK(parser, TOKEN_LESS) || CHECK(parser, TOKEN_LESS_EQ)
+    ) {
         Token operation = ADVANCE_PEEK(parser);
         Node *rhs = term(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);

@@ -87,7 +87,7 @@ static void remove_byte(Compiler *compiler, const u32 index) {
     ByteArray *bytecode = &compiler->func->bytecode;
     ASSERT(index < bytecode->length, "Removing byte outside bytecode boundary.");
 
-    for (u32 i = index; i < bytecode->length - 1; i++) {  
+    for (u32 i = index; i < bytecode->length - 1; i++) {
         bytecode->data[i] = bytecode->data[i + 1];
     }
     DROP_DA(bytecode);

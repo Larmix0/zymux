@@ -300,8 +300,10 @@ static void push_scope(Compiler *compiler, const ScopeType type) {
 static void pop_scope(Compiler *compiler, ScopeType type) {
     ClosedVariables *currentClosure = CURRENT_LOCALS(compiler);
     u32 poppedAmount = 0;
-    while (currentClosure->length > 0 
-            && currentClosure->data[currentClosure->length - 1].scope == compiler->scopeDepth) {
+    while (
+        currentClosure->length > 0 
+        && currentClosure->data[currentClosure->length - 1].scope == compiler->scopeDepth
+    ) {
         DROP_DA(currentClosure);
         poppedAmount++;
     }
@@ -332,8 +334,9 @@ static void scoped_block(Compiler *compiler, const BlockNode *node, const ScopeT
  * The declaration is simply done by letting the previously compiled value sit on the stack.
  */
 static void declare_local(Compiler *compiler, const Variable declaredVar, const VarDeclNode *node) {
-    if (get_top_scope_var_index(
-            *CURRENT_LOCALS(compiler), node->name, compiler->scopeDepth) != -1) {
+    if (
+        get_top_scope_var_index(*CURRENT_LOCALS(compiler), node->name, compiler->scopeDepth) != -1
+    ) {
         compiler_error(
             compiler, AS_NODE(node), "Can't redeclare local variable '%.*s'.",
             node->name.pos.length, node->name.lexeme
