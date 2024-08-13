@@ -58,9 +58,7 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-Allow internal asserts to have formatting, and rename MEMORY_ERROR_ARGS() to MEMORY_ERROR_POS().
+Allow internal asserts to have formatting.
 Use the formatting on asserts on a few places that could use it (like global assigns in compiler).
-
-Handle multi-line while/if/for statements in the same style of our multi-line function definitions.
 
 Make more types hashable.

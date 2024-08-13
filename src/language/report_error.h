@@ -28,7 +28,7 @@
 #define OS_ERROR(...) (os_error(__VA_ARGS__))
 
 /** Reports a memory-related error with the line info that was passed. */
-#define MEMORY_ERROR_ARGS(info, ...) \
+#define MEMORY_ERROR_INFO(info, ...) \
     (internal_error(info, "Memory error", __VA_ARGS__))
 
 /** Reports a memory-related error where it was called. */

@@ -11,7 +11,7 @@
 void *zmx_alloc(const size_t size, const SourceInfo info) {
     void *pointer = malloc(size);
     if (pointer == NULL) {
-        MEMORY_ERROR_ARGS(info, "Zymux failed to zmx_alloc memory.");
+        MEMORY_ERROR_INFO(info, "Zymux failed to zmx_alloc memory.");
     }
     return pointer;
 }
@@ -25,7 +25,7 @@ void *zmx_alloc(const size_t size, const SourceInfo info) {
 void *zmx_realloc(void *oldPointer, const size_t newSize, const SourceInfo info) {
     void *newPointer = realloc(oldPointer, newSize);
     if (newPointer == NULL) {
-        MEMORY_ERROR_ARGS(info, "Zymux failed to reallocate memory.");
+        MEMORY_ERROR_INFO(info, "Zymux failed to reallocate memory.");
     }
     return newPointer;
 }
