@@ -19,8 +19,8 @@ bool is_hashable(const Obj *object) {
     case OBJ_BOOL:
     case OBJ_NULL:
     case OBJ_STRING:
-        return true;
     case OBJ_RANGE:
+        return true;
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
@@ -41,12 +41,7 @@ static u32 hash_int(const ZmxInt number) {
  * then hashing it as if it was an integer.
  */
 static u32 hash_float(const ZmxFloat floatNumber) {
-    typedef struct {
-        ZmxFloat asFloat;
-        ZmxInt asInt;
-    } NumberBits;
-
-    NumberBits bits = {.asFloat = floatNumber};
+    struct {ZmxFloat asFloat; ZmxInt asInt;} bits = {.asFloat = floatNumber};
     return hash_int(bits.asInt);
 }
 
@@ -74,8 +69,11 @@ u32 get_hash(const Obj *object) {
     case OBJ_STRING: return AS_PTR(StringObj, object)->hash;
     case OBJ_BOOL: return AS_PTR(BoolObj, object)->boolean ? 1 : 0;
     case OBJ_NULL: return 2;
+    case OBJ_RANGE: {
+        RangeObj *range = AS_PTR(RangeObj, object);
+        return hash_int(range->start) + hash_int(range->end) + hash_int(range->step);
+    }
 
-    case OBJ_RANGE:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
