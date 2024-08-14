@@ -28,6 +28,7 @@ typedef enum {
     AST_WHILE,
     AST_DO_WHILE,
     AST_FOR,
+    AST_FUNC,
     AST_EOF
 } AstType;
 
@@ -187,6 +188,14 @@ typedef struct {
     BlockNode *body;
 } ForNode;
 
+/** Holds some form of a function (normal function, method, initializer, etc.). */
+typedef struct {
+    Node node;
+    Token name;
+    NodeArray params;
+    BlockNode *body;
+} FuncNode;
+
 /** Node that simply represents EOF and holds its position. */
 typedef struct {
     Node node;
@@ -252,7 +261,10 @@ Node *new_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
 Node *new_do_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
 
 /** Allocates a for loop node. */
-Node *new_for_node(ZmxProgram *program, Token loopVar, Node *iterable, BlockNode *body);
+Node *new_for_node(ZmxProgram *program, const Token loopVar, Node *iterable, BlockNode *body);
+
+/** Allocates a general node for any type of function written from the user. */
+Node *new_func_node(ZmxProgram *program, const Token name, const NodeArray params, BlockNode *body);
 
 /** Allocates a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos);

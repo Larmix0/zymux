@@ -103,7 +103,7 @@ PRIVATE_TEST_CASE(test_parser_expression) {
         "((- 10 (- 10)))",
         "((- (/ (** (((* 2 10) ) 5) 4) 9))",
         "((% (* 0 (** 0xff (- (- (- (- 0)))))) 1))",
-        "((<String> ''start ' (+ 1 2) ' end''))"
+        "((<string> (<array> ''start ', (+ 1 2), ' end'')))"
     );
     ASSERT_STRING_EQUAL(actual.text, expected.text);
     free_char_buffer(&actual);

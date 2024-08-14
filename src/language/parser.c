@@ -144,6 +144,25 @@ static Node *primary(Parser *parser) {
     }
 }
 
+/** Returns a parsed argument for a call. TODO: expand later with keyword arguments. */
+static Node *one_arg(Parser *parser) {
+    return expression(parser);
+}
+
+/** Returns an array of parsed argument expressions that should end in a closing parenthesis. */
+static NodeArray parse_args(Parser *parser) {
+    NodeArray args = CREATE_DA();
+    CONSUME(parser, TOKEN_LPAR, "Expected opening parenthesis before arguments.");
+    if (!MATCH(parser, TOKEN_RPAR)) {
+        APPEND_DA(&args, one_arg(parser));
+        while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser)) {
+            CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after argument.");
+            APPEND_DA(&args, one_arg(parser));
+        }
+    }
+    return args;
+}
+
 /** 
  * Handles parsing calls, which are an expression followed by a pair of parentheses.
  * 
@@ -153,15 +172,8 @@ static Node *primary(Parser *parser) {
  */
 static Node *call(Parser *parser) {
     Node *expr = primary(parser);
-    while (MATCH(parser, TOKEN_LPAR)) {
-        NodeArray args = CREATE_DA();
-        if (!MATCH(parser, TOKEN_RPAR)) {
-            APPEND_DA(&args, expression(parser));
-            while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser)) {
-                CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after argument.");
-                APPEND_DA(&args, expression(parser));
-            }
-        }
+    while (CHECK(parser, TOKEN_LPAR)) {
+        NodeArray args = parse_args(parser);
         expr = new_call_node(parser->program, expr, args);
     }
     return expr;
@@ -422,6 +434,35 @@ static Node *var_decl(Parser *parser, const bool isConst) {
     return new_var_decl_node(parser->program, name, value, isConst);
 }
 
+/** Returns a parsed parameter for a function. TODO: expand later with optional parameters. */
+static Node *one_param(Parser *parser) {
+    const Token paramName = CONSUME(parser, TOKEN_IDENTIFIER, "Expected parameter name");
+    return new_literal_node(parser->program, paramName);
+}
+
+/** Handles parsing and returning the array of parameters for any form of function. */
+static NodeArray parse_params(Parser *parser) {
+    NodeArray params = CREATE_DA();
+    CONSUME(parser, TOKEN_LPAR, "Expected opening parenthesis before parameters.");
+    if (!MATCH(parser, TOKEN_RPAR)) {
+        APPEND_DA(&params, one_param(parser));
+        while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser)) {
+            CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after parameter.");
+            APPEND_DA(&params, one_param(parser));
+        }
+    }
+    return params;
+}
+
+/** Parses any type of function. TODO: Handle the few differences between funcs, methods, etc. */
+static Node *func(Parser *parser) {
+    const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected function name.");
+    NodeArray params = parse_params(parser);
+    CONSUME(parser, TOKEN_LCURLY, "Expected '{' after function parameters.");
+    Node *body = block(parser);
+    return new_func_node(parser->program, name, params, AS_PTR(BlockNode, body));
+}
+
 /** 
  * Synchronizes the parses when panicking.
  * 
@@ -474,6 +515,7 @@ static Node *declaration(Parser *parser) {
     switch (ADVANCE_PEEK(parser).type) {
     case TOKEN_LET_KW: node = var_decl(parser, false); break;
     case TOKEN_CONST_KW: node = var_decl(parser, true); break;
+    case TOKEN_FUNC_KW: node = func(parser); break;
     default:
         RETREAT(parser);
         node = statement(parser);
