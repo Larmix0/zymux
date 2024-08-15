@@ -12,8 +12,8 @@
 typedef struct {
     FuncObj *func; /** Current executing function. */
     u8 *ip; /** Instruction pointer. Points to the byte that should be read next. */
-    Obj **sp; /** Stack pointer. Points to the topmost object in the stack + 1. */
     Obj **bp; /** Base pointer. Points to the first object in the stack frame. */
+    Obj **sp; /** Stack pointer. Points to the topmost object in the stack + 1. */
 } StackFrame;
 
 /** An array of frames that hold each function call's information. */

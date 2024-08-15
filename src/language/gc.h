@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "constants.h"
+#include "dynamic_array.h"
 #include "object.h"
 
 /** How many more bytes allocated before collection multiplier after each collection. */
@@ -11,6 +12,9 @@
 
 /** Starts protecting newly created objects from the GC. */
 #define GC_SET_PROTECTION(gc) ((gc)->protectNewObjs = true)
+
+/** Puts the specifically passed object in the protection pool. */
+#define GC_PROTECT_OBJ(gc, obj) APPEND_DA(&(gc)->protected, obj)
 
 /** Stops protecting newely created objects, but doesn't clear the protection pool itself. */
 #define GC_STOP_PROTECTION(gc) ((gc)->protectNewObjs = false)

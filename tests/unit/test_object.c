@@ -47,10 +47,10 @@ PRIVATE_TEST_CASE(test_equal_obj) {
     ASSERT_FALSE(equal_obj(AS_OBJ(name1), AS_OBJ(numAsString)));
     ASSERT_FALSE(equal_obj(AS_OBJ(int1), AS_OBJ(numAsString)));
 
-    FuncObj *func1 = new_func_obj(defaultProgram, name1, 0);
+    FuncObj *func1 = new_func_obj(defaultProgram, name1, 0, 0);
     ASSERT_TRUE(equal_obj(AS_OBJ(func1), AS_OBJ(func1)));
 
-    FuncObj *func2 = new_func_obj(defaultProgram, name1, 0);
+    FuncObj *func2 = new_func_obj(defaultProgram, name1, 0, 0);
     ASSERT_FALSE(equal_obj(AS_OBJ(func1), AS_OBJ(func2))); // Must be the same address for equality.
 }
 

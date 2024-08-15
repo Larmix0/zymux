@@ -110,6 +110,9 @@ typedef struct {
     /** The pool which we store constant objects inside of (objects created at compile time). */
     ObjArray constPool;
 
+    /** How many arguments the function takes when being called. */
+    u32 arity;
+
     /**
      * The index in the const pool which the function is located at. Used for runtime errors,
      * since we don't track bytecode by default unless we error, and then recompile to track it.
@@ -155,7 +158,7 @@ RangeObj *new_range_obj(
 );
 
 /** Returns a new allocated function object. */
-FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx);
+FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 arity, const int constIdx);
 
 /** Returns a new allocated native function object. */
 NativeFuncObj *new_native_func_obj(ZmxProgram *program, NativeFunc func, StringObj *name);

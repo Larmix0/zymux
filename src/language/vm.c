@@ -164,7 +164,7 @@ static void reset_vm(Vm *vm) {
     GC_SET_PROTECTION(&vm->program->gc);
     program->gc.vm = NULL;
     free_vm(vm);
-    *vm = create_vm(program, new_func_obj(program, new_string_obj(program, "<Error>"), -1));
+    *vm = create_vm(program, new_func_obj(program, new_string_obj(program, "<error>"), 0, -1));
     GC_RESET_PROTECTION(&vm->program->gc);
     program->gc.vm = vm;
 }
@@ -225,10 +225,17 @@ static void reallocate_stack(Vm *vm) {
     }
 }
 
-/** Returns a stack frame to hold information about the currently executing function. */
-static StackFrame create_stack_frame(FuncObj *func, Obj **sp) {
-    StackFrame frame = {.func = func, .ip = func->bytecode.data, .sp = sp, .bp = sp};
-    return frame;
+/** Pushes a new execution stack frame onto the passed VM. */
+static void push_stack_frame(Vm *vm, FuncObj *func, Obj **bp, Obj **sp) {
+    StackFrame frame = {.func = func, .ip = func->bytecode.data, .bp = bp, .sp = sp};
+    APPEND_DA(&vm->callStack, frame);
+    vm->frame = &vm->callStack.data[vm->callStack.length - 1];
+}
+
+/** Pops the top frame on the passed VM and restores the previous one or NULL if there isn't any. */
+static void pop_stack_frame(Vm *vm) {
+    DROP_DA(&vm->callStack);
+    vm->frame = vm->callStack.length == 0 ? NULL : &vm->callStack.data[vm->callStack.length - 1];
 }
 
 /** Returns a VM initialized from the passed func. */
@@ -237,10 +244,8 @@ Vm create_vm(ZmxProgram *program, FuncObj *func) {
         .program = program, .instrSize = INSTR_ONE_BYTE, .globals = create_table(),
         .callStack = CREATE_DA(), .frame = NULL, .stack = CREATE_STACK()
     };
-
-    // Set current frame and its SP after their arrays have been initialized.
-    APPEND_DA(&vm.callStack, create_stack_frame(func, vm.stack.objects));
-    vm.frame = vm.callStack.data;
+    // Push the frame which requires the stack after the VM itself and its stack were initialized.
+    push_stack_frame(&vm, func, vm.stack.objects, vm.stack.objects);
     return vm;
 }
 
@@ -260,10 +265,14 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
             return false;
         }
         PEEK_DEPTH(vm, argAmount) = nativeReturn;
+        DROP_AMOUNT(vm, argAmount);
         return true;
     }
-    case OBJ_FUNC:
-        return true; // TODO: add actual code for calling funcs once user ones are writable.
+    case OBJ_FUNC: {
+        FuncObj *func = AS_PTR(FuncObj, callee);
+        push_stack_frame(vm, func, args - 1, vm->frame->sp);
+        return true;
+    }
 
     case OBJ_INT:
     case OBJ_FLOAT:
@@ -459,7 +468,6 @@ static bool execute_vm(Vm *vm) {
             if (!call(vm, PEEK_DEPTH(vm, argAmount), vm->frame->sp - argAmount, argAmount)) {
                 return false;
             }
-            DROP_AMOUNT(vm, argAmount);
             break;
         }
         case OP_JUMP: {
@@ -506,6 +514,15 @@ static bool execute_vm(Vm *vm) {
             break;
         case OP_POP_AMOUNT:
             DROP_AMOUNT(vm, READ_NUMBER(vm));
+            break;
+        case OP_RETURN:
+            ASSERT(vm->callStack.length > 1, "Tried to return top-level or nonexistent-level.");
+            const u32 arity = vm->frame->func->arity;
+            Obj *returned = PEEK(vm);
+            
+            pop_stack_frame(vm);
+            DROP_AMOUNT(vm, arity);
+            PEEK(vm) = returned; // The func object hasn't been popped, just replace it with return. 
             break;
         case OP_END:
             return true;

@@ -114,9 +114,10 @@ RangeObj *new_range_obj(
 }
 
 /** Returns a new allocated function object with a name to it and its members initialized. */
-FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const int constIdx) {
+FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 arity, const int constIdx) {
     FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);
     object->name = name;
+    object->arity = arity;
     object->constIdx = constIdx;
     INIT_DA(&object->bytecode);
     INIT_DA(&object->positions);

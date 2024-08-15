@@ -10,7 +10,7 @@ PRIVATE_TEST_CASE(test_runtime_stack) {
 
     ZmxProgram program = create_zmx_program("test", false);
     program.gc.protectNewObjs = true;
-    Vm vm = create_vm(&program, new_func_obj(&program, new_string_obj(&program, "funcName"), -1));
+    Vm vm = create_vm(&program, new_func_obj(&program, new_string_obj(&program, "test"), 0, -1));
 
     PUSH(&vm, AS_OBJ(new_int_obj(&program, 32)));
     PUSH(&vm, AS_OBJ(new_float_obj(&program, 53.1)));
@@ -42,31 +42,26 @@ PRIVATE_TEST_CASE(test_copy_const_indices) {
     ZmxProgram program = create_zmx_program("test", false);
     program.gc.protectNewObjs = true;
     
-    CallStack callStack = CREATE_DA();
-    APPEND_DA(
-        &callStack,
-        create_stack_frame(new_func_obj(&program, new_string_obj(&program, "First."), -1), NULL)
+    Vm vm = create_vm(
+        &program, new_func_obj(&program, new_string_obj(&program, "First."), 0, -1)
     );
-    APPEND_DA(
-        &callStack,
-        create_stack_frame(new_func_obj(&program, new_string_obj(&program, "Second."), 4), NULL)
+    push_stack_frame(
+        &vm, new_func_obj(&program, new_string_obj(&program, "Second."), 0, 4), NULL, NULL
     );
-    APPEND_DA(
-        &callStack,
-        create_stack_frame(new_func_obj(&program, new_string_obj(&program, "Third."), 27), NULL)
+    push_stack_frame(
+        &vm, new_func_obj(&program, new_string_obj(&program, "Third."), 0, 27), NULL, NULL
     );
-    APPEND_DA(
-        &callStack,
-        create_stack_frame(new_func_obj(&program, new_string_obj(&program, "Fourth."), 0), NULL)
+    push_stack_frame(
+        &vm, new_func_obj(&program, new_string_obj(&program, "Fourth."), 0, 0), NULL, NULL
     );
 
-    IntArray constants = copy_const_indices(callStack);
+    IntArray constants = copy_const_indices(vm.callStack);
     ASSERT_INT_EQUAL(constants.length, 3);
     ASSERT_INT_EQUAL(constants.data[0], 4);
     ASSERT_INT_EQUAL(constants.data[1], 27);
     ASSERT_INT_EQUAL(constants.data[2], 0);
 
-    FREE_DA(&callStack);
+    free_vm(&vm);
     FREE_DA(&constants);
     free_zmx_program(&program);
 }

@@ -206,5 +206,9 @@ OP_POP:
 OP_POP_AMOUNT:
     Reads a number, which is how many objects to pop off of the top of the stack.
 
+OP_RETURN:
+    Collapses the stack frame made for the currently executing function while only leaving
+    the last item loaded on the stack before returning  unpopped as a return value.
+
 OP_END:
     Ends the currently executing VM.

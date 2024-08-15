@@ -45,15 +45,11 @@ Optimization:
     3. Change certain macros to use the normal type instead of pointer to optimize dereferencing.
         (In other words, use the dot operator instead of the arrow).
 
-    4. Perhaps optimize bytecode by putting constants after the instructions themselves,
-        but with 1 extra byte to identify them.
-        Example:
-            Add operation expected 2 instructions after. They may be OP_ARG_8/16/32.
-            First byte is the OP_ARG_X, then depending on that we know how many bytes to read
-            for the const indices.
-            This shouldn't increase the amount of bytecode as identifying the first byte
-            would need to be there for the dispatch loop to know the const instruction anyways.
-
-            Gotta bench mark the performance in math expressions before doing it everywhere, though.
-
 ----------------------------------------------------------------------------------------------------
+
+Protect GC in layers so if we start protecting, then call a function that protects then resets,
+we won't be unprotecting the things from the first protection set that still aren't safe for GC.
+
+Oopsie, setting GC protection on doesn't seem to necessarily prevent "new" objects from being GCed
+if they were interned (like strings) and therefore already created and don't call NEW_OBJ(),
+where appending to the protection pool happens.

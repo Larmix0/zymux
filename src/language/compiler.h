@@ -30,7 +30,7 @@ typedef struct Compiler {
     FuncObj *func; /** The "function" whose bytecode is currently being added while compiling. */
 
     ClosedVariables globals; /** Covers just the top-level, user-defined global variables scope. */
-    ClosedVariablesArray locals; /** All non-global variables as an array of func closures. */
+    ClosedVariablesArray closures; /** All non-global variables as an array of func closures. */
 
     JumpArray jumps; /** An array of jumps which may change during patchings. */
     U32Array continues; /** Bytecode indices where new continues jump to if inside a loop. */
