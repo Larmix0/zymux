@@ -47,6 +47,8 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
+Add a documentation file for built-in names (like what they do, their args, and their return).
+
 Protect GC in layers so if we start protecting, then call a function that protects then resets,
 we won't be unprotecting the things from the first protection set that still aren't safe for GC.
 

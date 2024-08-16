@@ -29,6 +29,7 @@ typedef enum {
     AST_DO_WHILE,
     AST_FOR,
     AST_FUNC,
+    AST_RETURN,
     AST_EOF
 } AstType;
 
@@ -196,6 +197,12 @@ typedef struct {
     BlockNode *body;
 } FuncNode;
 
+/** For exiting a function with a certain value (null by default if nothing is provided). */
+typedef struct {
+    Node node;
+    Node *returnValue;
+} ReturnNode;
+
 /** Node that simply represents EOF and holds its position. */
 typedef struct {
     Node node;
@@ -265,6 +272,9 @@ Node *new_for_node(ZmxProgram *program, const Token loopVar, Node *iterable, Blo
 
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(ZmxProgram *program, const Token name, const NodeArray params, BlockNode *body);
+
+/** Allocates a return node, which exits a functino with a specific object/value. */
+Node *new_return_node(ZmxProgram *program, Node *returnValue);
 
 /** Allocates a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos);

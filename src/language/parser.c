@@ -37,6 +37,7 @@ Parser create_parser(ZmxProgram *program, TokenArray tokens) {
 /** Frees all the memory the passed parser owns. */
 void free_parser(Parser *parser) {
     FREE_DA(&parser->ast);
+    free_all_nodes(parser->program);
 }
 
 /** Reports a parsing error on a specific, erroneous token, then starts panicking. */
@@ -392,6 +393,18 @@ static Node *jump_keyword(Parser *parser) {
     return node;
 }
 
+/** Parses a return statement and its optional value (defaults to null if nothing is provided). */
+static Node *return_value(Parser *parser) {
+    Node *value;
+    if (CHECK(parser, TOKEN_SEMICOLON)) {
+        value = new_keyword_node(parser->program, create_token("null", TOKEN_NULL_KW));
+    } else {
+        value = expression(parser);
+    }
+    CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after return statement.");
+    return new_return_node(parser->program, value);
+}
+
 /** Parses and returns a statement or expression-statement. */
 static Node *statement(Parser *parser) {
     Node *node;
@@ -403,6 +416,7 @@ static Node *statement(Parser *parser) {
     case TOKEN_FOR_KW: node = for_loop(parser); break;
     case TOKEN_CONTINUE_KW: node = jump_keyword(parser); break;
     case TOKEN_BREAK_KW: node = jump_keyword(parser); break;
+    case TOKEN_RETURN_KW: node = return_value(parser); break;
     default:
         RETREAT(parser);
         node = expression_stmt(parser);

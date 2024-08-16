@@ -47,7 +47,6 @@ static CharBuffer source_to_ast_string(char *source) {
     free_lexer(&lexer);
     free_parser(&parser);
     free_zmx_program(&program);
-    free_all_nodes(&program);
     return astString;
 }
 
@@ -88,7 +87,6 @@ PRIVATE_TEST_CASE(test_parser_macros) {
     free_lexer(&lexer);
     free_parser(&parser);
     free_zmx_program(&program);
-    free_all_nodes(&program);
 }
 
 /** Tests that the parser handles expressions correctly. */

@@ -231,6 +231,12 @@ static void append_func_node(AstBuilder *ast, const FuncNode *node) {
     append_node(ast, AS_NODE(node->body));
 }
 
+/** Appends a return node + the returned value. */
+static void append_return_node(AstBuilder *ast, const ReturnNode *node) {
+    buffer_append_string(&ast->string, "<return> ");
+    append_node(ast, node->returnValue);
+}
+
 /** Appends an EOF string to the AST string. */
 static void append_eof_node(AstBuilder *ast) {
     buffer_append_string(&ast->string, "EOF");
@@ -266,6 +272,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_DO_WHILE: append_do_while_node(ast, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: append_for_node(ast, AS_PTR(ForNode, node)); break;
     case AST_FUNC: append_func_node(ast, AS_PTR(FuncNode, node)); break;
+    case AST_RETURN: append_return_node(ast, AS_PTR(ReturnNode, node)); break;
     case AST_EOF: append_eof_node(ast); break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }

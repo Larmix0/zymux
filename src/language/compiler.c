@@ -815,6 +815,18 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
     GC_RESET_PROTECTION(&compiler->program->gc);
 }
 
+/** Compiles a return statement with its value. Errors if the return occurred outside a function. */
+static void compile_return(Compiler *compiler, const ReturnNode *node) {
+    if (compiler->closures.length < 2) {
+        compiler_error(
+            compiler, get_node_pos(AS_NODE(node)), "Can't return outside a function scope."
+        );
+        return;
+    }
+    compile_node(compiler, node->returnValue);
+    emit_instr(compiler, OP_RETURN, get_node_pos(AS_NODE(node)));
+}
+
 /** Compiles an EOF node, which is placed to indicate the end of the bytecode. */
 static void compile_eof(Compiler *compiler, const EofNode *node) {
     emit_instr(compiler, OP_END, node->pos);
@@ -841,6 +853,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_DO_WHILE: compile_do_while(compiler, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: compile_for(compiler, AS_PTR(ForNode, node)); break;
     case AST_FUNC: compile_func(compiler, AS_PTR(FuncNode, node)); break;
+    case AST_RETURN: compile_return(compiler, AS_PTR(ReturnNode, node)); break;
     case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
     case AST_ERROR: break; // Do nothing on erroneous nodes.
     TOGGLEABLE_DEFAULT_UNREACHABLE();
@@ -864,6 +877,12 @@ bool compile(Compiler *compiler) {
     return !compiler->program->hasErrored;
 }
 
+/** Frees both the passed lexer and the passed parser at once. */
+static void free_lexer_and_parser(Lexer *lexer, Parser *parser) {
+    free_lexer(lexer);
+    free_parser(parser);
+}
+
 /** 
  * Returns a compiled compiler. Either it's compiled or everything is set to 0/NULL if errored.
  * 
@@ -883,9 +902,7 @@ Compiler compile_source(ZmxProgram *program, char *source, const bool trackPosit
 
     Parser parser = create_parser(program, lexer.tokens);
     if (!parse(&parser)) {
-        free_lexer(&lexer);
-        free_parser(&parser);
-        free_all_nodes(program);
+        free_lexer_and_parser(&lexer, &parser);
         return emptyCompiler;
     }
 
@@ -893,10 +910,12 @@ Compiler compile_source(ZmxProgram *program, char *source, const bool trackPosit
     // Set this compiler as the one being garbage collected. Now compiler's objects can be GC'd.
     program->gc.compiler = &compiler;
     GC_RESET_PROTECTION(&program->gc);
-    compile(&compiler);
+    if (!compile(&compiler)) {
+        free_lexer_and_parser(&lexer, &parser);
+        free_compiler(&compiler);
+        return emptyCompiler;
+    }
 
-    free_lexer(&lexer);
-    free_parser(&parser);
-    free_all_nodes(program);
+    free_lexer_and_parser(&lexer, &parser);
     return compiler;
 }

@@ -183,6 +183,13 @@ Node *new_func_node(
     return AS_NODE(node);
 }
 
+/** Allocates a return node, which exits a functino with a specific object/value. */
+Node *new_return_node(ZmxProgram *program, Node *returnValue) {
+    ReturnNode *node = NEW_NODE(program, AST_RETURN, ReturnNode);
+    node->returnValue = returnValue;
+    return AS_NODE(node);
+}
+
 /** Returns a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos) {
     EofNode *node = NEW_NODE(program, AST_EOF, EofNode);
@@ -219,6 +226,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_DO_WHILE: return AS_PTR(DoWhileNode, node)->body->pos;
     case AST_FOR: return AS_PTR(ForNode, node)->loopVar.pos;
     case AST_FUNC: return AS_PTR(FuncNode, node)->name.pos;
+    case AST_RETURN: return get_node_pos(AS_PTR(ReturnNode, node)->returnValue);
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
     }
     UNREACHABLE_ERROR();
@@ -254,6 +262,7 @@ static void free_node(Node *node) {
     case AST_WHILE:
     case AST_DO_WHILE:
     case AST_FOR:
+    case AST_RETURN:
     case AST_EOF:
         break; // Nothing to free.
     TOGGLEABLE_DEFAULT_UNREACHABLE();
@@ -261,7 +270,7 @@ static void free_node(Node *node) {
     free(node);
 }
 
-// TODO: change
+// TODO: change to traversing the AST so we can remove "next" pointer from nodes for optimization.
 /** Frees all nodes that were allocated and placed inside the passed program. */
 void free_all_nodes(ZmxProgram *program) {
     if (program->allNodes == NULL) {
