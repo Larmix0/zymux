@@ -93,6 +93,11 @@ static void parser_error_missing(
  * 
  * This is done by alternating between parsing a string literal and an interpolated expression
  * until the STRING_END token is seen.
+ * 
+ * We start with a gauranteed string literal from the lexer. Even if the first thing on the string
+ * is interpolation, we at least have an empty string before it.
+ * We try to optimize that token out if there's interpolation
+ * (although we don't if it's just an empty string, as that's valid).
  */
 static Node *string(Parser *parser) {
     NodeArray exprs = CREATE_DA();
@@ -386,7 +391,7 @@ static Node *for_loop(Parser *parser) {
 /** A keyword statement followed by a semicolon to jump somewhere in a loop. */
 static Node *jump_keyword(Parser *parser) {
     Token keyword = PEEK_PREVIOUS(parser);
-    Node *node = new_keyword_node(parser->program, keyword);
+    Node *node = new_loop_control_node(parser->program, keyword);
     CONSUME(
         parser, TOKEN_SEMICOLON, "Expected ';' after '%.*s'.", keyword.pos.length, keyword.lexeme
     );
@@ -471,10 +476,14 @@ static NodeArray parse_params(Parser *parser) {
 /** Parses any type of function. TODO: Handle the few differences between funcs, methods, etc. */
 static Node *func(Parser *parser) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected function name.");
+    VarDeclNode *declaration = AS_PTR(
+        VarDeclNode, new_var_decl_node(parser->program, name, NULL, false)
+    );
+    
     NodeArray params = parse_params(parser);
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after function parameters.");
     Node *body = block(parser);
-    return new_func_node(parser->program, name, params, AS_PTR(BlockNode, body));
+    return new_func_node(parser->program, declaration, params, AS_PTR(BlockNode, body));
 }
 
 /** 

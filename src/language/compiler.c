@@ -4,31 +4,39 @@
 #include "emitter.h"
 #include "lexer.h"
 #include "parser.h"
+#include "resolver.h"
 
 #if DEBUG_BYTECODE
     #include "debug_bytecode.h"
 #endif
 
-/** Returns the outermost closure of scopes. */
-#define CURRENT_CLOSURE(compiler) (&(compiler)->closures.data[(compiler)->closures.length - 1])
-
-/** Resolves into a boolean of whether or not we have created any locals. */
-#define HAS_LOCALS(compiler) (CURRENT_CLOSURE(compiler)->length > 0)
-
 /** The position of the previous opcode. Defaults to (0, 0, 0) if there aren't any. */
 #define PREVIOUS_OPCODE_POS(compiler) \
-    (compiler)->func->positions.length == 0 \
+    ((compiler)->func->positions.length == 0 \
         ? create_src_pos(0, 0, 0) \
-        : (compiler)->func->positions.data[(compiler)->func->positions.length - 1]
-
-/** Holds some type of scope that is usually created by {} blocks.*/
-typedef enum {
-    SCOPE_NORMAL, /** A non-special block scope, which is also encapsulated by all other types. */
-    SCOPE_LOOP, /** Indicates that the scope was created by some loop. */
-    SCOPE_FUNC /** A scope made for any kind of function (normal, method, initializer, etc.). */
-} ScopeType;
+        : (compiler)->func->positions.data[(compiler)->func->positions.length - 1])
 
 static void compile_node(Compiler *compiler, const Node *node);
+static void compile_node_array(Compiler *compiler, const NodeArray *nodes);
+
+/** Returns a compiler initialized with the passed program and parsed AST. */
+Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPositions) {
+    GC_SET_PROTECTION(&program->gc);
+    Compiler compiler = {
+        .trackPositions = trackPositions, .program = program, .ast = ast,
+        .func = new_func_obj(program, new_string_obj(program, "<main>"), 0, -1),
+        .jumps = CREATE_DA(), .breaks = CREATE_DA(), .continues = CREATE_DA(),
+    };
+    GC_STOP_PROTECTION(&program->gc);
+    return compiler;
+}
+
+/** Frees all memory the compiler owns. */
+void free_compiler(Compiler *compiler) {
+    FREE_DA(&compiler->jumps);
+    FREE_DA(&compiler->continues);
+    FREE_DA(&compiler->breaks);
+}
 
 /** Reports a compilation error on a specific position. */
 static void compiler_error(Compiler *compiler, const SourcePosition pos, const char *format, ...) {
@@ -36,69 +44,6 @@ static void compiler_error(Compiler *compiler, const SourcePosition pos, const c
     va_start(args, format);
     zmx_user_error(compiler->program, pos, "Compiler error", format, &args);
     va_end(args);
-}
-
-/** Returns a compiler initialized with the passed program and parsed AST. */
-Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPositions) {
-    GC_SET_PROTECTION(&program->gc);
-    Compiler compiler = {
-        .trackPositions = trackPositions, .program = program, .ast = ast,
-        .globals = CREATE_DA(), .closures = CREATE_DA(), .jumps = CREATE_DA(),
-        .func = new_func_obj(program, new_string_obj(program, "<main>"), 0, -1),
-        .breaks = CREATE_DA(), .continues = CREATE_DA(), .loopScopes = CREATE_DA(), .scopeDepth = 0
-    };
-    // Add the default, permanent closure for locals not covered by functions (like global loops).
-    APPEND_DA(&compiler.closures, (ClosedVariables)CREATE_DA());
-    GC_STOP_PROTECTION(&program->gc);
-    return compiler;
-}
-
-/** Frees all memory the compiler owns. */
-void free_compiler(Compiler *compiler) {
-    for (u32 i = 0; i < compiler->closures.length; i++) {
-        FREE_DA(&compiler->closures.data[i]);
-    }
-    FREE_DA(&compiler->closures);
-    FREE_DA(&compiler->globals);
-    FREE_DA(&compiler->jumps);
-    FREE_DA(&compiler->continues);
-    FREE_DA(&compiler->breaks);
-    FREE_DA(&compiler->loopScopes);
-}
-
-static Variable create_variable(
-    const bool isPrivate, const bool isConst, const Token name, const u32 scope
-) {
-    Variable var = {.isPrivate = isPrivate, .isConst = isConst, .name = name, .scope = scope};
-    return var;
-}
-
-/** Returns the index of the name in the array of variables. Returns -1 if not present. */
-static i64 get_closed_var_index(ClosedVariables variables, Token name) {
-    for (i64 i = (i64)variables.length - 1; i >= 0; i--) {
-        if (equal_token(variables.data[i].name, name)) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-/** 
- * Returns the index of the passed variable name searching only in the top scope of the closure.
- * 
- * Returns -1 if the variable's not present at the highest scope of the closure, even if it's on
- * other scopes.
- */
-static i64 get_top_scope_var_index(ClosedVariables variables, Token name, const u32 scope) {
-    for (i64 i = (i64)variables.length - 1; i >= 0; i--) {
-        if (variables.data[i].scope != scope) {
-            break; // Fall into not found.
-        }
-        if (equal_token(variables.data[i].name, name)) {
-            return i;
-        }
-    }
-    return -1;
 }
 
 /** Compiles a literal value which is by adding its obj form in the constants pool. */
@@ -132,10 +77,7 @@ static void compile_literal(Compiler *compiler, const LiteralNode *node) {
  * and converted expressions that are on the top of the stack.
  */
 static void compile_string(Compiler *compiler, const StringNode *node) {
-    // Figure out whether the first node is a string or interpolation.
-    Node *first = node->exprs.data[0];
-    bool nextIsString = first->type == AST_LITERAL
-            && AS_PTR(LiteralNode, first)->value.type == TOKEN_STRING_LIT;
+    bool nextIsString = string_node_starts_with_literal(node);
 
     for (u32 i = 0; i < node->exprs.length; i++) {
         compile_node(compiler, node->exprs.data[i]);
@@ -145,50 +87,10 @@ static void compile_string(Compiler *compiler, const StringNode *node) {
         }
         nextIsString = !nextIsString;
     }
-    // Only finish (concatenate) if there's more than one string as optimization.
+    // Only emit the concatenation if there's more than one string as optimization.
     if (node->exprs.length > 1) {
         emit_number(compiler, OP_FINISH_STRING, node->exprs.length, get_node_pos(AS_NODE(node)));
     }
-}
-
-/** 
- * Emits the pop instructions for all top loop scope's variables.
- * 
- * Only emits their pop instructions, it doesn't stop keeping track of those variables
- * in the compiler.
- */
-static void emit_loop_pops(Compiler *compiler) {
-    ASSERT(compiler->loopScopes.length > 0, "Can't pop loop locals outside of loop.");
-    if (!HAS_LOCALS(compiler)) {
-        return; // No locals to pop.
-    }
-
-    const u32 deepestLoop = compiler->loopScopes.data[compiler->loopScopes.length - 1];
-    u32 poppedAmount = 0;
-    for (i64 i = CURRENT_CLOSURE(compiler)->length - 1; i >= 0; i--) {
-        if (CURRENT_CLOSURE(compiler)->data[i].scope < deepestLoop) {
-            break; // Below loop, done.
-        }
-        poppedAmount++;
-    }
-    emit_pops(compiler, poppedAmount, PREVIOUS_OPCODE_POS(compiler));
-}
-
-/** 
- * Handles and compiles a loop control statement (like continue or break).
- * 
- * It initially emits the loop control jumps as pure zeroes in the bytecode,
- * so that they can be resolved later.
- */
-static void loop_control(
-    Compiler *compiler, const KeywordNode *node, U32Array *loopControlArray, const char *stringRepr
-) {
-    if (compiler->loopScopes.length == 0) {
-        compiler_error(compiler, node->pos, "Can only use '%s' inside a loop.", stringRepr);
-    }
-    emit_loop_pops(compiler);
-    u32 controlSpot = emit_unpatched_jump(compiler, 0, node->pos);
-    APPEND_DA(loopControlArray, controlSpot);
 }
 
 /** Compiles a keyword node, which is one that holds a bare keyword and its position. */
@@ -197,8 +99,6 @@ static void compile_keyword(Compiler *compiler, const KeywordNode *node) {
     case TOKEN_TRUE_KW: emit_instr(compiler, OP_TRUE, node->pos); break;
     case TOKEN_FALSE_KW: emit_instr(compiler, OP_FALSE, node->pos); break;
     case TOKEN_NULL_KW: emit_instr(compiler, OP_NULL, node->pos); break;
-    case TOKEN_CONTINUE_KW: loop_control(compiler, node, &compiler->continues, "continue"); break;
-    case TOKEN_BREAK_KW: loop_control(compiler, node, &compiler->breaks, "break"); break;
     default: UNREACHABLE_ERROR();
     }
 }
@@ -220,7 +120,7 @@ static void compile_unary(Compiler *compiler, const UnaryNode *node) {
  * Compiles a node with a value to its left and right and an operation between.
  * 
  * In compilation however, we compile the left side, right side and then the operation.
- * This is to make sure both operands are accessible and loaded to the stack when applying
+ * This is to make sure both operands are accessible and loaded to the stack before applying
  * their operations.
  */
 static void compile_binary(Compiler *compiler, const BinaryNode *node) {
@@ -246,14 +146,15 @@ static void compile_binary(Compiler *compiler, const BinaryNode *node) {
     emit_instr(compiler, binaryOp, node->operation.pos);
 }
 
-/** Compiles the stored parenthesized expression. */
+/** Compiles the parenthesized expression as a way to isolate that expression's precedence. */
 static void compile_parentheses(Compiler *compiler, const ParenthesesNode *node) {
     compile_node(compiler, node->expr);
 }
 
 /** 
  * Compiles a range expression of 3 values: start, end, and step (in that order).
- * This means the VM will have to read the stack in reverse to make the range object.
+ * This means the VM will have to read the stack in reverse to make the range object
+ * using the range building instruction.
  */
 static void compile_range(Compiler *compiler, const RangeNode *node) {
     compile_node(compiler, node->start);
@@ -270,311 +171,144 @@ static void compile_range(Compiler *compiler, const RangeNode *node) {
  * After that, we emit a call operation that has a number proceeding it, which represents how many
  * argument objects are gonna be loaded on the stack.
  * 
- * Note that the callee is also reliably found one spot deeper in the stack than the first argument.
+ * Note that the callee is reliably found just one spot deeper in the stack than the first argument.
  */
 static void compile_call(Compiler *compiler, const CallNode *node) {
     compile_node(compiler, node->callee);
-    for (u32 i = 0; i < node->args.length; i++) {
-        compile_node(compiler, node->args.data[i]);
-    }
+    compile_node_array(compiler, &node->args);
     emit_number(compiler, OP_CALL, node->args.length, get_node_pos(AS_NODE(node)));
 }
 
 /** 
  * Compiles an expression statement.
- * It's just an expression node that pops the resulting value afterwards.
+ * It's just an expression node that pops the resulting value afterwards because it's not used.
  */
 static void compile_expr_stmt(Compiler *compiler, const ExprStmtNode *node) {
     compile_node(compiler, node->expr);
     emit_pops(compiler, 1, get_node_pos(node->expr));
 }
 
-/** Adds a scope that's one layer deeper (usually from entering a new block scope). */
-static void push_scope(Compiler *compiler, const ScopeType type) {
-    compiler->scopeDepth++;
-    if (type == SCOPE_LOOP) {
-        APPEND_DA(&compiler->loopScopes, compiler->scopeDepth);
-    } else if (type == SCOPE_FUNC) {
-        APPEND_DA(&compiler->closures, (ClosedVariables)CREATE_DA());
-    }
-}
-
-/** Collapses the outermost scope, its variables, and emits their respective pop instructions. */
-static void pop_scope(Compiler *compiler, ScopeType type) {
-    ClosedVariables *currentClosure = CURRENT_CLOSURE(compiler);
-    u32 poppedAmount = 0;
-    while (
-        currentClosure->length > 0 
-        && currentClosure->data[currentClosure->length - 1].scope == compiler->scopeDepth
-    ) {
-        DROP_DA(currentClosure);
-        poppedAmount++;
-    }
-
-    emit_pops(compiler, poppedAmount, PREVIOUS_OPCODE_POS(compiler));
-    compiler->scopeDepth--;
-    if (type == SCOPE_LOOP) {
-        DROP_DA(&compiler->loopScopes);
-    } else if (type == SCOPE_FUNC) {
-        FREE_DA(CURRENT_CLOSURE(compiler));
-        DROP_DA(&compiler->closures);
-    }
-}
-
-/** Compiles an array of statements (doesn't add a scope). */
-static void block(Compiler *compiler, const BlockNode *node) {
-    for (u32 i = 0; i < node->stmts.length; i++) {
-        compile_node(compiler, node->stmts.data[i]);
-    }
-}
-
-/** Compiles the array of statements in a block under the depth of a new given scope. */
-static void scoped_block(Compiler *compiler, const BlockNode *node, const ScopeType type) {
-    push_scope(compiler, type);
-    block(compiler, node);
-    pop_scope(compiler, type);
-}
-
-/** 
- * Declares a local variable, errors if it's already declared or is const.
- * The declaration is simply done by letting the previously compiled value sit on the stack.
- */
-static void declare_local(Compiler *compiler, const Variable declared) {
-    const Token name = declared.name;
-    if (get_top_scope_var_index(*CURRENT_CLOSURE(compiler), name, compiler->scopeDepth) != -1) {
-        compiler_error(
-            compiler, name.pos, "Can't redeclare local variable '%.*s'.",
-            name.pos.length, name.lexeme
-        );
-    }
-    // Just let the previously compiled value sit on the stack as a declaration.
-    APPEND_DA(CURRENT_CLOSURE(compiler), declared);
-}
-
-/** 
- * Declares a global variable, errors if already declared or is const.
- * 
- * we put globals in a hash table at runtime.
- * So, we emit their initialized value, followed by the declaration,
- * then a string to be read afterwards that represents the declared variable's name.
- */
-static void declare_global(Compiler *compiler, Obj *nameAsObj, const Variable declared) {
-    const Token name = declared.name;
-    if (get_closed_var_index(compiler->globals, name) != -1) {
-        compiler_error(
-            compiler, name.pos, "Can't redeclare global variable '%.*s'.",
-            name.pos.length, name.lexeme
-        );
-    }
-    APPEND_DA(&(compiler)->globals, declared);
-    emit_const(compiler, OP_DECLARE_GLOBAL, nameAsObj, name.pos);
-}
-
-/** 
- * More generic declaration function for when the value of the variable already got compiled.
- * Built-in names can't be redeclared, so they autmoatically cause an errored at any scope.
- * TODO: add more explanation for multi-variable declarations when they're added.
- */
-static void declare_variable(Compiler *compiler, const Variable declared) {
-    const Token name = declared.name;
-    Obj *nameAsObj = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
-    if (table_get(&compiler->program->builtIn, nameAsObj) != NULL) {
-        compiler_error(
-            compiler, name.pos, "Can't redeclare built-in name '%.*s'.",
-            name.pos.length, name.lexeme
-        );
-        return;
-    }
-
-    if (compiler->scopeDepth == 0) {
-        declare_global(compiler, nameAsObj, declared);
-    } else {
-        declare_local(compiler, declared);
-    }
-}
-
-/** Compiles a normal variable's delcaration statement. */
-static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
-    compile_node(compiler, node->value);
-    declare_variable(
-        compiler, create_variable(false, node->isConst, node->name, compiler->scopeDepth)
-    );
-}
-
-/** An error which occured due to an attempt to assign a constant variable. */
-static void const_assign_error(Compiler *compiler, const Node *node, const Token name) {
-    compiler_error(
-        compiler, get_node_pos(AS_NODE(node)), "Can't assign to const variable '%.*s'.",
-        name.pos.length, name.lexeme
-    );
+/** Compiles a block's array of statements then emits pops for its declared variables. */
+static void compile_block(Compiler *compiler, const BlockNode *node) {
+    compile_node_array(compiler, &node->stmts);
+    emit_pops(compiler, node->varsAmount, node->pos);
 }
 
 /**
- * Attempts to emit a var assignment if it should.
+ * Compiles a normal variable's delcaration statement.
  * 
- * we simply reassign the index of the stack where the variable's located,
- * which is statically kept track of in the compiler.
+ * Begins by compiling the variable's value.
  * 
- * returns true if we emitted its bytecode, even if it did error out. Otherwise if it's simply
- * not within locals it returns false.
+ * For globals, we put them in a hash table at runtime.
+ * So, we emit their their name to be used for the hash table after the declaration instruction.
+ * 
+ * For locals, we just let the compiled value sit on the stack to be accessed/indexed later.
  */
-static bool try_assign_local(Compiler *compiler, const VarAssignNode *node) {
-    const i64 localIdx = get_closed_var_index(*CURRENT_CLOSURE(compiler), node->name);
-    if (localIdx == -1) {
-        return false;
-    }
+static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
+    compile_node(compiler, node->value);
 
-    if (CURRENT_CLOSURE(compiler)->data[localIdx].isConst) {
-        const_assign_error(compiler, AS_NODE(node), node->name);
+    switch (node->varScope) {
+    case NAME_LOCAL:
+        break;
+    case NAME_GLOBAL: {
+        StringObj *nameAsObj = string_obj_from_len(
+            compiler->program, node->name.lexeme, node->name.pos.length
+        );
+        emit_const(compiler, OP_DECLARE_GLOBAL, AS_OBJ(nameAsObj), node->name.pos);
+        break;
     }
-    emit_number(compiler, OP_ASSIGN_LOCAL, localIdx, node->name.pos);
-    return true;
-}
-
-/** TODO: add assigning upvalues and their docs. Don't forget const_assign_error() if it's const. */
-static bool try_assign_upvalue(Compiler *compiler, const VarAssignNode *node) {
-    UNUSED_PARAMETER(compiler);
-    UNUSED_PARAMETER(node);
-    return false;
-}
-
-/** 
- * Tries to emit an assignment to a global variable if the assigned variable is in globals.
- * 
- * Assigning globals is like declarations, first we emit the value expression's bytecode,
- * then the assign instruction followed by a string which has the assigned variable's name in it.
- * 
- * Returns false if the variable isn't in globals, otherwise it returns true (even if it errored).
- */
-static bool try_assign_global(Compiler *compiler, Obj *nameAsObj, const VarAssignNode *node) {
-    i64 globalIdx = get_closed_var_index(compiler->globals, node->name);
-    if (globalIdx == -1) {
-        return false;
+    case NAME_CLOSURE:
+    case NAME_BUILT_IN:
+    case NAME_UNRESOLVED:
+        UNREACHABLE_ERROR();
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
-
-    ASSERT(globalIdx >= 0, "Expected positive global index, got %" PRId64 " instead.", globalIdx);
-    if (compiler->globals.data[globalIdx].isConst) {
-        const_assign_error(compiler, AS_NODE(node), node->name);
-    }
-    emit_const(compiler, OP_ASSIGN_GLOBAL, nameAsObj, node->name.pos);
-    return true;
 }
 
 /** 
  * Compiles a variable assignment expression.
  * 
- * Allows global, local and outside closure assignments. Errors if the assigned variable
- * doesn't exist or is a built-in.
- * TODO: add more explanation for multi-assignments and closure upvalues when they're added.
+ * Begins by compiling the variable's value.
+ * 
+ * For globals, assigning them is like their declarations since we use a hash table at runtime.
+ * So, we emit their their name to be used for the hash table after the assignment instruction.
+ * 
+ * Local assignment includes emitting the local assign instruction followed by the index
+ * where the variable is expected to be at during the runtime stack,
+ * starting relative to the current frame's base pointer at that time.
+ * The index is found inside the assign node itself assuming we ran the resolver on the AST.
+ * 
+ * TODO: add more explanation for closures.
+ * TODO: add more explanation for multi-assignments.
  */
 static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
     compile_node(compiler, node->value);
-    const Token name = node->name;
-    Obj *nameAsObj = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
-    if (compiler->scopeDepth > 0) {
-        if (try_assign_local(compiler, node) || try_assign_upvalue(compiler, node)) {
-            return;
-        }
-    }
-    if (try_assign_global(compiler, nameAsObj, node)) {
-        return;
-    }
 
-    // Guaranteed error at this point. We just try to put a more informative error message.
-    if (table_get(&compiler->program->builtIn, nameAsObj) != NULL) {
-        compiler_error(
-            compiler, get_node_pos(AS_NODE(node)), "Can't assign to built-in name '%.*s'.",
-            name.pos.length, name.lexeme
+    switch (node->varScope) {
+    case NAME_LOCAL:
+        ASSERT(node->assignIndex != UNRESOLVED_NUMBER, "Unresolved assignment index.");
+        emit_number(compiler, OP_ASSIGN_LOCAL, node->assignIndex, node->name.pos);
+        break;
+    case NAME_CLOSURE:
+        ASSERT(node->assignIndex != UNRESOLVED_NUMBER, "Unresolved assignment index.");
+        // TODO: add closure assignment code here.
+        break;
+    case NAME_GLOBAL: {
+        StringObj *nameAsObj = string_obj_from_len(
+            compiler->program, node->name.lexeme, node->name.pos.length
         );
-    } else {
-        compiler_error(
-            compiler, get_node_pos(AS_NODE(node)), "Assigned variable '%.*s' doesn't exist.",
-            name.pos.length, name.lexeme
-        );
+        emit_const(compiler, OP_ASSIGN_GLOBAL, AS_OBJ(nameAsObj), node->name.pos);
+        break;
     }
-}
-
-/** 
- * Tries to emit bytecode for getting a local variable if one exists.
- * 
- * we emit the local get instruction followed by the expected index of the local
- * relative to the execution frame's base pointer (BP) at runtime.
- * 
- * Returns whether or not it emitted a local get, or if it should attempt to get globals.
- */
-static bool try_get_local(Compiler *compiler, const Token name) {
-    const i64 localIdx = get_closed_var_index(*CURRENT_CLOSURE(compiler), name);
-    if (localIdx == -1) {
-        return false;   
+    case NAME_BUILT_IN:
+    case NAME_UNRESOLVED:
+        UNREACHABLE_ERROR();
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
-    emit_number(compiler, OP_GET_LOCAL, localIdx, name.pos);
-    return true;
-}
-
-/** TODO: add getting variable outside current closure here. */
-static bool try_get_upvalue(Compiler *compiler, const Token name) {
-    UNUSED_PARAMETER(compiler);
-    UNUSED_PARAMETER(name);
-    return false;
-}
-
-/** 
- * Tries to emit bytecode for getting a global variable if one exists (excludes built-ins).
- * 
- * Emits the var get instruction followed by the string of the name we wanna get
- * from the runtime globals hash table.
- */
-static bool try_get_global(Compiler *compiler, Obj *nameAsObj, const Token name) {
-    if (get_closed_var_index(compiler->globals, name) == -1) {
-        return false;
-    }
-    emit_const(compiler, OP_GET_GLOBAL, nameAsObj, name.pos);
-    return true;
-}
-
-/** 
- * Tries to emit bytecode for getting a built-in name if one exists.
- * 
- * Emits the var get instruction followed by the string of the name we wanna get
- * from the loaded built-ins.
- */
-static bool try_get_built_in(Compiler *compiler, Obj *nameAsObj, const Token name) {
-    if (table_get(&compiler->program->builtIn, nameAsObj) == NULL) {
-        return false;
-    }
-    emit_const(compiler, OP_GET_BUILT_IN, nameAsObj, name.pos);
-    return true;
 }
 
 /** 
  * Compiles a name that is used to get the value of a variable.
  * 
- * Attempts to get locals, then upvalues, then globals, and finally built-ins.
- * Errors if the variable isn't present in any of them.
+ * Attempts to get locals, then closure variables, then globals, and finally built-ins.
+ * 
+ * For locals we emit the index they're expected to be in relative to the base pointer of the VM's
+ * frame.
+ * 
+ * TODO: add explanation for closure variables.
+ * 
+ * For global and built-in names, they both utilize hash tables to store their variables,
+ * so we just emit a constant object after their respective instruction for the hash table lookup.
  */
 static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
+    // Just declare the name object here since it's used multiple times.
     const Token name = node->name;
     Obj *nameAsObj = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
-
-    if (compiler->scopeDepth > 0) {
-        if (try_get_local(compiler, name) || try_get_upvalue(compiler, name)) {
-            return;
-        }
+    switch (node->varScope) {
+    case NAME_LOCAL:
+        ASSERT(node->getIndex != UNRESOLVED_NUMBER, "Unresolved assignment index.");
+        emit_number(compiler, OP_GET_LOCAL, node->getIndex, node->name.pos);
+        break;
+    case NAME_CLOSURE:
+        ASSERT(node->getIndex != UNRESOLVED_NUMBER, "Unresolved assignment index.");
+        // TODO: add getting closure variable's code here.
+        break;
+    case NAME_GLOBAL:
+        emit_const(compiler, OP_GET_GLOBAL, AS_OBJ(nameAsObj), node->name.pos);
+        break;
+    case NAME_BUILT_IN:
+        emit_const(compiler, OP_GET_BUILT_IN, AS_OBJ(nameAsObj), node->name.pos);
+        break;
+    case NAME_UNRESOLVED:
+        UNREACHABLE_ERROR();
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
-    if (try_get_global(compiler, nameAsObj, name) || try_get_built_in(compiler, nameAsObj, name)) {
-        return;
-    }
-
-    compiler_error(
-        compiler, get_node_pos(AS_NODE(node)),
-        "Variable '%.*s' doesn't exist.", name.pos.length, name.lexeme
-    );
 }
 
 /** 
  * Compiles an if-statement and its optional else branch if it exists.
  * 
- * Compiles the condition of the "if" then emits a conditional jump, which goes outside
+ * Compiles the condition of the "if" then emits a conditional jump, which skips over
  * the "if" branch if the condition evaluates to false.
  * Otherwise it falls off to the upcoming bytecode of the if branch.
  * 
@@ -594,24 +328,26 @@ static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
 static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     ByteArray *bytecode = &compiler->func->bytecode;
     compile_node(compiler, node->condition);
-    u32 skipIfBranch = emit_unpatched_jump(
+    const u32 skipIfBranch = emit_unpatched_jump(
         compiler, OP_POP_JUMP_IF_NOT, get_node_pos(AS_NODE(node))
     );
     compile_node(compiler, AS_NODE(node->ifBranch));
     
-    if (node->elseBranch != NULL) {
-        u32 skipElseBranch = emit_unpatched_jump(compiler, OP_JUMP, get_node_pos(node->elseBranch));
+    if (node->elseBranch == NULL) {
+        patch_jump(compiler, skipIfBranch, bytecode->length, true);
+    } else {
+        const u32 skipElseBranch = emit_unpatched_jump(
+            compiler, OP_JUMP, get_node_pos(node->elseBranch)
+        );
         patch_jump(compiler, skipIfBranch, bytecode->length, true);
         compile_node(compiler, node->elseBranch);
         patch_jump(compiler, skipElseBranch, bytecode->length, true);
-    } else {
-        patch_jump(compiler, skipIfBranch, bytecode->length, true);
     }
 }
 
 /** 
- * Patches a u32 array of loop control (like break or continue) jump indices.
- * Also patches the kind of loop control jump it is, which is unconditionally forward or backwards.
+ * Patches a u32 array of some loop control's jump indices (like break or continue).
+ * Also patches the kind of jump it is, which is unconditionally forward or backwards.
  */
 static void patch_loop_control(
     Compiler *compiler, U32Array jumps, const u32 to, const bool isForward
@@ -673,7 +409,7 @@ static void compile_while(Compiler *compiler, const WhileNode *node) {
 
     U32Array oldBreaks, oldContinues;
     push_loop_controls(compiler, &oldBreaks, &oldContinues);
-    scoped_block(compiler, node->body, SCOPE_LOOP);
+    compile_block(compiler, node->body);
     emit_jump(compiler, OP_JUMP_BACK, condition, false, PREVIOUS_OPCODE_POS(compiler));
 
     const u32 loopExit = compiler->func->bytecode.length;
@@ -696,11 +432,12 @@ static void compile_while(Compiler *compiler, const WhileNode *node) {
  */
 static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
     const u32 loopStart = compiler->func->bytecode.length;
+
     U32Array oldBreaks, oldContinues;
     push_loop_controls(compiler, &oldBreaks, &oldContinues);
-    scoped_block(compiler, node->body, SCOPE_LOOP);
-    const u32 condition = compiler->func->bytecode.length;
+    compile_block(compiler, node->body);
 
+    const u32 condition = compiler->func->bytecode.length;
     compile_node(compiler, node->condition);
     emit_jump(compiler, OP_POP_JUMP_BACK_IF, loopStart, false, get_node_pos(AS_NODE(node)));
     
@@ -711,21 +448,20 @@ static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
 /** 
  * Compiles a for loop, which loops as long as its iterable isn't fully exhausted.
  * 
- * First thing the for loop does is declare the loop variable inside a new scope and set it to null.
+ * First thing the for loop does load a null object as the loop variable.
  * After that, we load the object being iterated on, and wrap it around an iterator object.
  * 
- * Then, we start a second scope for the loop where the first instruction attempts
+ * Then, we start the loop where the first instruction attempts
  * to iterate over the created iterator, and if it can't because it's exhausted,
  * it jumps outside the loop, otherwise assigns the iterated
  * element to the loop variable and falls to the bytecode of the loop's body.
  * 
- * Finally, there's an unconditional jump back instruction artificially added after the loop's body
+ * After, there's an unconditional jump back instruction artificially added after the loop's body
  * to jump back to the "iterate or jump outside loop" instruction.
  * 
- * The reason for having a loop var + iterator scope then a different one for the loop itself is so
- * that jump statements (like break or continue) don't accidentally pop the iterator and loop var.
- * For break, it already jumps to the place where the loop var and iterator pop instructions are,
- * so we don't want to end up popping them multiple times. 
+ * Finally, after the loop exit we have 2 pops emitted. Those are meant to pop the loop's variable
+ * and the iterator, which only get popped after the whole loop is finished, not after every
+ * iteration (like other variables that are declared inside the loop).
  * 
  * Example:
  *     1 Load null (as a temporary place to hold the loop variable).
@@ -734,55 +470,48 @@ static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
  *     4 Try to iterate the iterator and assign it to the loop variable, or if exhausted go to 7.
  *     5 {For loop body}.
  *     6 Go to 4 unconditionally.
- *     7 {Bytecode outside for loop}.
+ *     7 Pop 2 elements off the top of the stack (the loop variable and iterator).
+ *     8 {Bytecode outside for loop}.
  */
 static void compile_for(Compiler *compiler, const ForNode *node) {
-    push_scope(compiler, SCOPE_NORMAL);
     emit_instr(compiler, OP_NULL, node->loopVar.pos);
-    APPEND_DA(
-        CURRENT_CLOSURE(compiler), create_variable(false, false, node->loopVar, compiler->scopeDepth)
-    );
-    APPEND_DA(
-        CURRENT_CLOSURE(compiler),
-        create_variable(false, false, create_token("<iter>", 0), compiler->scopeDepth)
-    );
-
     compile_node(compiler, node->iterable);
     emit_instr(compiler, OP_MAKE_ITER, get_node_pos(node->iterable));
     u32 iterStart = emit_unpatched_jump(compiler, OP_ITER_OR_JUMP, get_node_pos(node->iterable));
 
     U32Array oldBreaks, oldContinues;
     push_loop_controls(compiler, &oldBreaks, &oldContinues);
-    scoped_block(compiler, node->body, SCOPE_LOOP);
-    patch_loop_control(compiler, compiler->continues, iterStart, false);
+    compile_block(compiler, node->body);
     emit_jump(compiler, OP_JUMP_BACK, iterStart, false, PREVIOUS_OPCODE_POS(compiler));
 
     const u32 loopExit = compiler->func->bytecode.length;
+    emit_pops(compiler, 2, PREVIOUS_OPCODE_POS(compiler)); // Pop loop var and iterator after loop.
     patch_jump(compiler, iterStart, loopExit, true);
     pop_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, iterStart, false);
-    pop_scope(compiler, SCOPE_NORMAL);
 }
 
-/** Finishes compiling the current functino on the compiler. */
-static void finish_func(Compiler *compiler, const FuncNode *node, const Variable funcVar) {
+/** Compiles some form of loop control (break/continue), which is to be resolved later. */
+static void compile_loop_control(Compiler *compiler, const LoopControlNode *node) {
+    emit_pops(compiler, node->loopVarsAmount, node->pos);
+
+    u32 controlSpot = emit_unpatched_jump(compiler, 0, node->pos);
+    switch (node->keyword) {
+    case TOKEN_BREAK_KW: APPEND_DA(&compiler->breaks, controlSpot); break;
+    case TOKEN_CONTINUE_KW: APPEND_DA(&compiler->continues, controlSpot); break;
+    default: UNREACHABLE_ERROR();
+    }
+}
+
+/** Finishes compiling the current functino on the compiler. TODO: add optional params. */
+static void finish_func(Compiler *compiler, const FuncNode *node) {
     JumpArray previous = compiler->jumps;
     INIT_DA(&compiler->jumps);
-    push_scope(compiler, SCOPE_FUNC);
-    declare_variable(compiler, funcVar);
-    for (u32 i = 0; i < node->params.length; i++) {
-        ASSERT(node->params.data[i]->type == AST_LITERAL, "Parameter is not variable literal.");
-
-        const Token varName = AS_PTR(LiteralNode, node->params.data[i])->value;
-        const Variable parameter = create_variable(false, false, varName, compiler->scopeDepth);
-        APPEND_DA(CURRENT_CLOSURE(compiler), parameter);
-    }
-    block(compiler, node->body);
+    compile_block(compiler, node->body);
     emit_instr(compiler, OP_NULL, PREVIOUS_OPCODE_POS(compiler));
     emit_instr(compiler, OP_RETURN, PREVIOUS_OPCODE_POS(compiler));
     write_jumps(compiler);
     FREE_DA(&compiler->jumps);
     compiler->jumps = previous;
-    pop_scope(compiler, SCOPE_FUNC);
 }
 
 /** 
@@ -791,11 +520,9 @@ static void finish_func(Compiler *compiler, const FuncNode *node, const Variable
  * TODO: add optional parameters.
  */
 static void compile_func(Compiler *compiler, const FuncNode *node) {
-    const Token name = node->name;
-    const Variable funcVar = create_variable(false, true, name, compiler->scopeDepth);
-    declare_variable(compiler, funcVar);
-
-    StringObj *nameAsObj = string_obj_from_len(compiler->program, name.lexeme, name.pos.length);
+    StringObj *nameAsObj = string_obj_from_len(
+        compiler->program, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
+    );
     FuncObj *previous = compiler->func;
     GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(nameAsObj));
     GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(previous));
@@ -803,7 +530,7 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
         compiler->program, nameAsObj,
         node->params.length, previous->constPool.length
     );
-    finish_func(compiler, node, funcVar);
+    finish_func(compiler, node);
 
     const SourcePosition previousPos = PREVIOUS_OPCODE_POS(compiler);
     FuncObj *finished = compiler->func;
@@ -812,17 +539,12 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
 #endif
     compiler->func = previous;
     emit_const(compiler, OP_LOAD_CONST, AS_OBJ(finished), previousPos);
+    compile_var_decl(compiler, node->nameDecl);
     GC_RESET_PROTECTION(&compiler->program->gc);
 }
 
-/** Compiles a return statement with its value. Errors if the return occurred outside a function. */
+/** Compiles a return statement with its value. */
 static void compile_return(Compiler *compiler, const ReturnNode *node) {
-    if (compiler->closures.length < 2) {
-        compiler_error(
-            compiler, get_node_pos(AS_NODE(node)), "Can't return outside a function scope."
-        );
-        return;
-    }
     compile_node(compiler, node->returnValue);
     emit_instr(compiler, OP_RETURN, get_node_pos(AS_NODE(node)));
 }
@@ -834,6 +556,10 @@ static void compile_eof(Compiler *compiler, const EofNode *node) {
 
 /** Compiles the bytecode for the passed node into the compiler's currently compiling function. */
 static void compile_node(Compiler *compiler, const Node *node) {
+    if (node == NULL) {
+        return;
+    }
+
     switch (node->type) {
     case AST_LITERAL: compile_literal(compiler, AS_PTR(LiteralNode, node)); break;
     case AST_STRING: compile_string(compiler, AS_PTR(StringNode, node)); break;
@@ -844,7 +570,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_RANGE: compile_range(compiler, AS_PTR(RangeNode, node)); break;
     case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;
     case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
-    case AST_BLOCK: scoped_block(compiler, AS_PTR(BlockNode, node), SCOPE_NORMAL); break;
+    case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node)); break;
     case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;
     case AST_VAR_ASSIGN: compile_var_assign(compiler, AS_PTR(VarAssignNode, node)); break;
     case AST_VAR_GET: compile_var_get(compiler, AS_PTR(VarGetNode, node)); break;
@@ -852,11 +578,19 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: compile_do_while(compiler, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: compile_for(compiler, AS_PTR(ForNode, node)); break;
+    case AST_LOOP_CONTROL: compile_loop_control(compiler, AS_PTR(LoopControlNode, node)); break;
     case AST_FUNC: compile_func(compiler, AS_PTR(FuncNode, node)); break;
     case AST_RETURN: compile_return(compiler, AS_PTR(ReturnNode, node)); break;
     case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
     case AST_ERROR: break; // Do nothing on erroneous nodes.
     TOGGLEABLE_DEFAULT_UNREACHABLE();
+    }
+}
+
+/** Compiles all nodes within the passed array. */
+static void compile_node_array(Compiler *compiler, const NodeArray *nodes) {
+    for (u32 i = 0; i < nodes->length; i++) {
+        compile_node(compiler, nodes->data[i]);
     }
 }
 
@@ -866,9 +600,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
  * Returns whether or not compilation was successful.
  */
 bool compile(Compiler *compiler) {
-    for (u32 i = 0; i < compiler->ast.length; i++) {
-        compile_node(compiler, compiler->ast.data[i]);
-    }
+    compile_node_array(compiler, &compiler->ast);
     write_jumps(compiler);
 
 #if DEBUG_BYTECODE
@@ -877,10 +609,19 @@ bool compile(Compiler *compiler) {
     return !compiler->program->hasErrored;
 }
 
-/** Frees both the passed lexer and the passed parser at once. */
-static void free_lexer_and_parser(Lexer *lexer, Parser *parser) {
-    free_lexer(lexer);
-    free_parser(parser);
+/** 
+ * Frees everything used and passed from the entire compilation pipeline.
+ * 
+ * Simply passing NULL for any of the things that are to be freed will skip freeing it
+ * (useful when we haven't reached that stage yet, but we want to free somet things.
+ */
+static void free_out_of_compilation(
+    Lexer *lexer, Parser *parser, Resolver *resolver, Compiler *compiler
+) {
+    if (lexer != NULL) free_lexer(lexer);
+    if (parser != NULL) free_parser(parser);
+    if (resolver != NULL) free_resolver(resolver);
+    if (compiler != NULL) free_compiler(compiler);
 }
 
 /** 
@@ -889,33 +630,35 @@ static void free_lexer_and_parser(Lexer *lexer, Parser *parser) {
  * trackPositions is whether we should store positions for bytecodes or not.
  */
 Compiler compile_source(ZmxProgram *program, char *source, const bool trackPositions) {
-    Compiler emptyCompiler = {
-        .trackPositions = false, .program = NULL, .ast = CREATE_DA(),
-        .globals = CREATE_DA(), .closures = CREATE_DA(), .scopeDepth = 0, .func = NULL
-    };
+    Compiler emptyCompiler = {.program = NULL, .func = NULL};
 
     Lexer lexer = create_lexer(program, source);
     if (!lex(&lexer)) {
-        free_lexer(&lexer);
+        free_out_of_compilation(&lexer, NULL, NULL, NULL);
         return emptyCompiler;
     }
 
     Parser parser = create_parser(program, lexer.tokens);
     if (!parse(&parser)) {
-        free_lexer_and_parser(&lexer, &parser);
+        free_out_of_compilation(&lexer, &parser, NULL, NULL);
         return emptyCompiler;
     }
 
-    Compiler compiler = create_compiler(program, parser.ast, trackPositions);
+    Resolver resolver = create_resolver(program, parser.ast);
+    if (!resolve(&resolver)) {
+        free_out_of_compilation(&lexer, &parser, &resolver, NULL);
+        return emptyCompiler;
+    }
+
+    Compiler compiler = create_compiler(program, resolver.ast, trackPositions);
     // Set this compiler as the one being garbage collected. Now compiler's objects can be GC'd.
     program->gc.compiler = &compiler;
     GC_RESET_PROTECTION(&program->gc);
     if (!compile(&compiler)) {
-        free_lexer_and_parser(&lexer, &parser);
-        free_compiler(&compiler);
+        free_out_of_compilation(&lexer, &parser, &resolver, &compiler);
         return emptyCompiler;
     }
 
-    free_lexer_and_parser(&lexer, &parser);
+    free_out_of_compilation(&lexer, &parser, &resolver, NULL);
     return compiler;
 }

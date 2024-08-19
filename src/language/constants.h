@@ -27,7 +27,7 @@
 #define DEBUG_TOKENS 1
 #define DEBUG_AST 1
 #define DEBUG_BYTECODE 1
-#define DEBUG_RUNTIME 1
+#define DEBUG_RUNTIME 0
 #define DEBUG_GC_PRINT 0
 #define DEBUG_GC_ALWAYS 1
 

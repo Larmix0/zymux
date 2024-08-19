@@ -52,4 +52,10 @@
  */
 #define FREE_DA(da) (free((da)->data))
 
+/** An array of just C integers. */
+DECLARE_DA_STRUCT(IntArray, int);
+
+/** An array of unsigned 32 bit integers. */
+DECLARE_DA_STRUCT(U32Array, u32);
+
 #endif

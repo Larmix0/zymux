@@ -23,6 +23,7 @@
 #include "debug_bytecode.c"
 #include "debug_runtime.c"
 #include "gc.c"
+#include "resolver.c" // TODO: remove after resolver tests are added.
 #include "report_error.c"
 
 /** Main function of the unit tests that calls all file testers. */
@@ -47,5 +48,6 @@ int main() {
     test_emitter();
     test_compiler();
     test_vm();
+    
     return EXIT_SUCCESS;
 }

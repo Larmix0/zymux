@@ -1,6 +1,8 @@
 #ifndef NODE_H
 #define NODE_H
 
+#include <stdbool.h>
+
 #include "dynamic_array.h"
 #include "program.h"
 #include "token.h"
@@ -28,10 +30,20 @@ typedef enum {
     AST_WHILE,
     AST_DO_WHILE,
     AST_FOR,
+    AST_LOOP_CONTROL,
     AST_FUNC,
     AST_RETURN,
     AST_EOF
 } AstType;
+
+/** The type of scope a resolved name is under. */
+typedef enum {
+    NAME_BUILT_IN,
+    NAME_GLOBAL,
+    NAME_LOCAL,
+    NAME_CLOSURE,
+    NAME_UNRESOLVED
+} NameScope;
 
 /** Generic AST node struct for type punning. */
 typedef struct Node {
@@ -133,6 +145,8 @@ typedef struct {
     Node node;
     NodeArray stmts;
     SourcePosition pos;
+
+    i64 varsAmount; /** How many variables are declared inside this specific block. */
 } BlockNode;
 
 /** Holds a variable declaration statement */
@@ -141,6 +155,8 @@ typedef struct {
     Token name;
     Node *value;
     bool isConst;
+
+    NameScope varScope; /** The type of scope which we're declaring this variable on. */
 } VarDeclNode;
 
 /** An assignment expression used to change the value of an already declared variable. */
@@ -148,12 +164,18 @@ typedef struct {
     Node node;
     Token name;
     Node *value;
+
+    i64 assignIndex; /** For the compiler if varScope was to emit an assign on some array. */
+    NameScope varScope; /** What type of scope the assignment should be done to. */
 } VarAssignNode;
 
 /** Represents an expression that attempts to get the value of a specific variable. */
 typedef struct {
     Node node;
     Token name;
+
+    i64 getIndex; /** For the compiler if varScope was to emit an assign on some array. */
+    NameScope varScope; /** What type of scope the assignment should be done to. */
 } VarGetNode;
 
 /** Represents a full conditional if-else statement in a node where the else part is optional. */
@@ -189,10 +211,26 @@ typedef struct {
     BlockNode *body;
 } ForNode;
 
+/** 
+ * Represents a loop control statement (like break or continue).
+ * 
+ * Differs from the "keyword" node because it has to store extra information regarding skipping
+ * the loop or an iteration after the resolution phase
+ * (how many variables to pop out of scope after break or continue).
+ */
+typedef struct {
+    Node node;
+    TokenType keyword;
+    SourcePosition pos;
+    
+    /** Amount of variables declared inside the loop block before this node is encountered. */
+    u32 loopVarsAmount;
+} LoopControlNode;
+
 /** Holds some form of a function (normal function, method, initializer, etc.). */
 typedef struct {
     Node node;
-    Token name;
+    VarDeclNode *nameDecl;
     NodeArray params;
     BlockNode *body;
 } FuncNode;
@@ -214,6 +252,9 @@ Node *new_error_node(ZmxProgram *program);
 
 /** Returns a string node: An array of nodes that alternate between string literals and exprs. */
 Node *new_string_node(ZmxProgram *program, const NodeArray exprs);
+
+/** Returns a boolean of whether or not the string node starts with an literal. */
+bool string_node_starts_with_literal(const StringNode *node);
 
 /** Allocates a new literal node which just holds the literal value. */
 Node *new_literal_node(ZmxProgram *program, const Token value);
@@ -270,8 +311,13 @@ Node *new_do_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
 /** Allocates a for loop node. */
 Node *new_for_node(ZmxProgram *program, const Token loopVar, Node *iterable, BlockNode *body);
 
+/** Allocates a node for some loop control statement (break or continue). */
+Node *new_loop_control_node(ZmxProgram *program, const Token keyword);
+
 /** Allocates a general node for any type of function written from the user. */
-Node *new_func_node(ZmxProgram *program, const Token name, const NodeArray params, BlockNode *body);
+Node *new_func_node(
+    ZmxProgram *program, VarDeclNode *nameDecl, const NodeArray params, BlockNode *body
+);
 
 /** Allocates a return node, which exits a functino with a specific object/value. */
 Node *new_return_node(ZmxProgram *program, Node *returnValue);

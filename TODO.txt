@@ -55,3 +55,5 @@ we won't be unprotecting the things from the first protection set that still are
 Oopsie, setting GC protection on doesn't seem to necessarily prevent "new" objects from being GCed
 if they were interned (like strings) and therefore already created and don't call NEW_OBJ(),
 where appending to the protection pool happens.
+
+Change the names of parser functions to have "parse_" prefix.

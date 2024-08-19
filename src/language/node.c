@@ -3,6 +3,7 @@
 #include "allocator.h"
 #include "constants.h"
 #include "node.h"
+#include "resolver.h"
 
 /** Allocates a new node of actualType. */
 #define NEW_NODE(program, astType, actualType) \
@@ -38,6 +39,11 @@ Node *new_string_node(ZmxProgram *program, const NodeArray exprs) {
     return AS_NODE(node);
 }
 
+/** Returns a boolean of whether or not the string node starts with an literal. */
+bool string_node_starts_with_literal(const StringNode *node) {
+    Node *first = node->exprs.data[0];
+    return first->type == AST_LITERAL && AS_PTR(LiteralNode, first)->value.type == TOKEN_STRING_LIT;
+}
 
 /** Returns a keyword node that is denoted by the token type. */
 Node *new_keyword_node(ZmxProgram *program, const Token keyword) {
@@ -103,6 +109,7 @@ Node *new_block_node(ZmxProgram *program, const NodeArray stmts, const SourcePos
     BlockNode *node = NEW_NODE(program, AST_BLOCK, BlockNode);
     node->stmts = stmts;
     node->pos = pos;
+    node->varsAmount = UNRESOLVED_NUMBER;
     return AS_NODE(node);
 }
 
@@ -117,6 +124,7 @@ Node *new_var_decl_node(ZmxProgram *program, const Token name, Node *value, cons
     node->name = name;
     node->value = value;
     node->isConst = isConst;
+    node->varScope = UNRESOLVED_NAME_SCOPE;
     return AS_NODE(node);
 }
 
@@ -125,6 +133,8 @@ Node *new_var_assign_node(ZmxProgram *program, const Token name, Node *value) {
     VarAssignNode *node = NEW_NODE(program, AST_VAR_ASSIGN, VarAssignNode);
     node->name = name;
     node->value = value;
+    node->assignIndex = UNRESOLVED_NUMBER;
+    node->varScope = UNRESOLVED_NAME_SCOPE;
     return AS_NODE(node);
 }
 
@@ -132,6 +142,8 @@ Node *new_var_assign_node(ZmxProgram *program, const Token name, Node *value) {
 Node *new_var_get_node(ZmxProgram *program, const Token name) {
     VarGetNode *node = NEW_NODE(program, AST_VAR_GET, VarGetNode);
     node->name = name;
+    node->getIndex = UNRESOLVED_NUMBER;
+    node->varScope = UNRESOLVED_NAME_SCOPE;
     return AS_NODE(node);
 }
 
@@ -172,12 +184,21 @@ Node *new_for_node(ZmxProgram *program, const Token loopVar, Node *iterable, Blo
     return AS_NODE(node);
 }
 
+/** Allocates a node for some loop control statement (break or continue). */
+Node *new_loop_control_node(ZmxProgram *program, const Token keyword) {
+    LoopControlNode *node = NEW_NODE(program, AST_LOOP_CONTROL, LoopControlNode);
+    node->keyword = keyword.type;
+    node->pos = keyword.pos;
+    node->loopVarsAmount = 0;
+    return AS_NODE(node);
+}
+
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(
-    ZmxProgram *program, const Token name, const NodeArray params, BlockNode *body
+    ZmxProgram *program, VarDeclNode *nameDecl, const NodeArray params, BlockNode *body
 ) {
     FuncNode *node = NEW_NODE(program, AST_FUNC, FuncNode);
-    node->name = name;
+    node->nameDecl = nameDecl;
     node->params = params;
     node->body = body;
     return AS_NODE(node);
@@ -225,7 +246,8 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
     case AST_DO_WHILE: return AS_PTR(DoWhileNode, node)->body->pos;
     case AST_FOR: return AS_PTR(ForNode, node)->loopVar.pos;
-    case AST_FUNC: return AS_PTR(FuncNode, node)->name.pos;
+    case AST_LOOP_CONTROL: return AS_PTR(LoopControlNode, node)->pos;
+    case AST_FUNC: return AS_PTR(FuncNode, node)->nameDecl->name.pos;
     case AST_RETURN: return get_node_pos(AS_PTR(ReturnNode, node)->returnValue);
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
     }
@@ -262,6 +284,7 @@ static void free_node(Node *node) {
     case AST_WHILE:
     case AST_DO_WHILE:
     case AST_FOR:
+    case AST_LOOP_CONTROL:
     case AST_RETURN:
     case AST_EOF:
         break; // Nothing to free.

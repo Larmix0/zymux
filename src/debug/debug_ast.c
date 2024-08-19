@@ -12,6 +12,7 @@ typedef struct {
 } AstBuilder;
 
 static void append_node(AstBuilder *ast, const Node *node);
+static void append_node_array(AstBuilder *ast, const NodeArray *nodes);
 
 /** Creates a starting AST builder ready to be written into. */
 static AstBuilder create_ast_builder(const bool forPrinting) {
@@ -43,27 +44,6 @@ static void append_indents(AstBuilder *ast) {
     }
 }
 
-/** Appends the full array of passed nodes. */
-static void append_node_array(AstBuilder *ast, const NodeArray nodes) {
-    if (nodes.length == 0) {
-        buffer_append_string(&ast->string, "<empty array> ");
-        return;
-    }
-
-    buffer_append_char(&ast->string, '(');
-    buffer_append_string(&ast->string, "<array> ");
-    for (u32 i = 0; i < nodes.length; i++) {
-        if (i != 0) {
-            buffer_pop(&ast->string);
-            buffer_append_string(&ast->string, ", ");
-        }
-        append_node(ast, nodes.data[i]);
-    }
-    // Move space to after the closing parenthesis
-    buffer_pop(&ast->string);
-    buffer_append_string(&ast->string, ") ");
-}
-
 /** Appends a placeholder string for an erroneous node. */
 static void append_error_node(AstBuilder *ast) {
     buffer_append_string(&ast->string, "<error>");
@@ -78,7 +58,7 @@ static void append_literal_node(AstBuilder *ast, const LiteralNode *node) {
 /** Appends the node which holds a full string (including the formatting) in it. */
 static void append_string_node(AstBuilder *ast, const StringNode *node) {
     buffer_append_string(&ast->string, "<string> ");
-    append_node_array(ast, node->exprs);
+    append_node_array(ast, &node->exprs);
 }
 
 /** Appends a node which just holds a keyword token. */
@@ -131,7 +111,7 @@ static void append_call_node(AstBuilder *ast, const CallNode *node) {
     if (node->args.length == 0) {
         buffer_append_string(&ast->string, "<no args> ");
     }
-    append_node_array(ast, node->args);
+    append_node_array(ast, &node->args);
 }
 
 /** Appends an expression statement, which is just an expression that ends in semicolon. */
@@ -222,11 +202,17 @@ static void append_for_node(AstBuilder *ast, const ForNode *node) {
     append_node(ast, AS_NODE(node->body));
 }
 
+/** Appends a loop control statement/keyword (break or continue). */
+static void append_loop_control_node(AstBuilder *ast, const LoopControlNode *node) {
+    buffer_append_string(&ast->string, token_type_string(node->keyword));
+    buffer_append_char(&ast->string, ' ');   
+}
+
 /** Appends a generic function node, which includes its name, parameters, and body. */
 static void append_func_node(AstBuilder *ast, const FuncNode *node) {
     buffer_append_string(&ast->string, "<func> ");
-    buffer_append_token(&ast->string, node->name);
-    append_node_array(ast, node->params);
+    buffer_append_token(&ast->string, node->nameDecl->name);
+    append_node_array(ast, &node->params);
     buffer_append_string(&ast->string, "-> ");
     append_node(ast, AS_NODE(node->body));
 }
@@ -245,6 +231,9 @@ static void append_eof_node(AstBuilder *ast) {
 
 /** Calls the appropriate append function for the passed node. */
 static void append_node(AstBuilder *ast, const Node *node) {
+    if (node == NULL) {
+        return;
+    }
     if (node->type == AST_LITERAL) {
         // Literals don't get wrapped in parenthesis.
         append_literal_node(ast, AS_PTR(LiteralNode, node));
@@ -271,12 +260,34 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_WHILE: append_while_node(ast, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: append_do_while_node(ast, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: append_for_node(ast, AS_PTR(ForNode, node)); break;
+    case AST_LOOP_CONTROL: append_loop_control_node(ast, AS_PTR(LoopControlNode, node)); break;
     case AST_FUNC: append_func_node(ast, AS_PTR(FuncNode, node)); break;
     case AST_RETURN: append_return_node(ast, AS_PTR(ReturnNode, node)); break;
     case AST_EOF: append_eof_node(ast); break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     // Ensures string never has whitespace before closing parenthesis.
+    buffer_pop(&ast->string);
+    buffer_append_string(&ast->string, ") ");
+}
+
+/** Appends the full array of passed nodes. */
+static void append_node_array(AstBuilder *ast, const NodeArray *nodes) {
+    if (nodes->length == 0) {
+        buffer_append_string(&ast->string, "<empty array> ");
+        return;
+    }
+
+    buffer_append_char(&ast->string, '(');
+    buffer_append_string(&ast->string, "<array> ");
+    for (u32 i = 0; i < nodes->length; i++) {
+        if (i != 0) {
+            buffer_pop(&ast->string);
+            buffer_append_string(&ast->string, ", ");
+        }
+        append_node(ast, nodes->data[i]);
+    }
+    // Move space to after the closing parenthesis
     buffer_pop(&ast->string);
     buffer_append_string(&ast->string, ") ");
 }

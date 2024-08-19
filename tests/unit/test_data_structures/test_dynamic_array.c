@@ -1,9 +1,7 @@
 #include "lukip.h"
 
+#include "constants.h"
 #include "dynamic_array.h"
-
-/** An integer array purely made to test our generic dynamic array implementation. */
-DECLARE_DA_STRUCT(IntArray, int);
 
 /** Tests that dynamic arrays properly pop and drop elements. */
 PRIVATE_TEST_CASE(test_pop_and_drop) {

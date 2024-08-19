@@ -1,43 +1,23 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
+#include "dynamic_array.h"
 #include "emitter.h"
 #include "node.h"
 #include "object.h"
-
-/** Represents a variable's information at compilation time. */
-typedef struct {
-    bool isPrivate; /** Whether it's private or publicly accessible from the outside. */
-    bool isConst; /** Whether it's changeable. */
-    Token name; /** Name of the variable. */
-    u32 scope; /** How deep is the variable's scope relative to the closure it's on. */
-} Variable;
-
-/** An array of variables that a specific closure has (which is 1 or more scopes inside a func). */
-DECLARE_DA_STRUCT(ClosedVariables, Variable);
-
-/** The array of variable's inside a function, which may include multiple scopes. */
-DECLARE_DA_STRUCT(ClosedVariablesArray, ClosedVariables);
-
-/** An array of unsigned 32 bit integers to hold indices of arrays in them. */
-DECLARE_DA_STRUCT(U32Array, u32);
 
 /** The compiler for a Zymux program. */
 typedef struct Compiler {
     bool trackPositions; /** Whether or not we should store the positions of each bytecode. */
     ZmxProgram *program; /** Zymux program to hold the program's information. */
     NodeArray ast; /** The whole AST that is being compiled. */
-    FuncObj *func; /** The "function" whose bytecode is currently being added while compiling. */
-
-    ClosedVariables globals; /** Covers just the top-level, user-defined global variables scope. */
-    ClosedVariablesArray closures; /** All non-global variables as an array of func closures. */
 
     JumpArray jumps; /** An array of jumps which may change during patchings. */
-    U32Array continues; /** Bytecode indices where new continues jump to if inside a loop. */
-    U32Array breaks; /** Bytecode indices where new breaks jump to if inside a loop. */
-    U32Array loopScopes; /** An array of scopes which are considered loop scopes. */
+    U32Array continues; /** Bytecode indices where unpatched continues are. */
+    U32Array breaks; /** Bytecode indices where unpatched breaks are. */
 
-    u32 scopeDepth; /** How deep the current scope is. */
+    /** The "function" whose bytecode is being emitted. Toplevel is also implicitly a function. */
+    FuncObj *func; 
 } Compiler;
 
 /** Returns a compiler initialized with the passed program and parsed AST. */

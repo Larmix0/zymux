@@ -5,6 +5,7 @@
 #include "allocator.h"
 #include "char_buffer.h"
 #include "compiler.h"
+#include "dynamic_array.h"
 #include "emitter.h"
 #include "file.h"
 #include "object.h"
@@ -105,9 +106,6 @@
         } \
         BOOL_BIN_OP(vm, resultBool); \
     } while (false)
-
-/** An array of just integers to store the indices of each function in the call stack. */
-DECLARE_DA_STRUCT(IntArray, int);
 
 /**
  * From an integer array representing the stack trace + starting file,
