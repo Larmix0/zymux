@@ -99,7 +99,7 @@ static void parser_error_missing(
  * We try to optimize that token out if there's interpolation
  * (although we don't if it's just an empty string, as that's valid).
  */
-static Node *string(Parser *parser) {
+static Node *parse_string(Parser *parser) {
     NodeArray exprs = CREATE_DA();
     bool nextIsString = true;
     while (!MATCH(parser, TOKEN_STRING_END)) {
@@ -136,7 +136,7 @@ static Node *primary(Parser *parser) {
         return new_literal_node(parser->program, PEEK_PREVIOUS(parser));
     case TOKEN_STRING_LIT:
         RETREAT(parser); // Leave parsing the whole string to the string parser.
-        return string(parser);
+        return parse_string(parser);
     case TOKEN_IDENTIFIER:
         return new_var_get_node(parser->program, PEEK_PREVIOUS(parser));
     case TOKEN_LPAR: {
@@ -326,7 +326,7 @@ static Node *expression_stmt(Parser *parser) {
  * 
  * It's basically just an array of declaration statements.
  */
-static Node *block(Parser *parser) {
+static Node *finish_block(Parser *parser) {
     SourcePosition pos = PEEK_PREVIOUS(parser).pos;
     NodeArray stmts = CREATE_DA();
     while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser)) {
@@ -342,16 +342,16 @@ static Node *block(Parser *parser) {
  * The falsey branch (else) either contains a block or another if-else statement,
  * which allows if/else-if/else statements.
  */
-static Node *if_else(Parser *parser) {
+static Node *parse_if_else(Parser *parser) {
     Node *condition = expression(parser);
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after if statement's condition.");
-    Node *ifBranch = block(parser);
+    Node *ifBranch = finish_block(parser);
     Node *elseBranch = NULL;
     if (MATCH(parser, TOKEN_ELSE_KW)) {
         if (MATCH(parser, TOKEN_LCURLY)) {
-            elseBranch = block(parser);
+            elseBranch = finish_block(parser);
         } else if (MATCH(parser, TOKEN_IF_KW)) {
-            elseBranch = if_else(parser);
+            elseBranch = parse_if_else(parser);
         } else {
             parser_error_at(parser, &PEEK(parser), true, "Expected 'if' or '{' after else.");
         }
@@ -360,17 +360,17 @@ static Node *if_else(Parser *parser) {
 }
 
 /** A while loop executes its block statement as long as the loop's condition evalutes to true. */
-static Node *while_loop(Parser *parser) {
+static Node *parse_while(Parser *parser) {
     Node *condition = expression(parser);
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after while loop's condition.");
-    Node *body = block(parser);
+    Node *body = finish_block(parser);
     return new_while_node(parser->program, condition, AS_PTR(BlockNode, body));
 }
 
 /** Executes a block, then decides to do it again or not depending on a condition at the bottom. */
-static Node *do_while_loop(Parser *parser) {
+static Node *parse_do_while(Parser *parser) {
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after 'do'.");
-    Node *body = block(parser);
+    Node *body = finish_block(parser);
     CONSUME(parser, TOKEN_WHILE_KW, "Expected 'while' after do while loop's body");
     Node *condition = expression(parser);
     CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after do while loop's condition.");
@@ -378,18 +378,18 @@ static Node *do_while_loop(Parser *parser) {
 }
 
 /** Zymux uses for-in loops, which iterate over the elements of an iterable object. */
-static Node *for_loop(Parser *parser) {
+static Node *parse_for(Parser *parser) {
     Token loopVar = CONSUME(parser, TOKEN_IDENTIFIER, "Expected loop variable after 'for'.");
     CONSUME(parser, TOKEN_IN_KW, "Expected 'in' after for loop's variable name.");
     Node *iterable = expression(parser);
 
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after for loop's iterable.");
-    Node *body = block(parser);
+    Node *body = finish_block(parser);
     return new_for_node(parser->program, loopVar, iterable, AS_PTR(BlockNode, body));
 }
 
-/** A keyword statement followed by a semicolon to jump somewhere in a loop. */
-static Node *jump_keyword(Parser *parser) {
+/** A keyword statement followed by a semicolon to jump somewhere in a loop (like continue). */
+static Node *parse_loop_control(Parser *parser) {
     Token keyword = PEEK_PREVIOUS(parser);
     Node *node = new_loop_control_node(parser->program, keyword);
     CONSUME(
@@ -399,7 +399,7 @@ static Node *jump_keyword(Parser *parser) {
 }
 
 /** Parses a return statement and its optional value (defaults to null if nothing is provided). */
-static Node *return_value(Parser *parser) {
+static Node *parse_return(Parser *parser) {
     Node *value;
     if (CHECK(parser, TOKEN_SEMICOLON)) {
         value = new_keyword_node(parser->program, create_token("null", TOKEN_NULL_KW));
@@ -414,14 +414,14 @@ static Node *return_value(Parser *parser) {
 static Node *statement(Parser *parser) {
     Node *node;
     switch (ADVANCE_PEEK(parser).type) {
-    case TOKEN_LCURLY: node = block(parser); break;
-    case TOKEN_IF_KW: node = if_else(parser); break;
-    case TOKEN_WHILE_KW: node = while_loop(parser); break;
-    case TOKEN_DO_KW: node = do_while_loop(parser); break;
-    case TOKEN_FOR_KW: node = for_loop(parser); break;
-    case TOKEN_CONTINUE_KW: node = jump_keyword(parser); break;
-    case TOKEN_BREAK_KW: node = jump_keyword(parser); break;
-    case TOKEN_RETURN_KW: node = return_value(parser); break;
+    case TOKEN_LCURLY: node = finish_block(parser); break;
+    case TOKEN_IF_KW: node = parse_if_else(parser); break;
+    case TOKEN_WHILE_KW: node = parse_while(parser); break;
+    case TOKEN_DO_KW: node = parse_do_while(parser); break;
+    case TOKEN_FOR_KW: node = parse_for(parser); break;
+    case TOKEN_CONTINUE_KW: node = parse_loop_control(parser); break;
+    case TOKEN_BREAK_KW: node = parse_loop_control(parser); break;
+    case TOKEN_RETURN_KW: node = parse_return(parser); break;
     default:
         RETREAT(parser);
         node = expression_stmt(parser);
@@ -435,7 +435,7 @@ static Node *statement(Parser *parser) {
  * 
  * TODO: add documentation for multi-variable declaration.
  */
-static Node *var_decl(Parser *parser, const bool isConst) {
+static Node *parse_var_decl(Parser *parser, const bool isConst) {
     Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected declared variable's name.");
     Node *value;
     if (MATCH(parser, TOKEN_SEMICOLON)) {
@@ -474,7 +474,7 @@ static NodeArray parse_params(Parser *parser) {
 }
 
 /** Parses any type of function. TODO: Handle the few differences between funcs, methods, etc. */
-static Node *func(Parser *parser) {
+static Node *parse_func(Parser *parser) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected function name.");
     VarDeclNode *declaration = AS_PTR(
         VarDeclNode, new_var_decl_node(parser->program, name, NULL, false)
@@ -482,7 +482,7 @@ static Node *func(Parser *parser) {
     
     NodeArray params = parse_params(parser);
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after function parameters.");
-    Node *body = block(parser);
+    Node *body = finish_block(parser);
     return new_func_node(parser->program, declaration, params, AS_PTR(BlockNode, body));
 }
 
@@ -536,9 +536,9 @@ static void synchronize(Parser *parser) {
 static Node *declaration(Parser *parser) {
     Node *node;
     switch (ADVANCE_PEEK(parser).type) {
-    case TOKEN_LET_KW: node = var_decl(parser, false); break;
-    case TOKEN_CONST_KW: node = var_decl(parser, true); break;
-    case TOKEN_FUNC_KW: node = func(parser); break;
+    case TOKEN_LET_KW: node = parse_var_decl(parser, false); break;
+    case TOKEN_CONST_KW: node = parse_var_decl(parser, true); break;
+    case TOKEN_FUNC_KW: node = parse_func(parser); break;
     default:
         RETREAT(parser);
         node = statement(parser);

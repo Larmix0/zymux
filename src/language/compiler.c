@@ -10,7 +10,7 @@
     #include "debug_bytecode.h"
 #endif
 
-/** The position of the previous opcode. Defaults to (0, 0, 0) if there aren't any. */
+/** The position of the previous opcode. Defaults to 0s if there aren't any previous opcodes. */
 #define PREVIOUS_OPCODE_POS(compiler) \
     ((compiler)->func->positions.length == 0 \
         ? create_src_pos(0, 0, 0) \
@@ -38,15 +38,10 @@ void free_compiler(Compiler *compiler) {
     FREE_DA(&compiler->breaks);
 }
 
-/** Reports a compilation error on a specific position. */
-static void compiler_error(Compiler *compiler, const SourcePosition pos, const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    zmx_user_error(compiler->program, pos, "Compiler error", format, &args);
-    va_end(args);
-}
-
-/** Compiles a literal value which is by adding its obj form in the constants pool. */
+/**
+ * Compiles a literal value.
+ * It is done by adding its obj form in the constants pool and emitting the index where its at.
+ */
 static void compile_literal(Compiler *compiler, const LiteralNode *node) {
     Token value = node->value;
     Obj *literalAsObj;
@@ -69,7 +64,7 @@ static void compile_literal(Compiler *compiler, const LiteralNode *node) {
 /** 
  * Compiles the node which holds all information of a string (including interpolation).
  * 
- * It alternates between emitting a string const and compiling an interpolated expression.
+ * It alternates between emitting a string literal and compiling an interpolated expression.
  * When it's an interpolated expression, an instruction to convert the expression's result to
  * a string is also emitted.
  * 
@@ -153,7 +148,7 @@ static void compile_parentheses(Compiler *compiler, const ParenthesesNode *node)
 
 /** 
  * Compiles a range expression of 3 values: start, end, and step (in that order).
- * This means the VM will have to read the stack in reverse to make the range object
+ * This means the VM will have to read them on the stack in reverse to make the range object
  * using the range building instruction.
  */
 static void compile_range(Compiler *compiler, const RangeNode *node) {
@@ -169,9 +164,11 @@ static void compile_range(Compiler *compiler, const RangeNode *node) {
  * 
  * First, we compile the callee (the object being called), then compile the arguments left to right.
  * After that, we emit a call operation that has a number proceeding it, which represents how many
- * argument objects are gonna be loaded on the stack.
+ * argument objects are loaded on the stack.
  * 
- * Note that the callee is reliably found just one spot deeper in the stack than the first argument.
+ * Note that the callee is reliably found just one spot deeper in the stack than the first argument,
+ * so the stack might look something like this: [Callee, arg-1, arg2, arg3...]
+ * (The callee is lowest in the stack).
  */
 static void compile_call(Compiler *compiler, const CallNode *node) {
     compile_node(compiler, node->callee);
@@ -195,11 +192,11 @@ static void compile_block(Compiler *compiler, const BlockNode *node) {
 }
 
 /**
- * Compiles a normal variable's delcaration statement.
+ * Compiles a normal variable's declaration statement.
  * 
- * Begins by compiling the variable's value.
+ * Begins by compiling the variable's declared initial value.
  * 
- * For globals, we put them in a hash table at runtime.
+ * Then, for globals, we put them in a hash table at runtime.
  * So, we emit their their name to be used for the hash table after the declaration instruction.
  * 
  * For locals, we just let the compiled value sit on the stack to be accessed/indexed later.
@@ -228,10 +225,11 @@ static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
 /** 
  * Compiles a variable assignment expression.
  * 
- * Begins by compiling the variable's value.
+ * Begins by compiling the value to assign to the variable.
  * 
  * For globals, assigning them is like their declarations since we use a hash table at runtime.
- * So, we emit their their name to be used for the hash table after the assignment instruction.
+ * So, we emit their their name to be used for the hash table after the assignment's value is loaded
+ * on the stack and opcode for declaring globals.
  * 
  * Local assignment includes emitting the local assign instruction followed by the index
  * where the variable is expected to be at during the runtime stack,
@@ -306,7 +304,7 @@ static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
 }
 
 /** 
- * Compiles an if-statement and its optional else branch if it exists.
+ * Compiles an if-statement and its optional else branch if one exists.
  * 
  * Compiles the condition of the "if" then emits a conditional jump, which skips over
  * the "if" branch if the condition evaluates to false.
@@ -345,9 +343,17 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     }
 }
 
+/** Starts new arrays for loop control statements (breaks/continues). */
+static void push_loop_controls(Compiler *compiler, U32Array *oldBreaks, U32Array *oldContinues) {
+    *oldBreaks = compiler->breaks;
+    *oldContinues = compiler->continues;
+    INIT_DA(&compiler->breaks);
+    INIT_DA(&compiler->continues);
+}
+
 /** 
  * Patches a u32 array of some loop control's jump indices (like break or continue).
- * Also patches the kind of jump it is, which is unconditionally forward or backwards.
+ * Also patches the kind of jump it is, which is unconditionally either forwards or backwards.
  */
 static void patch_loop_control(
     Compiler *compiler, U32Array jumps, const u32 to, const bool isForward
@@ -361,14 +367,6 @@ static void patch_loop_control(
             compiler->func->bytecode.data[from] = OP_JUMP_BACK;
         }
     }
-}
-
-/** Starts new arrays for control loop statements (breaks and continues). */
-static void push_loop_controls(Compiler *compiler, U32Array *oldBreaks, U32Array *oldContinues) {
-    *oldBreaks = compiler->breaks;
-    *oldContinues = compiler->continues;
-    INIT_DA(&compiler->breaks);
-    INIT_DA(&compiler->continues);
 }
 
 /** Finishes the arrays of control loops (breaks/continues) and switches to the previous ones. */
@@ -456,18 +454,20 @@ static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
  * it jumps outside the loop, otherwise assigns the iterated
  * element to the loop variable and falls to the bytecode of the loop's body.
  * 
- * After, there's an unconditional jump back instruction artificially added after the loop's body
+ * After, there's an unconditional jump back instruction added after the loop's body
  * to jump back to the "iterate or jump outside loop" instruction.
  * 
- * Finally, after the loop exit we have 2 pops emitted. Those are meant to pop the loop's variable
- * and the iterator, which only get popped after the whole loop is finished, not after every
- * iteration (like other variables that are declared inside the loop).
+ * Finally, after the loop exit we have 2 artificial pops emitted.
+ * Those are meant to pop the loop's variable and the iterator,
+ * which only get popped after the whole loop is finished, not after after every iteration,
+ * unlike other variables that are declared inside the loop and get popped and re-declared after
+ * each iteration.
  * 
  * Example:
- *     1 Load null (as a temporary place to hold the loop variable).
+ *     1 Load null (The loop variable, temporarily null just to place it on the stack).
  *     2 {Load the thing being iterated/looped on}.
  *     3 Wrap the iterable on an iterator object to prepare for the loop.
- *     4 Try to iterate the iterator and assign it to the loop variable, or if exhausted go to 7.
+ *     4 if exhausted go to 7, otherwise iterate the iterator and assign it to the loop variable.
  *     5 {For loop body}.
  *     6 Go to 4 unconditionally.
  *     7 Pop 2 elements off the top of the stack (the loop variable and iterator).
@@ -502,7 +502,7 @@ static void compile_loop_control(Compiler *compiler, const LoopControlNode *node
     }
 }
 
-/** Finishes compiling the current functino on the compiler. TODO: add optional params. */
+/** Finishes compiling the current function on the compiler. TODO: add optional params. */
 static void finish_func(Compiler *compiler, const FuncNode *node) {
     JumpArray previous = compiler->jumps;
     INIT_DA(&compiler->jumps);
@@ -516,6 +516,11 @@ static void finish_func(Compiler *compiler, const FuncNode *node) {
 
 /** 
  * Compiles a generic function of any kind.
+ * 
+ * We compile functions by switching the compiler's current function to the new one being created,
+ * then we start compiling all the nodes inside the function's body. After we're done with that,
+ * we emit the new compiled function as a const inside the const pool of the previous function.
+ * 
  * TODO: add more differentiating stuff for func types.
  * TODO: add optional parameters.
  */

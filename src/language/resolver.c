@@ -16,7 +16,7 @@ typedef enum {
 static void resolve_node(Resolver *resolver, Node *node);
 static void resolve_node_array(Resolver *resolver, NodeArray *nodes);
 
-/** Returns a starting resolve for the passed AST. */
+/** Returns a starting resolver for the passed AST. */
 Resolver create_resolver(ZmxProgram *program, NodeArray ast) {
     Resolver resolver = {
         .program = program, .ast = ast, .globals = CREATE_DA(), .closures = CREATE_DA(),
@@ -64,7 +64,7 @@ static i64 get_closed_var_index(ClosedVariables variables, Token name) {
 }
 
 /** 
- * Returns the index of the passed variable name searching only in the top scope of the closure.
+ * Returns the index of the passed variable name searching only in the top scope of a closure.
  * 
  * Returns -1 if the variable's not present at the highest scope of the closure, even if it's on
  * other scopes.
@@ -112,14 +112,14 @@ static u32 pop_scope(Resolver *resolver, ScopeType type) {
     return poppedAmount;
 }
 
-/** Resolves the expressions within a string node. Which can include variables in interpolation. */
+/** Resolves the expressions within a string node. Which can include exprs in interpolation. */
 static void resolve_string(Resolver *resolver, StringNode *node) {
     for (u32 i = 0; i < node->exprs.length; i++) {
         resolve_node(resolver, node->exprs.data[i]);
     }
 }
 
-/** Resolves a unary node (the node having unary being applied to it). */
+/** Resolves a unary node (the right hand side having unary being applied to it). */
 static void resolve_unary(Resolver *resolver, const UnaryNode *node) {
     resolve_node(resolver, node->rhs);
 }
@@ -135,14 +135,14 @@ static void resolve_parentheses(Resolver *resolver, const ParenthesesNode *node)
     resolve_node(resolver, node->expr);
 }
 
-/** Resolves a range's start, end, and step nodes in order. */
+/** Resolves a range's start, end, and step nodes in that order. */
 static void resolve_range(Resolver *resolver, RangeNode *node) {
     resolve_node(resolver, node->start);
     resolve_node(resolver, node->end);
     resolve_node(resolver, node->step);
 }
 
-/** Resolves a call expression's callee. */
+/** Resolves a call expression's callee and arguments. */
 static void resolve_call(Resolver *resolver, CallNode *node) {
     resolve_node(resolver, node->callee);
     resolve_node_array(resolver, &node->args);
@@ -167,7 +167,7 @@ static void scoped_block(Resolver *resolver, BlockNode *node, const ScopeType ty
 
 /** 
  * Declares a local variable, errors if it's already declared or is const
- * Simply puts a flag on the node that it's a local declaration.
+ * Simply puts a flag on the node which indicates that it's a local declaration.
  */
 static void declare_local(Resolver *resolver, VarDeclNode *node, const Variable declared) {
     const Token name = declared.name;
@@ -260,11 +260,11 @@ static bool try_assign_nonlocal(Resolver *resolver, const VarAssignNode *node) {
 }
 
 /**
- * Attempts to assign a local if one exists.
+ * Attempts to assign a global variable if one exists.
  * 
- * Returns whether or not a local was found and assigned to the node.
+ * Returns whether or not a global was found and assigned to the node.
  * When assigning globals, we only change the node's variable scope, but not the index since
- * the VM will just use a table instead of indexing some array.
+ * the VM will just use a table for them instead of indexing some array.
  */
 static bool try_assign_global(Resolver *resolver, VarAssignNode *node) {
     i64 globalIdx = get_closed_var_index(resolver->globals, node->name);
@@ -283,7 +283,7 @@ static bool try_assign_global(Resolver *resolver, VarAssignNode *node) {
 /** 
  * Resolves a variable assignment expression.
  * 
- * Allows global, local and outside closure assignments. Errors if the assigned variable
+ * Allows global, local and closure variable assignments. Errors if the assigned variable
  * doesn't exist or is a built-in.
  * TODO: add more explanation for multi-assignments and closures when they're added.
  */
@@ -321,7 +321,7 @@ static void resolve_var_assign(Resolver *resolver, VarAssignNode *node) {
  * 
  * Returns whether or not it found one and resolved it.
  * Resolving locals includes setting the node's scope as local, and appending the index where
- * they're expected to be on the stack, so that the compiler can simply put that number for the VM.
+ * it's expected to be on the stack, so that the compiler can simply put that number for the VM.
  */
 static bool try_get_local(Resolver *resolver, VarGetNode *node) {
     const i64 localIdx = get_closed_var_index(*CURRENT_CLOSURE(resolver), node->name);
@@ -343,6 +343,8 @@ static bool try_get_nonlocal(Resolver *resolver, VarGetNode *node) {
 /** 
  * Tries to resolve a variable in the global scope if there is one.
  * Returns whether or not it found one and resolved it, or if there wasn't any matching globals.
+ * Just like assignments, we use hash tables in the at runtime for globals, so we simply set the
+ * variable get node's scope to a global and letting the compiler do the rest.
  */
 static bool try_get_global(Resolver *resolver, VarGetNode *node) {
     if (get_closed_var_index(resolver->globals, node->name) == -1) {
@@ -398,7 +400,7 @@ static void resolve_if_else(Resolver *resolver, IfElseNode *node) {
     resolve_node(resolver, node->elseBranch);
 }
 
-/** Resolves a while loop's condition, and its body statements inside a loop scope. */
+/** Resolves a while loop's condition and its body statements inside a loop scope. */
 static void resolve_while(Resolver *resolver, WhileNode *node) {
     resolve_node(resolver, node->condition);
     scoped_block(resolver, node->body, SCOPE_LOOP);
@@ -418,9 +420,10 @@ static void resolve_do_while(Resolver *resolver, DoWhileNode *node) {
  * the loop's inner statements.
  * 
  * The reason for having the loop var + iterator scope be a different one from the loop itself is so
- * that jump statements (like break or continue) don't accidentally pop the iterator and loop var.
- * For break, it already jumps to the place where the loop var and iterator pop instructions are,
- * so we don't want to end up popping them multiple times.
+ * that jump statements (like break or continue) don't accidentally pop the iterator and loop 
+ * variable.
+ * For break, it already jumps to the place where the loop variable
+ * and iterator pop instructions are, so we don't want to end up popping them multiple times.
  */
 static void resolve_for(Resolver *resolver, ForNode *node) {
     push_scope(resolver, SCOPE_NORMAL);
@@ -460,8 +463,9 @@ static u32 loop_vars_amount(Resolver *resolver) {
 /** 
  * Resolves a loop control statement (like break or continue).
  * 
- * Puts the amount of pops that'll be emitted from skipping the iteration inside the node,
- * which is the number of variables declared before encountering the loop control statement.
+ * Puts the amount of pops that'll be emitted from skipping the loop iteration inside the node,
+ * which is the number of variables declared on the loop before encountering the loop control
+ * statement.
  */
 static void resolve_loop_control(Resolver *resolver, LoopControlNode *node) {
     if (resolver->loopScopes.length == 0) {
@@ -474,7 +478,7 @@ static void resolve_loop_control(Resolver *resolver, LoopControlNode *node) {
 }
 
 /**
- * Resolves the function, which includes its parameters and its body inside a function-type scope.
+ * Resolves a function, which includes its parameters and its body inside a function-type scope.
  * 
  * Manually appends the function's name again to the recently created locals of itself in order
  * to allow recursion by accessinig index 0 inside BP at runtime (as BP starts on the callee).
