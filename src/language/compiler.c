@@ -204,19 +204,19 @@ static void compile_block(Compiler *compiler, const BlockNode *node) {
 static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
     compile_node(compiler, node->value);
 
-    switch (node->varScope) {
-    case NAME_LOCAL:
+    switch (node->resolution.scope) {
+    case VAR_LOCAL:
         break;
-    case NAME_GLOBAL: {
+    case VAR_GLOBAL: {
         StringObj *nameAsObj = string_obj_from_len(
             compiler->program, node->name.lexeme, node->name.pos.length
         );
         emit_const(compiler, OP_DECLARE_GLOBAL, AS_OBJ(nameAsObj), node->name.pos);
         break;
     }
-    case NAME_CLOSURE:
-    case NAME_BUILT_IN:
-    case NAME_UNRESOLVED:
+    case VAR_CLOSURE:
+    case VAR_BUILT_IN:
+    case VAR_UNRESOLVED:
         UNREACHABLE_ERROR();
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
@@ -242,24 +242,22 @@ static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
 static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
     compile_node(compiler, node->value);
 
-    switch (node->varScope) {
-    case NAME_LOCAL:
-        ASSERT(node->assignIndex != UNRESOLVED_NUMBER, "Unresolved assignment index.");
-        emit_number(compiler, OP_ASSIGN_LOCAL, node->assignIndex, node->name.pos);
+    switch (node->resolution.scope) {
+    case VAR_LOCAL:
+        emit_number(compiler, OP_ASSIGN_LOCAL, node->resolution.index, node->name.pos);
         break;
-    case NAME_CLOSURE:
-        ASSERT(node->assignIndex != UNRESOLVED_NUMBER, "Unresolved assignment index.");
+    case VAR_CLOSURE:
         // TODO: add closure assignment code here.
         break;
-    case NAME_GLOBAL: {
+    case VAR_GLOBAL: {
         StringObj *nameAsObj = string_obj_from_len(
             compiler->program, node->name.lexeme, node->name.pos.length
         );
         emit_const(compiler, OP_ASSIGN_GLOBAL, AS_OBJ(nameAsObj), node->name.pos);
         break;
     }
-    case NAME_BUILT_IN:
-    case NAME_UNRESOLVED:
+    case VAR_BUILT_IN:
+    case VAR_UNRESOLVED:
         UNREACHABLE_ERROR();
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
@@ -282,22 +280,20 @@ static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
     // Just declare the name object here since it's used multiple times.
     const Token name = node->name;
     Obj *nameAsObj = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
-    switch (node->varScope) {
-    case NAME_LOCAL:
-        ASSERT(node->getIndex != UNRESOLVED_NUMBER, "Unresolved assignment index.");
-        emit_number(compiler, OP_GET_LOCAL, node->getIndex, node->name.pos);
+    switch (node->resolution.scope) {
+    case VAR_LOCAL:
+        emit_number(compiler, OP_GET_LOCAL, node->resolution.index, node->name.pos);
         break;
-    case NAME_CLOSURE:
-        ASSERT(node->getIndex != UNRESOLVED_NUMBER, "Unresolved assignment index.");
+    case VAR_CLOSURE:
         // TODO: add getting closure variable's code here.
         break;
-    case NAME_GLOBAL:
+    case VAR_GLOBAL:
         emit_const(compiler, OP_GET_GLOBAL, AS_OBJ(nameAsObj), node->name.pos);
         break;
-    case NAME_BUILT_IN:
+    case VAR_BUILT_IN:
         emit_const(compiler, OP_GET_BUILT_IN, AS_OBJ(nameAsObj), node->name.pos);
         break;
-    case NAME_UNRESOLVED:
+    case VAR_UNRESOLVED:
         UNREACHABLE_ERROR();
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }

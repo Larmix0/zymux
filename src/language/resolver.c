@@ -1,10 +1,10 @@
 #include "resolver.h"
 
-/** Returns the outermost closure of scopes. */
-#define CURRENT_CLOSURE(resolver) (&(resolver)->closures.data[(resolver)->closures.length - 1])
+/** The outermost closure of local variables. */
+#define CURRENT_LOCALS(resolver) (&(resolver)->locals.data[(resolver)->locals.length - 1])
 
-/** A boolean of whether or not we have created any locals in the current closure scope. */
-#define HAS_LOCALS(resolver) (CURRENT_CLOSURE(resolver)->length > 0)
+/** A boolean of whether or not we have created any variables in the current locals closure. */
+#define HAS_VARIABLES(resolver) (CURRENT_LOCALS(resolver)->length > 0)
 
 /** Holds some type of scope that is usually created by brace blocks.*/
 typedef enum {
@@ -19,22 +19,48 @@ static void resolve_node_array(Resolver *resolver, NodeArray *nodes);
 /** Returns a starting resolver for the passed AST. */
 Resolver create_resolver(ZmxProgram *program, NodeArray ast) {
     Resolver resolver = {
-        .program = program, .ast = ast, .globals = CREATE_DA(), .closures = CREATE_DA(),
+        .program = program, .ast = ast, .globals = CREATE_DA(), .locals = CREATE_DA(),
         .scopeDepth = 0, .loopScopes = CREATE_DA()
     };
-    // Add the default, permanent closure for locals not covered by functions (like global loops).
-    APPEND_DA(&resolver.closures, (ClosedVariables)CREATE_DA());
+    // Add the permanent closure for locals not covered by functions (like vars in global loops).
+    APPEND_DA(&resolver.locals, (ClosedVariables)CREATE_DA());
     return resolver;
+}
+
+/** Returns a variable, which has its name in a token along some extra resolution information. */
+static Variable create_variable(
+    const bool isPrivate, const bool isConst, const Token name, const u32 scope,
+    const VarResolution resolution
+) {
+    Variable var = {
+        .isPrivate = isPrivate, .isConst = isConst, .name = name, .scope = scope,
+        .currentResolution = resolution, .resolutions = CREATE_DA()
+    };
+    return var;
+}
+
+/** Frees all the variables and their contents in an array of resolution-phase variables. */
+void free_variables(ClosedVariables *variables) {
+    for (u32 i = 0; i < variables->length; i++) {
+        FREE_DA(&variables->data[i].resolutions);
+    }
+    FREE_DA(variables);
 }
 
 /** Frees all the owned and allocated memory of the resolver. */
 void free_resolver(Resolver *resolver) {
-    for (u32 i = 0; i < resolver->closures.length; i++) {
-        FREE_DA(&resolver->closures.data[i]);
+    free_variables(&resolver->globals);
+    for (u32 i = 0; i < resolver->locals.length; i++) {
+        free_variables(&resolver->locals.data[i]);
     }
-    FREE_DA(&resolver->closures);
-    FREE_DA(&resolver->globals);
+    FREE_DA(&resolver->locals);
     FREE_DA(&resolver->loopScopes);
+}
+
+/** Returns a created resolution for some variable. */
+static VarResolution create_var_resolution(const i64 index, const VarScope scopeType) {
+    VarResolution resolution = {.index = index, .scope = scopeType};
+    return resolution;
 }
 
 /** Reports a resolution error on a specific position. */
@@ -45,40 +71,33 @@ void resolution_error(Resolver *resolver, const SourcePosition pos, const char *
     va_end(args);
 }
 
-/** Returns a variable, which has its name in a token along some extra resolution information. */
-static Variable create_variable(
-    const bool isPrivate, const bool isConst, const Token name, const u32 scope
-) {
-    Variable var = {.isPrivate = isPrivate, .isConst = isConst, .name = name, .scope = scope};
-    return var;
-}
-
-/** Returns the index of the name in the array of variables. Returns -1 if not present. */
-static i64 get_closed_var_index(ClosedVariables variables, Token name) {
-    for (i64 i = (i64)variables.length - 1; i >= 0; i--) {
-        if (equal_token(variables.data[i].name, name)) {
-            return i;
+/** 
+ * Returns a variable's address in the passed closure whose name is the same as the passed token.
+ * Returns NULL by default if the variable doesn't exist in the closure.
+ */
+static Variable *get_closure_var(ClosedVariables *variables, Token name) {
+    for (i64 i = (i64)variables->length - 1; i >= 0; i--) {
+        if (equal_token(variables->data[i].name, name)) {
+            return &variables->data[i];
         }
     }
-    return -1;
+    return NULL;
 }
 
 /** 
- * Returns the index of the passed variable name searching only in the top scope of a closure.
- * 
- * Returns -1 if the variable's not present at the highest scope of the closure, even if it's on
- * other scopes.
+ * Returns the variable in the passed closure searching only in the top scope of a closure.
+ * Returns NULL if the variable doesn't exist within the top scope of the passed closure.
  */
-static i64 get_top_scope_var_index(ClosedVariables variables, Token name, const u32 scope) {
+static Variable *get_top_scope_var(ClosedVariables variables, Token name, const u32 scope) {
     for (i64 i = (i64)variables.length - 1; i >= 0; i--) {
         if (variables.data[i].scope != scope) {
             break; // Fall into not found.
         }
         if (equal_token(variables.data[i].name, name)) {
-            return i;
+            return &variables.data[i];
         }
     }
-    return -1;
+    return NULL;
 }
 
 /** Adds a scope that's one layer deeper (usually from entering a new block scope). */
@@ -87,18 +106,19 @@ static void push_scope(Resolver *resolver, const ScopeType type) {
     if (type == SCOPE_LOOP) {
         APPEND_DA(&resolver->loopScopes, resolver->scopeDepth);
     } else if (type == SCOPE_FUNC) {
-        APPEND_DA(&resolver->closures, (ClosedVariables)CREATE_DA());
+        APPEND_DA(&resolver->locals, (ClosedVariables)CREATE_DA());
     }
 }
 
 /** Collapses the outermost scope and returns how many variables were popped. */
 static u32 pop_scope(Resolver *resolver, ScopeType type) {
-    ClosedVariables *closure = CURRENT_CLOSURE(resolver);
+    ClosedVariables *locals = CURRENT_LOCALS(resolver);
     u32 poppedAmount = 0;
     while (
-        closure->length > 0 && closure->data[closure->length - 1].scope == resolver->scopeDepth
+        locals->length > 0 && locals->data[locals->length - 1].scope == resolver->scopeDepth
     ) {
-        DROP_DA(closure);
+        FREE_DA(&locals->data[locals->length - 1].resolutions);
+        DROP_DA(locals);
         poppedAmount++;
     }
 
@@ -106,8 +126,9 @@ static u32 pop_scope(Resolver *resolver, ScopeType type) {
     if (type == SCOPE_LOOP) {
         DROP_DA(&resolver->loopScopes);
     } else if (type == SCOPE_FUNC) {
-        FREE_DA(closure);
-        DROP_DA(&resolver->closures);
+        ASSERT(resolver->locals.length > 1, "Attempted to pop the permanent top-level closure.");
+        free_variables(locals);
+        DROP_DA(&resolver->locals);
     }
     return poppedAmount;
 }
@@ -169,32 +190,45 @@ static void scoped_block(Resolver *resolver, BlockNode *node, const ScopeType ty
  * Declares a local variable, errors if it's already declared or is const
  * Simply puts a flag on the node which indicates that it's a local declaration.
  */
-static void declare_local(Resolver *resolver, VarDeclNode *node, const Variable declared) {
-    const Token name = declared.name;
-    if (get_top_scope_var_index(*CURRENT_CLOSURE(resolver), name, resolver->scopeDepth) != -1) {
+static void declare_local(Resolver *resolver, VarDeclNode *node) {
+    const Token name = node->name;
+    if (get_top_scope_var(*CURRENT_LOCALS(resolver), name, resolver->scopeDepth) != NULL) {
         resolution_error(
             resolver, name.pos, "Can't redeclare local name '%.*s'.",
             name.pos.length, name.lexeme
         );
     }
-    APPEND_DA(CURRENT_CLOSURE(resolver), declared);
-    node->varScope = NAME_LOCAL;
+    node->resolution.index = CURRENT_LOCALS(resolver)->length;
+    node->resolution.scope = VAR_LOCAL;
+
+    Variable declared = create_variable(
+        false, node->isConst, name, resolver->scopeDepth, node->resolution
+    );
+    APPEND_DA(&declared.resolutions, &node->resolution);
+    APPEND_DA(CURRENT_LOCALS(resolver), declared);
 }
 
 /** 
  * Declares a global variable, errors if already declared or is const.
- * A flag that indicates the variable is global on the node is enough for the compiler.
+ * Does so by appending the declared variable to the globals closure after setting its resolution.
  */
-static void declare_global(Resolver *resolver, VarDeclNode *node, const Variable declared) {
-    const Token name = declared.name;
-    if (get_closed_var_index(resolver->globals, name) != -1) {
+static void declare_global(Resolver *resolver, VarDeclNode *node) {
+    const Token name = node->name;
+    if (get_closure_var(&resolver->globals, name) != NULL) {
         resolution_error(
             resolver, name.pos, "Can't redeclare global name '%.*s'.",
             name.pos.length, name.lexeme
         );
     }
-    APPEND_DA(&(resolver)->globals, declared);
-    node->varScope = NAME_GLOBAL;
+
+    node->resolution.index = CURRENT_LOCALS(resolver)->length;
+    node->resolution.scope = VAR_GLOBAL;
+
+    Variable declared = create_variable(
+        false, node->isConst, name, resolver->scopeDepth, node->resolution
+    );
+    APPEND_DA(&declared.resolutions, &node->resolution);
+    APPEND_DA(&resolver->globals, declared);
 }
 
 /**
@@ -207,7 +241,6 @@ static void resolve_var_decl(Resolver *resolver, VarDeclNode *node) {
     resolve_node(resolver, node->value);
     
     const Token name = node->name;
-    const Variable declared = create_variable(false, node->isConst, name, resolver->scopeDepth);
     Obj *nameAsObj = AS_OBJ(string_obj_from_len(resolver->program, name.lexeme, name.pos.length));
     if (table_get(&resolver->program->builtIn, nameAsObj) != NULL) {
         resolution_error(
@@ -215,9 +248,9 @@ static void resolve_var_decl(Resolver *resolver, VarDeclNode *node) {
             name.pos.length, name.lexeme
         );
     } else if (resolver->scopeDepth == 0) {
-        declare_global(resolver, node, declared);
+        declare_global(resolver, node);
     } else {
-        declare_local(resolver, node, declared);
+        declare_local(resolver, node);
     }
 }
 
@@ -230,25 +263,37 @@ static void const_assign_error(Resolver *resolver, const Node *node, const Token
     );
 }
 
+/** 
+ * Adds a variable reference information (a resolution) to the variable.
+ * 
+ * This is done by setting the resolution to be the general one on the passed variable,
+ * then appending the passed resolution itself to the variable's array of resolutions.
+ * This makes it so that if the variable's resolution information changes, we can just go through
+ * the resolution array and set all resolutions to the appropriate one.
+ */
+static void add_variable_reference(Variable *variable, VarResolution *resolution) {
+    *resolution = variable->currentResolution;
+    APPEND_DA(&variable->resolutions, resolution);
+}
+
 /**
  * Attempts to assign a local if one exists.
  * 
  * Returns whether or not a local was found and assigned to the node.
- * Assiging is done by changing the variable scope of the node as well as putting an index
- * that denotes where on the stack the assignment should occur.
+ * When resolving assignments, the node gets its resolution from the found declared variable,
+ * then it (the node resolution) is put inside the variable's array of resolutions to reference when
+ * needing to modify the resolutions of all references to a variable.
  */
 static bool try_assign_local(Resolver *resolver, VarAssignNode *node) {
-    const i64 localIdx = get_closed_var_index(*CURRENT_CLOSURE(resolver), node->name);
-    if (localIdx == -1) {
+    Variable *local = get_closure_var(CURRENT_LOCALS(resolver), node->name);
+    if (local == NULL) {
         return false;
     }
 
-    ASSERT(localIdx >= 0, "Expected positive local index, got %" PRId64 " instead.", localIdx);
-    if (CURRENT_CLOSURE(resolver)->data[localIdx].isConst) {
+    if (local->isConst) {
         const_assign_error(resolver, AS_NODE(node), node->name);
     }
-    node->varScope = NAME_LOCAL;
-    node->assignIndex = localIdx;
+    add_variable_reference(local, &node->resolution);
     return true;
 }
 
@@ -263,20 +308,20 @@ static bool try_assign_nonlocal(Resolver *resolver, const VarAssignNode *node) {
  * Attempts to assign a global variable if one exists.
  * 
  * Returns whether or not a global was found and assigned to the node.
- * When assigning globals, we only change the node's variable scope, but not the index since
- * the VM will just use a table for them instead of indexing some array.
+ * We give the assign node the resolution information
+ * of the declared global variable, then put the node's own resolution address on the array
+ * of resolutions so it can be modified later if needed.
  */
 static bool try_assign_global(Resolver *resolver, VarAssignNode *node) {
-    i64 globalIdx = get_closed_var_index(resolver->globals, node->name);
-    if (globalIdx == -1) {
+    Variable *global = get_closure_var(&resolver->globals, node->name);
+    if (global == NULL) {
         return false;
     }
 
-    ASSERT(globalIdx >= 0, "Expected positive global index, got %" PRId64 " instead.", globalIdx);
-    if (resolver->globals.data[globalIdx].isConst) {
+    if (global->isConst) {
         const_assign_error(resolver, AS_NODE(node), node->name);
     }
-    node->varScope = NAME_GLOBAL;
+    add_variable_reference(global, &node->resolution);
     return true;
 }
 
@@ -320,16 +365,17 @@ static void resolve_var_assign(Resolver *resolver, VarAssignNode *node) {
  * Attempts to find and resolve a variable that is local to the current function's closure.
  * 
  * Returns whether or not it found one and resolved it.
- * Resolving locals includes setting the node's scope as local, and appending the index where
- * it's expected to be on the stack, so that the compiler can simply put that number for the VM.
+ * Resolving is done by adding the information of resolution on the node,
+ * then adding a reference to the node resolution in the found variable
+ * so that it can modify it later if needed.
  */
 static bool try_get_local(Resolver *resolver, VarGetNode *node) {
-    const i64 localIdx = get_closed_var_index(*CURRENT_CLOSURE(resolver), node->name);
-    if (localIdx == -1) {
-        return false;   
+    Variable *local = get_closure_var(CURRENT_LOCALS(resolver), node->name);
+    if (local == NULL) {
+        return false;
     }
-    node->varScope = NAME_LOCAL;
-    node->getIndex = localIdx;
+
+    add_variable_reference(local, &node->resolution);
     return true;
 }
 
@@ -342,15 +388,18 @@ static bool try_get_nonlocal(Resolver *resolver, VarGetNode *node) {
 
 /** 
  * Tries to resolve a variable in the global scope if there is one.
- * Returns whether or not it found one and resolved it, or if there wasn't any matching globals.
- * Just like assignments, we use hash tables in the at runtime for globals, so we simply set the
- * variable get node's scope to a global and letting the compiler do the rest.
+ * 
+ * Adds a reference to the global if one is found, which is a function that sets a node's resolution
+ * and stores it inside the given variable in case it needs to be modified later.
+ * Returns true if that happened, otherwise false if the global isn't found to begin with.
  */
 static bool try_get_global(Resolver *resolver, VarGetNode *node) {
-    if (get_closed_var_index(resolver->globals, node->name) == -1) {
+    Variable *global = get_closure_var(&resolver->globals, node->name);
+    if (global == NULL) {
         return false;
     }
-    node->varScope = NAME_GLOBAL;
+
+    add_variable_reference(global, &node->resolution);
     return true;
 }
 
@@ -358,14 +407,15 @@ static bool try_get_global(Resolver *resolver, VarGetNode *node) {
  * Tries to resolve a variable get if it's referencing a built-in name.
  * 
  * Returns whether or not the resolution was successful and the name in the node was a built-in.
- * If it's built-in, we simply just set the variable scope to denote that, then the compiler/VM
- * will find it in the table of built-ins.
+ * We look in the table of built-ins and see if it's there. If it is, we manually set resolution
+ * information about the node to be that of a built-in variable.
  */
 static bool try_get_built_in(Resolver *resolver, Obj *nameAsObj, VarGetNode *node) {
     if (table_get(&resolver->program->builtIn, nameAsObj) == NULL) {
         return false;
     }
-    node->varScope = NAME_BUILT_IN;
+    
+    node->resolution.scope = VAR_BUILT_IN;
     return true;
 }
 
@@ -428,13 +478,20 @@ static void resolve_do_while(Resolver *resolver, DoWhileNode *node) {
 static void resolve_for(Resolver *resolver, ForNode *node) {
     push_scope(resolver, SCOPE_NORMAL);
 
+    const u32 loopVarSpot = CURRENT_LOCALS(resolver)->length;
     APPEND_DA(
-        CURRENT_CLOSURE(resolver),
-        create_variable(false, false, node->loopVar, resolver->scopeDepth)
+        CURRENT_LOCALS(resolver),
+        create_variable(
+            false, false, node->loopVar,
+            resolver->scopeDepth, create_var_resolution(loopVarSpot, VAR_LOCAL)
+        )
     );
     APPEND_DA(
-        CURRENT_CLOSURE(resolver),
-        create_variable(false, false, create_token("<iter>", 0), resolver->scopeDepth)
+        CURRENT_LOCALS(resolver),
+        create_variable(
+            false, false, create_token("<iter>", 0), resolver->scopeDepth,
+            create_var_resolution(loopVarSpot + 1, VAR_LOCAL)
+        )
     );
     resolve_node(resolver, node->iterable);
     scoped_block(resolver, node->body, SCOPE_LOOP);
@@ -445,14 +502,14 @@ static void resolve_for(Resolver *resolver, ForNode *node) {
 /** Returns the amount of variables inside the outermost loop. */
 static u32 loop_vars_amount(Resolver *resolver) {
     ASSERT(resolver->loopScopes.length > 0, "Tried to count loop variables, but not inside one.");
-    if (!HAS_LOCALS(resolver)) {
+    if (!HAS_VARIABLES(resolver)) {
         return 0;
     }
 
     u32 loopVarsAmount = 0;
     const u32 deepestLoop = resolver->loopScopes.data[resolver->loopScopes.length - 1];
-    for (i64 i = CURRENT_CLOSURE(resolver)->length - 1; i >= 0; i--) {
-        if (CURRENT_CLOSURE(resolver)->data[i].scope < deepestLoop) {
+    for (i64 i = CURRENT_LOCALS(resolver)->length - 1; i >= 0; i--) {
+        if (CURRENT_LOCALS(resolver)->data[i].scope < deepestLoop) {
             break; // Below loop, done.
         }
         loopVarsAmount++;
@@ -480,32 +537,38 @@ static void resolve_loop_control(Resolver *resolver, LoopControlNode *node) {
 /**
  * Resolves a function, which includes its parameters and its body inside a function-type scope.
  * 
- * Manually appends the function's name again to the recently created locals of itself in order
- * to allow recursion by accessinig index 0 inside BP at runtime (as BP starts on the callee).
+ * Manually appends the function's name a second time to the recently created locals of itself
+ * in order to allow recursion by accessinig index 0 inside BP at runtime
+ * (as BP starts on the callee).
  */
 static void resolve_func(Resolver *resolver, FuncNode *node) {
     resolve_var_decl(resolver, node->nameDecl);
-
     push_scope(resolver, SCOPE_FUNC);
-    const Variable funcName = create_variable(
-        false, node->nameDecl->isConst, node->nameDecl->name, resolver->scopeDepth
+    Variable declared = create_variable(
+        false, node->nameDecl->isConst, node->nameDecl->name, resolver->scopeDepth,
+        node->nameDecl->resolution
     );
-    APPEND_DA(CURRENT_CLOSURE(resolver), funcName);
+    APPEND_DA(CURRENT_LOCALS(resolver), declared);
+
     for (u32 i = 0; i < node->params.length; i++) {
         // TODO: make this also check for other stuff potentially when optional params are added.
         ASSERT(node->params.data[i]->type == AST_LITERAL, "Parameter is not a variable literal.");
 
+        // +1 on the variable resolution created because the 0th spot is occupied by the func name.
         const Token varName = AS_PTR(LiteralNode, node->params.data[i])->value;
-        const Variable parameter = create_variable(false, false, varName, resolver->scopeDepth);
-        APPEND_DA(CURRENT_CLOSURE(resolver), parameter);
+        const Variable parameter = create_variable(
+            false, false, varName, resolver->scopeDepth, create_var_resolution(i + 1, VAR_LOCAL)
+        );
+        APPEND_DA(CURRENT_LOCALS(resolver), parameter);
     }
     block(resolver, node->body);
+    
     node->body->varsAmount = pop_scope(resolver, SCOPE_FUNC);
 }
 
 /** Resolves a return by resolving the returned value and erroring if we're not inside a func. */
 static void resolve_return(Resolver *resolver, ReturnNode *node) {
-    if (resolver->closures.length < 2) {
+    if (resolver->locals.length < 2) {
         resolution_error(
             resolver, get_node_pos(AS_NODE(node)), "Can't return outside a function scope."
         );
@@ -538,6 +601,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_LOOP_CONTROL: resolve_loop_control(resolver, AS_PTR(LoopControlNode, node)); break;
     case AST_FUNC: resolve_func(resolver, AS_PTR(FuncNode, node)); break;
     case AST_RETURN: resolve_return(resolver, AS_PTR(ReturnNode, node)); break;
+
     case AST_LITERAL:
     case AST_KEYWORD:
     case AST_EOF:

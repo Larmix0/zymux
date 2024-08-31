@@ -38,12 +38,18 @@ typedef enum {
 
 /** The type of scope a resolved name is under. */
 typedef enum {
-    NAME_BUILT_IN,
-    NAME_GLOBAL,
-    NAME_LOCAL,
-    NAME_CLOSURE,
-    NAME_UNRESOLVED
-} NameScope;
+    VAR_BUILT_IN,
+    VAR_GLOBAL,
+    VAR_LOCAL,
+    VAR_CLOSURE,
+    VAR_UNRESOLVED
+} VarScope;
+
+/** Resolution information for any type of name node (assignment, declaration, etc.). */
+typedef struct {
+    VarScope scope;
+    i64 index;
+} VarResolution;
 
 /** Generic AST node struct for type punning. */
 typedef struct Node {
@@ -156,7 +162,7 @@ typedef struct {
     Node *value;
     bool isConst;
 
-    NameScope varScope; /** The type of scope which we're declaring this variable on. */
+    VarResolution resolution;
 } VarDeclNode;
 
 /** An assignment expression used to change the value of an already declared variable. */
@@ -165,8 +171,7 @@ typedef struct {
     Token name;
     Node *value;
 
-    i64 assignIndex; /** For the compiler if varScope was to emit an assign on some array. */
-    NameScope varScope; /** What type of scope the assignment should be done to. */
+    VarResolution resolution;
 } VarAssignNode;
 
 /** Represents an expression that attempts to get the value of a specific variable. */
@@ -174,8 +179,7 @@ typedef struct {
     Node node;
     Token name;
 
-    i64 getIndex; /** For the compiler if varScope was to emit an assign on some array. */
-    NameScope varScope; /** What type of scope the assignment should be done to. */
+    VarResolution resolution;
 } VarGetNode;
 
 /** Represents a full conditional if-else statement in a node where the else part is optional. */

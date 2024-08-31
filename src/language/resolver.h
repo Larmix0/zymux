@@ -5,14 +5,33 @@
 #include "node.h"
 
 #define UNRESOLVED_NUMBER (-1) /** Default for a number to be resolved later. */
-#define UNRESOLVED_NAME_SCOPE (NAME_UNRESOLVED) /** Default scope for unresolved names. */
+#define UNRESOLVED_NAME_SCOPE (VAR_UNRESOLVED) /** Default scope for unresolved names. */
 
-/** Represents a variable's information at compilation time. */
+/** An array for variable resolution addresses */
+DECLARE_DA_STRUCT(VarResolutionArray, VarResolution *);
+
+/** Represents a variable and its resolution information at compilation time. */
 typedef struct {
     bool isPrivate; /** Whether it's private or publicly accessible from the outside. */
     bool isConst; /** Whether it's changeable. */
-    Token name; /** Name of the variable. */
     u32 scope; /** How deep is the variable's scope relative to the closure it's on. */
+    Token name; /** Name of the variable. */
+
+    /** The current variable's resolution, which all referenced resolutions should be set to. */
+    VarResolution currentResolution;
+
+    /** 
+     * An array to the addresses of all resolutions to a specific variable.
+     * This is useful so that if we want to modify some resolution info of a variable,
+     * we can walk this array of addresses and modify all resolutions stored inside nodes
+     * that have resolutions relating to the given variable.
+     * 
+     * For example, if we have a declaration node for a variable, and 2 var get nodes,
+     * then all their 3 resolution's addresses will be stored here, so that if the variable's
+     * scope/index gets modified during the resolution phase, we modify all 3 nodes'
+     * resolution info.
+     */
+    VarResolutionArray resolutions;
 } Variable;
 
 /** An array of variables that a specific closure has (which is 1 or more scopes inside a func). */
@@ -36,9 +55,8 @@ typedef struct {
     ZmxProgram *program; /** Zymux program to hold the program's information. */
     NodeArray ast; /** The whole AST that is being resolved. */
 
-    ClosedVariables globals; /** Covers just the top-level, user-defined global variables scope. */
-    ClosedVariablesArray closures; /** All non-global variables as an array of variable closures. */
-
+    ClosedVariables globals; /** An array of global only variables. */
+    ClosedVariablesArray locals; /** All variables excluding globals as an array of closures. */
     U32Array loopScopes; /** An array of scopes which are considered loop scopes. */
     u32 scopeDepth; /** How deep the current scope is. */
 } Resolver;

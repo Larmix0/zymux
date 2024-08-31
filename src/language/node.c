@@ -124,7 +124,8 @@ Node *new_var_decl_node(ZmxProgram *program, const Token name, Node *value, cons
     node->name = name;
     node->value = value;
     node->isConst = isConst;
-    node->varScope = UNRESOLVED_NAME_SCOPE;
+    node->resolution.index = UNRESOLVED_NUMBER;
+    node->resolution.scope = UNRESOLVED_NAME_SCOPE;
     return AS_NODE(node);
 }
 
@@ -133,8 +134,8 @@ Node *new_var_assign_node(ZmxProgram *program, const Token name, Node *value) {
     VarAssignNode *node = NEW_NODE(program, AST_VAR_ASSIGN, VarAssignNode);
     node->name = name;
     node->value = value;
-    node->assignIndex = UNRESOLVED_NUMBER;
-    node->varScope = UNRESOLVED_NAME_SCOPE;
+    node->resolution.index = UNRESOLVED_NUMBER;
+    node->resolution.scope = UNRESOLVED_NAME_SCOPE;
     return AS_NODE(node);
 }
 
@@ -142,8 +143,8 @@ Node *new_var_assign_node(ZmxProgram *program, const Token name, Node *value) {
 Node *new_var_get_node(ZmxProgram *program, const Token name) {
     VarGetNode *node = NEW_NODE(program, AST_VAR_GET, VarGetNode);
     node->name = name;
-    node->getIndex = UNRESOLVED_NUMBER;
-    node->varScope = UNRESOLVED_NAME_SCOPE;
+    node->resolution.index = UNRESOLVED_NUMBER;
+    node->resolution.scope = UNRESOLVED_NAME_SCOPE;
     return AS_NODE(node);
 }
 
