@@ -9,7 +9,7 @@ PRIVATE_TEST_CASE(test_runtime_stack) {
     ASSERT_NULL(createVm.stack.objects);
 
     ZmxProgram program = create_zmx_program("test", false);
-    program.gc.protectNewObjs = true;
+    GC_PUSH_PROTECTION(&program.gc);
     Vm vm = create_vm(&program, new_func_obj(&program, new_string_obj(&program, "test"), 0, -1));
 
     PUSH(&vm, AS_OBJ(new_int_obj(&program, 32)));
@@ -40,7 +40,7 @@ PRIVATE_TEST_CASE(test_runtime_stack) {
 /** Tests that copy_const_indices copies them properly. */
 PRIVATE_TEST_CASE(test_copy_const_indices) {
     ZmxProgram program = create_zmx_program("test", false);
-    program.gc.protectNewObjs = true;
+    GC_PUSH_PROTECTION(&program.gc);
     
     Vm vm = create_vm(
         &program, new_func_obj(&program, new_string_obj(&program, "First."), 0, -1)

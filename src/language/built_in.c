@@ -84,12 +84,12 @@ NATIVE_FUNC(time) {
 
 /** Loads a native function into the passed table. */
 static void load_native_func(ZmxProgram *program, const char *name, NativeFunc func) {
-    GC_SET_PROTECTION(&program->gc);
+    GC_PUSH_PROTECTION(&program->gc);
     StringObj *nameObj = new_string_obj(program, name);
     NativeFuncObj *native = new_native_func_obj(program, func, nameObj);
     
     table_set(&program->builtIn, AS_OBJ(nameObj), AS_OBJ(native));
-    GC_RESET_PROTECTION(&program->gc);
+    GC_POP_AND_CLEAR_PROTECTED(&program->gc);
 }
 
 /** Loads all built-in objects into the program. */

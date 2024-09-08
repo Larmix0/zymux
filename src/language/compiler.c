@@ -21,13 +21,13 @@ static void compile_node_array(Compiler *compiler, const NodeArray *nodes);
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
 Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPositions) {
-    GC_SET_PROTECTION(&program->gc);
+    GC_PUSH_PROTECTION(&program->gc);
     Compiler compiler = {
         .trackPositions = trackPositions, .program = program, .ast = ast,
         .func = new_func_obj(program, new_string_obj(program, "<main>"), 0, -1),
         .jumps = CREATE_DA(), .breaks = CREATE_DA(), .continues = CREATE_DA(),
     };
-    GC_STOP_PROTECTION(&program->gc);
+    GC_POP_PROTECTION(&program->gc);
     return compiler;
 }
 
@@ -525,23 +525,24 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
         compiler->program, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
     );
     FuncObj *previous = compiler->func;
+    GC_PUSH_PROTECTION(&compiler->program->gc);
     GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(nameAsObj));
     GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(previous));
+
     compiler->func = new_func_obj(
-        compiler->program, nameAsObj,
-        node->params.length, previous->constPool.length
+        compiler->program, nameAsObj, node->params.length, previous->constPool.length
     );
     finish_func(compiler, node);
 
     const SourcePosition previousPos = PREVIOUS_OPCODE_POS(compiler);
     FuncObj *finished = compiler->func;
+    compiler->func = previous;
 #if DEBUG_BYTECODE
     print_bytecode(finished);
 #endif
-    compiler->func = previous;
     emit_const(compiler, OP_LOAD_CONST, AS_OBJ(finished), previousPos);
+    GC_POP_AND_CLEAR_PROTECTED(&compiler->program->gc);
     compile_var_decl(compiler, node->nameDecl);
-    GC_RESET_PROTECTION(&compiler->program->gc);
 }
 
 /** Compiles a return statement with its value. */
@@ -654,7 +655,7 @@ Compiler compile_source(ZmxProgram *program, char *source, const bool trackPosit
     Compiler compiler = create_compiler(program, resolver.ast, trackPositions);
     // Set this compiler as the one being garbage collected. Now compiler's objects can be GC'd.
     program->gc.compiler = &compiler;
-    GC_RESET_PROTECTION(&program->gc);
+    GC_CLEAR_PROTECTED(&program->gc);
     if (!compile(&compiler)) {
         free_out_of_compilation(&lexer, &parser, &resolver, &compiler);
         return emptyCompiler;

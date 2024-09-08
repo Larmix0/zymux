@@ -32,5 +32,5 @@ void free_zmx_program(ZmxProgram *program) {
     free_all_objs(program);
     free_table(&program->builtIn);
     free_table(&program->internedStrings);
-    GC_RESET_PROTECTION(&program->gc);
+    GC_POP_AND_CLEAR_PROTECTED(&program->gc);
 }

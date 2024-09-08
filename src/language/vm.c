@@ -159,11 +159,11 @@ static void reset_program(ZmxProgram *program) {
  */
 static void reset_vm(Vm *vm) {
     ZmxProgram *program = vm->program;
-    GC_SET_PROTECTION(&vm->program->gc);
+    GC_PUSH_PROTECTION(&vm->program->gc);
     program->gc.vm = NULL;
     free_vm(vm);
     *vm = create_vm(program, new_func_obj(program, new_string_obj(program, "<error>"), 0, -1));
-    GC_RESET_PROTECTION(&vm->program->gc);
+    GC_POP_AND_CLEAR_PROTECTED(&vm->program->gc);
     program->gc.vm = vm;
 }
 

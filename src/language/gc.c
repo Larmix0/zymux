@@ -15,7 +15,7 @@ static void mark_obj_array(ObjArray objects);
 Gc create_gc(Compiler *compiler, Vm *vm) {
     Gc gc = {
         .compiler = compiler, .vm = vm, .allocated = 0, .nextCollection = FIRST_COLLECTION_SIZE,
-        .protected = CREATE_DA(), .protectNewObjs = false
+        .protected = CREATE_DA(), .protectionLayers = 0
     };
     return gc;
 }
@@ -24,7 +24,7 @@ Gc create_gc(Compiler *compiler, Vm *vm) {
 Gc create_empty_gc() {
     Gc gc = {
         .compiler = NULL, .vm = NULL, .allocated = 0, .nextCollection = FIRST_COLLECTION_SIZE,
-        .protected = CREATE_DA(), .protectNewObjs = false
+        .protected = CREATE_DA(), .protectionLayers = 0
     };
     return gc;
 }
@@ -45,7 +45,6 @@ static void mark_obj(Obj *object) {
     print_obj(object, true);
     printf(")\n");
 #endif
-
     object->isReachable = true;
     switch (object->type) {
     case OBJ_FUNC: {

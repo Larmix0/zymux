@@ -47,15 +47,6 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-Add a documentation file for built-in names (like what they do, their args, and their return).
-
-Protect GC in layers so if we start protecting, then call a function that protects then resets,
-we won't be unprotecting the things from the first protection set that still aren't safe for GC.
-
 Oopsie, setting GC protection on doesn't seem to necessarily prevent "new" objects from being GCed
 if they were interned (like strings) and therefore already created and don't call NEW_OBJ(),
 where appending to the protection pool happens.
-
-----------------------------------------------------------------------------------------------------
-
-Remove recompiling as it's nearly useless and makes things more complicated.

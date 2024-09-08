@@ -10,28 +10,31 @@
 /** How many more bytes allocated before collection multiplier after each collection. */
 #define COLLECTION_GROWTH 2
 
-/** Starts protecting newly created objects from the GC. */
-#define GC_SET_PROTECTION(gc) ((gc)->protectNewObjs = true)
-
 /** Puts the specifically passed object in the protection pool. */
 #define GC_PROTECT_OBJ(gc, obj) APPEND_DA(&(gc)->protected, obj)
 
-/** Stops protecting newely created objects, but doesn't clear the protection pool itself. */
-#define GC_STOP_PROTECTION(gc) ((gc)->protectNewObjs = false)
+/** Increments the number which allows protecting newly created objects from the GC if > 0. */
+#define GC_PUSH_PROTECTION(gc) ((gc)->protectionLayers++)
 
-/** 
- *
- * Clears the pool of protected objects and stops protecting new objects.
- * 
- * This is done when the protected objects have been placed at the place that would stop them
- * from being collected, and can therefore now be collected if they leave that place and become
- * unreachable.
- */
-#define GC_RESET_PROTECTION(gc) \
+/** Decrements the number which allows protecting newly created objects from the GC if > 0. */
+#define GC_POP_PROTECTION(gc) ((gc)->protectionLayers--)
+
+/** Clears the pool of protected objects if there aren't any current protection layers. */
+#define GC_CLEAR_PROTECTED(gc) \
     do { \
-        FREE_DA(&(gc)->protected); \
-        INIT_DA(&(gc)->protected); \
-        (gc)->protectNewObjs = false; \
+        if ((gc)->protectionLayers <= 1) { \
+            FREE_DA(&(gc)->protected); \
+            INIT_DA(&(gc)->protected); \
+        } \
+    } while (false)
+
+/** Tries to clear the protected pool, and decrements the counter protecting new objects. */
+#define GC_POP_AND_CLEAR_PROTECTED(gc) \
+    do { \
+        if ((gc)->protectionLayers == 1) { \
+            GC_POP_PROTECTION(gc); \
+        } \
+        GC_CLEAR_PROTECTED(gc); \
     } while (false)
 
 typedef struct Compiler Compiler;
@@ -48,7 +51,10 @@ typedef struct Gc {
     Compiler *compiler; /** The current compiler to mark its objects as reachable. */
     Vm *vm; /** The current VM to mark its objects as reachable. */
     ObjArray protected; /** Objects temporarily protected from collection before being reachable. */
-    bool protectNewObjs; /** Whether new objects created should automatically be protected. */
+
+    /** How many "layers" of protection are on the GC. Protects all new objects if this is > 1. */
+    int protectionLayers;
+
     u64 allocated; /** Amount of bytes allocated so far. */
     u64 nextCollection; /** Amount of bytes that need to be allocated before collecting again. */
 } Gc;

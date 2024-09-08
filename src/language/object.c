@@ -39,7 +39,7 @@ static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) 
     object->type = type;
     object->next = program->allObjs;
     program->allObjs = object;
-    if (program->gc.protectNewObjs) {
+    if (program->gc.protectionLayers > 0) {
         APPEND_DA(&program->gc.protected, object);
     }
     return object;
@@ -74,11 +74,19 @@ NullObj *new_null_obj(ZmxProgram *program) {
  * 
  * This function manually allocates a copy of the passed string, so the responsibility
  * of potentially having to free the passed string is not passed to the string object.
+ * 
+ * We also use string interning to save memory on identical strings. In the case of a match
+ * with an existing, interned string we just return it without manually allocating another one.
+ * If that does occur while the GC is in protection mode, we manually protect the interned object
+ * as if we called the real allocator and it protected the created object itself.
  */
 StringObj *new_string_obj(ZmxProgram *program, const char *string) {
     u32 hash = hash_string(string);
     Obj *interned = table_get_string(&program->internedStrings, string, hash);
     if (interned != NULL) {
+        if (program->gc.protectionLayers > 0) {
+            GC_PROTECT_OBJ(&program->gc, interned);
+        }
         return AS_PTR(StringObj, interned);
     }
 
@@ -93,12 +101,12 @@ StringObj *new_string_obj(ZmxProgram *program, const char *string) {
     return object;
 }
 
-/** Returns an allocated string object from a length based string (may not be NUL terminated). */
+/** Returns an allocated string object from a length based string (like unterminated strings). */
 StringObj *string_obj_from_len(ZmxProgram *program, const char *string, const u32 length) {
-    CharBuffer terminated = create_char_buffer();
-    buffer_append_string_len(&terminated, string, length);
-    StringObj *asObj = new_string_obj(program, terminated.text);
-    free_char_buffer(&terminated);
+    CharBuffer copy = create_char_buffer();
+    buffer_append_string_len(&copy, string, length);
+    StringObj *asObj = new_string_obj(program, copy.text);
+    free_char_buffer(&copy);
     return asObj;
 }
 
