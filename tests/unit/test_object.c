@@ -2,6 +2,8 @@
 
 #include "object.c"
 
+#define NEW_TEST_STRING(program, string) (new_string_obj(program, string, strlen(string)))
+
 ZmxProgram *defaultProgram; /** Default program to have objects stored inside of during tests. */
 
 PRIVATE_DECLARE_SETUP(setup_default_program) {
@@ -39,11 +41,11 @@ PRIVATE_TEST_CASE(test_equal_obj) {
     ASSERT_FALSE(equal_obj(AS_OBJ(int1), AS_OBJ(floatNotEqual)));
     ASSERT_FALSE(equal_obj(AS_OBJ(float1), AS_OBJ(floatNotEqual)));
 
-    StringObj *name1 = new_string_obj(defaultProgram, "name");
-    StringObj *name2 = new_string_obj(defaultProgram, "name");
+    StringObj *name1 = NEW_TEST_STRING(defaultProgram, "name");
+    StringObj *name2 = NEW_TEST_STRING(defaultProgram, "name");
     ASSERT_TRUE(equal_obj(AS_OBJ(name1), AS_OBJ(name2)));
 
-    StringObj *numAsString = new_string_obj(defaultProgram, "55");
+    StringObj *numAsString = NEW_TEST_STRING(defaultProgram, "55");
     ASSERT_FALSE(equal_obj(AS_OBJ(name1), AS_OBJ(numAsString)));
     ASSERT_FALSE(equal_obj(AS_OBJ(int1), AS_OBJ(numAsString)));
 
@@ -55,16 +57,16 @@ PRIVATE_TEST_CASE(test_equal_obj) {
 }
 
 PRIVATE_TEST_CASE(test_concatenate) {
-    StringObj *start = new_string_obj(defaultProgram, "start");
-    StringObj *middle = new_string_obj(defaultProgram, " middle");
-    StringObj *end = new_string_obj(defaultProgram, " end");
+    StringObj *start = NEW_TEST_STRING(defaultProgram, "start");
+    StringObj *middle = NEW_TEST_STRING(defaultProgram, " middle");
+    StringObj *end = NEW_TEST_STRING(defaultProgram, " end");
 
     StringObj *startMiddle = concatenate(defaultProgram, start, middle);
-    StringObj *expectedStartMiddle = new_string_obj(defaultProgram, "start middle");
+    StringObj *expectedStartMiddle = NEW_TEST_STRING(defaultProgram, "start middle");
     ASSERT_TRUE(equal_obj(AS_OBJ(startMiddle), AS_OBJ(expectedStartMiddle)));
 
     StringObj *full = concatenate(defaultProgram, startMiddle, end);
-    StringObj *expectedFull = new_string_obj(defaultProgram, "start middle end");
+    StringObj *expectedFull = NEW_TEST_STRING(defaultProgram, "start middle end");
     ASSERT_TRUE(equal_obj(AS_OBJ(full), AS_OBJ(expectedFull)));
 }
 

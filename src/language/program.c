@@ -16,7 +16,7 @@ ZmxProgram create_zmx_program(char *file, const bool showErrors) {
         .gc = create_empty_gc()
     };
     intern_objs(&program);
-    program.mainFile = new_string_obj(&program, file);
+    program.mainFile = new_string_obj(&program, file, strlen(file));
     program.currentFile = program.mainFile;
     load_built_ins(&program);
     return program;

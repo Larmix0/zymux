@@ -162,7 +162,7 @@ static void reset_vm(Vm *vm) {
     GC_PUSH_PROTECTION(&vm->program->gc);
     program->gc.vm = NULL;
     free_vm(vm);
-    *vm = create_vm(program, new_func_obj(program, new_string_obj(program, "<error>"), 0, -1));
+    *vm = create_vm(program, new_func_obj(program, new_string_obj(program, "", 0), 0, -1));
     GC_POP_AND_CLEAR_PROTECTED(&vm->program->gc);
     program->gc.vm = vm;
 }
@@ -424,7 +424,7 @@ static bool execute_vm(Vm *vm) {
         }
         case OP_FINISH_STRING: {
             const u32 amount = READ_NUMBER(vm);
-            StringObj *string = new_string_obj(vm->program, "");
+            StringObj *string = new_string_obj(vm->program, "", 0);
 
             // Build a string from the deepest/oldest till the outermost/newest one in the stack.
             for (u32 i = 1; i <= amount; i++) {

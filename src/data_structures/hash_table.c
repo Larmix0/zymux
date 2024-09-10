@@ -46,11 +46,10 @@ static u32 hash_float(const ZmxFloat floatNumber) {
 }
 
 /** Hashes a string using the DJB2 hashing function. */
-u32 hash_string(const char *string) {
+u32 hash_string(const char *string, const u32 length) {
     u32 hash = 5381;
-    char current;
-    while ((current = *string++)) {
-        hash = ((hash << 5) + hash) + current;
+    for (u32 i = 0; i < length; i++) {
+        hash = ((hash << 5) + hash) + string[i];
     }
     return hash;
 }
@@ -238,7 +237,7 @@ bool table_delete(Table *table, Obj *key) {
 }
 
 /** Returns the string key in a hash table if it exists, otherwise returns NULL. */
-Obj *table_get_string(Table *table, const char *string, const u32 hash) {
+Obj *table_get_string(Table *table, const char *string, const u32 length, const u32 hash) {
     if (table->entries == NULL) {
         // Empty table, just expand it and return that the key doesn't exist.
         expand_table(table);
@@ -258,8 +257,7 @@ Obj *table_get_string(Table *table, const char *string, const u32 hash) {
         
         StringObj *key = AS_PTR(StringObj, entry->key);
         if (
-            key->hash == hash && (size_t)key->length == strlen(string) 
-            && strncmp(key->string, string, key->length) == 0
+            key->hash == hash && key->length == length && strncmp(key->string, string, length) == 0
         ) {
             return entry->key;
         }

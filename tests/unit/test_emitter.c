@@ -76,8 +76,10 @@ PRIVATE_TEST_CASE(test_emit_const) {
         defaultCompiler, OP_LOAD_CONST, AS_OBJ(new_int_obj(defaultCompiler->program, 72)),
         create_src_pos(1, 2, 3)
     );
+    const char *globalGet = "name";
     emit_const(
-        defaultCompiler, OP_GET_GLOBAL, AS_OBJ(new_string_obj(defaultCompiler->program, "name")),
+        defaultCompiler, OP_GET_GLOBAL,
+        AS_OBJ(new_string_obj(defaultCompiler->program, globalGet, strlen(globalGet))),
         create_src_pos(54, 336, 101)
     );
 

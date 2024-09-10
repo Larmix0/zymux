@@ -80,34 +80,25 @@ NullObj *new_null_obj(ZmxProgram *program) {
  * If that does occur while the GC is in protection mode, we manually protect the interned object
  * as if we called the real allocator and it protected the created object itself.
  */
-StringObj *new_string_obj(ZmxProgram *program, const char *string) {
-    u32 hash = hash_string(string);
-    Obj *interned = table_get_string(&program->internedStrings, string, hash);
+StringObj *new_string_obj(ZmxProgram *program, const char *string, const u32 length) {
+    const u32 hash = hash_string(string, length);
+    Obj *interned = table_get_string(&program->internedStrings, string, length, hash);
     if (interned != NULL) {
         if (program->gc.protectionLayers > 0) {
-            GC_PROTECT_OBJ(&program->gc, interned);
+            GC_PROTECT_OBJ(&program->gc, interned); // Manually protect interned string from GC.
         }
         return AS_PTR(StringObj, interned);
     }
 
     StringObj *object = NEW_OBJ(program, OBJ_STRING, StringObj);
-    object->length = strlen(string);
+    object->length = length;
     object->hash = hash;
-
     object->string = ARRAY_ALLOC(object->length + 1, char);
     strncpy(object->string, string, object->length);
     object->string[object->length] = '\0';
+
     table_set(&program->internedStrings, AS_OBJ(object), AS_OBJ(program->internedNull));
     return object;
-}
-
-/** Returns an allocated string object from a length based string (like unterminated strings). */
-StringObj *string_obj_from_len(ZmxProgram *program, const char *string, const u32 length) {
-    CharBuffer copy = create_char_buffer();
-    buffer_append_string_len(&copy, string, length);
-    StringObj *asObj = new_string_obj(program, copy.text);
-    free_char_buffer(&copy);
-    return asObj;
 }
 
 /** Returns a range object created from the passed numbers. */
@@ -194,7 +185,7 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
         if (iterator->iteration >= string->length) {
             return NULL;
         }
-        return AS_OBJ(string_obj_from_len(program, string->string + iterator->iteration++, 1));
+        return AS_OBJ(new_string_obj(program, string->string + iterator->iteration++, 1));
     }
     case OBJ_RANGE: {
         RangeObj *range = AS_PTR(RangeObj, iterator->iterable);
@@ -262,7 +253,7 @@ StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringO
     strncpy(concatenated + left->length, right->string, right->length);
     concatenated[left->length + right->length] = '\0';
 
-    StringObj *result = new_string_obj(program, concatenated);
+    StringObj *result = new_string_obj(program, concatenated, left->length + right->length);
     free(concatenated);
     return result;
 }
@@ -312,7 +303,7 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
         break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
-    StringObj *result = new_string_obj(program, string.text);
+    StringObj *result = new_string_obj(program, string.text, string.length);
     free_char_buffer(&string);
     return result;
 }

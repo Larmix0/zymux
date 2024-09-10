@@ -1,4 +1,5 @@
 #include <stdarg.h>
+#include <string.h>
 
 #include "compiler.h"
 #include "emitter.h"
@@ -22,11 +23,14 @@ static void compile_node_array(Compiler *compiler, const NodeArray *nodes);
 /** Returns a compiler initialized with the passed program and parsed AST. */
 Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPositions) {
     GC_PUSH_PROTECTION(&program->gc);
+    const char *mainName = "<main>";
+
     Compiler compiler = {
         .trackPositions = trackPositions, .program = program, .ast = ast,
-        .func = new_func_obj(program, new_string_obj(program, "<main>"), 0, -1),
+        .func = new_func_obj(program, new_string_obj(program, mainName, strlen(mainName)), 0, -1),
         .jumps = CREATE_DA(), .breaks = CREATE_DA(), .continues = CREATE_DA(),
     };
+
     GC_POP_PROTECTION(&program->gc);
     return compiler;
 }
@@ -53,7 +57,9 @@ static void compile_literal(Compiler *compiler, const LiteralNode *node) {
         literalAsObj = AS_OBJ(new_float_obj(compiler->program, value.floatVal));
         break;
     case TOKEN_STRING_LIT:
-        literalAsObj = AS_OBJ(new_string_obj(compiler->program, value.stringVal.text));
+        literalAsObj = AS_OBJ(
+            new_string_obj(compiler->program, value.stringVal.text, value.stringVal.length)
+        );
         break;
     default:
         UNREACHABLE_ERROR();
@@ -204,14 +210,13 @@ static void compile_block(Compiler *compiler, const BlockNode *node) {
 static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
     compile_node(compiler, node->value);
 
+    const Token name = node->name;
     switch (node->resolution.scope) {
     case VAR_LOCAL:
         break;
     case VAR_GLOBAL: {
-        StringObj *nameAsObj = string_obj_from_len(
-            compiler->program, node->name.lexeme, node->name.pos.length
-        );
-        emit_const(compiler, OP_DECLARE_GLOBAL, AS_OBJ(nameAsObj), node->name.pos);
+        StringObj *nameAsObj = new_string_obj(compiler->program, name.lexeme, name.pos.length);
+        emit_const(compiler, OP_DECLARE_GLOBAL, AS_OBJ(nameAsObj), name.pos);
         break;
     }
     case VAR_CLOSURE:
@@ -242,18 +247,17 @@ static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
 static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
     compile_node(compiler, node->value);
 
+    const Token name = node->name;
     switch (node->resolution.scope) {
     case VAR_LOCAL:
-        emit_number(compiler, OP_ASSIGN_LOCAL, node->resolution.index, node->name.pos);
+        emit_number(compiler, OP_ASSIGN_LOCAL, node->resolution.index, name.pos);
         break;
     case VAR_CLOSURE:
         // TODO: add closure assignment code here.
         break;
     case VAR_GLOBAL: {
-        StringObj *nameAsObj = string_obj_from_len(
-            compiler->program, node->name.lexeme, node->name.pos.length
-        );
-        emit_const(compiler, OP_ASSIGN_GLOBAL, AS_OBJ(nameAsObj), node->name.pos);
+        StringObj *nameAsObj = new_string_obj(compiler->program, name.lexeme, name.pos.length);
+        emit_const(compiler, OP_ASSIGN_GLOBAL, AS_OBJ(nameAsObj), name.pos);
         break;
     }
     case VAR_BUILT_IN:
@@ -279,19 +283,19 @@ static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
 static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
     // Just declare the name object here since it's used multiple times.
     const Token name = node->name;
-    Obj *nameAsObj = AS_OBJ(string_obj_from_len(compiler->program, name.lexeme, name.pos.length));
+    Obj *nameAsObj = AS_OBJ(new_string_obj(compiler->program, name.lexeme, name.pos.length));
     switch (node->resolution.scope) {
     case VAR_LOCAL:
-        emit_number(compiler, OP_GET_LOCAL, node->resolution.index, node->name.pos);
+        emit_number(compiler, OP_GET_LOCAL, node->resolution.index, name.pos);
         break;
     case VAR_CLOSURE:
         // TODO: add getting closure variable's code here.
         break;
     case VAR_GLOBAL:
-        emit_const(compiler, OP_GET_GLOBAL, AS_OBJ(nameAsObj), node->name.pos);
+        emit_const(compiler, OP_GET_GLOBAL, AS_OBJ(nameAsObj), name.pos);
         break;
     case VAR_BUILT_IN:
-        emit_const(compiler, OP_GET_BUILT_IN, AS_OBJ(nameAsObj), node->name.pos);
+        emit_const(compiler, OP_GET_BUILT_IN, AS_OBJ(nameAsObj), name.pos);
         break;
     case VAR_UNRESOLVED:
         UNREACHABLE_ERROR();
@@ -521,7 +525,7 @@ static void finish_func(Compiler *compiler, const FuncNode *node) {
  * TODO: add optional parameters.
  */
 static void compile_func(Compiler *compiler, const FuncNode *node) {
-    StringObj *nameAsObj = string_obj_from_len(
+    StringObj *nameAsObj = new_string_obj(
         compiler->program, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
     );
     FuncObj *previous = compiler->func;

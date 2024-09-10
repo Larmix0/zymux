@@ -13,7 +13,8 @@ PRIVATE_TEST_CASE(test_load_built_ins) {
     intern_objs(&program);
     load_built_ins(&program);
     
-    Obj *printName = AS_OBJ(new_string_obj(&program, "print"));
+    const char *printString = "print";
+    Obj *printName = AS_OBJ(new_string_obj(&program, printString, strlen(printString)));
     Obj *nativePrint = table_get(&program.builtIn, printName);
 
     ASSERT_TRUE(nativePrint->type == OBJ_NATIVE_FUNC);

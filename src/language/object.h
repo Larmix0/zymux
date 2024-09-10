@@ -147,10 +147,7 @@ BoolObj *new_bool_obj(ZmxProgram *program, const bool boolean);
 NullObj *new_null_obj(ZmxProgram *program);
 
 /** Returns a new allocated string object. */
-StringObj *new_string_obj(ZmxProgram *program, const char *string);
-
-/** Returns an allocated string object from a length based string (may not be NUL terminated). */
-StringObj *string_obj_from_len(ZmxProgram *program, const char *string, const u32 length);
+StringObj *new_string_obj(ZmxProgram *program, const char *string, const u32 length);
 
 /** Returns a range object created from the passed numbers. */
 RangeObj *new_range_obj(

@@ -4,6 +4,8 @@
 
 #include "hash_table.c"
 
+#define NEW_TEST_STRING(program, string) (new_string_obj(program, string, strlen(string)))
+
 static ZmxProgram defaultProgram; /** Default program for storing objects. */
 static Table defaultTable; /** Default table for testing. */
 
@@ -25,24 +27,36 @@ PRIVATE_TEST_CASE(test_table_get_string) {
     expand_table(&defaultTable);
     char *something = "Something.";
     char *name = "Name";
-    Obj *somethingAsObj = AS_OBJ(new_string_obj(&defaultProgram, something));
-    Obj *nameAsObj = AS_OBJ(new_string_obj(&defaultProgram, name));
-    ASSERT_NULL(table_get_string(&defaultTable, something, hash_string(something)));
-    ASSERT_NULL(table_get_string(&defaultTable, name, hash_string(name)));
+    Obj *somethingAsObj = AS_OBJ(NEW_TEST_STRING(&defaultProgram, something));
+    Obj *nameAsObj = AS_OBJ(NEW_TEST_STRING(&defaultProgram, name));
+    ASSERT_NULL(table_get_string(
+        &defaultTable, something, strlen(something), hash_string(something, strlen(something))
+    ));
+    ASSERT_NULL(table_get_string(
+        &defaultTable, name, strlen(name), hash_string(name, strlen(name))
+    ));
 
     table_set(&defaultTable, somethingAsObj, AS_OBJ(new_null_obj(&defaultProgram)));
-    Obj *foundSomething = table_get_string(&defaultTable, something, hash_string(something));
+    Obj *foundSomething = table_get_string(
+        &defaultTable, something, strlen(something), hash_string(something, strlen(something))
+    );
     ASSERT_NOT_NULL(foundSomething);
     ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundSomething)->string, something);
 
     table_set(&defaultTable, nameAsObj, AS_OBJ(new_null_obj(&defaultProgram)));
-    Obj *foundName = table_get_string(&defaultTable, name, hash_string(name));
+    Obj *foundName = table_get_string(
+        &defaultTable, name, strlen(name), hash_string(name, strlen(name))
+    );
     ASSERT_NOT_NULL(foundName);
     ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundName)->string, name);
 
     table_delete(&defaultTable, somethingAsObj);
-    ASSERT_NULL(table_get_string(&defaultTable, something, hash_string(something)));
-    foundName = table_get_string(&defaultTable, name, hash_string(name));
+    ASSERT_NULL(table_get_string(
+        &defaultTable, something, strlen(something), hash_string(something, strlen(something))
+    ));
+    foundName = table_get_string(
+        &defaultTable, name, strlen(name), hash_string(name, strlen(name))
+    );
     ASSERT_NOT_NULL(foundName);
     ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundName)->string, name);
 }
@@ -50,18 +64,18 @@ PRIVATE_TEST_CASE(test_table_get_string) {
 /** Tests that the table's deletion works properly and back shifts elements if optimal. */
 PRIVATE_TEST_CASE(test_table_delete) {
     expand_table(&defaultTable);
-    Obj *firstKey = AS_OBJ(new_string_obj(&defaultProgram, "First."));
+    Obj *firstKey = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "First."));
     Obj *firstValue = AS_OBJ(new_int_obj(&defaultProgram, 2));
     table_set(&defaultTable, firstKey, firstValue);
     u32 firstIndex = get_entry_of_key(&defaultTable, firstKey) - defaultTable.entries;
 
     Entry *manuallySet = &defaultTable.entries[GET_ENTRY_IDX(firstIndex + 1, &defaultTable)];
-    manuallySet->key = AS_OBJ(new_string_obj(&defaultProgram, "Second."));
+    manuallySet->key = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Second."));
     manuallySet->value = AS_OBJ(new_int_obj(&defaultProgram, 2));
     manuallySet->psl = 1;
 
     manuallySet = &defaultTable.entries[GET_ENTRY_IDX(firstIndex + 2, &defaultTable)];
-    manuallySet->key = AS_OBJ(new_string_obj(&defaultProgram, "Third."));
+    manuallySet->key = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Third."));
     manuallySet->value = AS_OBJ(new_int_obj(&defaultProgram, 3));
     manuallySet->psl = 0;
 
@@ -70,22 +84,22 @@ PRIVATE_TEST_CASE(test_table_delete) {
     ASSERT_NULL(table_get(&defaultTable, firstKey));
 
     Entry *movedSecond = &defaultTable.entries[GET_ENTRY_IDX(firstIndex, &defaultTable)];
-    ASSERT_TRUE(equal_obj(movedSecond->key, AS_OBJ(new_string_obj(&defaultProgram, "Second."))));
+    ASSERT_TRUE(equal_obj(movedSecond->key, AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Second."))));
     ASSERT_INT_EQUAL(movedSecond->psl, 0);
 
     Entry *sameThird = &defaultTable.entries[GET_ENTRY_IDX(firstIndex + 2, &defaultTable)];
     ASSERT_TRUE(
         sameThird->key != NULL
-        && equal_obj(sameThird->key, AS_OBJ(new_string_obj(&defaultProgram, "Third.")))
+        && equal_obj(sameThird->key, AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Third.")))
     );
 }
 
 /** Tests that the table's set adds the key value pair or changes it if it was already set. */
 PRIVATE_TEST_CASE(test_table_set) {
     expand_table(&defaultTable);
-    Obj *key = AS_OBJ(new_string_obj(&defaultProgram, "To set."));
+    Obj *key = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "To set."));
     Obj *originalValue = AS_OBJ(new_bool_obj(&defaultProgram, true));
-    Obj *modifiedValue = AS_OBJ(new_string_obj(&defaultProgram, "Changed."));
+    Obj *modifiedValue = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Changed."));
 
     Obj *beforeAdding = table_get(&defaultTable, key);
     ASSERT_NULL(beforeAdding);
@@ -102,7 +116,7 @@ PRIVATE_TEST_CASE(test_table_set) {
 /** Tests that the table's get performs the operation correctly by manually inserting elements. */
 PRIVATE_TEST_CASE(test_table_get) {
     expand_table(&defaultTable);
-    Obj *key = AS_OBJ(new_string_obj(&defaultProgram, "A key."));
+    Obj *key = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "A key."));
     Obj *value = AS_OBJ(new_int_obj(&defaultProgram, 234));
 
     Obj *before = table_get(&defaultTable, key);
@@ -120,7 +134,7 @@ PRIVATE_TEST_CASE(test_table_get) {
 /** Tests that we correctly get the corresponding entry from a key, empty or not. */
 PRIVATE_TEST_CASE(test_get_entry_of_key) {
     expand_table(&defaultTable);
-    Obj *key = AS_OBJ(new_string_obj(&defaultProgram, "Key."));
+    Obj *key = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Key."));
     Obj *value = AS_OBJ(new_float_obj(&defaultProgram, 11.2));
 
     Entry *beforeAdding = get_entry_of_key(&defaultTable, key);
@@ -158,7 +172,7 @@ PRIVATE_TEST_CASE(test_expand_table) {
     }
 
     Entry *manuallySet = &defaultTable.entries[defaultTable.capacity / 2];
-    manuallySet->key = AS_OBJ(new_string_obj(&defaultProgram, "Manual."));
+    manuallySet->key = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Manual."));
     manuallySet->value = AS_OBJ(new_bool_obj(&defaultProgram, true));
     manuallySet->psl = 3;
 
@@ -174,7 +188,7 @@ PRIVATE_TEST_CASE(test_expand_table) {
         }
         ASSERT_FALSE(foundManuallySet);
         foundManuallySet = true;
-        ASSERT_TRUE(equal_obj(entry->key, AS_OBJ(new_string_obj(&defaultProgram, "Manual."))));
+        ASSERT_TRUE(equal_obj(entry->key, AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Manual."))));
         ASSERT_TRUE(equal_obj(entry->value, AS_OBJ(new_bool_obj(&defaultProgram, true))));
         // Don't assert PSL as it might change while expanding and moving to new locations.
     }
@@ -183,20 +197,20 @@ PRIVATE_TEST_CASE(test_expand_table) {
 /** Tests that the functions for swapping the fields of 2 entries works properly. */
 PRIVATE_TEST_CASE(test_swap_entries) {
     Entry left = {
-        .key = AS_OBJ(new_string_obj(&defaultProgram, "Left.")),
+        .key = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Left.")),
         .value = AS_OBJ(new_int_obj(&defaultProgram, 111)),
         .psl = 232
     };
     Entry right = {
-        .key = AS_OBJ(new_string_obj(&defaultProgram, "Right.")),
+        .key = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Right.")),
         .value = AS_OBJ(new_bool_obj(&defaultProgram, false)),
         .psl = 909
     };
     swap_entries(&left, &right);
-    ASSERT_TRUE(equal_obj(left.key, AS_OBJ(new_string_obj(&defaultProgram, "Right."))));
+    ASSERT_TRUE(equal_obj(left.key, AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Right."))));
     ASSERT_TRUE(equal_obj(left.value, AS_OBJ(new_bool_obj(&defaultProgram, false))));
     ASSERT_INT_EQUAL(left.psl, 909);
-    ASSERT_TRUE(equal_obj(right.key, AS_OBJ(new_string_obj(&defaultProgram, "Left."))));
+    ASSERT_TRUE(equal_obj(right.key, AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Left."))));
     ASSERT_TRUE(equal_obj(right.value, AS_OBJ(new_int_obj(&defaultProgram, 111))));
     ASSERT_INT_EQUAL(right.psl, 232);
 }
@@ -204,7 +218,7 @@ PRIVATE_TEST_CASE(test_swap_entries) {
 /** Tests that the function for emptying entries works. */
 PRIVATE_TEST_CASE(test_make_entry_empty) {
     Entry entry = {
-        .key = AS_OBJ(new_string_obj(&defaultProgram, "Test.")),
+        .key = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Test.")),
         .value = AS_OBJ(new_int_obj(&defaultProgram, 2)),
         .psl = 32
     };

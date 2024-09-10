@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 
 #include "built_in.h"
@@ -85,7 +86,7 @@ NATIVE_FUNC(time) {
 /** Loads a native function into the passed table. */
 static void load_native_func(ZmxProgram *program, const char *name, NativeFunc func) {
     GC_PUSH_PROTECTION(&program->gc);
-    StringObj *nameObj = new_string_obj(program, name);
+    StringObj *nameObj = new_string_obj(program, name, strlen(name));
     NativeFuncObj *native = new_native_func_obj(program, func, nameObj);
     
     table_set(&program->builtIn, AS_OBJ(nameObj), AS_OBJ(native));
