@@ -35,7 +35,13 @@ typedef struct {
 } Variable;
 
 /** An array of variables that a specific closure has (which is 1 or more scopes inside a func). */
-DECLARE_DA_STRUCT(ClosedVariables, Variable);
+DECLARE_DA_STRUCT(VariableArray, Variable);
+
+/** A struct that holds information about a closure's variables, local and captured ones. */
+typedef struct {
+    VariableArray vars;
+    VariableArray captured;
+} ClosedVariables;
 
 /** The array of variable's inside a function, which may include multiple scopes. */
 DECLARE_DA_STRUCT(ClosedVariablesArray, ClosedVariables);
@@ -55,7 +61,7 @@ typedef struct {
     ZmxProgram *program; /** Zymux program to hold the program's information. */
     NodeArray ast; /** The whole AST that is being resolved. */
 
-    ClosedVariables globals; /** An array of global only variables. */
+    ClosedVariables globals; /** An array of only globally declared variables. */
     ClosedVariablesArray locals; /** All variables excluding globals as an array of closures. */
     U32Array loopScopes; /** An array of scopes which are considered loop scopes. */
     u32 scopeDepth; /** How deep the current scope is. */

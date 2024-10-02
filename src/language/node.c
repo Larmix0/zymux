@@ -109,7 +109,8 @@ Node *new_block_node(ZmxProgram *program, const NodeArray stmts, const SourcePos
     BlockNode *node = NEW_NODE(program, AST_BLOCK, BlockNode);
     node->stmts = stmts;
     node->pos = pos;
-    node->varsAmount = UNRESOLVED_NUMBER;
+    node->localsAmount = UNRESOLVED_NUMBER;
+    node->capturedAmount = UNRESOLVED_NUMBER;
     return AS_NODE(node);
 }
 

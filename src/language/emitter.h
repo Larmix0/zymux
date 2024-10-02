@@ -63,6 +63,9 @@ typedef enum {
     OP_GET_GLOBAL,
     OP_ASSIGN_LOCAL,
     OP_GET_LOCAL,
+    OP_CAPTURE,
+    OP_ASSIGN_CAPTURED,
+    OP_GET_CAPTURED,
     OP_CALL,
     OP_JUMP,
     OP_JUMP_BACK,
@@ -71,6 +74,7 @@ typedef enum {
     OP_POP_JUMP_BACK_IF,
     OP_POP,
     OP_POP_AMOUNT,
+    OP_POP_CAPTURED,
     OP_RETURN,
     OP_END
 } OpCode;

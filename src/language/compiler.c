@@ -194,7 +194,10 @@ static void compile_expr_stmt(Compiler *compiler, const ExprStmtNode *node) {
 /** Compiles a block's array of statements then emits pops for its declared variables. */
 static void compile_block(Compiler *compiler, const BlockNode *node) {
     compile_node_array(compiler, &node->stmts);
-    emit_pops(compiler, node->varsAmount, node->pos);
+    emit_pops(compiler, node->localsAmount - node->capturedAmount, node->pos);
+    if (node->capturedAmount > 0) {
+        emit_number(compiler, OP_POP_CAPTURED, node->capturedAmount, node->pos);
+    }
 }
 
 /**
@@ -214,12 +217,14 @@ static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
     switch (node->resolution.scope) {
     case VAR_LOCAL:
         break;
+    case VAR_CAPTURED:
+        emit_instr(compiler, OP_CAPTURE, node->name.pos);
+        break;
     case VAR_GLOBAL: {
         StringObj *nameAsObj = new_string_obj(compiler->program, name.lexeme, name.pos.length);
         emit_const(compiler, OP_DECLARE_GLOBAL, AS_OBJ(nameAsObj), name.pos);
         break;
     }
-    case VAR_CLOSURE:
     case VAR_BUILT_IN:
     case VAR_UNRESOLVED:
         UNREACHABLE_ERROR();
@@ -252,8 +257,8 @@ static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
     case VAR_LOCAL:
         emit_number(compiler, OP_ASSIGN_LOCAL, node->resolution.index, name.pos);
         break;
-    case VAR_CLOSURE:
-        // TODO: add closure assignment code here.
+    case VAR_CAPTURED:
+        emit_number(compiler, OP_ASSIGN_CAPTURED, node->resolution.index, name.pos);
         break;
     case VAR_GLOBAL: {
         StringObj *nameAsObj = new_string_obj(compiler->program, name.lexeme, name.pos.length);
@@ -288,8 +293,8 @@ static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
     case VAR_LOCAL:
         emit_number(compiler, OP_GET_LOCAL, node->resolution.index, name.pos);
         break;
-    case VAR_CLOSURE:
-        // TODO: add getting closure variable's code here.
+    case VAR_CAPTURED:
+        emit_number(compiler, OP_GET_CAPTURED, node->resolution.index, name.pos);
         break;
     case VAR_GLOBAL:
         emit_const(compiler, OP_GET_GLOBAL, AS_OBJ(nameAsObj), name.pos);

@@ -41,7 +41,7 @@ typedef enum {
     VAR_BUILT_IN,
     VAR_GLOBAL,
     VAR_LOCAL,
-    VAR_CLOSURE,
+    VAR_CAPTURED,
     VAR_UNRESOLVED
 } VarScope;
 
@@ -152,7 +152,8 @@ typedef struct {
     NodeArray stmts;
     SourcePosition pos;
 
-    i64 varsAmount; /** How many variables are declared inside this specific block. */
+    i64 localsAmount; /** How many variables are within the block (excludes captured ones). */
+    i64 capturedAmount; /** How many captured variables were declared within this block. */
 } BlockNode;
 
 /** Holds a variable declaration statement */
