@@ -211,7 +211,7 @@ typedef struct {
 /** A for in loop, which executes until we fully iterated through the loop's iterable. */
 typedef struct {
     Node node;
-    Token loopVar;
+    VarDeclNode *loopVar;
     Node *iterable; /** An expression which should result in an iterable object at runtime. */
     BlockNode *body;
 } ForNode;
@@ -228,8 +228,8 @@ typedef struct {
     TokenType keyword;
     SourcePosition pos;
     
-    /** Amount of variables declared inside the loop block before this node is encountered. */
-    u32 loopVarsAmount;
+    i64 localsAmount; /** Amount of locals declared inside the loop block before this node. */
+    i64 capturedAmount; /** Amount of declared locals captured within the loop before this node. */
 } LoopControlNode;
 
 /** Holds some form of a function (normal function, method, initializer, etc.). */
@@ -238,12 +238,16 @@ typedef struct {
     VarDeclNode *nameDecl;
     NodeArray params;
     BlockNode *body;
+
+    bool isClosure;
 } FuncNode;
 
 /** For exiting a function with a certain value (null by default if nothing is provided). */
 typedef struct {
     Node node;
     Node *returnValue;
+
+    i64 capturedPops; /** How many captured should be popped when returning. 0 if none. */
 } ReturnNode;
 
 /** Node that simply represents EOF and holds its position. */
@@ -314,7 +318,7 @@ Node *new_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
 Node *new_do_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
 
 /** Allocates a for loop node. */
-Node *new_for_node(ZmxProgram *program, const Token loopVar, Node *iterable, BlockNode *body);
+Node *new_for_node(ZmxProgram *program, VarDeclNode *loopVar, Node *iterable, BlockNode *body);
 
 /** Allocates a node for some loop control statement (break or continue). */
 Node *new_loop_control_node(ZmxProgram *program, const Token keyword);

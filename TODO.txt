@@ -50,10 +50,9 @@ Optimization:
 Implement LAST_ITEM_DA() to more easily access the last element of a dynamic array.
 Make it resolve to NULL if the array doesn't have any elements to begin with.
 
-When capturing a local, don't actually remove it from the scope which created it.
-Just create a captured copy on that closed scope that inner functions can then copy as well.
-May or may not still need to pop those captured variables in cases where the captured is inside
-some scope that's not the function itself and therefore needs to be popped so that another variable
-in a different scope can be created with its same name. Maybe not though if we just see the newest
-variable in closure with a given name (meaning we don't need to pop). Though that might cause
-problems with indexing or something, idk.
+Test out the new DROP_AMOUNT_DA().
+
+Potentionally name VM stack macros to have _VM() suffix to make what they modify clear.
+
+Is manually protecting strings even a good thing? Because it seems it might be caught up
+in a gc pop.

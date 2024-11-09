@@ -37,7 +37,8 @@
             INCREASE_CAPACITY((da)->capacity); \
             (da)->data = REALLOC((da)->data, (da)->capacity * sizeof(*(da)->data)); \
         } \
-        (da)->data[(da)->length++] = (item); \
+        (da)->data[(da)->length] = (item); \
+        (da)->length++; \
     } while (false)
 
 /** Pops and returns the last element from the passed dynamic array. */
@@ -45,6 +46,9 @@
 
 /** Simply drops the last element of the passed dynamic array without returning it. */
 #define DROP_DA(da) ((da)->length--)
+
+/** Removes "amount" of elements from the top of the array by subtracting its length.  */
+#define DROP_AMOUNT_DA(da, amount) ((da)->length -= amount)
 
 /**
  * Frees the memory of the data in the dynamic array.

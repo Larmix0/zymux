@@ -112,15 +112,52 @@ RangeObj *new_range_obj(
     return object;
 }
 
-/** Returns a new allocated function object with a name to it and its members initialized. */
+/** Returns a newely created indirect reference to the passed object (capturing the object). */
+CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured) {
+    CapturedObj *object = NEW_OBJ(program, OBJ_CAPTURED, CapturedObj);
+    object->captured = captured;
+    return object;
+}
+
+/** 
+ * Returns a new allocated function object with a name to it and its members initialized.
+ * 
+ * If isClosure is set to true, then it'll allocate a larger function that allows it to be
+ * converted to a closure type that reveals an extra closure context that not every function may
+ * have.
+ */
 FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 arity, const int constIdx) {
-    FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);
+    FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);;
+    object->isClosure = false;
     object->name = name;
     object->arity = arity;
     object->constIdx = constIdx;
+
     INIT_DA(&object->bytecode);
     INIT_DA(&object->positions);
     INIT_DA(&object->constPool);
+    return object;
+}
+
+/** 
+ * Returns a new closure, which is merely an extended function that has a closure context in it.
+ * 
+ * This is because closures aren't "objects" but instead a function which has a closure context
+ * extension allocated, and that extension can be revealed by converting to the closure type.
+ * 
+ * We make the closure by setting its func to a copy of the passed function that is to be closed,
+ * except not changing the base object the closure originally allocated, as it has pointers
+ * that should never change.
+ */
+ClosureObj *new_closure_obj(ZmxProgram *program, FuncObj *closedFunc, const bool isToplevel) {
+    ClosureObj *object = NEW_OBJ(program, OBJ_FUNC, ClosureObj);
+    Obj base = object->func.obj;
+    object->func = *closedFunc;
+    object->func.obj = base; // Change the obj back to the closure's one after copying the func.
+
+    object->func.isClosure = true;
+    object->isToplevel = isToplevel;
+    INIT_DA(&AS_PTR(ClosureObj, object)->captures);
     return object;
 }
 
@@ -162,6 +199,7 @@ bool is_iterable(const Obj *object) {
     case OBJ_FLOAT:
     case OBJ_BOOL:
     case OBJ_NULL:
+    case OBJ_CAPTURED:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
@@ -203,6 +241,7 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
     case OBJ_FLOAT:
     case OBJ_BOOL:
     case OBJ_NULL:
+    case OBJ_CAPTURED:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
@@ -231,6 +270,7 @@ bool equal_obj(const Obj *left, const Obj *right) {
     switch (left->type) {
     case OBJ_STRING:
     case OBJ_RANGE:
+    case OBJ_CAPTURED:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
@@ -288,6 +328,11 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
         );
         break;
     }
+    case OBJ_CAPTURED:
+        buffer_append_format(
+            &string, "<captured %s>", as_string(program, AS_PTR(CapturedObj, object)->captured)
+        );
+        break;
     case OBJ_FUNC:
         buffer_append_format(&string, "<function %s>", AS_PTR(FuncObj, object)->name->string);
         break;
@@ -313,6 +358,7 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     bool result;
     switch (object->type) {
     case OBJ_RANGE:
+    case OBJ_CAPTURED:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
@@ -360,6 +406,11 @@ void print_obj(const Obj *object, const bool debugPrint) {
         );
         break;
     }
+    case OBJ_CAPTURED:
+        printf("<captured ");
+        print_obj(AS_PTR(CapturedObj, object)->captured, debugPrint);
+        putchar('>');
+        break;
     case OBJ_FUNC:
         printf("<function %s>", AS_PTR(FuncObj, object)->name->string);
         break;
@@ -384,11 +435,19 @@ char *obj_type_string(ObjType type) {
     case OBJ_NULL: return "null";
     case OBJ_STRING: return "string";
     case OBJ_RANGE: return "range";
+    case OBJ_CAPTURED: return "captured";
     case OBJ_FUNC: return "function";
     case OBJ_NATIVE_FUNC: return "native function";
     case OBJ_ITERATOR: return "iterator";
     }
     UNREACHABLE_ERROR();
+}
+
+/** Frees the allocated content/arrays of a function. */
+static void free_func_obj(FuncObj *func) {
+    FREE_DA(&func->bytecode);
+    FREE_DA(&func->constPool);
+    FREE_DA(&func->positions);
 }
 
 /** 
@@ -411,9 +470,15 @@ void free_obj(Obj *object) {
         break;
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);
-        FREE_DA(&func->bytecode);
-        FREE_DA(&func->constPool);
-        FREE_DA(&func->positions);
+        if (func->isClosure) {
+            ClosureObj *closure = AS_PTR(ClosureObj, func);
+            FREE_DA(&closure->captures);
+            if (closure->isToplevel) {
+                free_func_obj(func); // Top-level gets one func that is also a closure, so free it.
+            }
+        } else {
+            free_func_obj(func);
+        }
         break;
     }
     case OBJ_INT:
@@ -421,6 +486,7 @@ void free_obj(Obj *object) {
     case OBJ_BOOL:
     case OBJ_NULL:
     case OBJ_RANGE:
+    case OBJ_CAPTURED:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         break; // The object itself doesn't own any memory.

@@ -67,15 +67,18 @@ typedef enum {
     OP_ASSIGN_CAPTURED,
     OP_GET_CAPTURED,
     OP_CALL,
+    OP_FUNC,
+    OP_CLOSURE,
     OP_JUMP,
     OP_JUMP_BACK,
     OP_ITER_OR_JUMP,
     OP_POP_JUMP_IF_NOT,
     OP_POP_JUMP_BACK_IF,
-    OP_POP,
-    OP_POP_AMOUNT,
-    OP_POP_CAPTURED,
+    OP_POP_LOCAL,
+    OP_POP_LOCALS,
+    OP_POP_CAPTURES,
     OP_RETURN,
+    OP_CLOSURE_RETURN,
     OP_END
 } OpCode;
 
@@ -125,10 +128,13 @@ void emit_jump(
 );
 
 /** 
- * Emits some amount of pops in a compiler optimized manner.
+ * Emits some amount of local variable pops in a compiler optimized manner.
  * Doesn't emit anything if poppedAmount is 0.
  */
-void emit_pops(Compiler *compiler, const u32 poppedAmount, const SourcePosition pos);
+void emit_local_pops(Compiler *compiler, const u32 poppedAmount, const SourcePosition pos);
+
+/** Emits a number of captured pops. Emits none if poppedAmount is 0. */
+void emit_captured_pops(Compiler *compiler, const u32 poppedAmount, const SourcePosition pos);
 
 /** 
  * Writes all the jumps of the compiler in the actual bytecode.

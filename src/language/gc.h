@@ -22,7 +22,7 @@
 /** Clears the pool of protected objects if there aren't any current protection layers. */
 #define GC_CLEAR_PROTECTED(gc) \
     do { \
-        if ((gc)->protectionLayers <= 1) { \
+        if ((gc)->protectionLayers <= 0) { \
             FREE_DA(&(gc)->protected); \
             INIT_DA(&(gc)->protected); \
         } \
@@ -31,7 +31,7 @@
 /** Tries to clear the protected pool, and decrements the counter protecting new objects. */
 #define GC_POP_AND_CLEAR_PROTECTED(gc) \
     do { \
-        if ((gc)->protectionLayers == 1) { \
+        if ((gc)->protectionLayers > 0) { \
             GC_POP_PROTECTION(gc); \
         } \
         GC_CLEAR_PROTECTED(gc); \

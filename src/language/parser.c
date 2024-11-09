@@ -22,6 +22,8 @@
             
 #define IS_EOF(parser) (CHECK(parser, TOKEN_EOF))
 
+#define NULL_NODE(parser) (new_keyword_node(parser->program, create_token("null", TOKEN_NULL_KW)))
+
 static Node *expression(Parser *parser);
 static Node *declaration(Parser *parser);
 
@@ -379,13 +381,19 @@ static Node *parse_do_while(Parser *parser) {
 
 /** Zymux uses for-in loops, which iterate over the elements of an iterable object. */
 static Node *parse_for(Parser *parser) {
-    Token loopVar = CONSUME(parser, TOKEN_IDENTIFIER, "Expected loop variable after 'for'.");
+    Node *loopVar = new_var_decl_node(
+        parser->program, CONSUME(parser, TOKEN_IDENTIFIER, "Expected loop variable after 'for'."),
+        NULL_NODE(parser), false
+    );
+    
     CONSUME(parser, TOKEN_IN_KW, "Expected 'in' after for loop's variable name.");
     Node *iterable = expression(parser);
 
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after for loop's iterable.");
     Node *body = finish_block(parser);
-    return new_for_node(parser->program, loopVar, iterable, AS_PTR(BlockNode, body));
+    return new_for_node(
+        parser->program, AS_PTR(VarDeclNode, loopVar), iterable, AS_PTR(BlockNode, body)
+    );
 }
 
 /** A keyword statement followed by a semicolon to jump somewhere in a loop (like continue). */

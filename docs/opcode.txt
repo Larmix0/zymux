@@ -200,10 +200,10 @@ OP_POP_JUMP_IF_NOT:
     Decrements IP a read number after the instruction if the topmost object on the stack is truthy,
     and always pops that object off of the stack.
 
-OP_POP:
+OP_POP_LOCAL:
     Pops one object from the top of the stack and disposes of it.
 
-OP_POP_AMOUNT:
+OP_POP_LOCALS:
     Reads a number, which is how many objects to pop off of the top of the stack.
 
 OP_RETURN:

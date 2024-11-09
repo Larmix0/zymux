@@ -27,15 +27,15 @@
 #define RETURN_ERROR_TAKES_NO_ARGS(vm, nativeName, argAmount) \
     RETURN_ERROR(vm, nativeName " expected no arguments, got %u instead.", (argAmount))
 
+/** Returns an error where 1 argument was expected, but it got 0 or 2+ arguments. */
+#define RETURN_ERROR_TAKES_ONE_ARG(vm, nativeName, argAmount) \
+    RETURN_ERROR(vm, nativeName " expected 1 argument, got %u instead.", (argAmount))
+
 /** Returns an error where multiple arguments were expected, but the wrong amount was provided. */
 #define RETURN_ERROR_INCORRECT_MULTIPLE_ARGS(vm, nativeName, expectedAmount, actualAmount) \
     RETURN_ERROR( \
         vm, nativeName " expected %u arguments, got %u instead.", (expectedAmount), (actualAmount) \
     )
-
-/** Returns an error where 1 argument was expected, but it got 0 or 2+ arguments. */
-#define RETURN_ERROR_TAKES_ONE_ARG(vm, nativeName, argAmount) \
-    RETURN_ERROR(vm, nativeName " expected 1 argument, got %u instead.", (argAmount))
 
 /** The default return of a native that doesn't explicitly return anything. */
 #define DEFAULT_RETURN(vm) return AS_OBJ(new_null_obj((vm)->program))

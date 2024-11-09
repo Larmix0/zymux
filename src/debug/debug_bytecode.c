@@ -104,15 +104,18 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_ASSIGN_CAPTURED: print_number_instr("ASSIGN_CAPTURED", func, &idx, size); break;
     case OP_GET_CAPTURED: print_number_instr("GET_CAPTURED", func, &idx, size); break;
     case OP_CALL: print_number_instr("CALL", func, &idx, size); break;
+    case OP_FUNC: print_const_instr("FUNC", func, &idx, size); break;
+    case OP_CLOSURE: print_const_instr("CLOSURE", func, &idx, size); break;
     case OP_JUMP: print_number_instr("JUMP", func, &idx, size); break;
     case OP_JUMP_BACK: print_number_instr("JUMP_BACK", func, &idx, size); break;
     case OP_ITER_OR_JUMP: print_number_instr("ITER_OR_JUMP", func, &idx, size); break;
     case OP_POP_JUMP_IF_NOT: print_number_instr("POP_JUMP_IF_NOT", func, &idx, size); break;
     case OP_POP_JUMP_BACK_IF: print_number_instr("POP_JUMP_BACK_IF", func, &idx, size); break;
-    case OP_POP: print_bare_instr("POP", &idx); break;
-    case OP_POP_AMOUNT: print_number_instr("POP_AMOUNT", func, &idx, size); break;
-    case OP_POP_CAPTURED: print_number_instr("POP_CAPTURED", func, &idx, size); break;
+    case OP_POP_LOCAL: print_bare_instr("POP_LOCAL", &idx); break;
+    case OP_POP_LOCALS: print_number_instr("POP_LOCALS", func, &idx, size); break;
+    case OP_POP_CAPTURES: print_number_instr("POP_CAPTURES", func, &idx, size); break;
     case OP_RETURN: print_bare_instr("RETURN", &idx); break;
+    case OP_CLOSURE_RETURN: print_number_instr("CLOSURE_RETURN", func, &idx, size); break;
     case OP_END: print_bare_instr("END", &idx); break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }

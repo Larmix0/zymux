@@ -278,10 +278,26 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     case OBJ_NULL:
     case OBJ_STRING:
     case OBJ_RANGE:
+    case OBJ_CAPTURED:
     case OBJ_ITERATOR:
         return runtime_error(vm, "Can't call object of type %s.", obj_type_string(PEEK(vm)->type));
     }
     UNREACHABLE_ERROR();
+}
+
+/**
+ * Executes a return from the topmost call.
+ * 
+ * Uses the object at the top of the stack as the return value, by popping the whole function,
+ * and replacing the callee object with that returned object (which also got popped).
+ */
+static void call_return(Vm *vm) {
+    const u32 arity = vm->frame->func->arity;
+    Obj *returned = PEEK(vm);
+    
+    pop_stack_frame(vm);
+    DROP_AMOUNT(vm, arity);
+    PEEK(vm) = returned;
 }
 
 /** 
@@ -461,11 +477,50 @@ static bool execute_vm(Vm *vm) {
             PUSH(vm, value);
             break;
         }
+        case OP_CAPTURE: {
+            ASSERT(vm->frame->func->isClosure, "Tried to capture inside non-closure.");
+            ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
+
+            APPEND_DA(&closure->captures, new_captured_obj(vm->program, PEEK(vm)));
+            DROP(vm);
+            break;
+        }
+        case OP_ASSIGN_CAPTURED: {
+            ASSERT(vm->frame->func->isClosure, "Tried to assign captured inside non-closure.");
+            ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
+
+            closure->captures.data[READ_NUMBER(vm)]->captured = PEEK(vm);
+            break;
+        }
+        case OP_GET_CAPTURED: {
+            ASSERT(vm->frame->func->isClosure, "Tried to get captured inside non-closure.");
+            ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
+
+            Obj *value = closure->captures.data[READ_NUMBER(vm)]->captured;
+            PUSH(vm, value);
+            break;
+        }
         case OP_CALL: {
             const u32 argAmount = READ_NUMBER(vm);
             if (!call(vm, PEEK_DEPTH(vm, argAmount), vm->frame->sp - argAmount, argAmount)) {
                 return false;
             }
+            break;
+        }
+        case OP_FUNC: 
+            PUSH(vm, READ_CONST(vm));
+            break;
+        case OP_CLOSURE: {
+            ClosureObj *closure = new_closure_obj(
+                vm->program, AS_PTR(FuncObj, READ_CONST(vm)), false
+            );
+            if (vm->frame->func->isClosure) {
+                ClosureObj *frameClosure = AS_PTR(ClosureObj, vm->frame->func);
+                for (u32 i = 0; i < frameClosure->captures.length; i++) {
+                    APPEND_DA(&closure->captures, frameClosure->captures.data[i]);
+                }
+            }
+            PUSH(vm, AS_OBJ(closure));
             break;
         }
         case OP_JUMP: {
@@ -507,20 +562,25 @@ static bool execute_vm(Vm *vm) {
             DROP(vm);
             break;
         }
-        case OP_POP:
+        case OP_POP_LOCAL:
             DROP(vm);
             break;
-        case OP_POP_AMOUNT:
+        case OP_POP_LOCALS:
             DROP_AMOUNT(vm, READ_NUMBER(vm));
             break;
+        case OP_POP_CAPTURES:
+            ASSERT(vm->frame->func->isClosure, "Tried to pop captured inside non-closure.");
+            DROP_AMOUNT_DA(&AS_PTR(ClosureObj, vm->frame->func)->captures, READ_NUMBER(vm));
+            break;
         case OP_RETURN:
-            ASSERT(vm->callStack.length > 1, "Tried to return top-level or nonexistent-level.");
-            const u32 arity = vm->frame->func->arity;
-            Obj *returned = PEEK(vm);
-            
-            pop_stack_frame(vm);
-            DROP_AMOUNT(vm, arity);
-            PEEK(vm) = returned; // The func object hasn't been popped, just replace it with return. 
+            ASSERT(vm->callStack.length > 1, "Tried to return top-level or a nonexistent level.");
+            call_return(vm);
+            break;
+        case OP_CLOSURE_RETURN:
+            ASSERT(vm->frame->func->isClosure, "Tried to closure return from non-closure.");
+            ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
+            DROP_AMOUNT_DA(&closure->captures, READ_NUMBER(vm));
+            call_return(vm);
             break;
         case OP_END:
             return true;

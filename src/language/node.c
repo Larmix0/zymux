@@ -178,7 +178,7 @@ Node *new_do_while_node(ZmxProgram *program, Node *condition, BlockNode *body) {
 }
 
 /** Allocates a for loop node, which is a for-in loop for Zymux. */
-Node *new_for_node(ZmxProgram *program, const Token loopVar, Node *iterable, BlockNode *body) {
+Node *new_for_node(ZmxProgram *program, VarDeclNode *loopVar, Node *iterable, BlockNode *body) {
     ForNode *node = NEW_NODE(program, AST_FOR, ForNode);
     node->loopVar = loopVar;
     node->iterable = iterable;
@@ -191,7 +191,9 @@ Node *new_loop_control_node(ZmxProgram *program, const Token keyword) {
     LoopControlNode *node = NEW_NODE(program, AST_LOOP_CONTROL, LoopControlNode);
     node->keyword = keyword.type;
     node->pos = keyword.pos;
-    node->loopVarsAmount = 0;
+
+    node->localsAmount = UNRESOLVED_NUMBER;
+    node->capturedAmount = UNRESOLVED_NUMBER;
     return AS_NODE(node);
 }
 
@@ -203,6 +205,7 @@ Node *new_func_node(
     node->nameDecl = nameDecl;
     node->params = params;
     node->body = body;
+    node->isClosure = false;
     return AS_NODE(node);
 }
 
@@ -210,6 +213,7 @@ Node *new_func_node(
 Node *new_return_node(ZmxProgram *program, Node *returnValue) {
     ReturnNode *node = NEW_NODE(program, AST_RETURN, ReturnNode);
     node->returnValue = returnValue;
+    node->capturedPops = UNRESOLVED_NUMBER;
     return AS_NODE(node);
 }
 
@@ -247,7 +251,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
     case AST_DO_WHILE: return AS_PTR(DoWhileNode, node)->body->pos;
-    case AST_FOR: return AS_PTR(ForNode, node)->loopVar.pos;
+    case AST_FOR: return AS_PTR(ForNode, node)->loopVar->name.pos;
     case AST_LOOP_CONTROL: return AS_PTR(LoopControlNode, node)->pos;
     case AST_FUNC: return AS_PTR(FuncNode, node)->nameDecl->name.pos;
     case AST_RETURN: return get_node_pos(AS_PTR(ReturnNode, node)->returnValue);

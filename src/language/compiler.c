@@ -23,11 +23,12 @@ static void compile_node_array(Compiler *compiler, const NodeArray *nodes);
 /** Returns a compiler initialized with the passed program and parsed AST. */
 Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPositions) {
     GC_PUSH_PROTECTION(&program->gc);
-    const char *mainName = "<main>";
 
+    const char *mainName = "<main>";
+    StringObj *name = new_string_obj(program, mainName, strlen(mainName));
     Compiler compiler = {
         .trackPositions = trackPositions, .program = program, .ast = ast,
-        .func = new_func_obj(program, new_string_obj(program, mainName, strlen(mainName)), 0, -1),
+        .func = AS_PTR(FuncObj, new_closure_obj(program, new_func_obj(program, name, 0, -1), true)),
         .jumps = CREATE_DA(), .breaks = CREATE_DA(), .continues = CREATE_DA(),
     };
 
@@ -188,16 +189,18 @@ static void compile_call(Compiler *compiler, const CallNode *node) {
  */
 static void compile_expr_stmt(Compiler *compiler, const ExprStmtNode *node) {
     compile_node(compiler, node->expr);
-    emit_pops(compiler, 1, get_node_pos(node->expr));
+    emit_local_pops(compiler, 1, get_node_pos(node->expr));
 }
 
-/** Compiles a block's array of statements then emits pops for its declared variables. */
+/**
+ * Compiles a block's array of statements then emits pops for its declared variables.
+ * Also emits pops for any variables which were captured within that scope.
+ */
 static void compile_block(Compiler *compiler, const BlockNode *node) {
     compile_node_array(compiler, &node->stmts);
-    emit_pops(compiler, node->localsAmount - node->capturedAmount, node->pos);
-    if (node->capturedAmount > 0) {
-        emit_number(compiler, OP_POP_CAPTURED, node->capturedAmount, node->pos);
-    }
+
+    emit_local_pops(compiler, node->localsAmount, node->pos);
+    emit_captured_pops(compiler, node->capturedAmount, node->pos);
 }
 
 /**
@@ -209,6 +212,8 @@ static void compile_block(Compiler *compiler, const BlockNode *node) {
  * So, we emit their their name to be used for the hash table after the declaration instruction.
  * 
  * For locals, we just let the compiled value sit on the stack to be accessed/indexed later.
+ * For captured locals, we do the same as locals, but emit a capture instruction so the VM
+ * knows to capture the variable.
  */
 static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
     compile_node(compiler, node->value);
@@ -246,6 +251,9 @@ static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
  * starting relative to the current frame's base pointer at that time.
  * The index is found inside the assign node itself assuming we ran the resolver on the AST.
  * 
+ * For captured locals, we do the same as we do for locals, but emit a different instruction
+ * followed by a number that access the current function's captured array, instead of the stack.
+ * 
  * TODO: add more explanation for closures.
  * TODO: add more explanation for multi-assignments.
  */
@@ -279,8 +287,9 @@ static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
  * 
  * For locals we emit the index they're expected to be in relative to the base pointer of the VM's
  * frame.
- * 
- * TODO: add explanation for closure variables.
+ * For captured variables, we do the same but with a different instruction and the number emitted
+ * after represents where in the currently executing function's captured array do we expect
+ * the variable to be residing.
  * 
  * For global and built-in names, they both utilize hash tables to store their variables,
  * so we just emit a constant object after their respective instruction for the hash table lookup.
@@ -479,7 +488,8 @@ static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
  *     8 {Bytecode outside for loop}.
  */
 static void compile_for(Compiler *compiler, const ForNode *node) {
-    emit_instr(compiler, OP_NULL, node->loopVar.pos);
+    // emit_instr(compiler, OP_NULL, node->loopVar->name.pos);
+    compile_var_decl(compiler, node->loopVar);
     compile_node(compiler, node->iterable);
     emit_instr(compiler, OP_MAKE_ITER, get_node_pos(node->iterable));
     u32 iterStart = emit_unpatched_jump(compiler, OP_ITER_OR_JUMP, get_node_pos(node->iterable));
@@ -490,14 +500,15 @@ static void compile_for(Compiler *compiler, const ForNode *node) {
     emit_jump(compiler, OP_JUMP_BACK, iterStart, false, PREVIOUS_OPCODE_POS(compiler));
 
     const u32 loopExit = compiler->func->bytecode.length;
-    emit_pops(compiler, 2, PREVIOUS_OPCODE_POS(compiler)); // Pop loop var and iterator after loop.
+    emit_local_pops(compiler, 2, PREVIOUS_OPCODE_POS(compiler)); // Pop loop var and iterator after loop.
     patch_jump(compiler, iterStart, loopExit, true);
     pop_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, iterStart, false);
 }
 
 /** Compiles some form of loop control (break/continue), which is to be resolved later. */
 static void compile_loop_control(Compiler *compiler, const LoopControlNode *node) {
-    emit_pops(compiler, node->loopVarsAmount, node->pos);
+    emit_local_pops(compiler, node->localsAmount, node->pos);
+    emit_captured_pops(compiler, node->capturedAmount, node->pos);
 
     u32 controlSpot = emit_unpatched_jump(compiler, 0, node->pos);
     switch (node->keyword) {
@@ -511,7 +522,9 @@ static void compile_loop_control(Compiler *compiler, const LoopControlNode *node
 static void finish_func(Compiler *compiler, const FuncNode *node) {
     JumpArray previous = compiler->jumps;
     INIT_DA(&compiler->jumps);
-    compile_block(compiler, node->body);
+
+    // Manually compile the body's statements to optimize out pops that occur before the func's end.
+    compile_node_array(compiler, &node->body->stmts);
     emit_instr(compiler, OP_NULL, PREVIOUS_OPCODE_POS(compiler));
     emit_instr(compiler, OP_RETURN, PREVIOUS_OPCODE_POS(compiler));
     write_jumps(compiler);
@@ -526,7 +539,7 @@ static void finish_func(Compiler *compiler, const FuncNode *node) {
  * then we start compiling all the nodes inside the function's body. After we're done with that,
  * we emit the new compiled function as a const inside the const pool of the previous function.
  * 
- * TODO: add more differentiating stuff for func types.
+ * TODO: add more differentiating stuff for func types (like methods, initializers, etc.).
  * TODO: add optional parameters.
  */
 static void compile_func(Compiler *compiler, const FuncNode *node) {
@@ -549,15 +562,24 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
 #if DEBUG_BYTECODE
     print_bytecode(finished);
 #endif
-    emit_const(compiler, OP_LOAD_CONST, AS_OBJ(finished), previousPos);
+    emit_const(compiler, node->isClosure ? OP_CLOSURE : OP_FUNC, AS_OBJ(finished), previousPos);
     GC_POP_AND_CLEAR_PROTECTED(&compiler->program->gc);
     compile_var_decl(compiler, node->nameDecl);
 }
 
-/** Compiles a return statement with its value. */
+/** 
+ * Compiles a return statement with the returned value being loaded on the stack beforehand.
+ * Emits a special return for closures which handles their captured variables.
+ */
 static void compile_return(Compiler *compiler, const ReturnNode *node) {
+    ASSERT(node->capturedPops >= 0, "Expected capture pops to be 0 or positive, not negative.");
+
     compile_node(compiler, node->returnValue);
-    emit_instr(compiler, OP_RETURN, get_node_pos(AS_NODE(node)));
+    if (node->capturedPops > 0) {
+        emit_number(compiler, OP_CLOSURE_RETURN, node->capturedPops, get_node_pos(AS_NODE(node)));
+    } else {
+        emit_instr(compiler, OP_RETURN, get_node_pos(AS_NODE(node)));
+    }
 }
 
 /** Compiles an EOF node, which is placed to indicate the end of the bytecode. */

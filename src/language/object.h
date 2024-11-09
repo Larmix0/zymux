@@ -28,6 +28,7 @@ typedef enum {
     OBJ_NULL,
     OBJ_STRING,
     OBJ_RANGE,
+    OBJ_CAPTURED,
     OBJ_FUNC,
     OBJ_NATIVE_FUNC,
     OBJ_ITERATOR
@@ -88,6 +89,15 @@ typedef struct {
     ZmxInt step;
 } RangeObj;
 
+/** An object that simply stores a reference to another object. */
+typedef struct {
+    Obj obj;
+    Obj *captured;
+} CapturedObj;
+
+/** An array of captured objects. */
+DECLARE_DA_STRUCT(CapturedObjArray, CapturedObj *);
+
 /**
  * Represents an object that holds some bytecode, its positions and a constant pool for them.
  * 
@@ -118,7 +128,35 @@ typedef struct {
      * since we don't track bytecode by default unless we error, and then recompile to track it.
      */
     int constIdx;
+
+    /** Whether this function can have closure objects inheriting it with a closure context. */
+    bool isClosure;
 } FuncObj;
+
+/** 
+ * A closure which wraps over a function with a context of some captured variables. Not an object
+ * 
+ * Each function that has captured variables will need to create its own "closure" context
+ * each time its creation is encountered in the VM,
+ * whereas at compilation we just compile things like its params and bytecode once.
+ * 
+ * This allows us to create different closure each time we re-visit the code which creates
+ * the closure function. This essentially simulates creating a new function at runtime
+ * every time we encounter, instead of the one function created at compilation time.
+ * 
+ * This is not an object itself, but merely an extension of the function object itself that is made
+ * when necessary. We just call it object for uniformity and treat it similiarly in some places,
+ * but it doesn't have its own type in the object type enum.
+ */
+typedef struct {
+    FuncObj func;
+
+    /** Whether this closure represents the top-level code, or any other closure. */
+    bool isToplevel;
+
+    /** An array of captured objects that store indirect references to variables closed over. */
+    CapturedObjArray captures;
+} ClosureObj;
 
 /** A built-in Zymux function whose implementation is written in C. */
 typedef struct {
@@ -154,8 +192,19 @@ RangeObj *new_range_obj(
     ZmxProgram *program, const ZmxInt start, const ZmxInt end, const ZmxInt step
 );
 
+/** Returns a newely created indirect reference to the passed object (capturing the object). */
+CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured);
+
 /** Returns a new allocated function object. */
 FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 arity, const int constIdx);
+
+/** 
+ * Returns a new closure, which is merely an extended function that has a closure context in it.
+ * 
+ * This is because closures aren't "objects" but instead a function which has a closure context
+ * extension allocated, and that extension can be revealed by converting to the closure type.
+ */
+ClosureObj *new_closure_obj(ZmxProgram *program, FuncObj *closedFunc, const bool isToplevel);
 
 /** Returns a new allocated native function object. */
 NativeFuncObj *new_native_func_obj(ZmxProgram *program, NativeFunc func, StringObj *name);

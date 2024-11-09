@@ -23,7 +23,7 @@ static InstrSize get_number_size(const u32 number) {
     return INSTR_FOUR_BYTES;
 }
 
-/** Creates a jump whose jump may change later due to patching. */
+/** Creates a jump which may change later due to patching. */
 static Jump create_jump(const u32 index, const u32 size, const bool isForward) {
     Jump jump = {
         .index = index, .size = size, .isForward = isForward, .isResolved = false,
@@ -207,15 +207,22 @@ void emit_jump(
 }
 
 /** 
- * Emits some amount of pops in a compiler optimized manner.
+ * Emits some amount of local variable pops in a compiler optimized manner.
  * Doesn't emit anything if poppedAmount is 0.
  */
-void emit_pops(Compiler *compiler, const u32 poppedAmount, const SourcePosition pos) {
+void emit_local_pops(Compiler *compiler, const u32 poppedAmount, const SourcePosition pos) {
     if (poppedAmount == 1) {
-        emit_instr(compiler, OP_POP, pos);
+        emit_instr(compiler, OP_POP_LOCAL, pos);
     } else if (poppedAmount > 1) {
-        emit_number(compiler, OP_POP_AMOUNT, poppedAmount, pos);
+        emit_number(compiler, OP_POP_LOCALS, poppedAmount, pos);
     }
+}
+
+/** Emits a number of captured pops. Emits none if poppedAmount is 0. */
+void emit_captured_pops(Compiler *compiler, const u32 poppedAmount, const SourcePosition pos) {
+    if (poppedAmount > 0) {
+        emit_number(compiler, OP_POP_CAPTURES, poppedAmount, pos);
+    }   
 }
 
 /** 

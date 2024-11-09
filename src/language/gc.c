@@ -47,10 +47,20 @@ static void mark_obj(Obj *object) {
 #endif
     object->isReachable = true;
     switch (object->type) {
+    case OBJ_CAPTURED:
+        mark_obj(AS_PTR(CapturedObj, object)->captured);
+        break;
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);
         mark_obj(AS_OBJ(func->name));
         mark_obj_array(func->constPool);
+        if (func->isClosure) {
+            // Mark the closure context of a function with a closure extension.
+            ClosureObj *closure = AS_PTR(ClosureObj, object);
+            for (u32 i = 0; i < closure->captures.length; i++) {
+                mark_obj(AS_OBJ(closure->captures.data[i]));
+            }
+        }
         break;
     }
     case OBJ_NATIVE_FUNC: {

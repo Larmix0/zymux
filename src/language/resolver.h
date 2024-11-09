@@ -14,11 +14,12 @@ DECLARE_DA_STRUCT(VarResolutionArray, VarResolution *);
 typedef struct {
     bool isPrivate; /** Whether it's private or publicly accessible from the outside. */
     bool isConst; /** Whether it's changeable. */
+    bool isLocalCapture; /** True for closures if captured and declared in that same function. */
     u32 scope; /** How deep is the variable's scope relative to the closure it's on. */
     Token name; /** Name of the variable. */
 
     /** The current variable's resolution, which all referenced resolutions should be set to. */
-    VarResolution currentResolution;
+    VarResolution resolution;
 
     /** 
      * An array to the addresses of all resolutions to a specific variable.
@@ -39,8 +40,17 @@ DECLARE_DA_STRUCT(VariableArray, Variable);
 
 /** A struct that holds information about a closure's variables, local and captured ones. */
 typedef struct {
+    bool isClosure;
     VariableArray vars;
     VariableArray captured;
+
+    /**
+     * Array of scopes and how many captured locals are in them.
+     * 
+     * A local capture is a captured variable which was declared in the current closure itself,
+     * but has been captured for another inner function's use.
+     */
+    U32Array localCaptures;
 } ClosedVariables;
 
 /** The array of variable's inside a function, which may include multiple scopes. */
