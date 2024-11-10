@@ -488,7 +488,6 @@ static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
  *     8 {Bytecode outside for loop}.
  */
 static void compile_for(Compiler *compiler, const ForNode *node) {
-    // emit_instr(compiler, OP_NULL, node->loopVar->name.pos);
     compile_var_decl(compiler, node->loopVar);
     compile_node(compiler, node->iterable);
     emit_instr(compiler, OP_MAKE_ITER, get_node_pos(node->iterable));
@@ -562,7 +561,9 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
 #if DEBUG_BYTECODE
     print_bytecode(finished);
 #endif
-    emit_const(compiler, node->isClosure ? OP_CLOSURE : OP_FUNC, AS_OBJ(finished), previousPos);
+    emit_const(
+        compiler, node->isClosure ? OP_CLOSURE : OP_LOAD_CONST, AS_OBJ(finished), previousPos
+    );
     GC_POP_AND_CLEAR_PROTECTED(&compiler->program->gc);
     compile_var_decl(compiler, node->nameDecl);
 }

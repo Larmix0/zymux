@@ -104,7 +104,6 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_ASSIGN_CAPTURED: print_number_instr("ASSIGN_CAPTURED", func, &idx, size); break;
     case OP_GET_CAPTURED: print_number_instr("GET_CAPTURED", func, &idx, size); break;
     case OP_CALL: print_number_instr("CALL", func, &idx, size); break;
-    case OP_FUNC: print_const_instr("FUNC", func, &idx, size); break;
     case OP_CLOSURE: print_const_instr("CLOSURE", func, &idx, size); break;
     case OP_JUMP: print_number_instr("JUMP", func, &idx, size); break;
     case OP_JUMP_BACK: print_number_instr("JUMP_BACK", func, &idx, size); break;

@@ -507,9 +507,6 @@ static bool execute_vm(Vm *vm) {
             }
             break;
         }
-        case OP_FUNC: 
-            PUSH(vm, READ_CONST(vm));
-            break;
         case OP_CLOSURE: {
             ClosureObj *closure = new_closure_obj(
                 vm->program, AS_PTR(FuncObj, READ_CONST(vm)), false

@@ -168,6 +168,17 @@ OP_GET_LOCAL:
     (which is the index in the stack of the variable whose value is to be extracted),
     then uses it to index into the stack and push that object to the top again.
 
+OP_CAPTURE:
+    Pops the topmost object in the stack, and adds it into the current closure's closed variables.
+
+OP_ASSIGN_CAPTURED:
+    Reads an index number that is used on the current closure's array of captured variables,
+    and the variable at that index gets assigned the topmost object in the stack.
+
+OP_GET_CAPTURED:
+    Reads an index number, and uses it to get the object at that index in the current closure's
+    array of captured variables.
+
 OP_CALL:
     Reads a number, which is the number of arguments on the stack for the calle. The topmost object
     in the stack is the rightmost argument in code, and the deeper on the stack the more to the left
@@ -178,6 +189,10 @@ OP_CALL:
 
     Pops the read amount of arguments and replaces the callee with the returned value
     (or null by default) after the call has finished.
+
+OP_CLOSURE:
+    Copies over all captured variables of the current frame over to the function in the stack,
+    loads it after wrapping it over a closure object.
 
 OP_JUMP:
     Reads a number, which is how many bytes to increment the IP.
@@ -206,9 +221,18 @@ OP_POP_LOCAL:
 OP_POP_LOCALS:
     Reads a number, which is how many objects to pop off of the top of the stack.
 
+OP_POP_CAPTURES:
+    Reads a number, which is how many captured variables to pop off the current closure's captured
+    array.
+
 OP_RETURN:
     Collapses the stack frame made for the currently executing function while only leaving
-    the last item loaded on the stack before returning  unpopped as a return value.
+    the last item loaded on the stack before returning unpopped as a return value.
+
+OP_CLOSURE_RETURN:
+    Collapses the stack frame and returns the top value just like a normal return,
+    but it also reads a number after the instruction that indicates how many captured variables
+    should be popped off of the current closure before the return occurs.
 
 OP_END:
     Ends the currently executing VM.

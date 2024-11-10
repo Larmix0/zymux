@@ -144,7 +144,7 @@ typedef struct {
  * the closure function. This essentially simulates creating a new function at runtime
  * every time we encounter, instead of the one function created at compilation time.
  * 
- * This is not an object itself, but merely an extension of the function object itself that is made
+ * This is not a real object itself, but merely an extension of the function object which is made
  * when necessary. We just call it object for uniformity and treat it similiarly in some places,
  * but it doesn't have its own type in the object type enum.
  */
