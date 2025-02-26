@@ -227,13 +227,13 @@ static void reallocate_stack(Vm *vm) {
 static void push_stack_frame(Vm *vm, FuncObj *func, Obj **bp, Obj **sp) {
     StackFrame frame = {.func = func, .ip = func->bytecode.data, .bp = bp, .sp = sp};
     APPEND_DA(&vm->callStack, frame);
-    vm->frame = &vm->callStack.data[vm->callStack.length - 1];
+    vm->frame = &LAST_ITEM_DA(&vm->callStack);
 }
 
 /** Pops the top frame on the passed VM and restores the previous one or NULL if there isn't any. */
 static void pop_stack_frame(Vm *vm) {
     DROP_DA(&vm->callStack);
-    vm->frame = vm->callStack.length == 0 ? NULL : &vm->callStack.data[vm->callStack.length - 1];
+    vm->frame = vm->callStack.length == 0 ? NULL : &LAST_ITEM_DA(&vm->callStack);
 }
 
 /** Returns a VM initialized from the passed func. */

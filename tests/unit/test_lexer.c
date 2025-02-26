@@ -9,7 +9,7 @@
 #include "lexer.c"
 
 /** The last token which was appended to the lexer. */
-#define LAST_TOKEN(lexer) ((lexer)->tokens.data[(lexer)->tokens.length - 1])
+#define LAST_TOKEN(lexer) (LAST_ITEM_DA(&(lexer)->tokens))
 
 /** A default source string for testing. */
 static char *defaultSource = "float && var (); $'str {2 * 3}' break; 22 44.2"

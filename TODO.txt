@@ -47,14 +47,11 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-Implement LAST_ITEM_DA() to more easily access the last element of a dynamic array.
-Make it resolve to NULL if the array doesn't have any elements to begin with.
-
-Test out the new DROP_AMOUNT_DA(), and LAST_ITEM_DA() once it's added.
-
 Test the closure_captures() function.
 
 Potentionally name VM stack macros to have _VM() suffix to make what they modify clear.
 
 Is manually protecting strings even a good thing? Because it seems it might be caught up
 in a gc pop.
+
+Test resolver.

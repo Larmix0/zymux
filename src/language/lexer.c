@@ -597,7 +597,7 @@ static void lex_interpolation(Lexer *lexer, StringLexer *string) {
  */
 static bool had_interpolation(Lexer *lexer) {
     if (lexer->tokens.length != 0) {
-        return lexer->tokens.data[lexer->tokens.length - 1].type == TOKEN_INTERPOLATE;
+        return LAST_ITEM_DA(&lexer->tokens).type == TOKEN_INTERPOLATE;
     }
     return false;
 }
@@ -954,7 +954,7 @@ bool lex(Lexer *lexer) {
     while (true) {
         ignore_whitespace(lexer);
         lex_token(lexer);
-        if (lexer->tokens.data[lexer->tokens.length - 1].type == TOKEN_EOF) {
+        if (LAST_ITEM_DA(&lexer->tokens).type == TOKEN_EOF) {
             break;
         }
     }

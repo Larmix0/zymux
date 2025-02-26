@@ -14,8 +14,7 @@
 /** The position of the previous opcode. Defaults to 0s if there aren't any previous opcodes. */
 #define PREVIOUS_OPCODE_POS(compiler) \
     ((compiler)->func->positions.length == 0 \
-        ? create_src_pos(0, 0, 0) \
-        : (compiler)->func->positions.data[(compiler)->func->positions.length - 1])
+        ? create_src_pos(0, 0, 0) : LAST_ITEM_DA(&(compiler)->func->positions))
 
 static void compile_node(Compiler *compiler, const Node *node);
 static void compile_node_array(Compiler *compiler, const NodeArray *nodes);

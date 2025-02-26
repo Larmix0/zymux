@@ -1,7 +1,7 @@
 #include "resolver.h"
 
 /** The outermost closure currently being resolved. */
-#define CURRENT_CLOSURE(resolver) (&(resolver)->locals.data[(resolver)->locals.length - 1])
+#define CURRENT_CLOSURE(resolver) (&LAST_ITEM_DA(&(resolver)->locals))
 
 /** The outermost closure's local variables. */
 #define CURRENT_LOCALS(resolver) (&CURRENT_CLOSURE(resolver)->vars)
@@ -192,8 +192,7 @@ static void append_new_closure(Resolver *resolver) {
         for (i64 j = (i64)prevClosure->vars.length - 1; j >= 0; j--) {
             if (equal_token(prevClosure->vars.data[j].name, prevClosure->captured.data[i].name)) {
                 capture_local(resolver, &prevClosure->vars.data[j], prevClosureIdx);
-
-                current = prevClosure->captured.data[prevClosure->captured.length - 1];
+                current = LAST_ITEM_DA(&prevClosure->captured);
                 APPEND_DA(CURRENT_CAPTURED(resolver), current);
                 return;
             }
@@ -222,11 +221,8 @@ static void push_scope(Resolver *resolver, const ScopeType type) {
  */
 static u32 pop_variable_array_scope(Resolver *resolver, VariableArray *variables) {
     u32 popped = 0;
-    while (
-        variables->length > 0
-        && variables->data[variables->length - 1].scope == resolver->scopeDepth
-    ) {
-        FREE_DA(&variables->data[variables->length - 1].resolutions);
+    while (variables->length > 0 && LAST_ITEM_DA(variables).scope == resolver->scopeDepth) {
+        FREE_DA(&LAST_ITEM_DA(variables).resolutions);
         DROP_DA(variables);
         popped++;
     }
@@ -421,7 +417,7 @@ static void add_variable_reference(Variable *variable, VarResolution *resolution
  */
 static void capture_local(Resolver *resolver, Variable *toCapture, const u32 closureIdx) {
     U32Array *localCaptures = &resolver->locals.data[closureIdx].localCaptures;
-    localCaptures->data[localCaptures->length - 1]++;
+    LAST_ITEM_DA(localCaptures)++;
 
     for (u32 i = closureIdx; i < resolver->locals.length; i++) {
         // The closure of the captured itself gets appended a truthy local capture.
@@ -463,7 +459,7 @@ static Variable *search_captures(Resolver *resolver, const Token name, const i64
     if (variable->resolution.scope != VAR_CAPTURED) {
         // Capture, then return that captured variable instead of the local we got from our search.
         capture_local(resolver, variable, closureIdx);
-        return &CURRENT_CAPTURED(resolver)->data[CURRENT_CAPTURED(resolver)->length - 1];
+        return &LAST_ITEM_DA(CURRENT_CAPTURED(resolver));
     } else {
         return variable;
     }
@@ -720,7 +716,7 @@ static u32 get_loop_vars_amount(Resolver *resolver, VariableArray *variables) {
     }
 
     u32 amount = 0;
-    const u32 deepestLoop = resolver->loopScopes.data[resolver->loopScopes.length - 1];
+    const u32 deepestLoop = LAST_ITEM_DA(&resolver->loopScopes);
     for (i64 i = variables->length - 1; i >= 0; i--) {
         if (variables->data[i].scope < deepestLoop) {
             break; // Below loop, done.

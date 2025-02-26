@@ -20,6 +20,14 @@
         (da)->data = NULL; \
     } while (false)
 
+/** 
+ * Resolves to the most recently added item in the array. Assumes that it has items.
+ * 
+ * Do not use if unsure about the array having any items in it.
+ */
+#define LAST_ITEM_DA(da) \
+    ((da)->data[(da)->length - 1])
+
 /**
  * Appends item to the passed dynamic array.
  * 

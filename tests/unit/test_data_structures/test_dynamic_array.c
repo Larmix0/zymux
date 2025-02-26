@@ -22,6 +22,15 @@ PRIVATE_TEST_CASE(test_pop_and_drop) {
     ASSERT_INT_EQUAL(integers.length, 0);
     ASSERT_INT_EQUAL(second, 0);
 
+    APPEND_DA(&integers, 5);
+    APPEND_DA(&integers, 4);
+    APPEND_DA(&integers, 3);
+    APPEND_DA(&integers, 2);
+    DROP_AMOUNT_DA(&integers, 3);
+    ASSERT_INT_EQUAL(integers.length, 1);
+    ASSERT_INT_EQUAL(integers.data[0], 5);
+
+    DROP_DA(&integers);
     APPEND_DA(&integers, 888);
     ASSERT_INT_EQUAL(integers.data[0], 888);
     ASSERT_INT_EQUAL(integers.length, 1);
@@ -48,7 +57,7 @@ PRIVATE_TEST_CASE(test_append) {
     FREE_DA(&integers);
 }
 
-/** Tests that we can create and initialize dynamic arrays properly */
+/** Tests that we can create and initialize dynamic arrays properly. */
 PRIVATE_TEST_CASE(test_creation_macros) {
     IntArray integers = CREATE_DA();
     ASSERT_INT_EQUAL(integers.length, 0);
@@ -67,9 +76,30 @@ PRIVATE_TEST_CASE(test_creation_macros) {
     free(arrayPtr);
 }
 
+/** Tests that the convenience macro for getting the last item in a dynamic array works properly. */
+PRIVATE_TEST_CASE(test_last_item) {
+    IntArray integers = CREATE_DA();
+    APPEND_DA(&integers, 10);
+    ASSERT_INT_EQUAL(LAST_ITEM_DA(&integers), 10);
+    APPEND_DA(&integers, 11);
+    ASSERT_INT_EQUAL(LAST_ITEM_DA(&integers), 11);
+    APPEND_DA(&integers, 120);
+    ASSERT_INT_EQUAL(LAST_ITEM_DA(&integers), 120);
+    APPEND_DA(&integers, 130);
+    ASSERT_INT_EQUAL(LAST_ITEM_DA(&integers), 130);
+
+    DROP_DA(&integers);
+    ASSERT_INT_EQUAL(LAST_ITEM_DA(&integers), 120);
+    DROP_AMOUNT_DA(&integers, 2);
+    ASSERT_INT_EQUAL(LAST_ITEM_DA(&integers), 10);
+    
+    FREE_DA(&integers);
+}
+
 /** Tests our generic dynamic arrays implementation. */
 void test_dynamic_array() {
     TEST(test_creation_macros);
     TEST(test_append);
     TEST(test_pop_and_drop);
+    TEST(test_last_item);
 }
