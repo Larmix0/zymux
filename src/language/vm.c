@@ -240,7 +240,8 @@ static void pop_stack_frame(Vm *vm) {
 Vm create_vm(ZmxProgram *program, FuncObj *func) {
     Vm vm = {
         .program = program, .instrSize = INSTR_ONE_BYTE, .globals = create_table(),
-        .callStack = CREATE_DA(), .frame = NULL, .stack = CREATE_STACK()
+        .callStack = CREATE_DA(), .openCaptures = CREATE_DA(),
+        .frame = NULL, .stack = CREATE_STACK()
     };
     // Push the frame which requires the stack after the VM itself and its stack were initialized.
     push_stack_frame(&vm, func, vm.stack.objects, vm.stack.objects);
@@ -251,6 +252,7 @@ Vm create_vm(ZmxProgram *program, FuncObj *func) {
 void free_vm(Vm *vm) {
     free_table(&vm->globals);
     FREE_DA(&vm->callStack);
+    FREE_DA(&vm->openCaptures);
     FREE_STACK(vm);
 }
 
@@ -285,7 +287,7 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     UNREACHABLE_ERROR();
 }
 
-/**
+/** 
  * Executes a return from the topmost call.
  * 
  * Uses the object at the top of the stack as the return value, by popping the whole function,
@@ -298,6 +300,29 @@ static void call_return(Vm *vm) {
     pop_stack_frame(vm);
     DROP_AMOUNT(vm, arity);
     PEEK(vm) = returned;
+}
+
+/** 
+ * Closes as many "open" captures that have now been deleted off of the stack.
+ * 
+ * Iterates over all of the open captures, and then closes any whose stack location corresponds
+ * to that of a variable that's about to be popped.
+ * 
+ * Closing a capture is simply setting the final value of the local to be popped
+ * on the captured object so it can be used later outside the stack frame.
+ * 
+ * pops is how many variables are going to be popped and need to be checked to see
+ * if they hold open captures
+ */
+static void close_captures(Vm *vm, const u32 pops) {
+    for (i64 i = vm->openCaptures.length - 1; i >= 0; i--) {
+        CapturedObj *toClose = vm->openCaptures.data[i];
+        if (toClose->stackLocation >= STACK_LENGTH(vm) - pops) {
+            toClose->isOpen = false;
+            toClose->captured = vm->stack.objects[toClose->stackLocation];
+            DROP_DA(&vm->openCaptures);
+        }
+    }
 }
 
 /** 
@@ -479,25 +504,35 @@ static bool execute_vm(Vm *vm) {
         }
         case OP_CAPTURE: {
             ASSERT(vm->frame->func->isClosure, "Tried to capture inside non-closure.");
-            ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
 
-            APPEND_DA(&closure->captures, new_captured_obj(vm->program, PEEK(vm)));
-            DROP(vm);
+            ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
+            CapturedObj *capture = new_captured_obj(vm->program, PEEK(vm), STACK_LENGTH(vm) - 1);
+            APPEND_DA(&closure->captures, capture);
+            APPEND_DA(&vm->openCaptures, capture);
             break;
         }
         case OP_ASSIGN_CAPTURED: {
             ASSERT(vm->frame->func->isClosure, "Tried to assign captured inside non-closure.");
             ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
+            CapturedObj *capture = closure->captures.data[READ_NUMBER(vm)];
 
-            closure->captures.data[READ_NUMBER(vm)]->captured = PEEK(vm);
+            if (capture->isOpen) {
+                vm->stack.objects[capture->stackLocation] = PEEK(vm);
+            } else {
+                capture->captured = PEEK(vm);
+            }
             break;
         }
         case OP_GET_CAPTURED: {
             ASSERT(vm->frame->func->isClosure, "Tried to get captured inside non-closure.");
             ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
+            CapturedObj *capture = closure->captures.data[READ_NUMBER(vm)];
 
-            Obj *value = closure->captures.data[READ_NUMBER(vm)]->captured;
-            PUSH(vm, value);
+            if (capture->isOpen) {
+                PUSH(vm, vm->stack.objects[capture->stackLocation]);
+            } else {
+                PUSH(vm, capture->captured);
+            }
             break;
         }
         case OP_CALL: {
@@ -560,11 +595,19 @@ static bool execute_vm(Vm *vm) {
             break;
         }
         case OP_POP_LOCAL:
+            if (vm->openCaptures.length > 0) {
+                close_captures(vm, 1);
+            }
             DROP(vm);
             break;
-        case OP_POP_LOCALS:
-            DROP_AMOUNT(vm, READ_NUMBER(vm));
+        case OP_POP_LOCALS: {
+            const u32 pops = READ_NUMBER(vm);
+            if (vm->openCaptures.length > 0) {
+                close_captures(vm, pops);
+            }
+            DROP_AMOUNT(vm, pops);
             break;
+        }
         case OP_POP_CAPTURES:
             ASSERT(vm->frame->func->isClosure, "Tried to pop captured inside non-closure.");
             DROP_AMOUNT_DA(&AS_PTR(ClosureObj, vm->frame->func)->captures, READ_NUMBER(vm));

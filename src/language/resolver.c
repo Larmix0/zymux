@@ -410,35 +410,6 @@ static void add_variable_reference(Variable *variable, VarResolution *resolution
     APPEND_DA(&variable->resolutions, resolution);
 }
 
-/** Sets newResolution as the resolution on all mentions stored in the passed variable. */
-static void set_variable_resolution(Variable *variable, const VarResolution newResolution) {
-    variable->resolution = newResolution;
-    for (u32 i = 0; i < variable->resolutions.length; i++) {
-        *variable->resolutions.data[i] = newResolution;
-    }
-}
-
-/**
- * Removes the passed local variable from the passed array of variables.
- * 
- * Also fixes the index stored in the variables above the deleted variable.
- * Decrements their stored indices by 1 to account for the variable not being present in the stack
- * anymore at runtime.
- */
-static void remove_local(VariableArray *variables, Variable *remove) {
-    FREE_DA(&variables->data[remove->resolution.index].resolutions);
-    for (u32 i = remove->resolution.index; i < variables->length - 1; i++) {
-        variables->data[i] = variables->data[i + 1];
-        
-        Variable *variable = &variables->data[i];
-        VarResolution variableRes = variable->resolution;
-        set_variable_resolution(
-            &variables->data[i], create_var_resolution(variableRes.index - 1, variableRes.scope)
-        );
-    }
-    DROP_DA(variables);
-}
-
 /**
  * Captures the local variable toCapture by putting it in all appropriate closure contexts.
  * 
@@ -447,9 +418,6 @@ static void remove_local(VariableArray *variables, Variable *remove) {
  * 
  * The difference between the appended versions of those captured variables in the closures
  * is just putting the correct resolution info for them relative to the closure they're in.
- * 
- * After that, we remove the original local variable from the function it was declared on,
- * as that function will also be accessing that variable through the captured array.
  */
 static void capture_local(Resolver *resolver, Variable *toCapture, const u32 closureIdx) {
     U32Array *localCaptures = &resolver->locals.data[closureIdx].localCaptures;
@@ -467,7 +435,6 @@ static void capture_local(Resolver *resolver, Variable *toCapture, const u32 clo
         resolver->locals.data[i].isClosure = true;
     }
     toCapture->resolutions.data[0]->scope = VAR_CAPTURED; // Set declaration to a captured var one.
-    remove_local(&resolver->locals.data[closureIdx].vars, toCapture);
 }
 
 /** 
@@ -744,7 +711,7 @@ static void resolve_for(Resolver *resolver, ForNode *node) {
  * or deeper to the scope of the innermost loop. In other words, it includes the variables
  * that were created inside the loop at some point.
  */
-static u32 loop_vars_amount(Resolver *resolver, VariableArray *variables) {
+static u32 get_loop_vars_amount(Resolver *resolver, VariableArray *variables) {
     ASSERT(
         resolver->loopScopes.length > 0, "Tried to count loop variables, but not inside a loop."
     );
@@ -778,8 +745,8 @@ static void resolve_loop_control(Resolver *resolver, LoopControlNode *node) {
         return;
     }
 
-    node->localsAmount = loop_vars_amount(resolver, CURRENT_LOCALS(resolver));
-    node->capturedAmount = loop_vars_amount(resolver, CURRENT_CAPTURED(resolver));
+    node->localsAmount = get_loop_vars_amount(resolver, CURRENT_LOCALS(resolver));
+    node->capturedAmount = get_loop_vars_amount(resolver, CURRENT_CAPTURED(resolver));
 }
 
 /**

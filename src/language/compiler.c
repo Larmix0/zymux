@@ -479,7 +479,7 @@ static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
  * 
  * Example:
  *     1 Load null (The loop variable, temporarily null just to place it on the stack).
- *     2 {Load the thing being iterated/looped on}.
+ *     2 Load the thing being iterated/looped on.
  *     3 Wrap the iterable on an iterator object to prepare for the loop.
  *     4 if exhausted go to 7, otherwise iterate the iterator and assign it to the loop variable.
  *     5 {For loop body}.

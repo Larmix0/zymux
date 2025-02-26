@@ -92,7 +92,9 @@ typedef struct {
 /** An object that simply stores a reference to another object. */
 typedef struct {
     Obj obj;
-    Obj *captured;
+    bool isOpen; /** Whether or not the original variable is still alive on the stack. */
+    u32 stackLocation; /** Index of the original object getting captured on the VM's stack. */
+    Obj *captured; /** The final object of the local variable which was captured. */
 } CapturedObj;
 
 /** An array of captured objects. */
@@ -193,7 +195,7 @@ RangeObj *new_range_obj(
 );
 
 /** Returns a newely created indirect reference to the passed object (capturing the object). */
-CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured);
+CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackLocation);
 
 /** Returns a new allocated function object. */
 FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 arity, const int constIdx);

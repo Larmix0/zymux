@@ -113,8 +113,10 @@ RangeObj *new_range_obj(
 }
 
 /** Returns a newely created indirect reference to the passed object (capturing the object). */
-CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured) {
+CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackLocation) {
     CapturedObj *object = NEW_OBJ(program, OBJ_CAPTURED, CapturedObj);
+    object->isOpen = true;
+    object->stackLocation = stackLocation;
     object->captured = captured;
     return object;
 }
