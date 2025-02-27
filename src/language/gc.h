@@ -7,7 +7,7 @@
 #include "dynamic_array.h"
 #include "object.h"
 
-/** How many more bytes allocated before collection multiplier after each collection. */
+/** Multiplier for how many more bytes need to be allocated before another collection. */
 #define COLLECTION_GROWTH 2
 
 /** Puts the specifically passed object in the protection pool. */
@@ -28,7 +28,7 @@
         } \
     } while (false)
 
-/** Tries to clear the protected pool, and decrements the counter protecting new objects. */
+/** Clear the protected pool, and decrement the counter protecting new objects. */
 #define GC_POP_AND_CLEAR_PROTECTED(gc) \
     do { \
         if ((gc)->protectionLayers > 0) { \

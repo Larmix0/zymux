@@ -541,13 +541,12 @@ static void finish_func(Compiler *compiler, const FuncNode *node) {
  * TODO: add optional parameters.
  */
 static void compile_func(Compiler *compiler, const FuncNode *node) {
+    GC_PUSH_PROTECTION(&compiler->program->gc);
     StringObj *nameAsObj = new_string_obj(
         compiler->program, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
     );
     FuncObj *previous = compiler->func;
-    GC_PUSH_PROTECTION(&compiler->program->gc);
-    GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(nameAsObj));
-    GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(previous));
+    GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(previous)); // Created before the protection push.
 
     compiler->func = new_func_obj(
         compiler->program, nameAsObj, node->params.length, previous->constPool.length

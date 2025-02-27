@@ -47,11 +47,4 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-Test the closure_captures() function.
-
-Potentionally name VM stack macros to have _VM() suffix to make what they modify clear.
-
-Is manually protecting strings even a good thing? Because it seems it might be caught up
-in a gc pop.
-
 Test resolver.
