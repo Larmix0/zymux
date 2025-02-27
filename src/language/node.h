@@ -43,11 +43,11 @@ typedef enum {
     VAR_LOCAL,
     VAR_CAPTURED,
     VAR_UNRESOLVED
-} VarScope;
+} VarType;
 
 /** Resolution information for any type of name node (assignment, declaration, etc.). */
 typedef struct {
-    VarScope scope;
+    VarType scope;
     i64 index;
 } VarResolution;
 

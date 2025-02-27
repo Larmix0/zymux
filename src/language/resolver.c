@@ -79,7 +79,7 @@ void free_resolver(Resolver *resolver) {
 }
 
 /** Returns a created resolution for some variable. */
-static VarResolution create_var_resolution(const i64 index, const VarScope scopeType) {
+static VarResolution create_var_resolution(const i64 index, const VarType scopeType) {
     VarResolution resolution = {.index = index, .scope = scopeType};
     return resolution;
 }
@@ -103,50 +103,37 @@ static u32 get_local_captures(ClosedVariables *closure) {
     return total;
 }
 
-/** Returns a variable inside the locals of the passed closure. Returns NULL if it's not found. */
-static Variable *lookup_local(ClosedVariables *closure, const Token name) {
-    for (i64 i = (i64)closure->vars.length - 1; i >= 0; i--) {
-        if (equal_token(closure->vars.data[i].name, name)) {
-            return &closure->vars.data[i];
-        }
-    }
-    return NULL;
-}
-
-/** Returns a variable inside the captures of the passed closure. Returns NULL if it's not found. */
-static Variable *lookup_captured(ClosedVariables *closure, const Token name) {
-    for (i64 i = (i64)closure->captured.length - 1; i >= 0; i--) {
-        if (equal_token(closure->captured.data[i].name, name)) {
-            return &closure->captured.data[i];
+/** 
+ * Returns a variable in the variable array which matches name. Returns NULL if it's not found.
+ * 
+ * The search is done in reverse, reading the most recently appended variable first, which is
+ * the order the language's semantics read with.
+ */
+static Variable *find_variable_array_var(VariableArray *variables, const Token name) {
+    for (i64 i = (i64)variables->length - 1; i >= 0; i--) {
+        if (equal_token(variables->data[i].name, name)) {
+            return &variables->data[i];
         }
     }
     return NULL;
 }
 
 /** 
- * Returns a variable's address in the passed closure whose name is the same as the passed token.
+ * Returns a variable in the passed closure whose name is the same as the passed token or NULL.
  * 
- * Returns NULL by default if the variable doesn't exist in the closure (captured or not).
  * Searches through the locals of the closure first, then searches through the captured variables.
- * 
- * The search is done in reverse, reading the most recently appended variable first, which is
- * the order the language's semantics read with.
+ * Returns NULL by default if the variable doesn't exist in the closure at all (local or captured).
  */
-static Variable *find_variable(ClosedVariables *closure, const Token name) {
-    Variable *result = lookup_local(closure, name);
-    if (result) {
-        return result;
-    }
-
-    result = lookup_captured(closure, name);
-    return result == NULL ? NULL : result;
+static Variable *find_closure_var(ClosedVariables *closure, const Token name) {
+    Variable *result = find_variable_array_var(&closure->vars, name);
+    return result ? result : find_variable_array_var(&closure->captured, name);
 }
 
 /** 
  * Returns the variable in the passed variable array searching only in the top scope of it.
  * Returns NULL if the variable doesn't exist within the topmost scope of that array.
  */
-static Variable *get_top_scope_var(VariableArray variables, Token name, const u32 scope) {
+static Variable *find_top_scope_var(VariableArray variables, Token name, const u32 scope) {
     for (i64 i = (i64)variables.length - 1; i >= 0; i--) {
         if (variables.data[i].scope != scope) {
             return NULL;
@@ -186,19 +173,15 @@ static void append_new_closure(Resolver *resolver) {
         CURRENT_CLOSURE(resolver)->isClosure = true; // Already becomes a closure just in case.
     }
     for (u32 i = 0; i < prevClosure->captured.length; i++) {
-        Variable current = prevClosure->captured.data[i];
-
-        // TODO: Use captured lookup here?
         for (i64 j = (i64)prevClosure->vars.length - 1; j >= 0; j--) {
             if (equal_token(prevClosure->vars.data[j].name, prevClosure->captured.data[i].name)) {
                 capture_local(resolver, &prevClosure->vars.data[j], prevClosureIdx);
-                current = LAST_ITEM_DA(&prevClosure->captured);
-                APPEND_DA(CURRENT_CAPTURED(resolver), current);
+                APPEND_DA(CURRENT_CAPTURED(resolver), LAST_ITEM_DA(&prevClosure->captured));
                 return;
             }
         }
         // Didn't find an uncaptured local, so copy the capture we had.
-        APPEND_DA(CURRENT_CAPTURED(resolver), copy_variable(current));
+        APPEND_DA(CURRENT_CAPTURED(resolver), copy_variable(prevClosure->captured.data[i]));
     }
 }
 
@@ -219,7 +202,7 @@ static void push_scope(Resolver *resolver, const ScopeType type) {
  * 
  * Returns the amount popped.
  */
-static u32 pop_variable_array_scope(Resolver *resolver, VariableArray *variables) {
+static u32 pop_top_scope(Resolver *resolver, VariableArray *variables) {
     u32 popped = 0;
     while (variables->length > 0 && LAST_ITEM_DA(variables).scope == resolver->scopeDepth) {
         FREE_DA(&LAST_ITEM_DA(variables).resolutions);
@@ -245,15 +228,15 @@ static void finish_scope(Resolver *resolver, const ScopeType type) {
 
 /** Collapses the outermost scope (both its captured and non-captured locals). */
 static void pop_scope(Resolver *resolver, ScopeType type) {
-    pop_variable_array_scope(resolver, CURRENT_LOCALS(resolver));
-    pop_variable_array_scope(resolver, CURRENT_CAPTURED(resolver));
+    pop_top_scope(resolver, CURRENT_LOCALS(resolver));
+    pop_top_scope(resolver, CURRENT_CAPTURED(resolver));
     finish_scope(resolver, type);
 }
 
 /** Collapses a scope and assign the amount of variables popped to the passed block's resolution. */
 static void pop_scope_block(Resolver *resolver, BlockNode *block, ScopeType type) {
-    block->localsAmount = pop_variable_array_scope(resolver, CURRENT_LOCALS(resolver));
-    block->capturedAmount = pop_variable_array_scope(resolver, CURRENT_CAPTURED(resolver));
+    block->localsAmount = pop_top_scope(resolver, CURRENT_LOCALS(resolver));
+    block->capturedAmount = pop_top_scope(resolver, CURRENT_CAPTURED(resolver));
     finish_scope(resolver, type);
 }
 
@@ -316,12 +299,12 @@ static void scoped_block(Resolver *resolver, BlockNode *node, const ScopeType ty
  */
 static void declare_local(Resolver *resolver, VarDeclNode *node) {
     const Token name = node->name;
-    if (get_top_scope_var(*CURRENT_LOCALS(resolver), name, resolver->scopeDepth) != NULL) {
+    if (find_top_scope_var(*CURRENT_LOCALS(resolver), name, resolver->scopeDepth) != NULL) {
         resolution_error(
             resolver, name.pos, "Can't redeclare local name '%.*s'.", name.pos.length, name.lexeme
         );
     }
-    Variable *captured = lookup_captured(CURRENT_CLOSURE(resolver), node->name);
+    Variable *captured = find_variable_array_var(&CURRENT_CLOSURE(resolver)->captured, node->name);
     if (captured && captured->scope == resolver->scopeDepth && captured->isLocalCapture) {
         resolution_error(
             resolver, name.pos, "Can't redeclare local name '%.*s'.", name.pos.length, name.lexeme
@@ -344,7 +327,7 @@ static void declare_local(Resolver *resolver, VarDeclNode *node) {
  */
 static void declare_global(Resolver *resolver, VarDeclNode *node) {
     const Token name = node->name;
-    if (find_variable(&resolver->globals, name) != NULL) {
+    if (find_closure_var(&resolver->globals, name) != NULL) {
         resolution_error(
             resolver, name.pos, "Can't redeclare global name '%.*s'.",
             name.pos.length, name.lexeme
@@ -448,7 +431,7 @@ static void capture_local(Resolver *resolver, Variable *toCapture, const u32 clo
  */
 static Variable *search_captures(Resolver *resolver, const Token name, const i64 closureIdx) {
     ClosedVariables *closure = &resolver->locals.data[closureIdx];
-    Variable *variable = find_variable(closure, name);
+    Variable *variable = find_closure_var(closure, name);
     if (variable == NULL) {
         if (closureIdx <= 0) {
             return NULL;
@@ -472,7 +455,7 @@ static Variable *search_captures(Resolver *resolver, const Token name, const i64
  * If one is found it also adds a reference to it in the node's resolution.
  */
 static bool try_assign_local(Resolver *resolver, VarAssignNode *node) {
-    Variable *local = find_variable(CURRENT_CLOSURE(resolver), node->name);
+    Variable *local = find_closure_var(CURRENT_CLOSURE(resolver), node->name);
     if (local == NULL) {
         return false;
     }
@@ -516,7 +499,7 @@ static bool try_assign_captured(Resolver *resolver, VarAssignNode *node) {
  * of resolutions so it can be modified later if needed.
  */
 static bool try_assign_global(Resolver *resolver, VarAssignNode *node) {
-    Variable *global = find_variable(&resolver->globals, node->name);
+    Variable *global = find_closure_var(&resolver->globals, node->name);
     if (global == NULL) {
         return false;
     }
@@ -566,7 +549,7 @@ static void resolve_var_assign(Resolver *resolver, VarAssignNode *node) {
  * Returns whether or not it found one and resolved it.
  */
 static bool try_get_local(Resolver *resolver, VarGetNode *node) {
-    Variable *local = find_variable(CURRENT_CLOSURE(resolver), node->name);
+    Variable *local = find_closure_var(CURRENT_CLOSURE(resolver), node->name);
     if (local == NULL) {
         return false;
     }
@@ -601,7 +584,7 @@ static bool try_get_captured(Resolver *resolver, VarGetNode *node) {
  * Returns true if that happened, otherwise false if the global isn't found to begin with.
  */
 static bool try_get_global(Resolver *resolver, VarGetNode *node) {
-    Variable *global = find_variable(&resolver->globals, node->name);
+    Variable *global = find_closure_var(&resolver->globals, node->name);
     if (global == NULL) {
         return false;
     }

@@ -13,6 +13,7 @@
 #include "test_object.h"
 #include "test_parser.h"
 #include "test_program.h"
+#include "test_resolver.h"
 #include "test_token.h"
 #include "test_vm.h"
 
@@ -23,7 +24,6 @@
 #include "debug_bytecode.c"
 #include "debug_runtime.c"
 #include "gc.c"
-#include "resolver.c" // TODO: remove after resolver tests are added.
 #include "report_error.c"
 
 /** Main function of the unit tests that calls all file testers. */
@@ -45,6 +45,7 @@ int main() {
     test_lexer();
     test_node();
     test_parser();
+    test_resolver();
     test_emitter();
     test_compiler();
     test_vm();
