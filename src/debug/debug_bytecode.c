@@ -22,7 +22,7 @@ static u32 print_number_instr(
     print_bare_instr(instrName, idx);
     *idx += *size;
     const u32 number = read_number(&func->bytecode, *idx - *size, size);
-    printf(" %u", number);
+    printf(" %"PRIu32, number);
     return number;
 }
 
