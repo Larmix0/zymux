@@ -14,7 +14,7 @@ PRIVATE_DECLARE_SETUP(setup_default_compiler) {
     NodeArray defaultAst = CREATE_DA();
 
     defaultCompiler = TYPE_ALLOC(Compiler);
-    *defaultCompiler = create_compiler(program, defaultAst, true);
+    *defaultCompiler = create_compiler(program, defaultAst);
 }
 
 /** A teardown for the default compiler and other things it uses. */

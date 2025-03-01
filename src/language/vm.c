@@ -107,91 +107,13 @@
         BOOL_BIN_OP(vm, resultBool); \
     } while (false)
 
-/**
- * From an integer array representing the stack trace + starting file,
- * retrace and compile the whole program and walk through the constant pool of each function
- * one by one in frameIndices in order to find the original one.
- */
-static FuncObj *copy_errored_func(ZmxProgram *program, const IntArray framesIndices) {
-    char *mainSource = alloc_source(program->currentFile->string);
-    Compiler compiled = compile_source(program, mainSource, true);
-    FuncObj *current = compiled.func;
-    free_compiler(&compiled);
-    free(mainSource);
-
-    for (u32 i = 0; i < framesIndices.length; i++) {
-        current = AS_PTR(FuncObj, current->constPool.data[framesIndices.data[i]]);
-    }
-    return current;
-}
-
-/** 
- * Copies the indices of each constant in the passed call stack into an integer array.
- * 
- * Does not copy the const index of the first (top-level) function as that's the starting point,
- * and it isn't present in any const pools. 
- */
-static IntArray copy_const_indices(const CallStack callStack) {
-    IntArray framesIndices = CREATE_DA();
-    for (u32 i = 1; i < callStack.length; i++) {
-        APPEND_DA(&framesIndices, callStack.data[i].func->constIdx);
-    }
-    return framesIndices;
-}
-
-/** Frees the passed program's content and sets it to a fresh program with the same main name. */
-static void reset_program(ZmxProgram *program) {
-    char *mainName = ARRAY_ALLOC(program->mainFile->length + 1, char);
-    strncpy(mainName, program->mainFile->string, program->mainFile->length);
-    mainName[program->mainFile->length] = '\0';
-    Gc gc = program->gc;
-    free_zmx_program(program);
-    *program = create_zmx_program(mainName, true);
-    program->gc = gc;
-    free(mainName);
-}
-
-/** 
- * Frees the passed VM and reinitializes it.
- * 
- * This is mostly for memory optimization before recompiling the program after it errored,
- * as the VM's allocated memory would be useless after the error.
- */
-static void reset_vm(Vm *vm) {
-    ZmxProgram *program = vm->program;
-    GC_PUSH_PROTECTION(&vm->program->gc);
-    program->gc.vm = NULL;
-    free_vm(vm);
-    *vm = create_vm(program, new_func_obj(program, new_string_obj(program, "", 0), 0, -1));
-    GC_POP_AND_CLEAR_PROTECTED(&vm->program->gc);
-    program->gc.vm = vm;
-}
-
-/** 
- * Reports a runtime error.
- * 
- * Because the original compilation doesn't include bytecode positions (for optimization),
- * we first delete the VM so we have enough memory to recompile the main file with positions on.
- * 
- * After that, we traverse the call stack and check the constant index of each frame's function.
- * This is a way to find out exactly where the function that errored and its bytecode lies,
- * even if multiple functions in different scopes can have the same name.
- * 
- * Also, this is only possible since Zymux only creates function at compilation time,
- * meaning every executable function is in a constant pool of objects created at compilation time.
- */
+/** Reports a runtime error and always returns false to be used for convenience. */
 bool runtime_error(Vm *vm, const char *format, ...) {
     const u32 bytecodeIdx = vm->frame->ip - vm->frame->func->bytecode.data;
-    IntArray framesIndices = copy_const_indices(vm->callStack);
-    reset_program(vm->program);
-    reset_vm(vm);
-    
-    FuncObj *erroredFunc = copy_errored_func(vm->program, framesIndices);
-    FREE_DA(&framesIndices);
     va_list args;
     va_start(args, format);
     zmx_user_error(
-        vm->program, erroredFunc->positions.data[bytecodeIdx], "Runtime error", format, &args
+        vm->program, vm->frame->func->positions.data[bytecodeIdx], "Runtime error", format, &args
     );
     va_end(args);
     return false;
@@ -662,7 +584,7 @@ bool interpret(Vm *vm) {
 
 /** Simply executes the passed source string and frees all used memory except the program's. */
 bool interpret_source(ZmxProgram *program, char *source) {
-    Compiler compiler = compile_source(program, source, DEBUG_BYTECODE);
+    Compiler compiler = compile_source(program, source);
     if (compiler.func == NULL) {
         return false; // Failed to compile.
     }

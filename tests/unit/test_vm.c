@@ -37,31 +37,7 @@ PRIVATE_TEST_CASE(test_runtime_stack) {
     free_zmx_program(&program);
 }
 
-/** Tests that copy_const_indices copies them properly. */
-PRIVATE_TEST_CASE(test_copy_const_indices) {
-    ZmxProgram program = create_zmx_program("test", false);
-    GC_PUSH_PROTECTION(&program.gc);
-    StringObj *emptyName = new_string_obj(&program, "", 0);
-    Vm vm = create_vm(
-        &program, new_func_obj(&program, emptyName, 0, -1)
-    );
-
-    push_stack_frame(&vm, new_func_obj(&program, emptyName, 0, 4), NULL, NULL);
-    push_stack_frame(&vm, new_func_obj(&program, emptyName, 0, 27), NULL, NULL);
-    push_stack_frame(&vm, new_func_obj(&program, emptyName, 0, 0), NULL, NULL);
-    IntArray constants = copy_const_indices(vm.callStack);
-    ASSERT_INT_EQUAL(constants.length, 3);
-    ASSERT_INT_EQUAL(constants.data[0], 4);
-    ASSERT_INT_EQUAL(constants.data[1], 27);
-    ASSERT_INT_EQUAL(constants.data[2], 0);
-
-    free_vm(&vm);
-    FREE_DA(&constants);
-    free_zmx_program(&program);
-}
-
 /** Tests vm.c. */
 void test_vm() {
     TEST(test_runtime_stack);
-    TEST(test_copy_const_indices);
 }

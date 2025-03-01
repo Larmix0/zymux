@@ -10,7 +10,7 @@ PRIVATE_TEST_CASE(test_compile_expr) {
     ZmxProgram program = create_zmx_program("no_file", false);
     char *source = "3 + 4 * --9 * 2 / 7 ** 6 / -2;"
         "$\"start {1 + 2} middle {'inner' + ' string'}\" + ' end.';";
-    Compiler compiled = compile_source(&program, source, false);
+    Compiler compiled = compile_source(&program, source);
     FuncObj *func = compiled.func;
     free_compiler(&compiled);
     ASSERT_NOT_NULL(func);

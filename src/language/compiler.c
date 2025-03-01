@@ -20,13 +20,13 @@ static void compile_node(Compiler *compiler, const Node *node);
 static void compile_node_array(Compiler *compiler, const NodeArray *nodes);
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
-Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPositions) {
+Compiler create_compiler(ZmxProgram *program, const NodeArray ast) {
     GC_PUSH_PROTECTION(&program->gc);
 
     const char *mainName = "<main>";
     StringObj *name = new_string_obj(program, mainName, strlen(mainName));
     Compiler compiler = {
-        .trackPositions = trackPositions, .program = program, .ast = ast,
+        .program = program, .ast = ast,
         .func = AS_PTR(FuncObj, new_closure_obj(program, new_func_obj(program, name, 0, -1), true)),
         .jumps = CREATE_DA(), .breaks = CREATE_DA(), .continues = CREATE_DA(),
     };
@@ -667,12 +667,8 @@ static void free_out_of_compilation(
     if (compiler != NULL) free_compiler(compiler);
 }
 
-/** 
- * Returns a compiled compiler. Either it's compiled or everything is set to 0/NULL if errored.
- * 
- * trackPositions is whether we should store positions for bytecodes or not.
- */
-Compiler compile_source(ZmxProgram *program, char *source, const bool trackPositions) {
+/** Returns a compiled compiler. Either it's compiled or everything is set to 0/NULL if errored. */
+Compiler compile_source(ZmxProgram *program, char *source) {
     Compiler emptyCompiler = {.program = NULL, .func = NULL};
 
     Lexer lexer = create_lexer(program, source);
@@ -693,7 +689,7 @@ Compiler compile_source(ZmxProgram *program, char *source, const bool trackPosit
         return emptyCompiler;
     }
 
-    Compiler compiler = create_compiler(program, resolver.ast, trackPositions);
+    Compiler compiler = create_compiler(program, resolver.ast);
     // Set this compiler as the one being garbage collected. Now compiler's objects can be GC'd.
     program->gc.compiler = &compiler;
     GC_CLEAR_PROTECTED(&program->gc);

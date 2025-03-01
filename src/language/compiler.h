@@ -8,7 +8,6 @@
 
 /** The compiler for a Zymux program. */
 typedef struct Compiler {
-    bool trackPositions; /** Whether or not we should store the positions of each bytecode. */
     ZmxProgram *program; /** Zymux program to hold the program's information. */
     NodeArray ast; /** The whole AST that is being compiled. */
 
@@ -21,7 +20,7 @@ typedef struct Compiler {
 } Compiler;
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
-Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPositions);
+Compiler create_compiler(ZmxProgram *program, const NodeArray ast);
 
 /** 
  * Compiles bytecode from the AST inside compiler into its func.
@@ -30,12 +29,8 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast, bool trackPos
  */
 bool compile(Compiler *compiler);
 
-/** 
- * Returns a compiled compiler. Either it's compiled or everything is set to 0/NULL if errored.
- * 
- * trackPositions is whether we should store positions for bytecodes or not.
- */
-Compiler compile_source(ZmxProgram *program, char *source, const bool trackPositions);
+/** Returns a compiled compiler. Either it's compiled or everything is set to 0/NULL if errored. */
+Compiler compile_source(ZmxProgram *program, char *source);
 
 /** Frees all memory the compiler owns. */
 void free_compiler(Compiler *compiler);

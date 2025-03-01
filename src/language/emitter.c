@@ -6,13 +6,6 @@ static void fix_jumps(
     JumpArray *jumps, const u32 jumpIdx, const int addedBefore, const int addedAfter
 );
 
-/** Appends pos needed amount of times for func's positions length to match bytecode's length. */
-static void fill_instr_positions(FuncObj *func, const SourcePosition pos) {
-    while (func->positions.length < func->bytecode.length) {
-        APPEND_DA(&func->positions, pos);
-    }
-}
-
 /** Returns the instruction size of the passed number. */
 static InstrSize get_number_size(const u32 number) {
     if (number <= U8_MAX) {
@@ -54,7 +47,7 @@ static void adjust_jump(Jump *jump, const i64 adjustment) {
 }
 
 /** 
- * General function for inserting a byte of bytecode and its position if tracking positions is on.
+ * General function for inserting a byte of bytecode and its position.
  * 
  * The position is automatically made to be the previous byte's own position.
  * Also, it assumes that the byte is not inserted at index 0 when grabbing the position.
@@ -70,19 +63,18 @@ static void insert_byte(Compiler *compiler, u8 byte, const u32 index) {
     }
     APPEND_DA(bytecode, byte);
 
-    if (compiler->trackPositions) {
-        SourcePositionArray *positions = &compiler->func->positions;
-        SourcePosition pos = positions->data[index - 1];
-        for (u32 i = index; i < positions->length; i++) {
-            SourcePosition originalPos = positions->data[i];
-            positions->data[i] = pos;
-            pos = originalPos;
-        }
-        APPEND_DA(positions, pos);
+    ASSERT(index - 1 >= 0, "Byte can't be inserted at the very start because position is unknown.");
+    SourcePositionArray *positions = &compiler->func->positions;
+    SourcePosition pos = positions->data[index - 1];
+    for (u32 i = index; i < positions->length; i++) {
+        SourcePosition originalPos = positions->data[i];
+        positions->data[i] = pos;
+        pos = originalPos;
     }
+    APPEND_DA(positions, pos);
 }
 
-/** Removes a byte at the passed index, and removes its corresponding position if it's tracked. */
+/** Removes a byte at the passed index, and removes its corresponding position. */
 static void remove_byte(Compiler *compiler, const u32 index) {
     ByteArray *bytecode = &compiler->func->bytecode;
     ASSERT(index < bytecode->length, "Removing byte outside bytecode boundary.");
@@ -92,13 +84,11 @@ static void remove_byte(Compiler *compiler, const u32 index) {
     }
     DROP_DA(bytecode);
 
-    if (compiler->trackPositions) {
-        SourcePositionArray *positions = &compiler->func->positions;
-        for (u32 i = index; i < positions->length - 1; i++) {
-            positions->data[i] = positions->data[i + 1];
-        }
-        DROP_DA(positions);
+    SourcePositionArray *positions = &compiler->func->positions;
+    for (u32 i = index; i < positions->length - 1; i++) {
+        positions->data[i] = positions->data[i + 1];
     }
+    DROP_DA(positions);
 }
 
 /** Inserts a number in the bytecode array at startIdx. */
@@ -118,13 +108,11 @@ static void insert_number(Compiler *compiler, const u32 startIdx, const u32 numb
 
 /** 
  * Emits/appends a single byte instruction to the passed compiler's current function.
- * Also appends bytePos as debugging info to the positions array if enabled.
+ * Also appends bytePos as debugging info to the positions.
  */
 void emit_instr(Compiler *compiler, const u8 instr, const SourcePosition pos) {
     APPEND_DA(&compiler->func->bytecode, instr);
-    if (compiler->trackPositions) {
-        fill_instr_positions(compiler->func, pos);
-    }
+    APPEND_DA(&compiler->func->positions, pos);
 }
 
 /** 
