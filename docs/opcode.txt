@@ -169,9 +169,14 @@ OP_GET_LOCAL:
     then uses it to index into the stack and push that object to the top again.
 
 OP_CAPTURE:
-    adds the topmost object in the stack into the current closure's captured variables,
-    and the VM's open captures. It'll be removed from the VM's open captures once that variable
-    is popped off of the stack and now needs to live exclusively on the heap.
+    Adds the topmost object in the stack into the current closure's captured variables,
+    and the VM's open captures. It'll be removed from the VM's open captures once it's popped
+    off of the stack and needs to live exclusively on the heap.
+
+OP_CAPTURE_AT:
+    Adds the object at the read index (relative to the base pointer) into the current closure's
+    captured variables, and the VM's open captures. It'll be removed from the VM's open captures
+    once it's popped off of the stack and needs to live exclusively on the heap.
 
 OP_ASSIGN_CAPTURED:
     Reads an index number that is used on the current closure's array of captured variables,

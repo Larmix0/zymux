@@ -205,7 +205,9 @@ Node *new_func_node(
     node->nameDecl = nameDecl;
     node->params = params;
     node->body = body;
+
     node->isClosure = false;
+    INIT_DA(&node->capturedParams);
     return AS_NODE(node);
 }
 
@@ -274,6 +276,7 @@ static void free_node(Node *node) {
         break;
     case AST_FUNC:
         FREE_DA(&AS_PTR(FuncNode, node)->params);
+        FREE_DA(&AS_PTR(FuncNode, node)->capturedParams);
         break;
     case AST_ERROR:
     case AST_LITERAL:

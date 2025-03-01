@@ -101,6 +101,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_ASSIGN_LOCAL: print_number_instr("ASSIGN_LOCAL", func, &idx, size); break;
     case OP_GET_LOCAL: print_number_instr("GET_LOCAL", func, &idx, size); break;
     case OP_CAPTURE: print_bare_instr("CAPTURE", &idx); break;
+    case OP_CAPTURE_AT: print_number_instr("CAPTURE_AT", func, &idx, size); break;
     case OP_ASSIGN_CAPTURED: print_number_instr("ASSIGN_CAPTURED", func, &idx, size); break;
     case OP_GET_CAPTURED: print_number_instr("GET_CAPTURED", func, &idx, size); break;
     case OP_CALL: print_number_instr("CALL", func, &idx, size); break;

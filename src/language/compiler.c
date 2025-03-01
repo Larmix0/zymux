@@ -498,7 +498,7 @@ static void compile_for(Compiler *compiler, const ForNode *node) {
     emit_jump(compiler, OP_JUMP_BACK, iterStart, false, PREVIOUS_OPCODE_POS(compiler));
 
     const u32 loopExit = compiler->func->bytecode.length;
-    emit_local_pops(compiler, 2, PREVIOUS_OPCODE_POS(compiler)); // Pop loop var and iterator after loop.
+    emit_local_pops(compiler, 2, PREVIOUS_OPCODE_POS(compiler)); // Pop loop var and iterator.
     patch_jump(compiler, iterStart, loopExit, true);
     pop_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, iterStart, false);
 }
@@ -516,8 +516,20 @@ static void compile_loop_control(Compiler *compiler, const LoopControlNode *node
     }
 }
 
-/** Finishes compiling the current function on the compiler. TODO: add optional params. */
+/** 
+ * Finishes compiling the current function on the compiler. TODO: add optional params.
+ * 
+ * First emits the appropriate instructions for handling the parameters declaration/capturement,
+ * then compiles the loop body, after that it writes a default return statement in case the function
+ * didn't have any, and finally finishes up the function by writing all statement jumps it had.
+ */
 static void finish_func(Compiler *compiler, const FuncNode *node) {
+    for (u32 i = 0; i < node->capturedParams.length; i++) {
+        emit_number(
+            compiler, OP_CAPTURE_AT, node->capturedParams.data[i], get_node_pos(AS_NODE(node))
+        );
+    }
+
     JumpArray previous = compiler->jumps;
     INIT_DA(&compiler->jumps);
 
@@ -534,11 +546,10 @@ static void finish_func(Compiler *compiler, const FuncNode *node) {
  * Compiles a generic function of any kind.
  * 
  * We compile functions by switching the compiler's current function to the new one being created,
- * then we start compiling all the nodes inside the function's body. After we're done with that,
+ * then we compile the function itself. After we're done with that,
  * we emit the new compiled function as a const inside the const pool of the previous function.
  * 
  * TODO: add more differentiating stuff for func types (like methods, initializers, etc.).
- * TODO: add optional parameters.
  */
 static void compile_func(Compiler *compiler, const FuncNode *node) {
     GC_PUSH_PROTECTION(&compiler->program->gc);

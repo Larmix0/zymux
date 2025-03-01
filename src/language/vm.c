@@ -288,21 +288,6 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
 }
 
 /** 
- * Executes a return from the topmost call.
- * 
- * Uses the object at the top of the stack as the return value, by popping the whole function,
- * and replacing the callee object with that returned object (which also got popped).
- */
-static void call_return(Vm *vm) {
-    const u32 arity = vm->frame->func->arity;
-    Obj *returned = PEEK(vm);
-    
-    pop_stack_frame(vm);
-    DROP_AMOUNT(vm, arity);
-    PEEK(vm) = returned;
-}
-
-/** 
  * Closes as many "open" captures that have now been deleted off of the stack.
  * 
  * Iterates over all of the open captures, and then closes any whose stack location corresponds
@@ -323,6 +308,34 @@ static void close_captures(Vm *vm, const u32 pops) {
             DROP_DA(&vm->openCaptures);
         }
     }
+}
+
+/** 
+ * Executes a return from the topmost call.
+ * 
+ * Uses the object at the top of the stack as the return value, by popping the whole function,
+ * and replacing the callee object with that returned object (which also got popped).
+ * 
+ * Also, closes all alive variables that are gonna be deleted from the stack after the return.
+ */
+static void call_return(Vm *vm) {
+    const u32 arity = vm->frame->func->arity;
+    Obj *returned = PEEK(vm);
+    if (vm->openCaptures.length > 0) {
+        close_captures(vm, vm->frame->sp - vm->frame->bp);
+    }
+    
+    pop_stack_frame(vm);
+    DROP_AMOUNT(vm, arity); // Remove the args which were added before invoking the function.
+    PEEK(vm) = returned;
+}
+
+/** Captures a variable by creating a capture object and placing it in the appropriate places. */
+static void capture_variable(Vm *vm, Obj *capturedObj, const u32 stackLocation) {
+    ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
+    CapturedObj *capture = new_captured_obj(vm->program, capturedObj, stackLocation);
+    APPEND_DA(&closure->captures, capture);
+    APPEND_DA(&vm->openCaptures, capture);
 }
 
 /** 
@@ -502,13 +515,14 @@ static bool execute_vm(Vm *vm) {
             PUSH(vm, value);
             break;
         }
-        case OP_CAPTURE: {
+        case OP_CAPTURE:
             ASSERT(vm->frame->func->isClosure, "Tried to capture inside non-closure.");
-
-            ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
-            CapturedObj *capture = new_captured_obj(vm->program, PEEK(vm), STACK_LENGTH(vm) - 1);
-            APPEND_DA(&closure->captures, capture);
-            APPEND_DA(&vm->openCaptures, capture);
+            capture_variable(vm, PEEK(vm), STACK_LENGTH(vm) - 1);
+            break;
+        case OP_CAPTURE_AT: {
+            ASSERT(vm->frame->func->isClosure, "Tried to capture inside non-closure.");
+            const u32 at = READ_NUMBER(vm);
+            capture_variable(vm, vm->frame->bp[at], vm->frame->bp + at - vm->stack.objects);
             break;
         }
         case OP_ASSIGN_CAPTURED: {

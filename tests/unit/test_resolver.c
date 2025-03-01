@@ -21,7 +21,7 @@ PRIVATE_TEST_CASE(test_find_variable_array_var) {
     VariableArray variables = CREATE_DA();
     Variable lookupVar = create_variable(
         false, true, false,
-        create_token("10", TOKEN_INT_LIT), 2, create_var_resolution(5, VAR_GLOBAL)
+        create_token("10", TOKEN_INT_LIT), 2, create_var_resolution(5, VAR_GLOBAL), NULL
     );
 
     ASSERT_NULL(find_variable_array_var(&variables, lookupVar.name));
@@ -29,7 +29,7 @@ PRIVATE_TEST_CASE(test_find_variable_array_var) {
         &variables,
         create_variable(
             false, false, false,
-            create_token("false", TOKEN_FALSE_KW), 0, create_var_resolution(0, VAR_LOCAL)
+            create_token("false", TOKEN_FALSE_KW), 0, create_var_resolution(0, VAR_LOCAL), NULL
         )
     );
     ASSERT_NULL(find_variable_array_var(&variables, lookupVar.name));
@@ -42,7 +42,7 @@ PRIVATE_TEST_CASE(test_find_variable_array_var) {
         &variables,
         create_variable(
             false, true, false,
-            create_token("nothing", TOKEN_IDENTIFIER), 2, create_var_resolution(0, VAR_GLOBAL)
+            create_token("nothing", TOKEN_IDENTIFIER), 2, create_var_resolution(0, VAR_GLOBAL), NULL
         )
     );
     ASSERT_TRUE(
@@ -62,28 +62,28 @@ PRIVATE_TEST_CASE(test_pop_top_scope) {
         &variables,
         create_variable(
             true, true, true,
-            create_token("a", TOKEN_IDENTIFIER), 1, create_var_resolution(0, VAR_LOCAL)
+            create_token("a", TOKEN_IDENTIFIER), 1, create_var_resolution(0, VAR_LOCAL), NULL
         )
     );
     APPEND_DA(
         &variables,
         create_variable(
             false, true, false,
-            create_token("b", TOKEN_IDENTIFIER), 2, create_var_resolution(0, VAR_LOCAL)
+            create_token("b", TOKEN_IDENTIFIER), 2, create_var_resolution(0, VAR_LOCAL), NULL
         )
     );
     APPEND_DA(
         &variables,
         create_variable(
             false, false, true,
-            create_token("c", TOKEN_IDENTIFIER), 2, create_var_resolution(0, VAR_LOCAL)
+            create_token("c", TOKEN_IDENTIFIER), 2, create_var_resolution(0, VAR_LOCAL), NULL
         )
     );
     APPEND_DA(
         &variables,
         create_variable(
             false, false, false,
-            create_token("d", TOKEN_IDENTIFIER), 3, create_var_resolution(0, VAR_LOCAL)
+            create_token("d", TOKEN_IDENTIFIER), 3, create_var_resolution(0, VAR_LOCAL), NULL
         )
     );
     ASSERT_INT_EQUAL(variables.length, 4);

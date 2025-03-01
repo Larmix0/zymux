@@ -240,6 +240,7 @@ typedef struct {
     BlockNode *body;
 
     bool isClosure;
+    U32Array capturedParams; /** An array of each index into the params array that is captured. */
 } FuncNode;
 
 /** For exiting a function with a certain value (null by default if nothing is provided). */

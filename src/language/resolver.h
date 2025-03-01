@@ -33,6 +33,9 @@ typedef struct {
      * resolution info.
      */
     VarResolutionArray resolutions;
+
+    /** Function that uses this potential parameter variable. NULL for non-param variables. */
+    FuncNode *paramFunc;
 } Variable;
 
 /** An array of variables that a specific closure has (which is 1 or more scopes inside a func). */

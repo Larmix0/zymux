@@ -44,11 +44,12 @@ Resolver create_resolver(ZmxProgram *program, NodeArray ast) {
 /** Returns a variable, which has its name in a token along some extra resolution information. */
 static Variable create_variable(
     const bool isPrivate, const bool isConst, const bool isLocalCapture,
-    const Token name, const u32 scope, const VarResolution resolution
+    const Token name, const u32 scope, const VarResolution resolution, FuncNode *paramFunc
 ) {
     Variable var = {
         .isPrivate = isPrivate, .isConst = isConst, .isLocalCapture = isLocalCapture,
-        .name = name, .scope = scope, .resolution = resolution, .resolutions = CREATE_DA()
+        .name = name, .scope = scope, .resolution = resolution, .resolutions = CREATE_DA(),
+        .paramFunc = paramFunc
     };
     return var;
 }
@@ -149,7 +150,7 @@ static Variable *find_top_scope_var(VariableArray variables, Token name, const u
 static Variable copy_variable(const Variable original) {
     Variable copied = create_variable(
         original.isPrivate, original.isConst, original.isLocalCapture,
-        original.name, original.scope, original.resolution
+        original.name, original.scope, original.resolution, original.paramFunc
     );
     for (u32 i = 0; i < original.resolutions.length; i++) {
         APPEND_DA(&copied.resolutions, original.resolutions.data[i]);
@@ -315,7 +316,7 @@ static void declare_local(Resolver *resolver, VarDeclNode *node) {
     node->resolution.scope = VAR_LOCAL;
 
     Variable declared = create_variable(
-        false, node->isConst, false, name, resolver->scopeDepth, node->resolution
+        false, node->isConst, false, name, resolver->scopeDepth, node->resolution, NULL
     );
     APPEND_DA(&declared.resolutions, &node->resolution);
     APPEND_DA(CURRENT_LOCALS(resolver), declared);
@@ -338,7 +339,7 @@ static void declare_global(Resolver *resolver, VarDeclNode *node) {
     node->resolution.scope = VAR_GLOBAL;
 
     Variable declared = create_variable(
-        false, node->isConst, false, name, resolver->scopeDepth, node->resolution
+        false, node->isConst, false, name, resolver->scopeDepth, node->resolution, NULL
     );
     APPEND_DA(&declared.resolutions, &node->resolution);
     APPEND_DA(&resolver->globals.vars, declared);
@@ -389,6 +390,23 @@ static void add_variable_reference(Variable *variable, VarResolution *resolution
     APPEND_DA(&variable->resolutions, resolution);
 }
 
+/** 
+ * Marks a parameter of a function as captured.
+ * 
+ * Doing that is by adding an index of that variable (relative to BP at runtime)
+ * to its original function, and that index goes inside the stack at the slot of the parameter
+ * that should be captured.
+ */
+static void mark_param_captured(ClosedVariables *closure, Variable *parameter) {
+    for (i64 i = (i64)closure->vars.length - 1; i >= 0; i--) {
+        if (equal_token(closure->vars.data[i].name, parameter->name)) {
+            APPEND_DA(&parameter->paramFunc->capturedParams, i);
+            return;
+        }
+    }
+    UNREACHABLE_ERROR(); // The parameter we're capturing should always be findable.
+}
+
 /**
  * Captures the local variable toCapture by putting it in all appropriate closure contexts.
  * 
@@ -399,7 +417,8 @@ static void add_variable_reference(Variable *variable, VarResolution *resolution
  * is just putting the correct resolution info for them relative to the closure they're in.
  */
 static void capture_local(Resolver *resolver, Variable *toCapture, const u32 closureIdx) {
-    U32Array *localCaptures = &resolver->locals.data[closureIdx].localCaptures;
+    ClosedVariables *closure = &resolver->locals.data[closureIdx];
+    U32Array *localCaptures = &closure->localCaptures;
     LAST_ITEM_DA(localCaptures)++;
 
     for (u32 i = closureIdx; i < resolver->locals.length; i++) {
@@ -408,12 +427,16 @@ static void capture_local(Resolver *resolver, Variable *toCapture, const u32 clo
         Variable closureCapture = create_variable(
             toCapture->isPrivate, toCapture->isConst, isLocalCapture,
             toCapture->name, toCapture->scope,
-            create_var_resolution(resolver->locals.data[i].captured.length, VAR_CAPTURED)
+            create_var_resolution(resolver->locals.data[i].captured.length, VAR_CAPTURED),
+            NULL
         );
         APPEND_DA(&resolver->locals.data[i].captured, closureCapture);
         resolver->locals.data[i].isClosure = true;
     }
-    toCapture->resolutions.data[0]->scope = VAR_CAPTURED; // Set declaration to a captured var one.
+    toCapture->resolutions.data[0]->scope = VAR_CAPTURED;
+    if (toCapture->paramFunc) {
+        mark_param_captured(closure, toCapture);
+    }
 }
 
 /** 
@@ -674,7 +697,7 @@ static void resolve_for(Resolver *resolver, ForNode *node) {
         CURRENT_LOCALS(resolver),
         create_variable(
             false, false, false, create_token("<iter>", 0), resolver->scopeDepth,
-            create_var_resolution(loopVarSpot + 1, VAR_LOCAL)
+            create_var_resolution(loopVarSpot + 1, VAR_LOCAL), NULL
         )
     );
     resolve_node(resolver, node->iterable);
@@ -728,6 +751,24 @@ static void resolve_loop_control(Resolver *resolver, LoopControlNode *node) {
     node->capturedAmount = get_loop_vars_amount(resolver, CURRENT_CAPTURED(resolver));
 }
 
+/** Handles the resolutions of a function's parameters and body. */
+static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
+    for (u32 i = 0; i < node->params.length; i++) {
+        ASSERT(node->params.data[i]->type == AST_LITERAL, "Parameter is not a variable literal.");
+        const Token varName = AS_PTR(LiteralNode, node->params.data[i])->value;
+
+        // +1 on the variable resolution because the 0th spot is occupied by the function iteslf.
+        Variable parameter = create_variable(
+            false, false, false,
+            varName, resolver->scopeDepth, create_var_resolution(i + 1, VAR_LOCAL), node
+        );
+        // Synthetic declaration to be used in place of a normal declaration for the parameter.
+        APPEND_DA(&parameter.resolutions, &parameter.resolution);
+        APPEND_DA(CURRENT_LOCALS(resolver), parameter);
+    }
+    block(resolver, node->body);
+}
+
 /**
  * Resolves a function, which includes its parameters and its body inside a function-type scope.
  * 
@@ -740,23 +781,11 @@ static void resolve_func(Resolver *resolver, FuncNode *node) {
     push_scope(resolver, SCOPE_FUNC);
     Variable declared = create_variable(
         false, node->nameDecl->isConst, false,
-        node->nameDecl->name, resolver->scopeDepth, node->nameDecl->resolution
+        node->nameDecl->name, resolver->scopeDepth, node->nameDecl->resolution, NULL
     );
     APPEND_DA(CURRENT_LOCALS(resolver), declared);
 
-    for (u32 i = 0; i < node->params.length; i++) {
-        // TODO: make this also check for other stuff potentially when optional params are added.
-        ASSERT(node->params.data[i]->type == AST_LITERAL, "Parameter is not a variable literal.");
-
-        // +1 on the variable resolution created because the 0th spot is occupied by the func name.
-        const Token varName = AS_PTR(LiteralNode, node->params.data[i])->value;
-        const Variable parameter = create_variable(
-            false, false, false,
-            varName, resolver->scopeDepth, create_var_resolution(i + 1, VAR_LOCAL)
-        );
-        APPEND_DA(CURRENT_LOCALS(resolver), parameter);
-    }
-    block(resolver, node->body);
+    finish_func_resolution(resolver, node);
     node->isClosure = CURRENT_CLOSURE(resolver)->isClosure;
     pop_scope_block(resolver, node->body, SCOPE_FUNC);
 }

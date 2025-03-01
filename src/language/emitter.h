@@ -64,6 +64,7 @@ typedef enum {
     OP_ASSIGN_LOCAL,
     OP_GET_LOCAL,
     OP_CAPTURE,
+    OP_CAPTURE_AT,
     OP_ASSIGN_CAPTURED,
     OP_GET_CAPTURED,
     OP_CALL,
