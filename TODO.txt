@@ -47,7 +47,4 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-Error out parameters with the same name.
-Ensure that the amount of arguments passed matches the amount of parameters
-
 Minimize how often the whole compiler is passed to emitter.c functions.

@@ -755,12 +755,17 @@ static void resolve_loop_control(Resolver *resolver, LoopControlNode *node) {
 static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
     for (u32 i = 0; i < node->params.length; i++) {
         ASSERT(node->params.data[i]->type == AST_LITERAL, "Parameter is not a variable literal.");
-        const Token varName = AS_PTR(LiteralNode, node->params.data[i])->value;
+        const Token name = AS_PTR(LiteralNode, node->params.data[i])->value;
+        if (find_top_scope_var(*CURRENT_LOCALS(resolver), name, resolver->scopeDepth) != NULL) {
+            resolution_error(
+                resolver, name.pos, "Repeated parameter '%.*s'.", name.pos.length, name.lexeme
+            );
+        }
 
         // +1 on the variable resolution because the 0th spot is occupied by the function iteslf.
         Variable parameter = create_variable(
             false, false, false,
-            varName, resolver->scopeDepth, create_var_resolution(i + 1, VAR_LOCAL), node
+            name, resolver->scopeDepth, create_var_resolution(i + 1, VAR_LOCAL), node
         );
         // Synthetic declaration to be used in place of a normal declaration for the parameter.
         APPEND_DA(&parameter.resolutions, &parameter.resolution);

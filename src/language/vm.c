@@ -192,6 +192,13 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     }
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, callee);
+        if (func->arity != argAmount) {
+            return runtime_error(
+                vm, "%s() expected %"PRIu32" %s, but got %"PRIu32" instead.",
+                func->name->string, func->arity,
+                func->arity == 1 ? "argument" : "arguments", argAmount
+            );
+        }
         push_stack_frame(vm, func, args - 1, vm->frame->sp);
         return true;
     }
