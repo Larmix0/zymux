@@ -152,6 +152,26 @@ static Node *primary(Parser *parser) {
     }
 }
 
+/** A list expression, which holds multiple values/expressions. */
+static Node *list(Parser *parser) {
+    if (!CHECK(parser, TOKEN_LSQUARE)) {
+        return primary(parser);
+    }
+    NodeArray items = CREATE_DA();
+    Token leftBracket = ADVANCE_PEEK(parser);
+    if (!CHECK(parser, TOKEN_RSQUARE)) {
+        APPEND_DA(&items, expression(parser));
+    }
+    while (!MATCH(parser, TOKEN_RSQUARE) && !parser->isPanicking) {
+        if (IS_EOF(parser)) {
+            parser_error_at(parser, &leftBracket, true, "list was never closed.");
+        }
+        CONSUME(parser, TOKEN_COMMA, "Expected ',' or ']' in list.");
+        APPEND_DA(&items, expression(parser));
+    }
+    return new_list_node(parser->program, items, leftBracket.pos);
+}
+
 /** Returns a parsed argument for a call. TODO: expand later with keyword arguments. */
 static Node *one_arg(Parser *parser) {
     return expression(parser);
@@ -163,7 +183,7 @@ static NodeArray parse_args(Parser *parser) {
     CONSUME(parser, TOKEN_LPAR, "Expected opening parenthesis before arguments.");
     if (!MATCH(parser, TOKEN_RPAR)) {
         APPEND_DA(&args, one_arg(parser));
-        while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser)) {
+        while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser) && !parser->isPanicking) {
             CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after argument.");
             APPEND_DA(&args, one_arg(parser));
         }
@@ -179,7 +199,7 @@ static NodeArray parse_args(Parser *parser) {
  * TODO: allow keyword arguments and optional arguments.
  */
 static Node *call(Parser *parser) {
-    Node *expr = primary(parser);
+    Node *expr = list(parser);
     while (CHECK(parser, TOKEN_LPAR)) {
         NodeArray args = parse_args(parser);
         expr = new_call_node(parser->program, expr, args);
@@ -483,7 +503,7 @@ static NodeArray parse_params(Parser *parser) {
     CONSUME(parser, TOKEN_LPAR, "Expected opening parenthesis before parameters.");
     if (!MATCH(parser, TOKEN_RPAR)) {
         APPEND_DA(&params, one_param(parser));
-        while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser)) {
+        while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser) && !parser->isPanicking) {
             CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after parameter.");
             APPEND_DA(&params, one_param(parser));
         }

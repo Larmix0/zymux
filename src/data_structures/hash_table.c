@@ -21,6 +21,7 @@ bool is_hashable(const Obj *object) {
     case OBJ_STRING:
     case OBJ_RANGE:
         return true;
+    case OBJ_LIST:
     case OBJ_CAPTURED:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
@@ -74,6 +75,7 @@ u32 get_hash(const Obj *object) {
         return hash_int(range->start) + hash_int(range->end) + hash_int(range->step);
     }
 
+    case OBJ_LIST:
     case OBJ_CAPTURED:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:

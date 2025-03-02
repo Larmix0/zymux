@@ -106,6 +106,14 @@ Node *new_ternary_node(ZmxProgram *program, Node *condition, Node *trueExpr, Nod
     return AS_NODE(node);
 }
 
+/** Allocates a list node to hold an array of multiple nodes. */
+Node *new_list_node(ZmxProgram *program, const NodeArray items, const SourcePosition pos) {
+    ListNode *node = NEW_NODE(program, AST_LIST, ListNode);
+    node->items = items;
+    node->pos = pos;
+    return AS_NODE(node);
+}
+
 /** Allocates an expression statement node, which just holds an expression. */
 Node *new_expr_stmt_node(ZmxProgram *program, Node *expr) {
     ExprStmtNode *node = NEW_NODE(program, AST_EXPR_STMT, ExprStmtNode);
@@ -255,6 +263,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_RANGE: return AS_PTR(RangeNode, node)->pos;
     case AST_CALL: return get_node_pos(AS_PTR(CallNode, node)->callee);
     case AST_TERNARY: return get_node_pos(AS_PTR(TernaryNode, node)->condition);
+    case AST_LIST: return AS_PTR(ListNode, node)->pos;
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(ExprStmtNode, node)->expr);
     case AST_BLOCK: return AS_PTR(BlockNode, node)->pos;
     case AST_VAR_DECL: return AS_PTR(VarDeclNode, node)->name.pos;
@@ -277,6 +286,9 @@ static void free_node(Node *node) {
     switch (node->type) {
     case AST_STRING:
         FREE_DA(&AS_PTR(StringNode, node)->exprs);
+        break;
+    case AST_LIST:
+        FREE_DA(&AS_PTR(ListNode, node)->items);
         break;
     case AST_BLOCK:
         FREE_DA(&AS_PTR(BlockNode, node)->stmts);

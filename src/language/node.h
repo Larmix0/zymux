@@ -22,6 +22,7 @@ typedef enum {
     AST_RANGE,
     AST_CALL,
     AST_TERNARY,
+    AST_LIST,
     AST_EXPR_STMT,
     AST_BLOCK,
     AST_VAR_DECL,
@@ -144,6 +145,13 @@ typedef struct {
     Node *trueExpr;
     Node *falseExpr;
 } TernaryNode;
+
+/** Represents a list of multiple expressions separated by commas. */
+typedef struct {
+    Node node;
+    NodeArray items;
+    SourcePosition pos;
+} ListNode;
 
 /**
  * An expression statement is a statement that just holds an expression followed by a semicolon.
@@ -300,6 +308,9 @@ Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args);
 
 /** Allocates a ternary conditional expression node. */
 Node *new_ternary_node(ZmxProgram *program, Node *condition, Node *trueExpr, Node *falseExpr);
+
+/** Allocates a list node to hold an array of multiple nodes. */
+Node *new_list_node(ZmxProgram *program, const NodeArray items, const SourcePosition pos);
 
 /** Allocates an expression statement node, which just holds an expression. */
 Node *new_expr_stmt_node(ZmxProgram *program, Node *expr);

@@ -36,3 +36,8 @@ Optimization:
         (In other words, use the dot operator instead of the arrow).
 
 ----------------------------------------------------------------------------------------------------
+
+Fix the assert warning by converting to i64
+Fix the empty calls in the AST mentioning that a call is empty twice in a row. 
+
+Make print_obj() just universally convert objects with as_string() to reduce repetition?

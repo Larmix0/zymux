@@ -112,6 +112,13 @@ RangeObj *new_range_obj(
     return object;
 }
 
+/** Returns a list, which encapsulates an array of objects that is ordered. */
+ListObj *new_list_obj(ZmxProgram *program, const ObjArray items) {
+    ListObj *obj = NEW_OBJ(program, OBJ_LIST, ListObj);
+    obj->items = items;
+    return obj;
+}
+
 /** Returns a newely created indirect reference to the passed object (capturing the object). */
 CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackLocation) {
     CapturedObj *object = NEW_OBJ(program, OBJ_CAPTURED, CapturedObj);
@@ -195,6 +202,7 @@ bool is_iterable(const Obj *object) {
     switch (object->type) {
     case OBJ_STRING:
     case OBJ_RANGE:
+    case OBJ_LIST:
         return true;
 
     case OBJ_INT:
@@ -239,6 +247,13 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
         }
         return AS_OBJ(new_int_obj(program, result));
     }
+    case OBJ_LIST: {
+        ListObj *list = AS_PTR(ListObj, iterator->iterable);
+        if (iterator->iteration >= list->items.length) {
+            return NULL;
+        }
+        return list->items.data[iterator->iteration++];
+    }
     case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:
@@ -277,6 +292,19 @@ bool equal_obj(const Obj *left, const Obj *right) {
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return left == right; // Compare addresses directly.
+    case OBJ_LIST: {
+        ListObj *leftList = AS_PTR(ListObj, left);
+        ListObj *rightList = AS_PTR(ListObj, right);
+        if (leftList->items.length != rightList->items.length) {
+            return false;
+        }
+        for (u32 i = 0; i < leftList->items.length; i++) {
+            if (!equal_obj(leftList->items.data[i], rightList->items.data[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
     case OBJ_BOOL:
         return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
     case OBJ_NULL:
@@ -330,6 +358,18 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
         );
         break;
     }
+    case OBJ_LIST: {
+        ListObj *list = AS_PTR(ListObj, object);
+        buffer_append_char(&string, '[');
+        for (u32 i = 0; i < list->items.length; i++) {
+            if (i != 0) {
+                buffer_append_string(&string, ", ");
+            }
+            buffer_append_format(&string, "%s", as_string(program, list->items.data[i]));
+        }
+        buffer_append_char(&string, ']');
+        break;
+    }
     case OBJ_CAPTURED:
         buffer_append_format(
             &string, "<captured %s>", as_string(program, AS_PTR(CapturedObj, object)->captured)
@@ -368,6 +408,7 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
         result = true;
         break;
 
+    case OBJ_LIST: result = AS_PTR(ListObj, object)->items.length != 0; break;
     case OBJ_INT: result = AS_PTR(IntObj, object)->number != 0; break;
     case OBJ_FLOAT: result = AS_PTR(FloatObj, object)->number != 0.0; break;
     case OBJ_STRING: result = AS_PTR(StringObj, object)->length != 0; break;
@@ -408,6 +449,18 @@ void print_obj(const Obj *object, const bool debugPrint) {
         );
         break;
     }
+    case OBJ_LIST: {
+        ListObj *list = AS_PTR(ListObj, object);
+        putchar('[');
+        for (u32 i = 0; i < list->items.length; i++) {
+            if (i != 0) {
+                printf(", ");
+            }
+            print_obj(list->items.data[i], debugPrint);
+        }
+        putchar(']');
+        break;
+    }
     case OBJ_CAPTURED:
         printf("<captured ");
         print_obj(AS_PTR(CapturedObj, object)->captured, debugPrint);
@@ -437,6 +490,7 @@ char *obj_type_string(ObjType type) {
     case OBJ_NULL: return "null";
     case OBJ_STRING: return "string";
     case OBJ_RANGE: return "range";
+    case OBJ_LIST: return "list";
     case OBJ_CAPTURED: return "captured";
     case OBJ_FUNC: return "function";
     case OBJ_NATIVE_FUNC: return "native function";
@@ -469,6 +523,9 @@ void free_obj(Obj *object) {
     switch (object->type) {
     case OBJ_STRING:
         free(AS_PTR(StringObj, object)->string);
+        break;
+    case OBJ_LIST:
+        FREE_DA(&AS_PTR(ListObj, object)->items);
         break;
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);

@@ -122,6 +122,12 @@ static void append_ternary_node(AstBuilder *ast, const TernaryNode *node) {
     append_node(ast, node->falseExpr);
 }
 
+/** Appends a list object that could have nodes. */
+static void append_list_node(AstBuilder *ast, const ListNode *node) {
+    buffer_append_string(&ast->string, "<list> ");
+    append_node_array(ast, &node->items);
+}
+
 /** Appends an expression statement, which is just an expression that ends in semicolon. */
 static void append_expr_stmt_node(AstBuilder *ast, const ExprStmtNode *node) {
     append_node(ast, node->expr);
@@ -260,6 +266,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_RANGE: append_range_node(ast, AS_PTR(RangeNode, node)); break;
     case AST_CALL: append_call_node(ast, AS_PTR(CallNode, node)); break;
     case AST_TERNARY: append_ternary_node(ast, AS_PTR(TernaryNode, node)); break;
+    case AST_LIST: append_list_node(ast, AS_PTR(ListNode, node)); break;
     case AST_EXPR_STMT: append_expr_stmt_node(ast, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: append_block_node(ast, AS_PTR(BlockNode, node)); break;
     case AST_VAR_DECL: append_var_decl_node(ast, AS_PTR(VarDeclNode, node)); break;

@@ -196,6 +196,20 @@ static void compile_ternary(Compiler *compiler, const TernaryNode *node) {
     emit_instr(compiler, OP_TERNARY, get_node_pos(AS_NODE(node)));
 }
 
+/**  
+ * Compiles a list object.
+ * 
+ * Loads all of the list's elements on the stack in reverse so that the first item on the list
+ * will be at the top of the stack, and the last item will be the furthest away.
+ * This is so the VM can read it in order while popping from the stack.
+ */
+static void compile_list(Compiler *compiler, const ListNode *node) {
+    for (i64 i = (i64)node->items.length - 1; i >= 0; i--) {
+        compile_node(compiler, node->items.data[i]);
+    }
+    emit_number(compiler, OP_LIST, node->items.length, node->pos);
+}
+
 /** 
  * Compiles an expression statement.
  * It's just an expression node that pops the resulting value afterwards because it's not used.
@@ -627,6 +641,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_RANGE: compile_range(compiler, AS_PTR(RangeNode, node)); break;
     case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;
     case AST_TERNARY: compile_ternary(compiler, AS_PTR(TernaryNode, node)); break;
+    case AST_LIST: compile_list(compiler, AS_PTR(ListNode, node)); break;
     case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node)); break;
     case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;

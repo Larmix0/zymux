@@ -278,10 +278,15 @@ static void resolve_call(Resolver *resolver, CallNode *node) {
 }
 
 /** Resolves the condition, and the two expressions of a ternary expression. */
-static void resolver_ternary(Resolver *resolver, TernaryNode *node) {
+static void resolve_ternary(Resolver *resolver, TernaryNode *node) {
     resolve_node(resolver, node->condition);
     resolve_node(resolver, node->trueExpr);
     resolve_node(resolver, node->falseExpr);
+}
+
+/** Resolves all of a list's items. */
+static void resolve_list(Resolver *resolver, ListNode *node) {
+    resolve_node_array(resolver, &node->items);
 }
 
 /** Resolves the expression wrapped in an expression-statement. */
@@ -730,7 +735,7 @@ static u32 get_loop_vars_amount(Resolver *resolver, VariableArray *variables) {
 
     u32 amount = 0;
     const u32 deepestLoop = LAST_ITEM_DA(&resolver->loopScopes);
-    for (i64 i = variables->length - 1; i >= 0; i--) {
+    for (i64 i = (i64)variables->length - 1; i >= 0; i--) {
         if (variables->data[i].scope < deepestLoop) {
             break; // Below loop, done.
         }
@@ -826,7 +831,8 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_PARENTHESES: resolve_parentheses(resolver, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: resolve_range(resolver, AS_PTR(RangeNode, node)); break;
     case AST_CALL: resolve_call(resolver, AS_PTR(CallNode, node)); break;
-    case AST_TERNARY: resolver_ternary(resolver, AS_PTR(TernaryNode, node)); break;
+    case AST_TERNARY: resolve_ternary(resolver, AS_PTR(TernaryNode, node)); break;
+    case AST_LIST: resolve_list(resolver, AS_PTR(ListNode, node)); break;
     case AST_EXPR_STMT: resolve_expr_stmt(resolver, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: scoped_block(resolver, AS_PTR(BlockNode, node), SCOPE_NORMAL); break;
     case AST_VAR_DECL: resolve_var_decl(resolver, AS_PTR(VarDeclNode, node)); break;

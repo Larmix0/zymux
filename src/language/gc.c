@@ -63,16 +63,15 @@ static void mark_obj(Obj *object) {
         }
         break;
     }
-    case OBJ_NATIVE_FUNC: {
-        NativeFuncObj *native = AS_PTR(NativeFuncObj, object);
-        mark_obj(AS_OBJ(native->name));
+    case OBJ_NATIVE_FUNC:
+        mark_obj(AS_OBJ(AS_PTR(NativeFuncObj, object)->name));
         break;
-    }
-    case OBJ_ITERATOR: {
-        IteratorObj *iterator = AS_PTR(IteratorObj, object);
-        mark_obj(AS_OBJ(iterator->iterable));
+    case OBJ_ITERATOR:
+        mark_obj(AS_OBJ(AS_PTR(IteratorObj, object)->iterable));
         break;
-    }
+    case OBJ_LIST:
+        mark_obj_array(AS_PTR(ListObj, object)->items);
+        break;
     case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:

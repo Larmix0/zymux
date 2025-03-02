@@ -140,6 +140,12 @@ OP_TERNARY:
     Then, depending on the condition, either the truthy or falsy side is kept on the stack,
     while the condition will be removed.
 
+OP_LIST:
+    Creates a list object from other loaded objects in the stack.
+    That's done by Reading a number, which is how many items on the stack are a part of the list.
+    The topmost element on the stack is considered the first item on the list, until the furthest
+    item from the stack within the read number, which is the last item on the list.
+
 OP_GET_BUILT_IN:
     Reads a string const, which is the name of the variable whose value is to be extracted from
     the program's loaded built-ins.

@@ -28,6 +28,7 @@ typedef enum {
     OBJ_NULL,
     OBJ_STRING,
     OBJ_RANGE,
+    OBJ_LIST,
     OBJ_CAPTURED,
     OBJ_FUNC,
     OBJ_NATIVE_FUNC,
@@ -88,6 +89,12 @@ typedef struct {
     ZmxInt end;
     ZmxInt step;
 } RangeObj;
+
+/** An object which holds multiple other objects in order. */
+typedef struct {
+    Obj obj;
+    ObjArray items;
+} ListObj;
 
 /** An object that simply stores a reference to another object. */
 typedef struct {
@@ -193,6 +200,9 @@ StringObj *new_string_obj(ZmxProgram *program, const char *string, const u32 len
 RangeObj *new_range_obj(
     ZmxProgram *program, const ZmxInt start, const ZmxInt end, const ZmxInt step
 );
+
+/** Returns a list, which encapsulates an array of objects that is ordered. */
+ListObj *new_list_obj(ZmxProgram *program, const ObjArray items);
 
 /** Returns a newely created indirect reference to the passed object (capturing the object). */
 CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackLocation);

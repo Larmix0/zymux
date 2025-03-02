@@ -209,6 +209,7 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     case OBJ_NULL:
     case OBJ_STRING:
     case OBJ_RANGE:
+    case OBJ_LIST:
     case OBJ_CAPTURED:
     case OBJ_ITERATOR:
         return runtime_error(vm, "Can't call object of type %s.", obj_type_string(PEEK(vm)->type));
@@ -229,7 +230,7 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
  * if they hold open captures
  */
 static void close_captures(Vm *vm, const u32 pops) {
-    for (i64 i = vm->openCaptures.length - 1; i >= 0; i--) {
+    for (i64 i = (i64)vm->openCaptures.length - 1; i >= 0; i--) {
         CapturedObj *toClose = vm->openCaptures.data[i];
         if (toClose->stackLocation >= STACK_LENGTH(vm) - pops) {
             toClose->isOpen = false;
@@ -306,6 +307,15 @@ static bool execute_vm(Vm *vm) {
             );
             DROP_AMOUNT(vm, 3);
             PUSH(vm, AS_OBJ(range));
+            break;
+        }
+        case OP_LIST: {
+            u32 length = READ_NUMBER(vm);
+            ObjArray items = CREATE_DA();
+            for (u32 i = 0; i < length; i++) {
+                APPEND_DA(&items, POP(vm));
+            }
+            PUSH(vm, AS_OBJ(new_list_obj(vm->program, items)));
             break;
         }
         case OP_ADD:
