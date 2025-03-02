@@ -419,65 +419,25 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     return new_bool_obj(program, result);
 }
 
-/** Prints the passed object to the console. The output depends on whether to debugPrint or not. */
+/** 
+ * Prints the passed object to the console.
+ * 
+ * Creates a temporary program struct so it can just print out the string version of the passed
+ * object. This saves us having to pass the real program into this function every time,
+ * which would increase the amount of parameters a lot of functions (especially debugging ones)
+ * will need.
+ * 
+ * debugPrint makes an output that is more suited for debugging instead of clean reading.
+ */
 void print_obj(const Obj *object, const bool debugPrint) {
-    // TODO: potentially just make this a printing wrapper over as_string()?
-    switch (object->type) {
-    case OBJ_INT:
-        printf(ZMX_INT_FMT, AS_PTR(IntObj, object)->number);
-        break;
-    case OBJ_FLOAT:
-        printf(ZMX_FLOAT_FMT, AS_PTR(FloatObj, object)->number);
-        break;
-    case OBJ_BOOL:
-        printf("%s", AS_PTR(BoolObj, object)->boolean ? "true" : "false");
-        break;
-    case OBJ_NULL:
-        printf("null");
-        break;
-    case OBJ_STRING:
-        if (debugPrint) {
-            printf("'%s'", AS_PTR(StringObj, object)->string);
-        } else {
-            printf("%s", AS_PTR(StringObj, object)->string);
-        }
-        break;
-    case OBJ_RANGE: {
-        RangeObj *range = AS_PTR(RangeObj, object);
-        printf(
-            ZMX_INT_FMT ".." ZMX_INT_FMT ".." ZMX_INT_FMT, range->start, range->end, range->step
-        );
-        break;
+    if (object->type == OBJ_STRING && debugPrint) {
+        putchar('\'');
     }
-    case OBJ_LIST: {
-        ListObj *list = AS_PTR(ListObj, object);
-        putchar('[');
-        for (u32 i = 0; i < list->items.length; i++) {
-            if (i != 0) {
-                printf(", ");
-            }
-            print_obj(list->items.data[i], debugPrint);
-        }
-        putchar(']');
-        break;
-    }
-    case OBJ_CAPTURED:
-        printf("<captured ");
-        print_obj(AS_PTR(CapturedObj, object)->captured, debugPrint);
-        putchar('>');
-        break;
-    case OBJ_FUNC:
-        printf("<function %s>", AS_PTR(FuncObj, object)->name->string);
-        break;
-    case OBJ_NATIVE_FUNC:
-        printf("<native function %s>", AS_PTR(NativeFuncObj, object)->name->string);
-        break;
-    case OBJ_ITERATOR:
-        printf("<iterator ");
-        print_obj(AS_PTR(IteratorObj, object)->iterable, debugPrint);
-        putchar('>');
-        break;
-    TOGGLEABLE_DEFAULT_UNREACHABLE();
+    ZmxProgram tempProgram = create_zmx_program("<temp>", false);
+    printf("%s", as_string(&tempProgram, object)->string);
+    free_zmx_program(&tempProgram);
+    if (object->type == OBJ_STRING && debugPrint) {
+        putchar('\'');
     }
 }
 

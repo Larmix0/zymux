@@ -55,6 +55,7 @@ static void adjust_jump(Jump *jump, const i64 adjustment) {
 static void insert_byte(Compiler *compiler, u8 byte, const u32 index) {
     ByteArray *bytecode = &compiler->func->bytecode;
     ASSERT(index <= bytecode->length, "Inserting byte outside bytecode boundary.");
+    ASSERT(index != 0, "Can't insert byte at the very start because position is unknown.");
 
     for (u32 i = index; i < bytecode->length; i++) {
         u8 originalByte = bytecode->data[i];
@@ -62,8 +63,6 @@ static void insert_byte(Compiler *compiler, u8 byte, const u32 index) {
         byte = originalByte;
     }
     APPEND_DA(bytecode, byte);
-
-    ASSERT(index - 1 >= 0, "Byte can't be inserted at the very start because position is unknown.");
     SourcePositionArray *positions = &compiler->func->positions;
     SourcePosition pos = positions->data[index - 1];
     for (u32 i = index; i < positions->length; i++) {

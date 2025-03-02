@@ -108,9 +108,6 @@ static void append_range_node(AstBuilder *ast, const RangeNode *node) {
 static void append_call_node(AstBuilder *ast, const CallNode *node) {
     buffer_append_string(&ast->string, "<call> ");
     append_node(ast, node->callee);
-    if (node->args.length == 0) {
-        buffer_append_string(&ast->string, "<no args> ");
-    }
     append_node_array(ast, &node->args);
 }
 
