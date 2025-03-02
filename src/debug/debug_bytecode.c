@@ -92,6 +92,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_MINUS: print_bare_instr("MINUS", &idx); break;
     case OP_NOT: print_bare_instr("NOT", &idx); break;
     case OP_AS: print_data_type_instr("AS", func, &idx, size); break;
+    case OP_TERNARY: print_bare_instr("TERNARY", &idx); break;
     case OP_MAKE_ITER: print_bare_instr("TURN_ITER", &idx); break;
     case OP_FINISH_STRING: print_number_instr("FINISH_STRING", func, &idx, size); break;
     case OP_GET_BUILT_IN: print_const_instr("GET_BUILT_IN", func, &idx, size); break;

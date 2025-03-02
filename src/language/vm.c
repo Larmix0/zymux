@@ -395,6 +395,13 @@ static bool execute_vm(Vm *vm) {
             PEEK(vm) = AS_OBJ(converted);
             break;
         }
+        case OP_TERNARY: {
+            Obj *falseExpr = POP(vm);
+            Obj *trueExpr = POP(vm);
+            Obj *condition = POP(vm);
+            PUSH(vm, as_bool(vm->program, condition)->boolean ? trueExpr : falseExpr);
+            break;
+        }
         case OP_MAKE_ITER: {
             if (!is_iterable(PEEK(vm))) {
                 return runtime_error(

@@ -21,6 +21,7 @@ typedef enum {
     AST_PARENTHESES,
     AST_RANGE,
     AST_CALL,
+    AST_TERNARY,
     AST_EXPR_STMT,
     AST_BLOCK,
     AST_VAR_DECL,
@@ -135,6 +136,14 @@ typedef struct {
     Node *callee;
     NodeArray args;
 } CallNode;
+
+/** A ternary conditional, syntax sugar for an if-else. */
+typedef struct {
+    Node node;
+    Node *condition;
+    Node *trueExpr;
+    Node *falseExpr;
+} TernaryNode;
 
 /**
  * An expression statement is a statement that just holds an expression followed by a semicolon.
@@ -288,6 +297,9 @@ Node *new_range_node(
 
 /** Allocates a call node, which simply wraps around a callee expression with some optional args. */
 Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args);
+
+/** Allocates a ternary conditional expression node. */
+Node *new_ternary_node(ZmxProgram *program, Node *condition, Node *trueExpr, Node *falseExpr);
 
 /** Allocates an expression statement node, which just holds an expression. */
 Node *new_expr_stmt_node(ZmxProgram *program, Node *expr);

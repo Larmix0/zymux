@@ -183,6 +183,20 @@ static void compile_call(Compiler *compiler, const CallNode *node) {
 }
 
 /** 
+ * Compiles a ternary expression.
+ * 
+ * Loads the ternary's condition, then true side expression, then false side expression
+ * in that order, after that emits the ternary instruction to keep the appropriate instruction
+ * at runtime.
+ */
+static void compile_ternary(Compiler *compiler, const TernaryNode *node) {
+    compile_node(compiler, node->condition);
+    compile_node(compiler, node->trueExpr);
+    compile_node(compiler, node->falseExpr);
+    emit_instr(compiler, OP_TERNARY, get_node_pos(AS_NODE(node)));
+}
+
+/** 
  * Compiles an expression statement.
  * It's just an expression node that pops the resulting value afterwards because it's not used.
  */
@@ -612,6 +626,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: compile_range(compiler, AS_PTR(RangeNode, node)); break;
     case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;
+    case AST_TERNARY: compile_ternary(compiler, AS_PTR(TernaryNode, node)); break;
     case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node)); break;
     case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;

@@ -277,6 +277,13 @@ static void resolve_call(Resolver *resolver, CallNode *node) {
     resolve_node_array(resolver, &node->args);
 }
 
+/** Resolves the condition, and the two expressions of a ternary expression. */
+static void resolver_ternary(Resolver *resolver, TernaryNode *node) {
+    resolve_node(resolver, node->condition);
+    resolve_node(resolver, node->trueExpr);
+    resolve_node(resolver, node->falseExpr);
+}
+
 /** Resolves the expression wrapped in an expression-statement. */
 static void resolve_expr_stmt(Resolver *resolver, const ExprStmtNode *node) {
     resolve_node(resolver, node->expr);
@@ -819,6 +826,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_PARENTHESES: resolve_parentheses(resolver, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: resolve_range(resolver, AS_PTR(RangeNode, node)); break;
     case AST_CALL: resolve_call(resolver, AS_PTR(CallNode, node)); break;
+    case AST_TERNARY: resolver_ternary(resolver, AS_PTR(TernaryNode, node)); break;
     case AST_EXPR_STMT: resolve_expr_stmt(resolver, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: scoped_block(resolver, AS_PTR(BlockNode, node), SCOPE_NORMAL); break;
     case AST_VAR_DECL: resolve_var_decl(resolver, AS_PTR(VarDeclNode, node)); break;

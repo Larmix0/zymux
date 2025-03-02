@@ -309,11 +309,21 @@ static Node *assignment(Parser *parser) {
     return expr;
 }
 
-// TODO: find out if compound assignment is just underneath normal assignments in precedence.
+/** A ternary operator, which is syntax sugar for a short if-else statement. */
+static Node *ternary(Parser *parser) {
+    Node *expr = assignment(parser);
+    if (MATCH(parser, TOKEN_QUESTION_MARK)) {
+        Node *trueExpr = assignment(parser);
+        CONSUME(parser, TOKEN_COLON, "Expected ':' after ternary condtion and true expression.");
+        Node *falseExpr = assignment(parser);
+        expr = new_ternary_node(parser->program, expr, trueExpr, falseExpr);
+    }
+    return expr;
+}
 
 /** Parses and returns an expression. */
 static Node *expression(Parser *parser) {
-    return assignment(parser);
+    return ternary(parser);
 }
 
 /** A statement which only holds an expression inside it. */

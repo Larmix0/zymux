@@ -97,6 +97,15 @@ Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args) {
     return AS_NODE(node);
 }
 
+/** Allocates a ternary conditional expression node. */
+Node *new_ternary_node(ZmxProgram *program, Node *condition, Node *trueExpr, Node *falseExpr) {
+    TernaryNode *node = NEW_NODE(program, AST_TERNARY, TernaryNode);
+    node->condition = condition;
+    node->trueExpr = trueExpr;
+    node->falseExpr = falseExpr;
+    return AS_NODE(node);
+}
+
 /** Allocates an expression statement node, which just holds an expression. */
 Node *new_expr_stmt_node(ZmxProgram *program, Node *expr) {
     ExprStmtNode *node = NEW_NODE(program, AST_EXPR_STMT, ExprStmtNode);
@@ -245,6 +254,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_PARENTHESES: return get_node_pos(AS_PTR(ParenthesesNode, node)->expr);
     case AST_RANGE: return AS_PTR(RangeNode, node)->pos;
     case AST_CALL: return get_node_pos(AS_PTR(CallNode, node)->callee);
+    case AST_TERNARY: return get_node_pos(AS_PTR(TernaryNode, node)->condition);
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(ExprStmtNode, node)->expr);
     case AST_BLOCK: return AS_PTR(BlockNode, node)->pos;
     case AST_VAR_DECL: return AS_PTR(VarDeclNode, node)->name.pos;
@@ -285,6 +295,7 @@ static void free_node(Node *node) {
     case AST_BINARY:
     case AST_PARENTHESES:
     case AST_RANGE:
+    case AST_TERNARY:
     case AST_EXPR_STMT:
     case AST_VAR_DECL:
     case AST_VAR_ASSIGN:

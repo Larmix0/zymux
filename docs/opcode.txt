@@ -134,6 +134,12 @@ OP_RANGE:
     Pushes a range object by popping the 3 objects on top of the stack and using them
     as its step, end, and start (popping them in that order).
 
+OP_TERNARY:
+    Reads the topmost stack value as the false side of a ternary, second to top as the true side,
+    and the third to last value as the condition of a ternary.
+    Then, depending on the condition, either the truthy or falsy side is kept on the stack,
+    while the condition will be removed.
+
 OP_GET_BUILT_IN:
     Reads a string const, which is the name of the variable whose value is to be extracted from
     the program's loaded built-ins.

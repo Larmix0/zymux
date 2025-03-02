@@ -12,16 +12,6 @@ Name the slash/backslash that seperates folders of imports "delimiter".
 Also, maybe can be used with "is" in order to mean an "empty" datatype
 (like 0 for int, "" for strings, [] for lists, and {} for maps instead of null?).
 
-Because every function in Zymux is created during compilation as a constant (and not runtime),
-we can actually attach an integer "constIdx" to each function,
-representing the index in the constant pool of a chunk they're on (perhaps -1 if <script>).
-Then, after compilation we just iterate through the VM's FrameStack of functions,
-and look at their constIdxs one by one to immediately head straight to the erroneous function.
-Actually, the "constIdx" member can be part of the frame instead of the function,
-and it gets set on whenever we append a function maybe?
-This'll allow us to just find the function that errored directly instead of using its name
-(which doesn't work as multiple functions at different scopes can have the same name).
-
 Issue warnings for weird edge cases for the language. Example:
     AST finding the expression condition of an if/while to be an assignment.
 (Allow warnings to be disabled with a certain flag or something)
@@ -46,5 +36,3 @@ Optimization:
         (In other words, use the dot operator instead of the arrow).
 
 ----------------------------------------------------------------------------------------------------
-
-Minimize how often the whole compiler is passed to emitter.c functions.
