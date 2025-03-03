@@ -142,9 +142,20 @@ OP_TERNARY:
 
 OP_LIST:
     Creates a list object from other loaded objects in the stack.
-    That's done by Reading a number, which is how many items on the stack are a part of the list.
+    That's done by reading a number, which is how many items on the stack are a part of the list.
     The topmost element on the stack is considered the first item on the list, until the furthest
     item from the stack within the read number, which is the last item on the list.
+    after peeking on all of them one by one, we create the list object and pop all those elements
+    at once before pushing the list.
+
+OP_MAP:
+    Creates a map object from a number of loaded pairs of objects in the stack.
+    A read number after the instruction represents how many key-value pairs should be read
+    from the stack.
+    Reading 1 "entry" is by peeking an element (which is the key),
+    then peeking 1 element deeper (which is the value), and repeating that deeper until
+    all map entries are read, and used to create a map object.
+    Finally, that created map is pushed to the stack after all key-value pairs are popped.
 
 OP_GET_BUILT_IN:
     Reads a string const, which is the name of the variable whose value is to be extracted from

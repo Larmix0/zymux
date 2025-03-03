@@ -11,6 +11,7 @@
 #define NEW_OBJ(program, objType, actualType) \
     ((actualType *)new_obj(program, objType, sizeof(actualType)))
 
+static CharBuffer object_cstring(const Obj *object);
 void print_obj(const Obj *object, const bool debugPrint);
 char *obj_type_string(ObjType type);
 
@@ -114,9 +115,16 @@ RangeObj *new_range_obj(
 
 /** Returns a list, which encapsulates an array of objects that is ordered. */
 ListObj *new_list_obj(ZmxProgram *program, const ObjArray items) {
-    ListObj *obj = NEW_OBJ(program, OBJ_LIST, ListObj);
-    obj->items = items;
-    return obj;
+    ListObj *object = NEW_OBJ(program, OBJ_LIST, ListObj);
+    object->items = items;
+    return object;
+}
+
+/** Returns an object which holds a hash table of key-value pairs. */
+MapObj *new_map_obj(ZmxProgram *program, const Table table) {
+    MapObj *object = NEW_OBJ(program, OBJ_MAP, MapObj);
+    object->table = table;
+    return object;
 }
 
 /** Returns a newely created indirect reference to the passed object (capturing the object). */
@@ -197,12 +205,108 @@ void intern_objs(ZmxProgram *program) {
     program->internedNull = NEW_OBJ(program, OBJ_NULL, NullObj);
 }
 
+/** Appends a C-string representation of the passed list. */
+static void list_cstring(const ListObj *list, CharBuffer *string) {
+    buffer_append_char(string, '[');
+    for (u32 i = 0; i < list->items.length; i++) {
+        if (i != 0) {
+            buffer_append_string(string, ", ");
+        }
+        CharBuffer itemBuf = object_cstring(list->items.data[i]);
+        buffer_append_format(string, "%s", itemBuf.text);
+        free_char_buffer(&itemBuf);
+    }
+    buffer_append_char(string, ']');
+}
+
+/** Appends a C-string representation of the passed map. */
+static void map_cstring(const MapObj *map, CharBuffer *string) {
+    buffer_append_char(string, '{');
+    bool firstFilled = true;
+    for (u32 i = 0; i < map->table.capacity; i++) {
+        if (EMPTY_ENTRY(&map->table.entries[i])) {
+            continue;
+        }
+        if (!firstFilled) {
+            buffer_append_string(string, ", ");
+        } else {
+            firstFilled = false;
+        }
+        CharBuffer keyBuf = object_cstring(map->table.entries[i].key);
+        CharBuffer valueBuf = object_cstring(map->table.entries[i].value);
+        buffer_append_format(string, "%s: %s", keyBuf.text, valueBuf.text);
+        free_char_buffer(&keyBuf);
+        free_char_buffer(&valueBuf);
+    }
+    buffer_append_char(string, '}');
+
+}
+
+/** Returns a C-string representation of the object in an allocated char buffer. */
+static CharBuffer object_cstring(const Obj *object) {
+    CharBuffer string = create_char_buffer();
+    switch (object->type) {
+    case OBJ_INT:
+        buffer_append_format(&string, ZMX_INT_FMT, AS_PTR(IntObj, object)->number);
+        break;
+    case OBJ_FLOAT:
+        buffer_append_format(&string, ZMX_FLOAT_FMT, AS_PTR(FloatObj, object)->number);
+        break;
+    case OBJ_BOOL:
+        buffer_append_string(&string, AS_PTR(BoolObj, object)->boolean ? "true" : "false");
+        break;
+    case OBJ_NULL:
+        buffer_append_string(&string, "null");
+        break;
+    case OBJ_STRING:
+        buffer_append_string(&string, AS_PTR(StringObj, object)->string);
+        break;
+    case OBJ_RANGE: {
+        RangeObj *range = AS_PTR(RangeObj, object);
+        buffer_append_format(
+            &string, ZMX_INT_FMT ".." ZMX_INT_FMT ".." ZMX_INT_FMT,
+            range->start, range->end, range->step
+        );
+        break;
+    }
+    case OBJ_LIST:
+        list_cstring(AS_PTR(ListObj, object), &string);
+        break;
+    case OBJ_MAP:
+        map_cstring(AS_PTR(MapObj, object), &string);
+        break;
+    case OBJ_CAPTURED: {
+        CharBuffer capturedBuf = object_cstring(AS_PTR(CapturedObj, object)->captured);
+        buffer_append_format(&string, "<captured %s>", capturedBuf.text);
+        free_char_buffer(&capturedBuf);
+        break;
+    }
+    case OBJ_FUNC:
+        buffer_append_format(&string, "<function %s>", AS_PTR(FuncObj, object)->name->string);
+        break;
+    case OBJ_NATIVE_FUNC:
+        buffer_append_format(
+            &string, "<native function %s>", AS_PTR(NativeFuncObj, object)->name->string
+        );
+        break;
+    case OBJ_ITERATOR: {
+        CharBuffer iterableBuf = object_cstring(AS_PTR(IteratorObj, object)->iterable);
+        buffer_append_format(&string, "<iterator %s>", iterableBuf.text);
+        free_char_buffer(&iterableBuf);
+        break;
+    }
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
+    }
+    return string;
+}
+
 /** Returns whether or not the passed object is something that can be iterated over. */
 bool is_iterable(const Obj *object) {
     switch (object->type) {
     case OBJ_STRING:
     case OBJ_RANGE:
     case OBJ_LIST:
+    case OBJ_MAP:
         return true;
 
     case OBJ_INT:
@@ -254,6 +358,26 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
         }
         return list->items.data[iterator->iteration++];
     }
+    case OBJ_MAP: {
+        MapObj *map = AS_PTR(MapObj, iterator->iterable);
+        if (iterator->iteration >= map->table.count) {
+            return NULL; // Exhausted.
+        }
+        iterator->iteration++;
+        u32 filledCounter = 0; // How many non-empty entries we have encountered.
+        for (u32 i = 0; i < map->table.capacity; i++) {
+            if (!EMPTY_ENTRY(&map->table.entries[i])) {
+                filledCounter++;
+            }
+            if (!EMPTY_ENTRY(&map->table.entries[i]) && filledCounter == iterator->iteration) {
+                ObjArray keyValue = CREATE_DA();
+                APPEND_DA(&keyValue, map->table.entries[i].key);
+                APPEND_DA(&keyValue, map->table.entries[i].value);
+                return AS_OBJ(new_list_obj(program, keyValue));
+            }
+        }
+        UNREACHABLE_ERROR();
+    }
     case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:
@@ -265,6 +389,41 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
         UNREACHABLE_ERROR();
     }
     UNREACHABLE_ERROR();
+}
+
+/** Returns whether or not the 2 lists passed are considered equal. */
+static bool equal_lists(ListObj *left, ListObj *right) {
+    if (left->items.length != right->items.length) {
+        return false;
+    }
+    for (u32 i = 0; i < left->items.length; i++) {
+        if (!equal_obj(left->items.data[i], right->items.data[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/** Returns whether or not the 2 maps passed are considered equal. */
+static bool equal_maps(MapObj *left, MapObj *right) {
+    if (left->table.count != right->table.count) {
+        return false;
+    }
+    // Must manually check like this because some entries might move during inserts/deletions.
+    for (u32 i = 0; i < left->table.capacity; i++) {
+        if (EMPTY_ENTRY(&left->table.entries[i])) {
+            continue;
+        }
+        Entry *leftEntry = &left->table.entries[i];
+        Entry *rightEntry = table_key_entry(&right->table, left->table.entries[i].key);
+        if (
+            !equal_obj(leftEntry->key, rightEntry->key)
+            || !equal_obj(leftEntry->value, rightEntry->value)
+        ) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /** 
@@ -286,24 +445,20 @@ bool equal_obj(const Obj *left, const Obj *right) {
 
     switch (left->type) {
     case OBJ_STRING:
-    case OBJ_RANGE:
     case OBJ_CAPTURED:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return left == right; // Compare addresses directly.
-    case OBJ_LIST: {
-        ListObj *leftList = AS_PTR(ListObj, left);
-        ListObj *rightList = AS_PTR(ListObj, right);
-        if (leftList->items.length != rightList->items.length) {
-            return false;
-        }
-        for (u32 i = 0; i < leftList->items.length; i++) {
-            if (!equal_obj(leftList->items.data[i], rightList->items.data[i])) {
-                return false;
-            }
-        }
-        return true;
+    case OBJ_LIST:
+        return equal_lists(AS_PTR(ListObj, left), AS_PTR(ListObj, right));
+    case OBJ_MAP:
+        return equal_maps(AS_PTR(MapObj, left), AS_PTR(MapObj, right));
+    case OBJ_RANGE: {
+        RangeObj *leftRange = AS_PTR(RangeObj, left);
+        RangeObj *rightRange = AS_PTR(RangeObj, right);
+        return leftRange->start == rightRange->start && leftRange->end == rightRange->end
+            && leftRange->step == rightRange->step;
     }
     case OBJ_BOOL:
         return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
@@ -331,71 +486,15 @@ StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringO
 // TODO: objects which can error during conversion can simply change the program's hasErrored
 // and/or return NULL?
 
-/** Returns the passed object as a string object. */
+/** Returns a copy of the passed object as a string. */
 StringObj *as_string(ZmxProgram *program, const Obj *object) {
-    CharBuffer string = create_char_buffer();
-    switch (object->type) {
-    case OBJ_INT:
-        buffer_append_format(&string, ZMX_INT_FMT, AS_PTR(IntObj, object)->number);
-        break;
-    case OBJ_FLOAT:
-        buffer_append_format(&string, ZMX_FLOAT_FMT, AS_PTR(FloatObj, object)->number);
-        break;
-    case OBJ_BOOL:
-        buffer_append_string(&string, AS_PTR(BoolObj, object)->boolean ? "true" : "false");
-        break;
-    case OBJ_NULL:
-        buffer_append_string(&string, "null");
-        break;
-    case OBJ_STRING:
-        buffer_append_string(&string, AS_PTR(StringObj, object)->string);
-        break;
-    case OBJ_RANGE: {
-        RangeObj *range = AS_PTR(RangeObj, object);
-        buffer_append_format(
-            &string, ZMX_INT_FMT ".." ZMX_INT_FMT ".." ZMX_INT_FMT,
-            range->start, range->end, range->step
-        );
-        break;
-    }
-    case OBJ_LIST: {
-        ListObj *list = AS_PTR(ListObj, object);
-        buffer_append_char(&string, '[');
-        for (u32 i = 0; i < list->items.length; i++) {
-            if (i != 0) {
-                buffer_append_string(&string, ", ");
-            }
-            buffer_append_format(&string, "%s", as_string(program, list->items.data[i]));
-        }
-        buffer_append_char(&string, ']');
-        break;
-    }
-    case OBJ_CAPTURED:
-        buffer_append_format(
-            &string, "<captured %s>", as_string(program, AS_PTR(CapturedObj, object)->captured)
-        );
-        break;
-    case OBJ_FUNC:
-        buffer_append_format(&string, "<function %s>", AS_PTR(FuncObj, object)->name->string);
-        break;
-    case OBJ_NATIVE_FUNC:
-        buffer_append_format(
-            &string, "<native function %s>", AS_PTR(NativeFuncObj, object)->name->string
-        );
-        break;
-    case OBJ_ITERATOR:
-        buffer_append_format(
-            &string, "<iterator %s>", as_string(program, AS_PTR(IteratorObj, object)->iterable)
-        );
-        break;
-    TOGGLEABLE_DEFAULT_UNREACHABLE();
-    }
-    StringObj *result = new_string_obj(program, string.text, string.length);
-    free_char_buffer(&string);
+    CharBuffer cstring = object_cstring(object);
+    StringObj *result = new_string_obj(program, cstring.text, cstring.length);
+    free_char_buffer(&cstring);
     return result;
 }
 
-/** Returns the passed object as a boolean (whether it's considered "truthy" or "falsy"). */
+/** Returns a copy of the passed object's boolean (whether the object is "truthy" or "falsy"). */
 BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     bool result;
     switch (object->type) {
@@ -409,6 +508,7 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
         break;
 
     case OBJ_LIST: result = AS_PTR(ListObj, object)->items.length != 0; break;
+    case OBJ_MAP: result = AS_PTR(MapObj, object)->table.count != 0; break;
     case OBJ_INT: result = AS_PTR(IntObj, object)->number != 0; break;
     case OBJ_FLOAT: result = AS_PTR(FloatObj, object)->number != 0.0; break;
     case OBJ_STRING: result = AS_PTR(StringObj, object)->length != 0; break;
@@ -422,21 +522,17 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
 /** 
  * Prints the passed object to the console.
  * 
- * Creates a temporary program struct so it can just print out the string version of the passed
- * object. This saves us having to pass the real program into this function every time,
- * which would increase the amount of parameters a lot of functions (especially debugging ones)
- * will need.
- * 
- * debugPrint makes an output that is more suited for debugging instead of clean reading.
+ * Simply wraps around getting an object's c-string and prints it out.
+ * If debugPrint is on, it prints some extra things to make the output clearer during debugging.
  */
 void print_obj(const Obj *object, const bool debugPrint) {
-    if (object->type == OBJ_STRING && debugPrint) {
+    if (debugPrint && object->type == OBJ_STRING) {
         putchar('\'');
     }
-    ZmxProgram tempProgram = create_zmx_program("<temp>", false);
-    printf("%s", as_string(&tempProgram, object)->string);
-    free_zmx_program(&tempProgram);
-    if (object->type == OBJ_STRING && debugPrint) {
+    CharBuffer string = object_cstring(object);
+    printf("%s", string.text);
+    free_char_buffer(&string);
+    if (debugPrint && object->type == OBJ_STRING) {
         putchar('\'');
     }
 }
@@ -451,6 +547,7 @@ char *obj_type_string(ObjType type) {
     case OBJ_STRING: return "string";
     case OBJ_RANGE: return "range";
     case OBJ_LIST: return "list";
+    case OBJ_MAP: return "map";
     case OBJ_CAPTURED: return "captured";
     case OBJ_FUNC: return "function";
     case OBJ_NATIVE_FUNC: return "native function";
@@ -486,6 +583,9 @@ void free_obj(Obj *object) {
         break;
     case OBJ_LIST:
         FREE_DA(&AS_PTR(ListObj, object)->items);
+        break;
+    case OBJ_MAP:
+        free_table(&AS_PTR(MapObj, object)->table);
         break;
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);

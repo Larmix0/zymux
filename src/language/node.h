@@ -23,6 +23,7 @@ typedef enum {
     AST_CALL,
     AST_TERNARY,
     AST_LIST,
+    AST_MAP,
     AST_EXPR_STMT,
     AST_BLOCK,
     AST_VAR_DECL,
@@ -152,6 +153,14 @@ typedef struct {
     NodeArray items;
     SourcePosition pos;
 } ListNode;
+
+/** Represents a map of key-value pairs where the key is hashable. */
+typedef struct {
+    Node node;
+    NodeArray keys;
+    NodeArray values;
+    SourcePosition pos;
+} MapNode;
 
 /**
  * An expression statement is a statement that just holds an expression followed by a semicolon.
@@ -311,6 +320,11 @@ Node *new_ternary_node(ZmxProgram *program, Node *condition, Node *trueExpr, Nod
 
 /** Allocates a list node to hold an array of multiple nodes. */
 Node *new_list_node(ZmxProgram *program, const NodeArray items, const SourcePosition pos);
+
+/** Allocates a map of key-value pairs represented in 2 equally long arrays. */
+Node *new_map_node(
+    ZmxProgram *program, const NodeArray keys, const NodeArray values, const SourcePosition pos
+);
 
 /** Allocates an expression statement node, which just holds an expression. */
 Node *new_expr_stmt_node(ZmxProgram *program, Node *expr);

@@ -114,6 +114,19 @@ Node *new_list_node(ZmxProgram *program, const NodeArray items, const SourcePosi
     return AS_NODE(node);
 }
 
+/** Allocates a map of key-value pairs represented in 2 equally long arrays. */
+Node *new_map_node(
+    ZmxProgram *program, const NodeArray keys, const NodeArray values, const SourcePosition pos
+) {
+    ASSERT(keys.length == values.length, "Map must have an equal number for keys and values.");
+
+    MapNode *node = NEW_NODE(program, AST_MAP, MapNode);
+    node->keys = keys;
+    node->values = values;
+    node->pos = pos;
+    return AS_NODE(node);
+}
+
 /** Allocates an expression statement node, which just holds an expression. */
 Node *new_expr_stmt_node(ZmxProgram *program, Node *expr) {
     ExprStmtNode *node = NEW_NODE(program, AST_EXPR_STMT, ExprStmtNode);
@@ -264,6 +277,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_CALL: return get_node_pos(AS_PTR(CallNode, node)->callee);
     case AST_TERNARY: return get_node_pos(AS_PTR(TernaryNode, node)->condition);
     case AST_LIST: return AS_PTR(ListNode, node)->pos;
+    case AST_MAP: return AS_PTR(MapNode, node)->pos;
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(ExprStmtNode, node)->expr);
     case AST_BLOCK: return AS_PTR(BlockNode, node)->pos;
     case AST_VAR_DECL: return AS_PTR(VarDeclNode, node)->name.pos;
@@ -289,6 +303,10 @@ static void free_node(Node *node) {
         break;
     case AST_LIST:
         FREE_DA(&AS_PTR(ListNode, node)->items);
+        break;
+    case AST_MAP:
+        FREE_DA(&AS_PTR(MapNode, node)->keys);
+        FREE_DA(&AS_PTR(MapNode, node)->values);
         break;
     case AST_BLOCK:
         FREE_DA(&AS_PTR(BlockNode, node)->stmts);

@@ -5,6 +5,8 @@
 #include "allocator.h"
 #include "char_buffer.h"
 
+void free_char_buffer(CharBuffer *buffer);
+
 /** Creates and initializes a char buffer with a NUL terminator already appended. */
 CharBuffer create_char_buffer() {
     CharBuffer buffer = {.capacity = 1, .length = 1, .text = ARRAY_ALLOC(1, char)};
@@ -95,6 +97,12 @@ void buffer_pop_amount(CharBuffer *buffer, const int amount) {
     for (int i = 0; i < amount; i++) {
         buffer_pop(buffer);
     }
+}
+
+/** "Combines" 2 passed buffers, by appending the right one to the left and freeing the right. */
+void buffer_combine(CharBuffer *left, CharBuffer *right) {
+    buffer_append_string(left, right->text);
+    free_char_buffer(right);
 }
 
 /** Frees all memory the CharBuffer has used. */

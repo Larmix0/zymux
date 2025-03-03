@@ -57,6 +57,7 @@ typedef enum {
     OP_AS,
     OP_TERNARY,
     OP_LIST,
+    OP_MAP,
     OP_MAKE_ITER,
     OP_FINISH_STRING,
     OP_GET_BUILT_IN,

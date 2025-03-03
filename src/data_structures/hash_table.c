@@ -22,6 +22,7 @@ bool is_hashable(const Obj *object) {
     case OBJ_RANGE:
         return true;
     case OBJ_LIST:
+    case OBJ_MAP:
     case OBJ_CAPTURED:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
@@ -76,6 +77,7 @@ u32 get_hash(const Obj *object) {
     }
 
     case OBJ_LIST:
+    case OBJ_MAP:
     case OBJ_CAPTURED:
     case OBJ_FUNC:
     case OBJ_NATIVE_FUNC:
@@ -137,7 +139,7 @@ static void expand_table(Table *oldTable) {
 }
 
 /** Gets the passed key's respective entry in the hash table, empty or not. */
-static Entry *get_entry_of_key(Table *table, Obj *key) {
+Entry *table_key_entry(Table *table, Obj *key) {
     if (table->entries == NULL) {
         // The whole entries array was NULL, so we set the array to then return an empty entry.
         expand_table(table);
@@ -159,7 +161,7 @@ static Entry *get_entry_of_key(Table *table, Obj *key) {
  * Returns NULL if the key doesn't exist in the table.
  */
 Obj *table_get(Table *table, Obj *key) {
-    Entry *entry = get_entry_of_key(table, key);
+    Entry *entry = table_key_entry(table, key);
     if (EMPTY_ENTRY(entry)) {
         return NULL;
     }
@@ -215,7 +217,7 @@ void table_set(Table *table, Obj *key, Obj *value) {
  * like to go back (the removed element was forcing them to go an extra place forward).
  */
 bool table_delete(Table *table, Obj *key) {
-    Entry *entry = get_entry_of_key(table, key);
+    Entry *entry = table_key_entry(table, key);
     if (EMPTY_ENTRY(entry)) {
         return false; // Doesn't exist.
     }

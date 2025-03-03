@@ -10,6 +10,7 @@
 #define FIRST_COLLECTION_SIZE 128 * 1024
 
 static void mark_obj_array(ObjArray objects);
+static void mark_table(Table *table);
 
 /** Creates a garbage collector. The parameters can be NULL if they don't exist. */
 Gc create_gc(Compiler *compiler, Vm *vm) {
@@ -71,6 +72,9 @@ static void mark_obj(Obj *object) {
         break;
     case OBJ_LIST:
         mark_obj_array(AS_PTR(ListObj, object)->items);
+        break;
+    case OBJ_MAP:
+        mark_table(&AS_PTR(MapObj, object)->table);
         break;
     case OBJ_INT:
     case OBJ_FLOAT:

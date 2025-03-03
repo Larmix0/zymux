@@ -211,6 +211,23 @@ static void compile_list(Compiler *compiler, const ListNode *node) {
 }
 
 /** 
+ * Compiles a map object.
+ * 
+ * Loads a pair of key, then value elements on the stack.
+ * They're loaded with no specific ordering of entries since a map object uses a hash table,
+ * so the only thing that matters is
+ * that they're key first on top of its corresponding value pair so the VM can
+ * start by popping a key, then value, and then repeat for each entry in the map.
+ */
+static void compile_map(Compiler *compiler, const MapNode *node) {
+    for (u32 i = 0; i < node->keys.length; i++) {
+        compile_node(compiler, node->values.data[i]);
+        compile_node(compiler, node->keys.data[i]);
+    }
+    emit_number(compiler, OP_MAP, node->keys.length, node->pos);
+}
+
+/** 
  * Compiles an expression statement.
  * It's just an expression node that pops the resulting value afterwards because it's not used.
  */
@@ -642,6 +659,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;
     case AST_TERNARY: compile_ternary(compiler, AS_PTR(TernaryNode, node)); break;
     case AST_LIST: compile_list(compiler, AS_PTR(ListNode, node)); break;
+    case AST_MAP: compile_map(compiler, AS_PTR(MapNode, node)); break;
     case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node)); break;
     case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;

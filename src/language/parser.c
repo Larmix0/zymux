@@ -158,18 +158,48 @@ static Node *list(Parser *parser) {
         return primary(parser);
     }
     NodeArray items = CREATE_DA();
-    Token leftBracket = ADVANCE_PEEK(parser);
-    if (!CHECK(parser, TOKEN_RSQUARE)) {
+    Token *leftBracket = &ADVANCE_PEEK(parser);
+    if (!CHECK(parser, TOKEN_RSQUARE) && !CHECK(parser, TOKEN_EOF)) {
         APPEND_DA(&items, expression(parser));
     }
     while (!MATCH(parser, TOKEN_RSQUARE) && !parser->isPanicking) {
         if (IS_EOF(parser)) {
-            parser_error_at(parser, &leftBracket, true, "list was never closed.");
+            parser_error_at(parser, leftBracket, true, "List was never closed.");
+            return new_error_node(parser->program);
         }
-        CONSUME(parser, TOKEN_COMMA, "Expected ',' or ']' in list.");
+        CONSUME(parser, TOKEN_COMMA, "Expected ',' or ']' after list element.");
         APPEND_DA(&items, expression(parser));
     }
-    return new_list_node(parser->program, items, leftBracket.pos);
+    return new_list_node(parser->program, items, leftBracket->pos);
+}
+
+/** Parses one map entry into the key and value arrays. */
+static void map_entry(Parser *parser, NodeArray *keys, NodeArray *values) {
+    APPEND_DA(keys, expression(parser));
+    CONSUME(parser, TOKEN_COLON, "Expected ':' after map key.");
+    APPEND_DA(values, expression(parser));
+}
+
+static Node *map(Parser *parser) {
+    if (!CHECK(parser, TOKEN_LCURLY)) {
+        return list(parser);
+    }
+    NodeArray keys = CREATE_DA();
+    NodeArray values = CREATE_DA();
+    Token *leftCurly = &ADVANCE_PEEK(parser);
+    if (!CHECK(parser, TOKEN_RCURLY) && !CHECK(parser, TOKEN_EOF)) {
+        map_entry(parser, &keys, &values);
+        
+    }
+    while (!MATCH(parser, TOKEN_RCURLY) && !parser->isPanicking) {
+        if (IS_EOF(parser)) {
+            parser_error_at(parser, leftCurly, true, "Map was never closed.");
+            return new_error_node(parser->program);
+        }
+        CONSUME(parser, TOKEN_COMMA, "Expected ',' or '}' after map entry.");
+        map_entry(parser, &keys, &values);
+    }
+    return new_map_node(parser->program, keys, values, leftCurly->pos);
 }
 
 /** Returns a parsed argument for a call. TODO: expand later with keyword arguments. */
@@ -199,7 +229,7 @@ static NodeArray parse_args(Parser *parser) {
  * TODO: allow keyword arguments and optional arguments.
  */
 static Node *call(Parser *parser) {
-    Node *expr = list(parser);
+    Node *expr = map(parser);
     while (CHECK(parser, TOKEN_LPAR)) {
         NodeArray args = parse_args(parser);
         expr = new_call_node(parser->program, expr, args);
@@ -538,12 +568,6 @@ static void synchronize(Parser *parser) {
 
     while (!IS_EOF(parser)) {
         switch (PEEK(parser).type) {
-        case TOKEN_RCURLY:
-        case TOKEN_SEMICOLON:
-            parser->isPanicking = false;
-            ADVANCE(parser);
-            return;
-            
         case TOKEN_IF_KW:
         case TOKEN_FOR_KW:
         case TOKEN_WHILE_KW:

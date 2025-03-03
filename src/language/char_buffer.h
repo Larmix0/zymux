@@ -40,6 +40,9 @@ char buffer_pop(CharBuffer *buffer);
 /** Pops "amount" characters off of the buffer. */
 void buffer_pop_amount(CharBuffer *buffer, const int amount);
 
+/** "Combines" 2 passed buffers, by appending the right one to the left and freeing the right. */
+void buffer_combine(CharBuffer *left, CharBuffer *right);
+
 /** Frees all the memory the buffer used. */
 void free_char_buffer(CharBuffer *buffer);
 

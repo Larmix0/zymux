@@ -67,7 +67,7 @@ PRIVATE_TEST_CASE(test_table_delete) {
     Obj *firstKey = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "First."));
     Obj *firstValue = AS_OBJ(new_int_obj(&defaultProgram, 2));
     table_set(&defaultTable, firstKey, firstValue);
-    u32 firstIndex = get_entry_of_key(&defaultTable, firstKey) - defaultTable.entries;
+    u32 firstIndex = table_key_entry(&defaultTable, firstKey) - defaultTable.entries;
 
     Entry *manuallySet = &defaultTable.entries[GET_ENTRY_IDX(firstIndex + 1, &defaultTable)];
     manuallySet->key = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Second."));
@@ -137,7 +137,7 @@ PRIVATE_TEST_CASE(test_get_entry_of_key) {
     Obj *key = AS_OBJ(NEW_TEST_STRING(&defaultProgram, "Key."));
     Obj *value = AS_OBJ(new_float_obj(&defaultProgram, 11.2));
 
-    Entry *beforeAdding = get_entry_of_key(&defaultTable, key);
+    Entry *beforeAdding = table_key_entry(&defaultTable, key);
     ASSERT_NULL(beforeAdding->key);
     ASSERT_NULL(beforeAdding->value);
     ASSERT_INT_EQUAL(beforeAdding->psl, 0);
@@ -147,7 +147,7 @@ PRIVATE_TEST_CASE(test_get_entry_of_key) {
     manuallySet->value = value;
     manuallySet->psl = 1;
 
-    Entry *afterAdding = get_entry_of_key(&defaultTable, key);
+    Entry *afterAdding = table_key_entry(&defaultTable, key);
     ASSERT_TRUE(afterAdding->key != NULL && equal_obj(afterAdding->key, key));
     ASSERT_TRUE(afterAdding->value != NULL && equal_obj(afterAdding->value, value));
     ASSERT_INT_EQUAL(beforeAdding->psl, 1);

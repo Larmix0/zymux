@@ -6,6 +6,7 @@
 #include "built_in.h"
 #include "constants.h"
 #include "dynamic_array.h"
+#include "hash_table.h"
 
 /** Converts anything that "inherits" from object to its type punning base form. */
 #define AS_OBJ(object) ((Obj *)object)
@@ -29,6 +30,7 @@ typedef enum {
     OBJ_STRING,
     OBJ_RANGE,
     OBJ_LIST,
+    OBJ_MAP,
     OBJ_CAPTURED,
     OBJ_FUNC,
     OBJ_NATIVE_FUNC,
@@ -95,6 +97,12 @@ typedef struct {
     Obj obj;
     ObjArray items;
 } ListObj;
+
+/** A map, which holds a hash table of key-value pairs. */
+typedef struct {
+    Obj obj;
+    Table table;
+} MapObj;
 
 /** An object that simply stores a reference to another object. */
 typedef struct {
@@ -204,6 +212,9 @@ RangeObj *new_range_obj(
 /** Returns a list, which encapsulates an array of objects that is ordered. */
 ListObj *new_list_obj(ZmxProgram *program, const ObjArray items);
 
+/** Returns an object which holds a hash table of key-value pairs. */
+MapObj *new_map_obj(ZmxProgram *program, const Table table);
+
 /** Returns a newely created indirect reference to the passed object (capturing the object). */
 CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackLocation);
 
@@ -244,18 +255,15 @@ bool equal_obj(const Obj *left, const Obj *right);
 /** Returns a new string object that is formed from concatenating left with right. */
 StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringObj *right);
 
-/** Returns the passed object as a string value. */
+/** Returns a copy of the passed object as a string. */
 StringObj *as_string(ZmxProgram *program, const Obj *object);
 
-/** Returns the passed object's boolean (whether it's considered "truthy" or "falsy"). */
+/** Returns a copy of the passed object's boolean (whether the object is "truthy" or "falsy"). */
 BoolObj *as_bool(ZmxProgram *program, const Obj *object);
 
 /** 
  * Prints the passed object to the console.
- * 
- * If debugPrint is true, then it prints the object in the way it's supposed to show when debugging
- * things like bytecode, otherwise it prints it like the user of Zymux will see it when
- * using Zymux's printing.
+ * If debugPrint is on, it prints some extra things to make the output clearer for debugging.
  */
 void print_obj(const Obj *object, const bool debugPrint);
 

@@ -289,6 +289,12 @@ static void resolve_list(Resolver *resolver, ListNode *node) {
     resolve_node_array(resolver, &node->items);
 }
 
+/** Resolves all keys and values of a map. */
+static void resolve_map(Resolver *resolver, MapNode *node) {
+    resolve_node_array(resolver, &node->keys);
+    resolve_node_array(resolver, &node->values);
+}
+
 /** Resolves the expression wrapped in an expression-statement. */
 static void resolve_expr_stmt(Resolver *resolver, const ExprStmtNode *node) {
     resolve_node(resolver, node->expr);
@@ -833,6 +839,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_CALL: resolve_call(resolver, AS_PTR(CallNode, node)); break;
     case AST_TERNARY: resolve_ternary(resolver, AS_PTR(TernaryNode, node)); break;
     case AST_LIST: resolve_list(resolver, AS_PTR(ListNode, node)); break;
+    case AST_MAP: resolve_map(resolver, AS_PTR(MapNode, node)); break;
     case AST_EXPR_STMT: resolve_expr_stmt(resolver, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: scoped_block(resolver, AS_PTR(BlockNode, node), SCOPE_NORMAL); break;
     case AST_VAR_DECL: resolve_var_decl(resolver, AS_PTR(VarDeclNode, node)); break;
