@@ -13,7 +13,7 @@
 
 static CharBuffer object_cstring(const Obj *object);
 void print_obj(const Obj *object, const bool debugPrint);
-char *obj_type_string(ObjType type);
+char *obj_type_str(ObjType type);
 
 /** Allocates a new object of the passed type and size. */
 static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) {
@@ -24,7 +24,7 @@ static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) 
         object = ALLOC(size);
     }
 #if DEBUG_GC_PRINT
-    printf("Allocate %p | %s (%zu bytes)\n", (void*)object, obj_type_string(type), size);
+    printf("Allocate %p | %s (%zu bytes)\n", (void*)object, obj_type_str(type), size);
 #endif
 
     program->gc.allocated += size;
@@ -538,7 +538,7 @@ void print_obj(const Obj *object, const bool debugPrint) {
 }
 
 /** Returns a readable C string from the passed object type enum. */
-char *obj_type_string(ObjType type) {
+char *obj_type_str(ObjType type) {
     switch (type) {
     case OBJ_INT: return "integer";
     case OBJ_FLOAT: return "float";
@@ -572,7 +572,7 @@ static void free_func_obj(FuncObj *func) {
  */
 void free_obj(Obj *object) {
 #if DEBUG_GC_PRINT
-    printf("Free %p | %s (", (void*)object, obj_type_string(object->type));
+    printf("Free %p | %s (", (void*)object, obj_type_str(object->type));
     print_obj(object, true);
     printf(")\n");
 #endif

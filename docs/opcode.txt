@@ -238,6 +238,14 @@ OP_GET_SUBSCRIPT:
     object and filter out the objects that won't be a part of the slice. The iterator gets popped
     alongside the subscript and the subscripted before pushing the slice in that case.
 
+OP_ASSIGN_SUBSCRIPT:
+    Expects 3 stack elements: Top is the subscript, second to top is the element being subscripted,
+    and the third to top element is the value being assigned to the subscript.
+    Uses the subscript to determine where in the subscripted the value should be assigned.
+
+    After that, it pops only the subscript and the subscripted, while keeping the assignment value
+    on the stack to be used or disposed of, just like normal assignment.
+
 OP_CLOSURE:
     Copies over all captured variables of the current frame over to the function in the stack,
     loads it after wrapping it over a closure object.

@@ -57,7 +57,10 @@ Entry *table_key_entry(Table *table, Obj *key);
  */
 Obj *table_get(Table *table, Obj *key);
 
-/** Sets a key value pair in the passed hash table. */
+/** 
+ * Sets a key value pair in the passed hash table.
+ * If the key already exists, then it modified the value, otherwise creates a new key-value entry.
+ */
 void table_set(Table *table, Obj *key, Obj *value);
 
 /** 

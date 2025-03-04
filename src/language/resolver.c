@@ -284,6 +284,13 @@ static void resolve_ternary(Resolver *resolver, TernaryNode *node) {
     resolve_node(resolver, node->falseExpr);
 }
 
+/** Resolve a subscript set's subscript, subscripted, and value nodes */
+static void resolve_subscript_assign(Resolver *resolver, SubscriptAssignNode *node) {
+    resolve_node(resolver, node->callee);
+    resolve_node(resolver, node->subscript);
+    resolve_node(resolver, node->value);
+}
+
 /** Resolves a subscript get's subscript expression and the thing being subscripted. */
 static void resolve_subscript_get(Resolver *resolver, SubscriptGetNode *node) {
     resolve_node(resolver, node->callee);
@@ -843,6 +850,8 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_PARENTHESES: resolve_parentheses(resolver, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: resolve_range(resolver, AS_PTR(RangeNode, node)); break;
     case AST_CALL: resolve_call(resolver, AS_PTR(CallNode, node)); break;
+    case AST_SUBSCRIPT_ASSIGN:
+        resolve_subscript_assign(resolver, AS_PTR(SubscriptAssignNode, node)); break;
     case AST_SUBSCRIPT_GET: resolve_subscript_get(resolver, AS_PTR(SubscriptGetNode, node)); break;
     case AST_TERNARY: resolve_ternary(resolver, AS_PTR(TernaryNode, node)); break;
     case AST_LIST: resolve_list(resolver, AS_PTR(ListNode, node)); break;

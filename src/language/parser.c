@@ -220,6 +220,16 @@ static NodeArray parse_args(Parser *parser) {
     return args;
 }
 
+static Node *parse_subscript(Parser *parser, Node *expr) {
+    Node *subscript = expression(parser);
+    CONSUME(parser, TOKEN_RSQUARE, "Expected ']' after subscript.");
+    if (MATCH(parser, TOKEN_EQ)) {
+        Node *value = expression(parser);
+        return new_subscript_assign_node(parser->program, expr, subscript, value);
+    }
+    return new_subscript_get_node(parser->program, expr, subscript);
+}
+
 /** 
  * Handles parsing calls, which are an expression followed by a pair of parentheses.
  * 
@@ -234,9 +244,7 @@ static Node *call(Parser *parser) {
             NodeArray args = parse_args(parser);
             expr = new_call_node(parser->program, expr, args);
         } else if (MATCH(parser, TOKEN_LSQUARE)) {
-            Node *subscript = expression(parser);
-            CONSUME(parser, TOKEN_RSQUARE, "Expected ']' after subscript.");
-            expr = new_subscript_get_node(parser->program, expr, subscript);
+            expr = parse_subscript(parser, expr);
         } else {
             break;
         }

@@ -170,7 +170,7 @@ Obj *table_get(Table *table, Obj *key) {
 }
 
 /** 
- * Sets a key value pair in the passed hash table.
+ * Sets a key value pair in the passed hash table, regardless of whether or not it already existed.
  * 
  * When using robin hood hashing, we increase the current PSL as we're moving through the
  * non-empty elements.

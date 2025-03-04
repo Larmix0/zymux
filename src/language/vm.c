@@ -57,7 +57,7 @@
 #define BIN_OP_ERROR(vm, opString) \
     (runtime_error( \
         vm, "Can't perform %s between %s and %s.", \
-        opString, obj_type_string(BIN_LEFT(vm)->type), obj_type_string(BIN_RIGHT(vm)->type)) \
+        opString, obj_type_str(BIN_LEFT(vm)->type), obj_type_str(BIN_RIGHT(vm)->type)) \
     )
 
 /** 
@@ -178,6 +178,34 @@ void free_vm(Vm *vm) {
     FREE_STACK(vm);
 }
 
+/** Performs an assignment on some indexed array element. */
+static bool list_assign_subscript(Vm *vm, ListObj *callee, Obj *subscript, Obj *value) {
+    if (subscript->type != OBJ_INT) {
+        return runtime_error(vm, "Can only assign to list indices with integers.");
+    }
+    const ZmxInt index = AS_PTR(IntObj, subscript)->number;
+    if (IS_WITHIN_LENGTH(callee->items.length, index)) {
+        callee->items.data[index] = value;
+        return true;
+    } else {
+        return runtime_error(vm, "Index " ZMX_INT_FMT " is out of range.", index);
+    }
+    DROP_AMOUNT(vm, 2);
+}
+
+/** 
+ * Assigns a key-value pair to a map.
+ * If the key already exists, just change the value, otherwise add a new entry completely.
+ */
+static bool map_assign_subscript(Vm *vm, MapObj *callee, Obj *subscript, Obj *value) {
+    if (!is_hashable(subscript)) {
+        return runtime_error(vm, "%s key is not hashable.", obj_type_str(subscript->type));
+    }
+    table_set(&callee->table, subscript, value);
+    DROP_AMOUNT(vm, 2);
+    return true;
+}
+
 /** 
  * Performs a subscript get on an array using an integer.
  * 
@@ -187,12 +215,12 @@ void free_vm(Vm *vm) {
 static bool array_get_item(
     Vm *vm, ListObj *list, StringObj *str, Obj *subscript, const ZmxInt length, const bool isList
 ) {
-    ZmxInt number = AS_PTR(IntObj, subscript)->number;
-    if (!IS_WITHIN_LENGTH(length, number)) {
-        return runtime_error(vm, "Index " ZMX_INT_FMT " is out of range.", number);
+    const ZmxInt index = AS_PTR(IntObj, subscript)->number;
+    if (!IS_WITHIN_LENGTH(length, index)) {
+        return runtime_error(vm, "Index " ZMX_INT_FMT " is out of range.", index);
     }
-    Obj *result = isList ? list->items.data[number] 
-        : AS_OBJ(new_string_obj(vm->program, str->string + number, 1));
+    Obj *result = isList ? list->items.data[index] 
+        : AS_OBJ(new_string_obj(vm->program, str->string + index, 1));
     DROP_AMOUNT(vm, 2);
     PUSH(vm, result);
     return true;
@@ -220,16 +248,16 @@ static bool array_slice(
     PUSH(vm, AS_OBJ(iterator)); // So iterator doesn't get GCed.
     Obj *current;
     while ((current = iterate(vm->program, iterator))) {
-        ZmxInt number = AS_PTR(IntObj, current)->number;
-        if (!IS_WITHIN_LENGTH(length, number)) {
+        ZmxInt index = AS_PTR(IntObj, current)->number;
+        if (!IS_WITHIN_LENGTH(length, index)) {
             FREE_DA(&filteredList);
             free_char_buffer(&filteredStr);
             return runtime_error(vm, "Slice goes out of range.");
         }
         if (isList) {
-            APPEND_DA(&filteredList, list->items.data[number]);
+            APPEND_DA(&filteredList, list->items.data[index]);
         } else {
-            buffer_append_char(&filteredStr, str->string[number]);
+            buffer_append_char(&filteredStr, str->string[index]);
         }
     }
     Obj *result = isList ? AS_OBJ(new_list_obj(vm->program, filteredList))
@@ -248,6 +276,8 @@ static bool array_slice(
  * 
  * Array subscripts are either an integer that captures one of their elements, or a range
  * which creates a subarray from the range's start, end, and step as a filter.
+ * 
+ * Returns true if successful, false if it errored.
  */
 static bool array_get_subscript(Vm *vm, Obj *callee, Obj *subscript) {
     ASSERT(
@@ -265,8 +295,7 @@ static bool array_get_subscript(Vm *vm, Obj *callee, Obj *subscript) {
         return array_slice(vm, list, str, subscript, length, isList);
     }
     return runtime_error(
-        vm, "Can't subscript %s with %s",
-        obj_type_string(callee->type), obj_type_string(subscript->type)
+        vm, "Can't subscript %s with %s.", obj_type_str(callee->type), obj_type_str(subscript->type)
     );
 }
 
@@ -276,15 +305,11 @@ static bool array_get_subscript(Vm *vm, Obj *callee, Obj *subscript) {
  * Deletes the subscript and the callee of the subscript, and pushes the corresponding value
  * of the key subscript.
  */
-static bool map_get_subscript(Vm *vm, Obj *callee, Obj *subscript) {
-    ASSERT(callee->type == OBJ_MAP, "Expected map for subscript.");
-    MapObj *map = AS_PTR(MapObj, callee);
+static bool map_get_subscript(Vm *vm, MapObj *callee, Obj *subscript) {
     if (!is_hashable(subscript)) {
-        return runtime_error(
-            vm, "%s key is not hashable.", obj_type_string(subscript->type)
-        );
+        return runtime_error(vm, "%s key is not hashable.", obj_type_str(subscript->type));
     }
-    Obj *result = table_get(&map->table, subscript);
+    Obj *result = table_get(&callee->table, subscript);
     if (result == NULL) {
         return runtime_error(
             vm, "Key '%s' does not exist in map.", as_string(vm->program, subscript)->string
@@ -317,7 +342,7 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
         DROP_AMOUNT(vm, argAmount);
         return true;
     } else {
-        return runtime_error(vm, "Can't call object of type %s.", obj_type_string(PEEK(vm)->type));
+        return runtime_error(vm, "Can't call object of type %s.", obj_type_str(PEEK(vm)->type));
     }
     UNREACHABLE_ERROR();
 }
@@ -460,7 +485,7 @@ static bool execute_vm(Vm *vm) {
                 PUSH(vm, AS_OBJ(new_float_obj(vm->program, negated)));
             } else {
                 return runtime_error(
-                    vm, "Can't negate object of type %s.", obj_type_string(PEEK(vm)->type)
+                    vm, "Can't negate object of type %s.", obj_type_str(PEEK(vm)->type)
                 );
             }
             break;
@@ -490,8 +515,7 @@ static bool execute_vm(Vm *vm) {
             if (start->type != OBJ_INT || end->type != OBJ_INT || step->type != OBJ_INT) {
                 return runtime_error(
                     vm, "Range takes 3 integers, got %s, %s, and %s instead.",
-                    obj_type_string(start->type), obj_type_string(end->type),
-                    obj_type_string(step->type)
+                    obj_type_str(start->type), obj_type_str(end->type), obj_type_str(step->type)
                 );
             }
             if (AS_PTR(IntObj, step)->number < 0) {
@@ -529,7 +553,7 @@ static bool execute_vm(Vm *vm) {
                 Obj *key = PEEK_DEPTH(vm, i);
                 Obj *value = PEEK_DEPTH(vm, i + 1);
                 if (!is_hashable(key)) {
-                    return runtime_error(vm, "Can't hash %s key.", obj_type_string(key->type));
+                    return runtime_error(vm, "Can't hash %s key.", obj_type_str(key->type));
                 }
                 table_set(&entries, key, value);
             }
@@ -541,7 +565,7 @@ static bool execute_vm(Vm *vm) {
         case OP_MAKE_ITER: {
             if (!is_iterable(PEEK(vm))) {
                 return runtime_error(
-                    vm, "Can't iterate over object of type %s.", obj_type_string(PEEK(vm)->type)
+                    vm, "Can't iterate over object of type %s.", obj_type_str(PEEK(vm)->type)
                 );
             }
             IteratorObj *iterator = new_iterator_obj(vm->program, PEEK(vm));
@@ -628,15 +652,34 @@ static bool execute_vm(Vm *vm) {
             }
             break;
         }
-        case OP_GET_SUBSCRIPT: {
-            Obj *callee = PEEK_DEPTH(vm, 1);
+        case OP_ASSIGN_SUBSCRIPT: {
             Obj *subscript = PEEK(vm);
+            Obj *callee = PEEK_DEPTH(vm, 1);
+            Obj *value = PEEK_DEPTH(vm, 2);
+            if (callee->type == OBJ_LIST) {
+                if (!list_assign_subscript(vm, AS_PTR(ListObj, callee), subscript, value)) {
+                    return false;
+                }
+            } else if (callee->type == OBJ_MAP) {
+                if (!map_assign_subscript(vm, AS_PTR(MapObj, callee), subscript, value)) {
+                    return false;
+                }
+            } else {
+                return runtime_error(
+                    vm, "Can't subscript assign to %s.", obj_type_str(callee->type)
+                );
+            }
+            break;
+        }
+        case OP_GET_SUBSCRIPT: {
+            Obj *subscript = PEEK(vm);
+            Obj *callee = PEEK_DEPTH(vm, 1);
             if (callee->type == OBJ_LIST || callee->type == OBJ_STRING) {
                 if (!array_get_subscript(vm, callee, subscript)) {
                     return false;
                 }
             } else if (callee->type == OBJ_MAP) {
-                if (!map_get_subscript(vm, callee, subscript)) {
+                if (!map_get_subscript(vm, AS_PTR(MapObj, callee), subscript)) {
                     return false;
                 }
             } else {

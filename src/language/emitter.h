@@ -71,6 +71,7 @@ typedef enum {
     OP_ASSIGN_CAPTURED,
     OP_GET_CAPTURED,
     OP_CALL,
+    OP_ASSIGN_SUBSCRIPT,
     OP_GET_SUBSCRIPT,
     OP_CLOSURE,
     OP_JUMP,

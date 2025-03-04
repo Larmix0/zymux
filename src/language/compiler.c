@@ -195,6 +195,20 @@ static void compile_subscript_get(Compiler *compiler, const SubscriptGetNode *no
 }
 
 /** 
+ * Compiles an assignment on a subscripted element.
+ * 
+ * Compiles the assignment expression first, so it's deepest on the stack, then the thing being
+ * subscripted, and finally the subscript expression itself (which will be at the top of the stack).
+ * Finally, emits the subscription set instruction.
+ */
+static void compile_subscript_assign(Compiler *compiler, const SubscriptAssignNode *node) {
+    compile_node(compiler, node->value);
+    compile_node(compiler, node->callee);
+    compile_node(compiler, node->subscript);
+    emit_instr(compiler, OP_ASSIGN_SUBSCRIPT, get_node_pos(AS_NODE(node)));
+}
+
+/** 
  * Compiles a ternary expression.
  * 
  * Loads the ternary's condition, then true side expression, then false side expression
@@ -669,6 +683,8 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: compile_range(compiler, AS_PTR(RangeNode, node)); break;
     case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;
+    case AST_SUBSCRIPT_ASSIGN:
+        compile_subscript_assign(compiler, AS_PTR(SubscriptAssignNode, node)); break;
     case AST_SUBSCRIPT_GET: compile_subscript_get(compiler, AS_PTR(SubscriptGetNode, node)); break;
     case AST_TERNARY: compile_ternary(compiler, AS_PTR(TernaryNode, node)); break;
     case AST_LIST: compile_list(compiler, AS_PTR(ListNode, node)); break;

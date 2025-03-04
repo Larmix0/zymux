@@ -58,7 +58,7 @@ NATIVE_FUNC(assert) {
     }
     if (args[1]->type != OBJ_STRING) {
         RETURN_ERROR(
-            vm, "Expected argument 2 to be string, got %s instead.", obj_type_string(args[1]->type)
+            vm, "Expected argument 2 to be string, got %s instead.", obj_type_str(args[1]->type)
         );
     }
 

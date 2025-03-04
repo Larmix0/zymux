@@ -97,6 +97,16 @@ Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args) {
     return AS_NODE(node);
 }
 
+
+/** Allocates a subscript assignment, which assigns to some subscripted thing. */
+Node *new_subscript_assign_node(ZmxProgram *program, Node *callee, Node *subscript, Node *value) {
+    SubscriptAssignNode *node = NEW_NODE(program, AST_SUBSCRIPT_ASSIGN, SubscriptAssignNode);
+    node->callee = callee;
+    node->subscript = subscript;
+    node->value = value;
+    return AS_NODE(node);
+}
+
 /** Allocates a subscript get, which grabs a part of the thing it's being used on. */
 Node *new_subscript_get_node(ZmxProgram *program, Node *callee, Node *subscript) {
     SubscriptGetNode *node = NEW_NODE(program, AST_SUBSCRIPT_GET, SubscriptGetNode);
@@ -283,6 +293,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_PARENTHESES: return get_node_pos(AS_PTR(ParenthesesNode, node)->expr);
     case AST_RANGE: return AS_PTR(RangeNode, node)->pos;
     case AST_CALL: return get_node_pos(AS_PTR(CallNode, node)->callee);
+    case AST_SUBSCRIPT_ASSIGN: return get_node_pos(AS_PTR(SubscriptAssignNode, node)->callee);
     case AST_SUBSCRIPT_GET: return get_node_pos(AS_PTR(SubscriptGetNode, node)->callee);
     case AST_TERNARY: return get_node_pos(AS_PTR(TernaryNode, node)->condition);
     case AST_LIST: return AS_PTR(ListNode, node)->pos;
@@ -334,6 +345,7 @@ static void free_node(Node *node) {
     case AST_BINARY:
     case AST_PARENTHESES:
     case AST_RANGE:
+    case AST_SUBSCRIPT_ASSIGN:
     case AST_SUBSCRIPT_GET:
     case AST_TERNARY:
     case AST_EXPR_STMT:
