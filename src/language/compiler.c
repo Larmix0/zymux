@@ -183,18 +183,6 @@ static void compile_call(Compiler *compiler, const CallNode *node) {
 }
 
 /** 
- * Compiles a subscript get expression.
- * 
- * Compiles the thing being subscripted, then compiles the subscript expression, and emits
- * the getting subscript instruction.
- */
-static void compile_subscript_get(Compiler *compiler, const SubscriptGetNode *node) {
-    compile_node(compiler, node->callee);
-    compile_node(compiler, node->subscript);
-    emit_instr(compiler, OP_GET_SUBSCRIPT, get_node_pos(AS_NODE(node)));
-}
-
-/** 
  * Compiles an assignment on a subscripted element.
  * 
  * Compiles the assignment expression first, so it's deepest on the stack, then the thing being
@@ -206,6 +194,18 @@ static void compile_subscript_assign(Compiler *compiler, const SubscriptAssignNo
     compile_node(compiler, node->callee);
     compile_node(compiler, node->subscript);
     emit_instr(compiler, OP_ASSIGN_SUBSCRIPT, get_node_pos(AS_NODE(node)));
+}
+
+/** 
+ * Compiles a subscript get expression.
+ * 
+ * Compiles the thing being subscripted, then compiles the subscript expression, and emits
+ * the getting subscript instruction.
+ */
+static void compile_subscript_get(Compiler *compiler, const SubscriptGetNode *node) {
+    compile_node(compiler, node->callee);
+    compile_node(compiler, node->subscript);
+    emit_instr(compiler, OP_GET_SUBSCRIPT, get_node_pos(AS_NODE(node)));
 }
 
 /** 
@@ -225,12 +225,11 @@ static void compile_ternary(Compiler *compiler, const TernaryNode *node) {
 /**  
  * Compiles a list object.
  * 
- * Loads all of the list's elements on the stack in reverse so that the first item on the list
- * will be at the top of the stack, and the last item will be the furthest away.
- * This is so the VM can read it in order while popping from the stack.
+ * Loads all of the list's elements on the stack in order, meaning the topmost stack element
+ * will be the last item of the list.
  */
 static void compile_list(Compiler *compiler, const ListNode *node) {
-    for (i64 i = (i64)node->items.length - 1; i >= 0; i--) {
+    for (u32 i = 0; i < node->items.length; i++) {
         compile_node(compiler, node->items.data[i]);
     }
     emit_number(compiler, OP_LIST, node->items.length, node->pos);
@@ -240,15 +239,15 @@ static void compile_list(Compiler *compiler, const ListNode *node) {
  * Compiles a map object.
  * 
  * Loads a pair of key, then value elements on the stack.
- * They're loaded with no specific ordering of entries since a map object uses a hash table,
- * so the only thing that matters is
- * that they're key first on top of its corresponding value pair so the VM can
- * start by popping a key, then value, and then repeat for each entry in the map.
+ * The order the pairs are loaded in doesn't matter since maps using hashing.
+ * 
+ * However, whether the key or the value is the higher one in the stack matters, so for each pair
+ * the key is loaded first, then the value, meaning that the VM will first pop a value then its key.
  */
 static void compile_map(Compiler *compiler, const MapNode *node) {
     for (u32 i = 0; i < node->keys.length; i++) {
-        compile_node(compiler, node->values.data[i]);
         compile_node(compiler, node->keys.data[i]);
+        compile_node(compiler, node->values.data[i]);
     }
     emit_number(compiler, OP_MAP, node->keys.length, node->pos);
 }

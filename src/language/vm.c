@@ -508,6 +508,20 @@ static bool execute_vm(Vm *vm) {
             PEEK(vm) = AS_OBJ(converted);
             break;
         }
+        case OP_FINISH_STRING: {
+            const u32 amount = READ_NUMBER(vm);
+            StringObj *string = new_string_obj(vm->program, "", 0);
+
+            // Build a string from the deepest/oldest till the outermost/newest one in the stack.
+            for (u32 i = 1; i <= amount; i++) {
+                string = concatenate(
+                    vm->program, string, AS_PTR(StringObj, PEEK_DEPTH(vm, amount - i))
+                );
+            }
+            DROP_AMOUNT(vm, amount);
+            PUSH(vm, AS_OBJ(string));
+            break;
+        }
         case OP_RANGE: {
             Obj *step = PEEK(vm);
             Obj *end = PEEK_DEPTH(vm, 1);
@@ -538,8 +552,8 @@ static bool execute_vm(Vm *vm) {
         case OP_LIST: {
             u32 length = READ_NUMBER(vm);
             ObjArray items = CREATE_DA();
-            for (u32 i = 0; i < length; i++) {
-                APPEND_DA(&items, PEEK_DEPTH(vm, i));
+            for (u32 i = 1; i <= length; i++) {
+                APPEND_DA(&items, PEEK_DEPTH(vm, length - i));
             }
             Obj *list = AS_OBJ(new_list_obj(vm->program, items));
             DROP_AMOUNT(vm, length);
@@ -550,8 +564,8 @@ static bool execute_vm(Vm *vm) {
             u32 length = READ_NUMBER(vm) * 2; // *2 to account for each entry being a key and value.
             Table entries = create_table();
             for (u32 i = 0; i < length; i += 2) {
-                Obj *key = PEEK_DEPTH(vm, i);
-                Obj *value = PEEK_DEPTH(vm, i + 1);
+                Obj *value = PEEK_DEPTH(vm, i);
+                Obj *key = PEEK_DEPTH(vm, i + 1);
                 if (!is_hashable(key)) {
                     return runtime_error(vm, "Can't hash %s key.", obj_type_str(key->type));
                 }
@@ -560,30 +574,6 @@ static bool execute_vm(Vm *vm) {
             Obj *map = AS_OBJ(new_map_obj(vm->program, entries));
             DROP_AMOUNT(vm, length);
             PUSH(vm, map);
-            break;
-        }
-        case OP_MAKE_ITER: {
-            if (!is_iterable(PEEK(vm))) {
-                return runtime_error(
-                    vm, "Can't iterate over object of type %s.", obj_type_str(PEEK(vm)->type)
-                );
-            }
-            IteratorObj *iterator = new_iterator_obj(vm->program, PEEK(vm));
-            PEEK(vm) = AS_OBJ(iterator);
-            break;
-        }
-        case OP_FINISH_STRING: {
-            const u32 amount = READ_NUMBER(vm);
-            StringObj *string = new_string_obj(vm->program, "", 0);
-
-            // Build a string from the deepest/oldest till the outermost/newest one in the stack.
-            for (u32 i = 1; i <= amount; i++) {
-                string = concatenate(
-                    vm->program, string, AS_PTR(StringObj, PEEK_DEPTH(vm, amount - i))
-                );
-            }
-            DROP_AMOUNT(vm, amount);
-            PUSH(vm, AS_OBJ(string));
             break;
         }
         case OP_GET_BUILT_IN: {
@@ -708,6 +698,16 @@ static bool execute_vm(Vm *vm) {
         case OP_JUMP_BACK: {
             const u32 jump = READ_NUMBER(vm);
             vm->frame->ip -= jump;
+            break;
+        }
+        case OP_MAKE_ITER: {
+            if (!is_iterable(PEEK(vm))) {
+                return runtime_error(
+                    vm, "Can't iterate over object of type %s.", obj_type_str(PEEK(vm)->type)
+                );
+            }
+            IteratorObj *iterator = new_iterator_obj(vm->program, PEEK(vm));
+            PEEK(vm) = AS_OBJ(iterator);
             break;
         }
         case OP_ITER_OR_JUMP: {

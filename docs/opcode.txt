@@ -103,9 +103,8 @@ OP_AS:
         Integer 3 is the top of the stack. Then, OP_AS reads a string data type enum after.
         The topmost object (integer of 3) is popped and a string version of it is pushed ("3").
 
-OP_MAKE_ITER:
-    Grabs the topmost object in the stack and wraps it inside a new iterator object.
-    If the topmost object is not iterable, then it causes a runtime error.
+OP_NULL:
+    Pushes a null object to the stack.
 
 OP_FINISH_STRING:
     Expects a number of string objects to be on top of the stack that are to be concatenated
@@ -127,9 +126,6 @@ OP_FINISH_STRING:
         the final string "Hi middle end.". While we have it stored, we pop the 3 strings we used
         to concatenate, and push that final string ("Hi middle end.").
 
-OP_NULL:
-    Pushes a null object to the stack.
-
 OP_RANGE:
     Pushes a range object by popping the 3 objects on top of the stack and using them
     as its step, end, and start (popping them in that order).
@@ -143,17 +139,17 @@ OP_TERNARY:
 OP_LIST:
     Creates a list object from other loaded objects in the stack.
     That's done by reading a number, which is how many items on the stack are a part of the list.
-    The topmost element on the stack is considered the first item on the list, until the furthest
-    item from the stack within the read number, which is the last item on the list.
+    The topmost element on the stack is considered the last item on the list, until the furthest
+    item from the stack within the read number, which is the first item on the list.
     after peeking on all of them one by one, we create the list object and pop all those elements
-    at once before pushing the list.
+    before pushing the list.
 
 OP_MAP:
     Creates a map object from a number of loaded pairs of objects in the stack.
     A read number after the instruction represents how many key-value pairs should be read
     from the stack.
-    Reading 1 "entry" is by peeking an element (which is the key),
-    then peeking 1 element deeper (which is the value), and repeating that deeper until
+    Reading 1 entry (key-value pair) is by peeking an element (which is the value),
+    then peeking 1 element deeper (which is the key), and repeating that deeper and deeper until
     all map entries are read, and used to create a map object.
     Finally, that created map is pushed to the stack after all key-value pairs are popped.
 
@@ -255,6 +251,10 @@ OP_JUMP:
 
 OP_JUMP_BACK:
     Reads a number, which is how many bytes to decrement the IP.
+
+OP_MAKE_ITER:
+    Grabs the topmost object in the stack and wraps it inside a new iterator object.
+    If the topmost object is not iterable, then it causes a runtime error.
 
 OP_ITER_OR_JUMP:
     Assuming the second to last object in the stack is a local variable, and the topmost is
