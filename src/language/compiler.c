@@ -183,6 +183,18 @@ static void compile_call(Compiler *compiler, const CallNode *node) {
 }
 
 /** 
+ * Compiles a subscript get expression.
+ * 
+ * Compiles the thing being subscripted, then compiles the subscript expression, and emits
+ * the getting subscript instruction.
+ */
+static void compile_subscript_get(Compiler *compiler, const SubscriptGetNode *node) {
+    compile_node(compiler, node->callee);
+    compile_node(compiler, node->subscript);
+    emit_instr(compiler, OP_GET_SUBSCRIPT, get_node_pos(AS_NODE(node)));
+}
+
+/** 
  * Compiles a ternary expression.
  * 
  * Loads the ternary's condition, then true side expression, then false side expression
@@ -657,6 +669,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: compile_range(compiler, AS_PTR(RangeNode, node)); break;
     case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;
+    case AST_SUBSCRIPT_GET: compile_subscript_get(compiler, AS_PTR(SubscriptGetNode, node)); break;
     case AST_TERNARY: compile_ternary(compiler, AS_PTR(TernaryNode, node)); break;
     case AST_LIST: compile_list(compiler, AS_PTR(ListNode, node)); break;
     case AST_MAP: compile_map(compiler, AS_PTR(MapNode, node)); break;

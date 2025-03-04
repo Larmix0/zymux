@@ -210,7 +210,6 @@ static Node *one_arg(Parser *parser) {
 /** Returns an array of parsed argument expressions that should end in a closing parenthesis. */
 static NodeArray parse_args(Parser *parser) {
     NodeArray args = CREATE_DA();
-    CONSUME(parser, TOKEN_LPAR, "Expected opening parenthesis before arguments.");
     if (!MATCH(parser, TOKEN_RPAR)) {
         APPEND_DA(&args, one_arg(parser));
         while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser) && !parser->isPanicking) {
@@ -230,9 +229,17 @@ static NodeArray parse_args(Parser *parser) {
  */
 static Node *call(Parser *parser) {
     Node *expr = map(parser);
-    while (CHECK(parser, TOKEN_LPAR)) {
-        NodeArray args = parse_args(parser);
-        expr = new_call_node(parser->program, expr, args);
+    while (true) {
+        if (MATCH(parser, TOKEN_LPAR)) {
+            NodeArray args = parse_args(parser);
+            expr = new_call_node(parser->program, expr, args);
+        } else if (MATCH(parser, TOKEN_LSQUARE)) {
+            Node *subscript = expression(parser);
+            CONSUME(parser, TOKEN_RSQUARE, "Expected ']' after subscript.");
+            expr = new_subscript_get_node(parser->program, expr, subscript);
+        } else {
+            break;
+        }
     }
     return expr;
 }

@@ -56,6 +56,12 @@
 /** Converts the passed pointer to a pointer of the passed type. */
 #define AS_PTR(type, value) ((type *)value)
 
+/** 
+ * Turns into a boolean of whether or not the passed index is within the passed length.
+ * The length is presumed to be that of some collection, where the highest index is length - 1.
+ */
+#define IS_WITHIN_LENGTH(length, index) ((index) >= 0 && (index) <= (length) - 1)
+
 /** Used when indenting text during error reporting and debugging. */
 #define INDENT "    "
 

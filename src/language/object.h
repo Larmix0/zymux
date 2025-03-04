@@ -243,7 +243,7 @@ bool is_iterable(const Obj *object);
 
 /** 
  * Iterates over an object that is assumed to be iterable.
- * Returns the iterated element of the iterable.
+ * Returns the iterated element of the iterable, or NULL if the iterator's exhausted.
  * 
  * Passing a non-iterable is considered unreachable.
  */

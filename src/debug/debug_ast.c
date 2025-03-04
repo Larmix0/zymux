@@ -111,6 +111,13 @@ static void append_call_node(AstBuilder *ast, const CallNode *node) {
     append_node_array(ast, &node->args);
 }
 
+/** Appends a subscript get node's callee being subscripted, and the subscript expression itself. */
+static void append_subscript_get_node(AstBuilder *ast, const SubscriptGetNode *node) {
+    buffer_append_string(&ast->string, "<subscript> ");
+    append_node(ast, node->callee);
+    append_node(ast, node->subscript);
+}
+
 /** Appends a ternary node to the AST. */
 static void append_ternary_node(AstBuilder *ast, const TernaryNode *node) {
     buffer_append_string(&ast->string, "<ternary> ");
@@ -280,6 +287,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_PARENTHESES: append_parentheses_node(ast, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: append_range_node(ast, AS_PTR(RangeNode, node)); break;
     case AST_CALL: append_call_node(ast, AS_PTR(CallNode, node)); break;
+    case AST_SUBSCRIPT_GET: append_subscript_get_node(ast, AS_PTR(SubscriptGetNode, node)); break;
     case AST_TERNARY: append_ternary_node(ast, AS_PTR(TernaryNode, node)); break;
     case AST_LIST: append_list_node(ast, AS_PTR(ListNode, node)); break;
     case AST_MAP: append_map_node(ast, AS_PTR(MapNode, node)); break;

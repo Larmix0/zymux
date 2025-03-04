@@ -227,6 +227,17 @@ OP_CALL:
     Pops the read amount of arguments and replaces the callee with the returned value
     (or null by default) after the call has finished.
 
+OP_GET_SUBSCRIPT:
+    Peeks 2 elements from the top of the stack. The one at the top of the stack is the subscript,
+    while the object underneath it is the one being subscripted. Pushes the result of the subscript
+    operation on the stack after popping both the subscript expression
+    and the object being subscripted.
+
+    If the subscript is making a slice (using a range object), then an iterator will temporarily
+    be pushed to the stack while the slice is being constructed to iterate over the original
+    object and filter out the objects that won't be a part of the slice. The iterator gets popped
+    alongside the subscript and the subscripted before pushing the slice in that case.
+
 OP_CLOSURE:
     Copies over all captured variables of the current frame over to the function in the stack,
     loads it after wrapping it over a closure object.

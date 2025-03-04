@@ -178,19 +178,126 @@ void free_vm(Vm *vm) {
     FREE_STACK(vm);
 }
 
+/** 
+ * Performs a subscript get on an array using an integer.
+ * 
+ * Deletes the subscript and the callee of the subscript, and pushes the element on the callee
+ * at the index of the integer subscript.
+ */
+static bool array_get_item(
+    Vm *vm, ListObj *list, StringObj *str, Obj *subscript, const ZmxInt length, const bool isList
+) {
+    ZmxInt number = AS_PTR(IntObj, subscript)->number;
+    if (!IS_WITHIN_LENGTH(length, number)) {
+        return runtime_error(vm, "Index " ZMX_INT_FMT " is out of range.", number);
+    }
+    Obj *result = isList ? list->items.data[number] 
+        : AS_OBJ(new_string_obj(vm->program, str->string + number, 1));
+    DROP_AMOUNT(vm, 2);
+    PUSH(vm, result);
+    return true;
+}
+
+/** 
+ * Performs a subscript get on an array using range, slicing it.
+ * 
+ * Creates a subarray from the subscripted using the subscript range as a filter for which
+ * elements of the array are included in the sliced array.
+ * 
+ * Because we're creating the subarray from a range, we have to iterate with an iterator,
+ * which is pushed onto the stack so it doesn't get GCed.
+ * 
+ * After exhausting the iterator, we push the created subarray after
+ * popping the original subscript, subscripted object, and the temporary iterator from the stack.
+ */
+static bool array_slice(
+    Vm *vm, ListObj *list, StringObj *str, Obj *subscript, const ZmxInt length, const bool isList
+) {
+    ObjArray filteredList = CREATE_DA();
+    CharBuffer filteredStr = create_char_buffer();
+
+    IteratorObj *iterator = new_iterator_obj(vm->program, subscript);
+    PUSH(vm, AS_OBJ(iterator)); // So iterator doesn't get GCed.
+    Obj *current;
+    while ((current = iterate(vm->program, iterator))) {
+        ZmxInt number = AS_PTR(IntObj, current)->number;
+        if (!IS_WITHIN_LENGTH(length, number)) {
+            FREE_DA(&filteredList);
+            free_char_buffer(&filteredStr);
+            return runtime_error(vm, "Slice goes out of range.");
+        }
+        if (isList) {
+            APPEND_DA(&filteredList, list->items.data[number]);
+        } else {
+            buffer_append_char(&filteredStr, str->string[number]);
+        }
+    }
+    Obj *result = isList ? AS_OBJ(new_list_obj(vm->program, filteredList))
+        : AS_OBJ(new_string_obj(vm->program, filteredStr.text, filteredStr.length));
+    if (!isList) {
+        FREE_DA(&filteredList); // Only free if it's unused.
+    }
+    free_char_buffer(&filteredStr); // Always free here since new string copies the buffer anyway.
+    DROP_AMOUNT(vm, 3); // Pop the subscript, the thing being subscripted, and the iterator.
+    PUSH(vm, result);
+    return true;
+}
+
+/** 
+ * Gets a subscript from the passed array of ordered elements and pushes it without assigning.
+ * 
+ * Array subscripts are either an integer that captures one of their elements, or a range
+ * which creates a subarray from the range's start, end, and step as a filter.
+ */
+static bool array_get_subscript(Vm *vm, Obj *callee, Obj *subscript) {
+    ASSERT(
+        callee->type == OBJ_LIST || callee->type == OBJ_STRING,
+        "Expected list or string for array subscript."
+    );
+    const bool isList = callee->type == OBJ_LIST;
+    ListObj *list = isList ? AS_PTR(ListObj, callee) : NULL;
+    StringObj *str = isList ? NULL : AS_PTR(StringObj, callee);
+    const ZmxInt length = isList ? list->items.length : str->length;
+
+    if (subscript->type == OBJ_INT) {
+        return array_get_item(vm, list, str, subscript, length, isList);
+    } else if (subscript->type == OBJ_RANGE) {
+        return array_slice(vm, list, str, subscript, length, isList);
+    }
+    return runtime_error(
+        vm, "Can't subscript %s with %s",
+        obj_type_string(callee->type), obj_type_string(subscript->type)
+    );
+}
+
+/** 
+ * Performs a subscript get on a map, which only accepts hashable subscripts for keys.
+ * 
+ * Deletes the subscript and the callee of the subscript, and pushes the corresponding value
+ * of the key subscript.
+ */
+static bool map_get_subscript(Vm *vm, Obj *callee, Obj *subscript) {
+    ASSERT(callee->type == OBJ_MAP, "Expected map for subscript.");
+    MapObj *map = AS_PTR(MapObj, callee);
+    if (!is_hashable(subscript)) {
+        return runtime_error(
+            vm, "%s key is not hashable.", obj_type_string(subscript->type)
+        );
+    }
+    Obj *result = table_get(&map->table, subscript);
+    if (result == NULL) {
+        return runtime_error(
+            vm, "Key '%s' does not exist in map.", as_string(vm->program, subscript)->string
+        );
+    }
+    DROP_AMOUNT(vm, 2);
+    PUSH(vm, result);
+    return true;
+}
+
 /** Attempts to call the passed object. Returns whether or not it managed to call it. */
 static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
-    switch (callee->type) {
-    case OBJ_NATIVE_FUNC: {
-        Obj *nativeReturn = AS_PTR(NativeFuncObj, callee)->func(vm, args, argAmount);
-        if (nativeReturn == NULL) {
-            return false;
-        }
-        PEEK_DEPTH(vm, argAmount) = nativeReturn;
-        DROP_AMOUNT(vm, argAmount);
-        return true;
-    }
-    case OBJ_FUNC: {
+    if (callee->type == OBJ_FUNC) {
         FuncObj *func = AS_PTR(FuncObj, callee);
         if (func->arity != argAmount) {
             return runtime_error(
@@ -201,18 +308,15 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
         }
         push_stack_frame(vm, func, args - 1, vm->frame->sp);
         return true;
-    }
-
-    case OBJ_INT:
-    case OBJ_FLOAT:
-    case OBJ_BOOL:
-    case OBJ_NULL:
-    case OBJ_STRING:
-    case OBJ_RANGE:
-    case OBJ_LIST:
-    case OBJ_MAP:
-    case OBJ_CAPTURED:
-    case OBJ_ITERATOR:
+    } else if (callee->type == OBJ_NATIVE_FUNC) {
+        Obj *nativeReturn = AS_PTR(NativeFuncObj, callee)->func(vm, args, argAmount);
+        if (nativeReturn == NULL) {
+            return false;
+        }
+        PEEK_DEPTH(vm, argAmount) = nativeReturn;
+        DROP_AMOUNT(vm, argAmount);
+        return true;
+    } else {
         return runtime_error(vm, "Can't call object of type %s.", obj_type_string(PEEK(vm)->type));
     }
     UNREACHABLE_ERROR();
@@ -390,6 +494,9 @@ static bool execute_vm(Vm *vm) {
                     obj_type_string(step->type)
                 );
             }
+            if (AS_PTR(IntObj, step)->number < 0) {
+                return runtime_error(vm, "Range's step can't be a negative number.");
+            }
             RangeObj *range = new_range_obj(
                 vm->program, NUM_VAL(start), NUM_VAL(end), NUM_VAL(step)
             );
@@ -518,6 +625,22 @@ static bool execute_vm(Vm *vm) {
             const u32 argAmount = READ_NUMBER(vm);
             if (!call(vm, PEEK_DEPTH(vm, argAmount), vm->frame->sp - argAmount, argAmount)) {
                 return false;
+            }
+            break;
+        }
+        case OP_GET_SUBSCRIPT: {
+            Obj *callee = PEEK_DEPTH(vm, 1);
+            Obj *subscript = PEEK(vm);
+            if (callee->type == OBJ_LIST || callee->type == OBJ_STRING) {
+                if (!array_get_subscript(vm, callee, subscript)) {
+                    return false;
+                }
+            } else if (callee->type == OBJ_MAP) {
+                if (!map_get_subscript(vm, callee, subscript)) {
+                    return false;
+                }
+            } else {
+                runtime_error(vm, "Can't subscript object of type %s.", callee->type);
             }
             break;
         }

@@ -21,6 +21,7 @@ typedef enum {
     AST_PARENTHESES,
     AST_RANGE,
     AST_CALL,
+    AST_SUBSCRIPT_GET,
     AST_TERNARY,
     AST_LIST,
     AST_MAP,
@@ -138,6 +139,13 @@ typedef struct {
     Node *callee;
     NodeArray args;
 } CallNode;
+
+/** Subscript, which cuts a part off of some object that supports it. */
+typedef struct {
+    Node node;
+    Node *callee;
+    Node *subscript;
+} SubscriptGetNode;
 
 /** A ternary conditional, syntax sugar for an if-else. */
 typedef struct {
@@ -314,6 +322,9 @@ Node *new_range_node(
 
 /** Allocates a call node, which simply wraps around a callee expression with some optional args. */
 Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args);
+
+/** Allocates a subscript, which grabs a part of the thing it's being used on. */
+Node *new_subscript_get_node(ZmxProgram *program, Node *callee, Node *subscript);
 
 /** Allocates a ternary conditional expression node. */
 Node *new_ternary_node(ZmxProgram *program, Node *condition, Node *trueExpr, Node *falseExpr);
