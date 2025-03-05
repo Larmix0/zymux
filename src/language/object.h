@@ -14,9 +14,16 @@
 /** Resolves to whether or not the passed object is considered a number (integer or float). */
 #define IS_NUM(obj) ((obj)->type == OBJ_INT || (obj)->type == OBJ_FLOAT)
 
+/** Resolves to whether or not the passed object can have a bitwise operation applied into it. */
+#define IS_BITWISABLE(obj) ((obj)->type == OBJ_INT || (obj)->type == OBJ_BOOL)
+
 /** Returns the number the passed object holds, assuming it's either an integer or float object. */
 #define NUM_VAL(obj) \
     ((obj)->type == OBJ_INT ? AS_PTR(IntObj, obj)->number : AS_PTR(FloatObj, obj)->number)
+
+/** Returns the C-value of an object that is presumed to be one that can use bitwise operations. */
+#define BIT_VAL(obj) \
+    ((obj)->type == OBJ_INT ? AS_PTR(IntObj, obj)->number : AS_PTR(BoolObj, obj)->boolean)
 
 typedef struct ZmxProgram ZmxProgram;
 typedef struct Obj Obj;

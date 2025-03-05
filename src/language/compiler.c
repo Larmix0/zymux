@@ -112,6 +112,7 @@ static void compile_unary(Compiler *compiler, const UnaryNode *node) {
     switch (node->operation.type) {
     case TOKEN_MINUS: unaryOp = OP_MINUS; break;
     case TOKEN_BANG: unaryOp = OP_NOT; break;
+    case TOKEN_TILDE: unaryOp = OP_TILDE; break;
     default: UNREACHABLE_ERROR();
     }
     emit_instr(compiler, unaryOp, node->operation.pos);
@@ -136,6 +137,11 @@ static void compile_binary(Compiler *compiler, const BinaryNode *node) {
     case TOKEN_SLASH: binaryOp = OP_DIVIDE; break;
     case TOKEN_PERCENT: binaryOp = OP_MODULO; break;
     case TOKEN_EXPO: binaryOp = OP_EXPONENT; break;
+    case TOKEN_LSHIFT: binaryOp = OP_LSHIFT; break;
+    case TOKEN_RSHIFT: binaryOp = OP_RSHIFT; break;
+    case TOKEN_BAR: binaryOp = OP_BITWISE_OR; break; 
+    case TOKEN_AMPER: binaryOp = OP_BITWISE_AND; break; 
+    case TOKEN_CARET: binaryOp = OP_XOR; break; 
     case TOKEN_EQ_EQ: binaryOp = OP_EQ; break;
     case TOKEN_BANG_EQ: binaryOp = OP_NOT_EQ; break;
     case TOKEN_GREATER: binaryOp = OP_GREATER; break;

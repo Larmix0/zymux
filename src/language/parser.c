@@ -257,7 +257,7 @@ static Node *call(Parser *parser) {
  * We allow unary to be recursive to allow something like (---10).
  */
 static Node *unary(Parser *parser) {
-    if (CHECK(parser, TOKEN_MINUS) || CHECK(parser, TOKEN_BANG)) {
+    if (CHECK(parser, TOKEN_MINUS) || CHECK(parser, TOKEN_BANG) || CHECK(parser, TOKEN_TILDE)) {
         Token operation = ADVANCE_PEEK(parser);
         return new_unary_node(parser->program, operation, unary(parser));
     }
@@ -299,9 +299,28 @@ static Node *term(Parser *parser) {
     return expr;
 }
 
+/** 
+ * Includes all binary bitwise operators in one precedence.
+ * 
+ * so all binary bitwise operationss execute left to right. This does not include the tilde (~),
+ * as it's considered a unary operator instead.
+ */
+static Node *binary_bitwise(Parser *parser) {
+    Node *expr = term(parser);
+    while (
+        CHECK(parser, TOKEN_LSHIFT) || CHECK(parser, TOKEN_RSHIFT) || CHECK(parser, TOKEN_TILDE)
+        || CHECK(parser, TOKEN_BAR) || CHECK(parser, TOKEN_AMPER) || CHECK(parser, TOKEN_CARET)
+    ) {
+        Token operation = ADVANCE_PEEK(parser);
+        Node *rhs = factor(parser);
+        expr = new_binary_node(parser->program, expr, operation, rhs);   
+    }
+    return expr;
+}
+
 /** Comparisons handle any comparison operations other than equal and unequal. */
 static Node *comparison(Parser *parser) {
-    Node *expr = term(parser);
+    Node *expr = binary_bitwise(parser);
     while (
         CHECK(parser, TOKEN_GREATER) || CHECK(parser, TOKEN_GREATER_EQ)
         || CHECK(parser, TOKEN_LESS) || CHECK(parser, TOKEN_LESS_EQ)

@@ -54,9 +54,10 @@
 /** Resolves to a boolean of whether or not either of the binary numbers in the stack are floats. */
 #define BIN_HAS_FLOAT(vm) (BIN_LEFT(vm)->type == OBJ_FLOAT || BIN_RIGHT(vm)->type == OBJ_FLOAT)
 
+/** Writes a consistent runtime error message for all failed binary operations. */
 #define BIN_OP_ERROR(vm, opString) \
     (runtime_error( \
-        vm, "Can't perform %s between %s and %s.", \
+        vm, "Can't use %s between %s and %s.", \
         opString, obj_type_str(BIN_LEFT(vm)->type), obj_type_str(BIN_RIGHT(vm)->type)) \
     )
 
@@ -105,6 +106,22 @@
             return BIN_OP_ERROR(vm, opString); \
         } \
         BOOL_BIN_OP(vm, resultBool); \
+    } while (false)
+
+/** 
+ * Binary operation where the operation is a bitwise one (only allowed on ints and bools).
+ * 
+ * Takes an opString, which is the operation's name as a string (like "left shift" for example),
+ * and resultNum, which is the number result of the binary bitwise performed outside.
+ */
+#define BITWISE_BIN_OP(vm, opString, resultNum) \
+    do { \
+        if (!IS_BITWISABLE(BIN_LEFT(vm)) || !IS_BITWISABLE(BIN_RIGHT(vm))) { \
+            return BIN_OP_ERROR(vm, opString); \
+        } \
+        Obj *resultObj = AS_OBJ(new_int_obj((vm)->program, resultNum)); \
+        DROP_AMOUNT(vm, 2); \
+        PUSH(vm, resultObj); \
     } while (false)
 
 /** Reports a runtime error and always returns false to be used for convenience. */
@@ -458,6 +475,21 @@ static bool execute_vm(Vm *vm) {
         case OP_EXPONENT:
             MATH_BIN_OP(vm, "exponentiation", pow(NUM_VAL(BIN_LEFT(vm)), NUM_VAL(BIN_RIGHT(vm))));
             break;
+        case OP_LSHIFT: 
+            BITWISE_BIN_OP(vm, "left shift", BIT_VAL(BIN_LEFT(vm)) << BIT_VAL(BIN_RIGHT(vm)));
+            break;
+        case OP_RSHIFT:
+            BITWISE_BIN_OP(vm, "right shift", BIT_VAL(BIN_LEFT(vm)) >> BIT_VAL(BIN_RIGHT(vm)));
+            break;
+        case OP_BITWISE_OR:
+            BITWISE_BIN_OP(vm, "bitwise OR", BIT_VAL(BIN_LEFT(vm)) | BIT_VAL(BIN_RIGHT(vm)));
+            break;
+        case OP_BITWISE_AND:
+            BITWISE_BIN_OP(vm, "bitwise AND", BIT_VAL(BIN_LEFT(vm)) & BIT_VAL(BIN_RIGHT(vm)));
+            break;
+        case OP_XOR:
+            BITWISE_BIN_OP(vm, "bitwise XOR", BIT_VAL(BIN_LEFT(vm)) ^ BIT_VAL(BIN_RIGHT(vm)));
+            break;
         case OP_EQ:
             BOOL_BIN_OP(vm, equal_obj(BIN_LEFT(vm), BIN_RIGHT(vm)));
             break;
@@ -492,6 +524,18 @@ static bool execute_vm(Vm *vm) {
         case OP_NOT: {
             BoolObj *asBool = new_bool_obj(vm->program, !as_bool(vm->program, POP(vm))->boolean);
             PUSH(vm, AS_OBJ(asBool));
+            break;
+        }
+        case OP_TILDE: {
+            ZmxInt flipped;
+            if (PEEK(vm)->type == OBJ_INT) {
+                flipped = ~AS_PTR(IntObj, PEEK(vm))->number;
+            } else if (PEEK(vm)->type == OBJ_BOOL) {
+                flipped = ~((ZmxInt)AS_PTR(BoolObj, PEEK(vm))->boolean);
+            } else {
+                return runtime_error(vm, "Can't apply '~' to %s.", obj_type_str(PEEK(vm)->type));
+            }
+            PEEK(vm) = AS_OBJ(new_int_obj(vm->program, flipped));
             break;
         }
         case OP_AS: {

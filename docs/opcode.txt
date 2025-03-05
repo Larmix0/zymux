@@ -34,7 +34,7 @@ Unary:
     but with the unary operation applied on it.
 
     Includes:
-        OP_MINUS, OP_NOT
+        OP_MINUS, OP_NOT, OP_TILDE
     
     Example:
         Minus operation pops an integer object whose value is 7. Then, it creates a new integer with
