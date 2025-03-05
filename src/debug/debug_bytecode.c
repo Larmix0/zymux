@@ -88,8 +88,8 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_BITWISE_OR: print_bare_instr("BITWISE_OR", &idx); break;
     case OP_BITWISE_AND: print_bare_instr("BITWISE_AND", &idx); break;
     case OP_XOR: print_bare_instr("XOR", &idx); break;
-    case OP_EQ: print_bare_instr("EQ", &idx); break;
-    case OP_NOT_EQ: print_bare_instr("NOT_EQ", &idx); break;
+    case OP_EQUAL: print_bare_instr("EQUAL", &idx); break;
+    case OP_NOT_EQUAL: print_bare_instr("NOT_EQUAL", &idx); break;
     case OP_GREATER: print_bare_instr("GREATER", &idx); break;
     case OP_GREATER_EQ: print_bare_instr("GREATER_EQ", &idx); break;
     case OP_LESS: print_bare_instr("LESS", &idx); break;

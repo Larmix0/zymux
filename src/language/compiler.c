@@ -142,8 +142,8 @@ static void compile_binary(Compiler *compiler, const BinaryNode *node) {
     case TOKEN_BAR: binaryOp = OP_BITWISE_OR; break; 
     case TOKEN_AMPER: binaryOp = OP_BITWISE_AND; break; 
     case TOKEN_CARET: binaryOp = OP_XOR; break; 
-    case TOKEN_EQ_EQ: binaryOp = OP_EQ; break;
-    case TOKEN_BANG_EQ: binaryOp = OP_NOT_EQ; break;
+    case TOKEN_EQ_EQ: binaryOp = OP_EQUAL; break;
+    case TOKEN_BANG_EQ: binaryOp = OP_NOT_EQUAL; break;
     case TOKEN_GREATER: binaryOp = OP_GREATER; break;
     case TOKEN_GREATER_EQ: binaryOp = OP_GREATER_EQ; break;
     case TOKEN_LESS: binaryOp = OP_LESS; break;
