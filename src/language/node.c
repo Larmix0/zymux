@@ -99,8 +99,8 @@ Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args) {
 
 
 /** Allocates a subscript assignment, which assigns to some subscripted thing. */
-Node *new_subscript_assign_node(ZmxProgram *program, Node *callee, Node *subscript, Node *value) {
-    SubscriptAssignNode *node = NEW_NODE(program, AST_SUBSCRIPT_ASSIGN, SubscriptAssignNode);
+Node *new_assign_subscr_node(ZmxProgram *program, Node *callee, Node *subscript, Node *value) {
+    AssignSubscrNode *node = NEW_NODE(program, AST_ASSIGN_SUBSCR, AssignSubscrNode);
     node->callee = callee;
     node->subscript = subscript;
     node->value = value;
@@ -108,8 +108,8 @@ Node *new_subscript_assign_node(ZmxProgram *program, Node *callee, Node *subscri
 }
 
 /** Allocates a subscript get, which grabs a part of the thing it's being used on. */
-Node *new_subscript_get_node(ZmxProgram *program, Node *callee, Node *subscript) {
-    SubscriptGetNode *node = NEW_NODE(program, AST_SUBSCRIPT_GET, SubscriptGetNode);
+Node *new_get_subscr_node(ZmxProgram *program, Node *callee, Node *subscript) {
+    GetSubscrNode *node = NEW_NODE(program, AST_GET_SUBSCR, GetSubscrNode);
     node->callee = callee;
     node->subscript = subscript;
     return AS_NODE(node);
@@ -168,8 +168,8 @@ Node *new_block_node(ZmxProgram *program, const NodeArray stmts, const SourcePos
  * Variable delcaration is the first variable assignment which also includes constness.
  * It doesn't include whether or not it is private as private is a node that wraps around names.
  */
-Node *new_var_decl_node(ZmxProgram *program, const Token name, Node *value, const bool isConst) {
-    VarDeclNode *node = NEW_NODE(program, AST_VAR_DECL, VarDeclNode);
+Node *new_declare_var_node(ZmxProgram *program, const Token name, Node *value, const bool isConst) {
+    DeclareVarNode *node = NEW_NODE(program, AST_DECLARE_VAR, DeclareVarNode);
     node->name = name;
     node->value = value;
     node->isConst = isConst;
@@ -179,8 +179,8 @@ Node *new_var_decl_node(ZmxProgram *program, const Token name, Node *value, cons
 }
 
 /** Allocates an assignment expression, which changes the value of a variable already set. */
-Node *new_var_assign_node(ZmxProgram *program, const Token name, Node *value) {
-    VarAssignNode *node = NEW_NODE(program, AST_VAR_ASSIGN, VarAssignNode);
+Node *new_assign_var_node(ZmxProgram *program, const Token name, Node *value) {
+    AssignVarNode *node = NEW_NODE(program, AST_ASSIGN_VAR, AssignVarNode);
     node->name = name;
     node->value = value;
     node->resolution.index = UNRESOLVED_NUMBER;
@@ -189,8 +189,8 @@ Node *new_var_assign_node(ZmxProgram *program, const Token name, Node *value) {
 }
 
 /** Allocates a node which holds the name of a variable to get its value. */
-Node *new_var_get_node(ZmxProgram *program, const Token name) {
-    VarGetNode *node = NEW_NODE(program, AST_VAR_GET, VarGetNode);
+Node *new_get_var_node(ZmxProgram *program, const Token name) {
+    GetVarNode *node = NEW_NODE(program, AST_GET_VAR, GetVarNode);
     node->name = name;
     node->resolution.index = UNRESOLVED_NUMBER;
     node->resolution.scope = UNRESOLVED_NAME_SCOPE;
@@ -226,7 +226,7 @@ Node *new_do_while_node(ZmxProgram *program, Node *condition, BlockNode *body) {
 }
 
 /** Allocates a for loop node, which is a for-in loop for Zymux. */
-Node *new_for_node(ZmxProgram *program, VarDeclNode *loopVar, Node *iterable, BlockNode *body) {
+Node *new_for_node(ZmxProgram *program, DeclareVarNode *loopVar, Node *iterable, BlockNode *body) {
     ForNode *node = NEW_NODE(program, AST_FOR, ForNode);
     node->loopVar = loopVar;
     node->iterable = iterable;
@@ -247,7 +247,7 @@ Node *new_loop_control_node(ZmxProgram *program, const Token keyword) {
 
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(
-    ZmxProgram *program, VarDeclNode *nameDecl, const NodeArray params, BlockNode *body
+    ZmxProgram *program, DeclareVarNode *nameDecl, const NodeArray params, BlockNode *body
 ) {
     FuncNode *node = NEW_NODE(program, AST_FUNC, FuncNode);
     node->nameDecl = nameDecl;
@@ -293,16 +293,16 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_PARENTHESES: return get_node_pos(AS_PTR(ParenthesesNode, node)->expr);
     case AST_RANGE: return AS_PTR(RangeNode, node)->pos;
     case AST_CALL: return get_node_pos(AS_PTR(CallNode, node)->callee);
-    case AST_SUBSCRIPT_ASSIGN: return get_node_pos(AS_PTR(SubscriptAssignNode, node)->callee);
-    case AST_SUBSCRIPT_GET: return get_node_pos(AS_PTR(SubscriptGetNode, node)->callee);
+    case AST_ASSIGN_SUBSCR: return get_node_pos(AS_PTR(AssignSubscrNode, node)->callee);
+    case AST_GET_SUBSCR: return get_node_pos(AS_PTR(GetSubscrNode, node)->callee);
     case AST_TERNARY: return get_node_pos(AS_PTR(TernaryNode, node)->condition);
     case AST_LIST: return AS_PTR(ListNode, node)->pos;
     case AST_MAP: return AS_PTR(MapNode, node)->pos;
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(ExprStmtNode, node)->expr);
     case AST_BLOCK: return AS_PTR(BlockNode, node)->pos;
-    case AST_VAR_DECL: return AS_PTR(VarDeclNode, node)->name.pos;
-    case AST_VAR_ASSIGN: return AS_PTR(VarAssignNode, node)->name.pos;
-    case AST_VAR_GET: return AS_PTR(VarGetNode, node)->name.pos;
+    case AST_DECLARE_VAR: return AS_PTR(DeclareVarNode, node)->name.pos;
+    case AST_ASSIGN_VAR: return AS_PTR(AssignVarNode, node)->name.pos;
+    case AST_GET_VAR: return AS_PTR(GetVarNode, node)->name.pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
     case AST_DO_WHILE: return AS_PTR(DoWhileNode, node)->body->pos;
@@ -345,13 +345,13 @@ static void free_node(Node *node) {
     case AST_BINARY:
     case AST_PARENTHESES:
     case AST_RANGE:
-    case AST_SUBSCRIPT_ASSIGN:
-    case AST_SUBSCRIPT_GET:
+    case AST_ASSIGN_SUBSCR:
+    case AST_GET_SUBSCR:
     case AST_TERNARY:
     case AST_EXPR_STMT:
-    case AST_VAR_DECL:
-    case AST_VAR_ASSIGN:
-    case AST_VAR_GET:
+    case AST_DECLARE_VAR:
+    case AST_ASSIGN_VAR:
+    case AST_GET_VAR:
     case AST_IF_ELSE:
     case AST_WHILE:
     case AST_DO_WHILE:

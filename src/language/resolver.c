@@ -285,14 +285,14 @@ static void resolve_ternary(Resolver *resolver, TernaryNode *node) {
 }
 
 /** Resolve a subscript set's subscript, subscripted, and value nodes */
-static void resolve_subscript_assign(Resolver *resolver, SubscriptAssignNode *node) {
+static void resolve_assign_subscr(Resolver *resolver, AssignSubscrNode *node) {
     resolve_node(resolver, node->callee);
     resolve_node(resolver, node->subscript);
     resolve_node(resolver, node->value);
 }
 
 /** Resolves a subscript get's subscript expression and the thing being subscripted. */
-static void resolve_subscript_get(Resolver *resolver, SubscriptGetNode *node) {
+static void resolve_get_subscr(Resolver *resolver, GetSubscrNode *node) {
     resolve_node(resolver, node->callee);
     resolve_node(resolver, node->subscript);
 }
@@ -329,7 +329,7 @@ static void scoped_block(Resolver *resolver, BlockNode *node, const ScopeType ty
  * Declares a local variable, errors if it's already declared or is const
  * Simply puts a flag on the node which indicates that it's a local declaration.
  */
-static void declare_local(Resolver *resolver, VarDeclNode *node) {
+static void declare_local(Resolver *resolver, DeclareVarNode *node) {
     const Token name = node->name;
     if (find_top_scope_var(*CURRENT_LOCALS(resolver), name, resolver->scopeDepth) != NULL) {
         resolution_error(
@@ -357,7 +357,7 @@ static void declare_local(Resolver *resolver, VarDeclNode *node) {
  * Declares a global variable, errors if already declared or is const.
  * Does so by appending the declared variable to the globals closure after setting its resolution.
  */
-static void declare_global(Resolver *resolver, VarDeclNode *node) {
+static void declare_global(Resolver *resolver, DeclareVarNode *node) {
     const Token name = node->name;
     if (find_closure_var(&resolver->globals, name) != NULL) {
         resolution_error(
@@ -382,7 +382,7 @@ static void declare_global(Resolver *resolver, VarDeclNode *node) {
  * We use "name" when erroring out instead of "variable" because variable declaration nodes
  * can include other, non-variable names like declaring the names of functions.
  */
-static void resolve_var_decl(Resolver *resolver, VarDeclNode *node) {
+static void resolve_declare_var(Resolver *resolver, DeclareVarNode *node) {
     resolve_node(resolver, node->value);
     
     const Token name = node->name;
@@ -508,7 +508,7 @@ static Variable *search_captures(Resolver *resolver, const Token name, const i64
  * Returns whether or not a variable was found in the current closure and assigned to the node.
  * If one is found it also adds a reference to it in the node's resolution.
  */
-static bool try_assign_local(Resolver *resolver, VarAssignNode *node) {
+static bool try_assign_local(Resolver *resolver, AssignVarNode *node) {
     Variable *local = find_closure_var(CURRENT_CLOSURE(resolver), node->name);
     if (local == NULL) {
         return false;
@@ -527,7 +527,7 @@ static bool try_assign_local(Resolver *resolver, VarAssignNode *node) {
  * Returns whether or not we found a captured variable/captured a local one with the same name
  * and assigned that to the node.
  */
-static bool try_assign_captured(Resolver *resolver, VarAssignNode *node) {
+static bool try_assign_captured(Resolver *resolver, AssignVarNode *node) {
     if (resolver->locals.length < 2) {
         // Doesn't have enough functions to even capture variables.
         return false;
@@ -552,7 +552,7 @@ static bool try_assign_captured(Resolver *resolver, VarAssignNode *node) {
  * of the declared global variable, then put the node's own resolution address on the array
  * of resolutions so it can be modified later if needed.
  */
-static bool try_assign_global(Resolver *resolver, VarAssignNode *node) {
+static bool try_assign_global(Resolver *resolver, AssignVarNode *node) {
     Variable *global = find_closure_var(&resolver->globals, node->name);
     if (global == NULL) {
         return false;
@@ -571,7 +571,7 @@ static bool try_assign_global(Resolver *resolver, VarAssignNode *node) {
  * Allows global, local and captured variable assignments. Errors if the assigned variable
  * doesn't exist or is a built-in.
  */
-static void resolve_var_assign(Resolver *resolver, VarAssignNode *node) {
+static void resolve_assign_var(Resolver *resolver, AssignVarNode *node) {
     resolve_node(resolver, node->value);
     const Token name = node->name;
     if (resolver->scopeDepth > 0) {
@@ -602,7 +602,7 @@ static void resolve_var_assign(Resolver *resolver, VarAssignNode *node) {
  * Tries to find and resolve a variable which is findable within the current function.
  * Returns whether or not it found one and resolved it.
  */
-static bool try_get_local(Resolver *resolver, VarGetNode *node) {
+static bool try_get_local(Resolver *resolver, GetVarNode *node) {
     Variable *local = find_closure_var(CURRENT_CLOSURE(resolver), node->name);
     if (local == NULL) {
         return false;
@@ -616,7 +616,7 @@ static bool try_get_local(Resolver *resolver, VarGetNode *node) {
  * Tries to find a variable that isn't within the current function nor is global.
  * Returns whether or not it found one and resolved it.
  */
-static bool try_get_captured(Resolver *resolver, VarGetNode *node) {
+static bool try_get_captured(Resolver *resolver, GetVarNode *node) {
     if (resolver->locals.length < 2) {
         // Doesn't have enough functions to even capture variables.
         return false;
@@ -637,7 +637,7 @@ static bool try_get_captured(Resolver *resolver, VarGetNode *node) {
  * and stores it inside the given variable in case it needs to be modified later.
  * Returns true if that happened, otherwise false if the global isn't found to begin with.
  */
-static bool try_get_global(Resolver *resolver, VarGetNode *node) {
+static bool try_get_global(Resolver *resolver, GetVarNode *node) {
     Variable *global = find_closure_var(&resolver->globals, node->name);
     if (global == NULL) {
         return false;
@@ -654,7 +654,7 @@ static bool try_get_global(Resolver *resolver, VarGetNode *node) {
  * We look in the table of built-ins and see if it's there. If it is, we manually set resolution
  * information about the node to be that of a built-in variable.
  */
-static bool try_get_built_in(Resolver *resolver, Obj *nameAsObj, VarGetNode *node) {
+static bool try_get_built_in(Resolver *resolver, Obj *nameAsObj, GetVarNode *node) {
     if (table_get(&resolver->program->builtIn, nameAsObj) == NULL) {
         return false;
     }
@@ -669,7 +669,7 @@ static bool try_get_built_in(Resolver *resolver, Obj *nameAsObj, VarGetNode *nod
  * Tries to get locals, then captured variables, then globals, and finally built-ins.
  * Errors if the variable isn't present in any of them.
  */
-static void resolve_var_get(Resolver *resolver, VarGetNode *node) {
+static void resolve_get_var(Resolver *resolver, GetVarNode *node) {
     const Token name = node->name;
     if (resolver->scopeDepth > 0) {
         if (try_get_local(resolver, node) || try_get_captured(resolver, node)) {
@@ -723,7 +723,7 @@ static void resolve_for(Resolver *resolver, ForNode *node) {
     push_scope(resolver, SCOPE_NORMAL);
 
     const u32 loopVarSpot = CURRENT_LOCALS(resolver)->length;
-    resolve_var_decl(resolver, node->loopVar);
+    resolve_declare_var(resolver, node->loopVar);
     APPEND_DA(
         CURRENT_LOCALS(resolver),
         create_variable(
@@ -813,7 +813,7 @@ static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
  * (as BP starts on the callee).
  */
 static void resolve_func(Resolver *resolver, FuncNode *node) {
-    resolve_var_decl(resolver, node->nameDecl);
+    resolve_declare_var(resolver, node->nameDecl);
     push_scope(resolver, SCOPE_FUNC);
     Variable declared = create_variable(
         false, node->nameDecl->isConst, false,
@@ -850,17 +850,16 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_PARENTHESES: resolve_parentheses(resolver, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: resolve_range(resolver, AS_PTR(RangeNode, node)); break;
     case AST_CALL: resolve_call(resolver, AS_PTR(CallNode, node)); break;
-    case AST_SUBSCRIPT_ASSIGN:
-        resolve_subscript_assign(resolver, AS_PTR(SubscriptAssignNode, node)); break;
-    case AST_SUBSCRIPT_GET: resolve_subscript_get(resolver, AS_PTR(SubscriptGetNode, node)); break;
+    case AST_ASSIGN_SUBSCR: resolve_assign_subscr(resolver, AS_PTR(AssignSubscrNode, node)); break;
+    case AST_GET_SUBSCR: resolve_get_subscr(resolver, AS_PTR(GetSubscrNode, node)); break;
     case AST_TERNARY: resolve_ternary(resolver, AS_PTR(TernaryNode, node)); break;
     case AST_LIST: resolve_list(resolver, AS_PTR(ListNode, node)); break;
     case AST_MAP: resolve_map(resolver, AS_PTR(MapNode, node)); break;
     case AST_EXPR_STMT: resolve_expr_stmt(resolver, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: scoped_block(resolver, AS_PTR(BlockNode, node), SCOPE_NORMAL); break;
-    case AST_VAR_DECL: resolve_var_decl(resolver, AS_PTR(VarDeclNode, node)); break;
-    case AST_VAR_ASSIGN: resolve_var_assign(resolver, AS_PTR(VarAssignNode, node)); break;
-    case AST_VAR_GET: resolve_var_get(resolver, AS_PTR(VarGetNode, node)); break;
+    case AST_DECLARE_VAR: resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node)); break;
+    case AST_ASSIGN_VAR: resolve_assign_var(resolver, AS_PTR(AssignVarNode, node)); break;
+    case AST_GET_VAR: resolve_get_var(resolver, AS_PTR(GetVarNode, node)); break;
     case AST_IF_ELSE: resolve_if_else(resolver, AS_PTR(IfElseNode, node)); break;
     case AST_WHILE: resolve_while(resolver, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: resolve_do_while(resolver, AS_PTR(DoWhileNode, node)); break;

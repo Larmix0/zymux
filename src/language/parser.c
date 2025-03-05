@@ -140,7 +140,7 @@ static Node *primary(Parser *parser) {
         RETREAT(parser); // Leave parsing the whole string to the string parser.
         return parse_string(parser);
     case TOKEN_IDENTIFIER:
-        return new_var_get_node(parser->program, PEEK_PREVIOUS(parser));
+        return new_get_var_node(parser->program, PEEK_PREVIOUS(parser));
     case TOKEN_LPAR: {
         Node *parenthesized = expression(parser);
         CONSUME(parser, TOKEN_RPAR, "Expected ')' after parenthesized expression.");
@@ -220,14 +220,14 @@ static NodeArray parse_args(Parser *parser) {
     return args;
 }
 
-static Node *parse_subscript(Parser *parser, Node *expr) {
+static Node *parse_subscr(Parser *parser, Node *expr) {
     Node *subscript = expression(parser);
     CONSUME(parser, TOKEN_RSQUARE, "Expected ']' after subscript.");
     if (MATCH(parser, TOKEN_EQ)) {
         Node *value = expression(parser);
-        return new_subscript_assign_node(parser->program, expr, subscript, value);
+        return new_assign_subscr_node(parser->program, expr, subscript, value);
     }
-    return new_subscript_get_node(parser->program, expr, subscript);
+    return new_get_subscr_node(parser->program, expr, subscript);
 }
 
 /** 
@@ -244,7 +244,7 @@ static Node *call(Parser *parser) {
             NodeArray args = parse_args(parser);
             expr = new_call_node(parser->program, expr, args);
         } else if (MATCH(parser, TOKEN_LSQUARE)) {
-            expr = parse_subscript(parser, expr);
+            expr = parse_subscr(parser, expr);
         } else {
             break;
         }
@@ -278,7 +278,9 @@ static Node *exponent(Parser *parser) {
 /** A factor in Zymux is multiplication, division, or modulo. */
 static Node *factor(Parser *parser) {
     Node *expr = exponent(parser);
-    while (CHECK(parser, TOKEN_STAR) || CHECK(parser, TOKEN_SLASH) || CHECK(parser, TOKEN_PERCENT)) {
+    while (
+        CHECK(parser, TOKEN_STAR) || CHECK(parser, TOKEN_SLASH) || CHECK(parser, TOKEN_PERCENT)
+    ) {
         Token operation = ADVANCE_PEEK(parser);
         Node *rhs = exponent(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
@@ -365,8 +367,8 @@ static Node *assignment(Parser *parser) {
     if (CHECK(parser, TOKEN_EQ)) {
         Token assignLocation = ADVANCE_PEEK(parser);
         Node *value = assignment(parser);
-        if (expr->type == AST_VAR_GET) {
-            return new_var_assign_node(parser->program, AS_PTR(VarGetNode, expr)->name, value);
+        if (expr->type == AST_GET_VAR) {
+            return new_assign_var_node(parser->program, AS_PTR(GetVarNode, expr)->name, value);
         } else {
             parser_error_at(parser, &assignLocation, false, "Invalid assignment name.");
         }
@@ -456,7 +458,7 @@ static Node *parse_do_while(Parser *parser) {
 
 /** Zymux uses for-in loops, which iterate over the elements of an iterable object. */
 static Node *parse_for(Parser *parser) {
-    Node *loopVar = new_var_decl_node(
+    Node *loopVar = new_declare_var_node(
         parser->program, CONSUME(parser, TOKEN_IDENTIFIER, "Expected loop variable after 'for'."),
         NULL_NODE(parser), false
     );
@@ -467,7 +469,7 @@ static Node *parse_for(Parser *parser) {
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after for loop's iterable.");
     Node *body = finish_block(parser);
     return new_for_node(
-        parser->program, AS_PTR(VarDeclNode, loopVar), iterable, AS_PTR(BlockNode, body)
+        parser->program, AS_PTR(DeclareVarNode, loopVar), iterable, AS_PTR(BlockNode, body)
     );
 }
 
@@ -518,7 +520,7 @@ static Node *statement(Parser *parser) {
  * 
  * TODO: add documentation for multi-variable declaration.
  */
-static Node *parse_var_decl(Parser *parser, const bool isConst) {
+static Node *parse_declare_var(Parser *parser, const bool isConst) {
     Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected declared variable's name.");
     Node *value;
     if (MATCH(parser, TOKEN_SEMICOLON)) {
@@ -533,7 +535,7 @@ static Node *parse_var_decl(Parser *parser, const bool isConst) {
             parser, &PEEK(parser), true, "Expected ';' or '=' after variable declaration."
         );
     }
-    return new_var_decl_node(parser->program, name, value, isConst);
+    return new_declare_var_node(parser->program, name, value, isConst);
 }
 
 /** Returns a parsed parameter for a function. TODO: expand later with optional parameters. */
@@ -559,8 +561,8 @@ static NodeArray parse_params(Parser *parser) {
 /** Parses any type of function. TODO: Handle the few differences between funcs, methods, etc. */
 static Node *parse_func(Parser *parser) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected function name.");
-    VarDeclNode *declaration = AS_PTR(
-        VarDeclNode, new_var_decl_node(parser->program, name, NULL, false)
+    DeclareVarNode *declaration = AS_PTR(
+        DeclareVarNode, new_declare_var_node(parser->program, name, NULL, false)
     );
     
     NodeArray params = parse_params(parser);
@@ -613,8 +615,8 @@ static void synchronize(Parser *parser) {
 static Node *declaration(Parser *parser) {
     Node *node;
     switch (ADVANCE_PEEK(parser).type) {
-    case TOKEN_LET_KW: node = parse_var_decl(parser, false); break;
-    case TOKEN_CONST_KW: node = parse_var_decl(parser, true); break;
+    case TOKEN_LET_KW: node = parse_declare_var(parser, false); break;
+    case TOKEN_CONST_KW: node = parse_declare_var(parser, true); break;
     case TOKEN_FUNC_KW: node = parse_func(parser); break;
     default:
         RETREAT(parser);

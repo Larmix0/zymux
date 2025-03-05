@@ -45,7 +45,7 @@ static void append_indents(AstBuilder *ast) {
 }
 
 /** Appends a placeholder string for an erroneous node. */
-static void append_error_node(AstBuilder *ast) {
+static void append_error(AstBuilder *ast) {
     buffer_append_string(&ast->string, "<error>");
     buffer_append_char(&ast->string, ' ');
 }
@@ -56,32 +56,32 @@ static void append_literal_node(AstBuilder *ast, const LiteralNode *node) {
 }
 
 /** Appends the node which holds a full string (including the formatting) in it. */
-static void append_string_node(AstBuilder *ast, const StringNode *node) {
+static void append_string(AstBuilder *ast, const StringNode *node) {
     buffer_append_string(&ast->string, "<string> ");
     append_node_array(ast, &node->exprs);
 }
 
 /** Appends a node which just holds a keyword token. */
-static void append_keyword_node(AstBuilder *ast, const KeywordNode *node) {
+static void append_keyword(AstBuilder *ast, const KeywordNode *node) {
     buffer_append_string(&ast->string, token_type_string(node->keyword));
     buffer_append_char(&ast->string, ' ');
 }
 
 /** Appends a unary node's information. */
-static void append_unary_node(AstBuilder *ast, const UnaryNode *node) {
+static void append_unary(AstBuilder *ast, const UnaryNode *node) {
     buffer_append_token(&ast->string, node->operation);
     append_node(ast, node->rhs);
 }
 
 /** Appends a binary node's information. */
-static void append_binary_node(AstBuilder *ast, const BinaryNode *node) {
+static void append_binary(AstBuilder *ast, const BinaryNode *node) {
     buffer_append_token(&ast->string, node->operation);
     append_node(ast, node->lhs);
     append_node(ast, node->rhs);
 }
 
 /** Appends a parentheses node, which just orders an expression's precedence manually. */
-static void append_parentheses_node(AstBuilder *ast, const ParenthesesNode *node) {
+static void append_parentheses(AstBuilder *ast, const ParenthesesNode *node) {
     buffer_append_char(&ast->string, '(');
     append_node(ast, node->expr);
     buffer_append_char(&ast->string, ')');
@@ -92,7 +92,7 @@ static void append_parentheses_node(AstBuilder *ast, const ParenthesesNode *node
  * Appends a backspace between each number in the range to remove the automatically appended space
  * from the node appending function.
  */
-static void append_range_node(AstBuilder *ast, const RangeNode *node) {
+static void append_range(AstBuilder *ast, const RangeNode *node) {
     append_node(ast, node->start);
     buffer_pop(&ast->string);
     buffer_append_string(&ast->string, "..");
@@ -105,14 +105,14 @@ static void append_range_node(AstBuilder *ast, const RangeNode *node) {
 }
 
 /** Appends a call with some arguments on an expression that is suppoed to be callable. */
-static void append_call_node(AstBuilder *ast, const CallNode *node) {
+static void append_call(AstBuilder *ast, const CallNode *node) {
     buffer_append_string(&ast->string, "<call> ");
     append_node(ast, node->callee);
     append_node_array(ast, &node->args);
 }
 
 /** Appends a subscript assignment's subscript, subscripted, and value being assigned. */
-static void append_subscript_assign_node(AstBuilder *ast, const SubscriptAssignNode *node) {
+static void append_assign_subscr(AstBuilder *ast, const AssignSubscrNode *node) {
     buffer_append_string(&ast->string, "<get subscript> ");
     append_node(ast, node->callee);
     append_node(ast, node->subscript);
@@ -121,14 +121,14 @@ static void append_subscript_assign_node(AstBuilder *ast, const SubscriptAssignN
 }
 
 /** Appends a subscript get node's callee being subscripted, and the subscript expression itself. */
-static void append_subscript_get_node(AstBuilder *ast, const SubscriptGetNode *node) {
+static void append_get_subscr(AstBuilder *ast, const GetSubscrNode *node) {
     buffer_append_string(&ast->string, "<get subscript> ");
     append_node(ast, node->callee);
     append_node(ast, node->subscript);
 }
 
 /** Appends a ternary node to the AST. */
-static void append_ternary_node(AstBuilder *ast, const TernaryNode *node) {
+static void append_ternary(AstBuilder *ast, const TernaryNode *node) {
     buffer_append_string(&ast->string, "<ternary> ");
     append_node(ast, node->condition);
     append_node(ast, node->trueExpr);
@@ -136,13 +136,13 @@ static void append_ternary_node(AstBuilder *ast, const TernaryNode *node) {
 }
 
 /** Appends a list object that stores multiple nodes in an order. */
-static void append_list_node(AstBuilder *ast, const ListNode *node) {
+static void append_list(AstBuilder *ast, const ListNode *node) {
     buffer_append_string(&ast->string, "<list> ");
     append_node_array(ast, &node->items);
 }
 
 /** Appends a map of multiple key-value pairs to the AST. */
-static void append_map_node(AstBuilder *ast, const MapNode *node) {
+static void append_map(AstBuilder *ast, const MapNode *node) {
     if (node->keys.length == 0) {
         buffer_append_string(&ast->string, "<empty map> ");
         return;
@@ -160,12 +160,12 @@ static void append_map_node(AstBuilder *ast, const MapNode *node) {
 }
 
 /** Appends an expression statement, which is just an expression that ends in semicolon. */
-static void append_expr_stmt_node(AstBuilder *ast, const ExprStmtNode *node) {
+static void append_expr_stmt(AstBuilder *ast, const ExprStmtNode *node) {
     append_node(ast, node->expr);
 }
 
 /** Appends a block statement and the other statements/declarations it encapsulates. */
-static void append_block_node(AstBuilder *ast, const BlockNode *node) {
+static void append_block(AstBuilder *ast, const BlockNode *node) {
     if (node->stmts.length == 0) {
         buffer_append_string(&ast->string, "<Empty block> ");
         return;
@@ -190,7 +190,7 @@ static void append_block_node(AstBuilder *ast, const BlockNode *node) {
 }
 
 /** Appends a variable declaration statement's information. */
-static void append_var_decl_node(AstBuilder *ast, const VarDeclNode *node) {
+static void append_declare_var(AstBuilder *ast, const DeclareVarNode *node) {
     buffer_append_string(&ast->string, node->isConst ? "const " : "let ");
     buffer_append_token(&ast->string, node->name);
     buffer_append_string(&ast->string, "= ");
@@ -198,19 +198,19 @@ static void append_var_decl_node(AstBuilder *ast, const VarDeclNode *node) {
 }
 
 /** Appends a variable assignment. */
-static void append_var_assign_node(AstBuilder *ast, const VarAssignNode *node) {
+static void append_assign_var(AstBuilder *ast, const AssignVarNode *node) {
     buffer_append_token(&ast->string, node->name);
     buffer_append_string(&ast->string, "= ");
     append_node(ast, node->value);
 }
 
 /** Appends the name of a variable whose value is to be extracted in the program. */
-static void append_var_get_node(AstBuilder *ast, const VarGetNode *node) {
+static void append_get_var(AstBuilder *ast, const GetVarNode *node) {
     buffer_append_token(&ast->string, node->name);
 }
 
 /** Appends a representation of an if-else statement where the else is optional. */
-static void append_if_else_node(AstBuilder *ast, const IfElseNode *node) {
+static void append_if_else(AstBuilder *ast, const IfElseNode *node) {
     buffer_append_string(&ast->string, "<if> ");
     append_node(ast, node->condition);
     buffer_append_string(&ast->string, "-> ");
@@ -222,7 +222,7 @@ static void append_if_else_node(AstBuilder *ast, const IfElseNode *node) {
 }
 
 /** Appends a while loop, its condition, and body. */
-static void append_while_node(AstBuilder *ast, const WhileNode *node) {
+static void append_while(AstBuilder *ast, const WhileNode *node) {
     buffer_append_string(&ast->string, "<while> ");
     append_node(ast, node->condition);
     buffer_append_string(&ast->string, "-> ");
@@ -230,7 +230,7 @@ static void append_while_node(AstBuilder *ast, const WhileNode *node) {
 }
 
 /** Appends a do while loop, its body, and condition (which is after the body in do while). */
-static void append_do_while_node(AstBuilder *ast, const DoWhileNode *node) {
+static void append_do_while(AstBuilder *ast, const DoWhileNode *node) {
     buffer_append_string(&ast->string, "<do> -> ");
     append_node(ast, AS_NODE(node->body));
     buffer_append_string(&ast->string, "<while> ");
@@ -238,7 +238,7 @@ static void append_do_while_node(AstBuilder *ast, const DoWhileNode *node) {
 }
 
 /** Appends a for loop, which also includes the loop's variable, iterable, and body. */
-static void append_for_node(AstBuilder *ast, const ForNode *node) {
+static void append_for(AstBuilder *ast, const ForNode *node) {
     buffer_append_string(&ast->string, "<for> ");
     buffer_append_token(&ast->string, node->loopVar->name);
     buffer_append_string(&ast->string, "<in> ");
@@ -248,13 +248,13 @@ static void append_for_node(AstBuilder *ast, const ForNode *node) {
 }
 
 /** Appends a loop control statement/keyword (break or continue). */
-static void append_loop_control_node(AstBuilder *ast, const LoopControlNode *node) {
+static void append_loop_control(AstBuilder *ast, const LoopControlNode *node) {
     buffer_append_string(&ast->string, token_type_string(node->keyword));
     buffer_append_char(&ast->string, ' ');   
 }
 
 /** Appends a generic function node, which includes its name, parameters, and body. */
-static void append_func_node(AstBuilder *ast, const FuncNode *node) {
+static void append_func(AstBuilder *ast, const FuncNode *node) {
     buffer_append_string(&ast->string, "<func> ");
     buffer_append_token(&ast->string, node->nameDecl->name);
     append_node_array(ast, &node->params);
@@ -263,13 +263,13 @@ static void append_func_node(AstBuilder *ast, const FuncNode *node) {
 }
 
 /** Appends a return node + the returned value. */
-static void append_return_node(AstBuilder *ast, const ReturnNode *node) {
+static void append_return(AstBuilder *ast, const ReturnNode *node) {
     buffer_append_string(&ast->string, "<return> ");
     append_node(ast, node->returnValue);
 }
 
 /** Appends an EOF string to the AST string. */
-static void append_eof_node(AstBuilder *ast) {
+static void append_eof(AstBuilder *ast) {
     buffer_append_string(&ast->string, "EOF");
     buffer_append_char(&ast->string, ' ');
 }
@@ -288,33 +288,32 @@ static void append_node(AstBuilder *ast, const Node *node) {
     buffer_append_char(&ast->string, '(');
     switch (node->type) {
     case AST_LITERAL: UNREACHABLE_ERROR(); // Handled at the top of the function.
-    case AST_ERROR: append_error_node(ast); break;
-    case AST_STRING: append_string_node(ast, AS_PTR(StringNode, node)); break;
-    case AST_KEYWORD: append_keyword_node(ast, AS_PTR(KeywordNode, node)); break;
-    case AST_UNARY: append_unary_node(ast, AS_PTR(UnaryNode, node)); break;
-    case AST_BINARY: append_binary_node(ast, AS_PTR(BinaryNode, node)); break;
-    case AST_PARENTHESES: append_parentheses_node(ast, AS_PTR(ParenthesesNode, node)); break;
-    case AST_RANGE: append_range_node(ast, AS_PTR(RangeNode, node)); break;
-    case AST_CALL: append_call_node(ast, AS_PTR(CallNode, node)); break;
-    case AST_SUBSCRIPT_ASSIGN:
-        append_subscript_assign_node(ast, AS_PTR(SubscriptAssignNode, node)); break;
-    case AST_SUBSCRIPT_GET: append_subscript_get_node(ast, AS_PTR(SubscriptGetNode, node)); break;
-    case AST_TERNARY: append_ternary_node(ast, AS_PTR(TernaryNode, node)); break;
-    case AST_LIST: append_list_node(ast, AS_PTR(ListNode, node)); break;
-    case AST_MAP: append_map_node(ast, AS_PTR(MapNode, node)); break;
-    case AST_EXPR_STMT: append_expr_stmt_node(ast, AS_PTR(ExprStmtNode, node)); break;
-    case AST_BLOCK: append_block_node(ast, AS_PTR(BlockNode, node)); break;
-    case AST_VAR_DECL: append_var_decl_node(ast, AS_PTR(VarDeclNode, node)); break;
-    case AST_VAR_ASSIGN: append_var_assign_node(ast, AS_PTR(VarAssignNode, node)); break;
-    case AST_VAR_GET: append_var_get_node(ast, AS_PTR(VarGetNode, node)); break;
-    case AST_IF_ELSE: append_if_else_node(ast, AS_PTR(IfElseNode, node)); break;
-    case AST_WHILE: append_while_node(ast, AS_PTR(WhileNode, node)); break;
-    case AST_DO_WHILE: append_do_while_node(ast, AS_PTR(DoWhileNode, node)); break;
-    case AST_FOR: append_for_node(ast, AS_PTR(ForNode, node)); break;
-    case AST_LOOP_CONTROL: append_loop_control_node(ast, AS_PTR(LoopControlNode, node)); break;
-    case AST_FUNC: append_func_node(ast, AS_PTR(FuncNode, node)); break;
-    case AST_RETURN: append_return_node(ast, AS_PTR(ReturnNode, node)); break;
-    case AST_EOF: append_eof_node(ast); break;
+    case AST_ERROR: append_error(ast); break;
+    case AST_STRING: append_string(ast, AS_PTR(StringNode, node)); break;
+    case AST_KEYWORD: append_keyword(ast, AS_PTR(KeywordNode, node)); break;
+    case AST_UNARY: append_unary(ast, AS_PTR(UnaryNode, node)); break;
+    case AST_BINARY: append_binary(ast, AS_PTR(BinaryNode, node)); break;
+    case AST_PARENTHESES: append_parentheses(ast, AS_PTR(ParenthesesNode, node)); break;
+    case AST_RANGE: append_range(ast, AS_PTR(RangeNode, node)); break;
+    case AST_CALL: append_call(ast, AS_PTR(CallNode, node)); break;
+    case AST_ASSIGN_SUBSCR: append_assign_subscr(ast, AS_PTR(AssignSubscrNode, node)); break;
+    case AST_GET_SUBSCR: append_get_subscr(ast, AS_PTR(GetSubscrNode, node)); break;
+    case AST_TERNARY: append_ternary(ast, AS_PTR(TernaryNode, node)); break;
+    case AST_LIST: append_list(ast, AS_PTR(ListNode, node)); break;
+    case AST_MAP: append_map(ast, AS_PTR(MapNode, node)); break;
+    case AST_EXPR_STMT: append_expr_stmt(ast, AS_PTR(ExprStmtNode, node)); break;
+    case AST_BLOCK: append_block(ast, AS_PTR(BlockNode, node)); break;
+    case AST_DECLARE_VAR: append_declare_var(ast, AS_PTR(DeclareVarNode, node)); break;
+    case AST_ASSIGN_VAR: append_assign_var(ast, AS_PTR(AssignVarNode, node)); break;
+    case AST_GET_VAR: append_get_var(ast, AS_PTR(GetVarNode, node)); break;
+    case AST_IF_ELSE: append_if_else(ast, AS_PTR(IfElseNode, node)); break;
+    case AST_WHILE: append_while(ast, AS_PTR(WhileNode, node)); break;
+    case AST_DO_WHILE: append_do_while(ast, AS_PTR(DoWhileNode, node)); break;
+    case AST_FOR: append_for(ast, AS_PTR(ForNode, node)); break;
+    case AST_LOOP_CONTROL: append_loop_control(ast, AS_PTR(LoopControlNode, node)); break;
+    case AST_FUNC: append_func(ast, AS_PTR(FuncNode, node)); break;
+    case AST_RETURN: append_return(ast, AS_PTR(ReturnNode, node)); break;
+    case AST_EOF: append_eof(ast); break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     // Ensures string never has whitespace before closing parenthesis.

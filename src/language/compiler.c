@@ -189,11 +189,11 @@ static void compile_call(Compiler *compiler, const CallNode *node) {
  * subscripted, and finally the subscript expression itself (which will be at the top of the stack).
  * Finally, emits the subscription set instruction.
  */
-static void compile_subscript_assign(Compiler *compiler, const SubscriptAssignNode *node) {
+static void compile_assign_subscr(Compiler *compiler, const AssignSubscrNode *node) {
     compile_node(compiler, node->value);
     compile_node(compiler, node->callee);
     compile_node(compiler, node->subscript);
-    emit_instr(compiler, OP_ASSIGN_SUBSCRIPT, get_node_pos(AS_NODE(node)));
+    emit_instr(compiler, OP_ASSIGN_SUBSCR, get_node_pos(AS_NODE(node)));
 }
 
 /** 
@@ -202,10 +202,10 @@ static void compile_subscript_assign(Compiler *compiler, const SubscriptAssignNo
  * Compiles the thing being subscripted, then compiles the subscript expression, and emits
  * the getting subscript instruction.
  */
-static void compile_subscript_get(Compiler *compiler, const SubscriptGetNode *node) {
+static void compile_get_subscr(Compiler *compiler, const GetSubscrNode *node) {
     compile_node(compiler, node->callee);
     compile_node(compiler, node->subscript);
-    emit_instr(compiler, OP_GET_SUBSCRIPT, get_node_pos(AS_NODE(node)));
+    emit_instr(compiler, OP_GET_SUBSCR, get_node_pos(AS_NODE(node)));
 }
 
 /** 
@@ -284,7 +284,7 @@ static void compile_block(Compiler *compiler, const BlockNode *node) {
  * For captured locals, we do the same as locals, but emit a capture instruction so the VM
  * knows to capture the variable.
  */
-static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
+static void compile_declare_var(Compiler *compiler, const DeclareVarNode *node) {
     compile_node(compiler, node->value);
 
     const Token name = node->name;
@@ -326,7 +326,7 @@ static void compile_var_decl(Compiler *compiler, const VarDeclNode *node) {
  * TODO: add more explanation for closures.
  * TODO: add more explanation for multi-assignments.
  */
-static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
+static void compile_assign_var(Compiler *compiler, const AssignVarNode *node) {
     compile_node(compiler, node->value);
 
     const Token name = node->name;
@@ -363,7 +363,7 @@ static void compile_var_assign(Compiler *compiler, const VarAssignNode *node) {
  * For global and built-in names, they both utilize hash tables to store their variables,
  * so we just emit a constant object after their respective instruction for the hash table lookup.
  */
-static void compile_var_get(Compiler *compiler, const VarGetNode *node) {
+static void compile_get_var(Compiler *compiler, const GetVarNode *node) {
     // Just declare the name object here since it's used multiple times.
     const Token name = node->name;
     Obj *nameAsObj = AS_OBJ(new_string_obj(compiler->program, name.lexeme, name.pos.length));
@@ -557,7 +557,7 @@ static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
  *     8 {Bytecode outside for loop}.
  */
 static void compile_for(Compiler *compiler, const ForNode *node) {
-    compile_var_decl(compiler, node->loopVar);
+    compile_declare_var(compiler, node->loopVar);
     compile_node(compiler, node->iterable);
     emit_instr(compiler, OP_MAKE_ITER, get_node_pos(node->iterable));
     u32 iterStart = emit_unpatched_jump(compiler, OP_ITER_OR_JUMP, get_node_pos(node->iterable));
@@ -644,7 +644,7 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
         compiler, node->isClosure ? OP_CLOSURE : OP_LOAD_CONST, AS_OBJ(finished), previousPos
     );
     GC_POP_AND_CLEAR_PROTECTED(&compiler->program->gc);
-    compile_var_decl(compiler, node->nameDecl);
+    compile_declare_var(compiler, node->nameDecl);
 }
 
 /** 
@@ -682,17 +682,16 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: compile_range(compiler, AS_PTR(RangeNode, node)); break;
     case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;
-    case AST_SUBSCRIPT_ASSIGN:
-        compile_subscript_assign(compiler, AS_PTR(SubscriptAssignNode, node)); break;
-    case AST_SUBSCRIPT_GET: compile_subscript_get(compiler, AS_PTR(SubscriptGetNode, node)); break;
+    case AST_ASSIGN_SUBSCR: compile_assign_subscr(compiler, AS_PTR(AssignSubscrNode, node)); break;
+    case AST_GET_SUBSCR: compile_get_subscr(compiler, AS_PTR(GetSubscrNode, node)); break;
     case AST_TERNARY: compile_ternary(compiler, AS_PTR(TernaryNode, node)); break;
     case AST_LIST: compile_list(compiler, AS_PTR(ListNode, node)); break;
     case AST_MAP: compile_map(compiler, AS_PTR(MapNode, node)); break;
     case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node)); break;
-    case AST_VAR_DECL: compile_var_decl(compiler, AS_PTR(VarDeclNode, node)); break;
-    case AST_VAR_ASSIGN: compile_var_assign(compiler, AS_PTR(VarAssignNode, node)); break;
-    case AST_VAR_GET: compile_var_get(compiler, AS_PTR(VarGetNode, node)); break;
+    case AST_DECLARE_VAR: compile_declare_var(compiler, AS_PTR(DeclareVarNode, node)); break;
+    case AST_ASSIGN_VAR: compile_assign_var(compiler, AS_PTR(AssignVarNode, node)); break;
+    case AST_GET_VAR: compile_get_var(compiler, AS_PTR(GetVarNode, node)); break;
     case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
     case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: compile_do_while(compiler, AS_PTR(DoWhileNode, node)); break;

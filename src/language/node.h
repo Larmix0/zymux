@@ -21,16 +21,16 @@ typedef enum {
     AST_PARENTHESES,
     AST_RANGE,
     AST_CALL,
-    AST_SUBSCRIPT_ASSIGN,
-    AST_SUBSCRIPT_GET,
+    AST_ASSIGN_SUBSCR,
+    AST_GET_SUBSCR,
     AST_TERNARY,
     AST_LIST,
     AST_MAP,
     AST_EXPR_STMT,
     AST_BLOCK,
-    AST_VAR_DECL,
-    AST_VAR_ASSIGN,
-    AST_VAR_GET,
+    AST_DECLARE_VAR,
+    AST_ASSIGN_VAR,
+    AST_GET_VAR,
     AST_IF_ELSE,
     AST_WHILE,
     AST_DO_WHILE,
@@ -147,14 +147,14 @@ typedef struct {
     Node *callee;
     Node *subscript;
     Node *value;
-} SubscriptAssignNode;
+} AssignSubscrNode;
 
 /** Gets a subscript, which cuts a part off of some object that supports it. */
 typedef struct {
     Node node;
     Node *callee;
     Node *subscript;
-} SubscriptGetNode;
+} GetSubscrNode;
 
 /** A ternary conditional, syntax sugar for an if-else. */
 typedef struct {
@@ -207,7 +207,7 @@ typedef struct {
     bool isConst;
 
     VarResolution resolution;
-} VarDeclNode;
+} DeclareVarNode;
 
 /** An assignment expression used to change the value of an already declared variable. */
 typedef struct {
@@ -216,7 +216,7 @@ typedef struct {
     Node *value;
 
     VarResolution resolution;
-} VarAssignNode;
+} AssignVarNode;
 
 /** Represents an expression that attempts to get the value of a specific variable. */
 typedef struct {
@@ -224,7 +224,7 @@ typedef struct {
     Token name;
 
     VarResolution resolution;
-} VarGetNode;
+} GetVarNode;
 
 /** Represents a full conditional if-else statement in a node where the else part is optional. */
 typedef struct {
@@ -254,7 +254,7 @@ typedef struct {
 /** A for in loop, which executes until we fully iterated through the loop's iterable. */
 typedef struct {
     Node node;
-    VarDeclNode *loopVar;
+    DeclareVarNode *loopVar;
     Node *iterable; /** An expression which should result in an iterable object at runtime. */
     BlockNode *body;
 } ForNode;
@@ -278,7 +278,7 @@ typedef struct {
 /** Holds some form of a function (normal function, method, initializer, etc.). */
 typedef struct {
     Node node;
-    VarDeclNode *nameDecl;
+    DeclareVarNode *nameDecl;
     NodeArray params;
     BlockNode *body;
 
@@ -333,10 +333,10 @@ Node *new_range_node(
 Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args);
 
 /** Allocates a subscript assignment, which assigns to some subscripted thing. */
-Node *new_subscript_assign_node(ZmxProgram *program, Node *callee, Node *subscript, Node *value);
+Node *new_assign_subscr_node(ZmxProgram *program, Node *callee, Node *subscript, Node *value);
 
 /** Allocates a subscript get, which grabs a part of the thing it's being used on. */
-Node *new_subscript_get_node(ZmxProgram *program, Node *callee, Node *subscript);
+Node *new_get_subscr_node(ZmxProgram *program, Node *callee, Node *subscript);
 
 /** Allocates a ternary conditional expression node. */
 Node *new_ternary_node(ZmxProgram *program, Node *condition, Node *trueExpr, Node *falseExpr);
@@ -361,13 +361,13 @@ Node *new_block_node(ZmxProgram *program, const NodeArray stmts, const SourcePos
  * Variable delcaration is the first variable assignment which also includes constness.
  * It doesn't include whether or not it's private as private is a node that wraps around names.
  */
-Node *new_var_decl_node(ZmxProgram *program, const Token name, Node *value, const bool isConst);
+Node *new_declare_var_node(ZmxProgram *program, const Token name, Node *value, const bool isConst);
 
 /** Allocates an assignment expression, which changes the value of a variable already set. */
-Node *new_var_assign_node(ZmxProgram *program, const Token name, Node *value);
+Node *new_assign_var_node(ZmxProgram *program, const Token name, Node *value);
 
 /** Allocates a node which holds the name of a variable to get its value. */
-Node *new_var_get_node(ZmxProgram *program, const Token name);
+Node *new_get_var_node(ZmxProgram *program, const Token name);
 
 /** Allocates an if-else node with their condition. The else branch can optionally be NULL. */
 Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBranch, Node *elseBranch);
@@ -379,14 +379,14 @@ Node *new_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
 Node *new_do_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
 
 /** Allocates a for loop node. */
-Node *new_for_node(ZmxProgram *program, VarDeclNode *loopVar, Node *iterable, BlockNode *body);
+Node *new_for_node(ZmxProgram *program, DeclareVarNode *loopVar, Node *iterable, BlockNode *body);
 
 /** Allocates a node for some loop control statement (break or continue). */
 Node *new_loop_control_node(ZmxProgram *program, const Token keyword);
 
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(
-    ZmxProgram *program, VarDeclNode *nameDecl, const NodeArray params, BlockNode *body
+    ZmxProgram *program, DeclareVarNode *nameDecl, const NodeArray params, BlockNode *body
 );
 
 /** Allocates a return node, which exits a functino with a specific object/value. */

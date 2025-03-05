@@ -179,7 +179,7 @@ void free_vm(Vm *vm) {
 }
 
 /** Performs an assignment on some indexed array element. */
-static bool list_assign_subscript(Vm *vm, ListObj *callee, Obj *subscript, Obj *value) {
+static bool list_assign_subscr(Vm *vm, ListObj *callee, Obj *subscript, Obj *value) {
     if (subscript->type != OBJ_INT) {
         return runtime_error(vm, "Can only assign to list indices with integers.");
     }
@@ -197,7 +197,7 @@ static bool list_assign_subscript(Vm *vm, ListObj *callee, Obj *subscript, Obj *
  * Assigns a key-value pair to a map.
  * If the key already exists, just change the value, otherwise add a new entry completely.
  */
-static bool map_assign_subscript(Vm *vm, MapObj *callee, Obj *subscript, Obj *value) {
+static bool map_assign_subscr(Vm *vm, MapObj *callee, Obj *subscript, Obj *value) {
     if (!is_hashable(subscript)) {
         return runtime_error(vm, "%s key is not hashable.", obj_type_str(subscript->type));
     }
@@ -279,7 +279,7 @@ static bool array_slice(
  * 
  * Returns true if successful, false if it errored.
  */
-static bool array_get_subscript(Vm *vm, Obj *callee, Obj *subscript) {
+static bool array_get_subscr(Vm *vm, Obj *callee, Obj *subscript) {
     ASSERT(
         callee->type == OBJ_LIST || callee->type == OBJ_STRING,
         "Expected list or string for array subscript."
@@ -305,7 +305,7 @@ static bool array_get_subscript(Vm *vm, Obj *callee, Obj *subscript) {
  * Deletes the subscript and the callee of the subscript, and pushes the corresponding value
  * of the key subscript.
  */
-static bool map_get_subscript(Vm *vm, MapObj *callee, Obj *subscript) {
+static bool map_get_subscr(Vm *vm, MapObj *callee, Obj *subscript) {
     if (!is_hashable(subscript)) {
         return runtime_error(vm, "%s key is not hashable.", obj_type_str(subscript->type));
     }
@@ -642,16 +642,16 @@ static bool execute_vm(Vm *vm) {
             }
             break;
         }
-        case OP_ASSIGN_SUBSCRIPT: {
+        case OP_ASSIGN_SUBSCR: {
             Obj *subscript = PEEK(vm);
             Obj *callee = PEEK_DEPTH(vm, 1);
             Obj *value = PEEK_DEPTH(vm, 2);
             if (callee->type == OBJ_LIST) {
-                if (!list_assign_subscript(vm, AS_PTR(ListObj, callee), subscript, value)) {
+                if (!list_assign_subscr(vm, AS_PTR(ListObj, callee), subscript, value)) {
                     return false;
                 }
             } else if (callee->type == OBJ_MAP) {
-                if (!map_assign_subscript(vm, AS_PTR(MapObj, callee), subscript, value)) {
+                if (!map_assign_subscr(vm, AS_PTR(MapObj, callee), subscript, value)) {
                     return false;
                 }
             } else {
@@ -661,15 +661,15 @@ static bool execute_vm(Vm *vm) {
             }
             break;
         }
-        case OP_GET_SUBSCRIPT: {
+        case OP_GET_SUBSCR: {
             Obj *subscript = PEEK(vm);
             Obj *callee = PEEK_DEPTH(vm, 1);
             if (callee->type == OBJ_LIST || callee->type == OBJ_STRING) {
-                if (!array_get_subscript(vm, callee, subscript)) {
+                if (!array_get_subscr(vm, callee, subscript)) {
                     return false;
                 }
             } else if (callee->type == OBJ_MAP) {
-                if (!map_get_subscript(vm, AS_PTR(MapObj, callee), subscript)) {
+                if (!map_get_subscr(vm, AS_PTR(MapObj, callee), subscript)) {
                     return false;
                 }
             } else {
