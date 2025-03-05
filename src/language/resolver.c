@@ -134,7 +134,7 @@ static Variable *find_closure_var(ClosedVariables *closure, const Token name) {
  * Returns the variable in the passed variable array searching only in the top scope of it.
  * Returns NULL if the variable doesn't exist within the topmost scope of that array.
  */
-static Variable *find_top_scope_var(VariableArray variables, Token name, const u32 scope) {
+static Variable *find_top_scope_var(VariableArray variables, const Token name, const u32 scope) {
     for (i64 i = (i64)variables.length - 1; i >= 0; i--) {
         if (variables.data[i].scope != scope) {
             return NULL;
@@ -228,14 +228,14 @@ static void finish_scope(Resolver *resolver, const ScopeType type) {
 }
 
 /** Collapses the outermost scope (both its captured and non-captured locals). */
-static void pop_scope(Resolver *resolver, ScopeType type) {
+static void pop_scope(Resolver *resolver, const ScopeType type) {
     pop_top_scope(resolver, CURRENT_LOCALS(resolver));
     pop_top_scope(resolver, CURRENT_CAPTURED(resolver));
     finish_scope(resolver, type);
 }
 
 /** Collapses a scope and assign the amount of variables popped to the passed block's resolution. */
-static void pop_scope_block(Resolver *resolver, BlockNode *block, ScopeType type) {
+static void pop_scope_block(Resolver *resolver, BlockNode *block, const ScopeType type) {
     block->localsAmount = pop_top_scope(resolver, CURRENT_LOCALS(resolver));
     block->capturedAmount = pop_top_scope(resolver, CURRENT_CAPTURED(resolver));
     finish_scope(resolver, type);

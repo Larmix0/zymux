@@ -248,7 +248,7 @@ static bool array_slice(
     PUSH(vm, AS_OBJ(iterator)); // So iterator doesn't get GCed.
     Obj *current;
     while ((current = iterate(vm->program, iterator))) {
-        ZmxInt index = AS_PTR(IntObj, current)->number;
+        const ZmxInt index = AS_PTR(IntObj, current)->number;
         if (!IS_WITHIN_LENGTH(length, index)) {
             FREE_DA(&filteredList);
             free_char_buffer(&filteredStr);
@@ -550,7 +550,7 @@ static bool execute_vm(Vm *vm) {
             break;
         }
         case OP_LIST: {
-            u32 length = READ_NUMBER(vm);
+            const u32 length = READ_NUMBER(vm);
             ObjArray items = CREATE_DA();
             for (u32 i = 1; i <= length; i++) {
                 APPEND_DA(&items, PEEK_DEPTH(vm, length - i));
@@ -561,7 +561,8 @@ static bool execute_vm(Vm *vm) {
             break;
         }
         case OP_MAP: {
-            u32 length = READ_NUMBER(vm) * 2; // *2 to account for each entry being a key and value.
+            // x2 the amount of entries to account for each entry being 2: a key and value.
+            const u32 length = READ_NUMBER(vm) * 2;
             Table entries = create_table();
             for (u32 i = 0; i < length; i += 2) {
                 Obj *value = PEEK_DEPTH(vm, i);

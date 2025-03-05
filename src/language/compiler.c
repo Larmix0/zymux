@@ -161,7 +161,6 @@ static void compile_range(Compiler *compiler, const RangeNode *node) {
     compile_node(compiler, node->start);
     compile_node(compiler, node->end);
     compile_node(compiler, node->step);
-
     emit_instr(compiler, OP_RANGE, node->pos);
 }
 
@@ -442,7 +441,7 @@ static void patch_loop_control(
     Compiler *compiler, U32Array jumps, const u32 to, const bool isForward
 ) {
     for (u32 i = 0; i < jumps.length; i++) {
-        u32 from = jumps.data[i];
+        const u32 from = jumps.data[i];
         patch_jump(compiler, from, to, isForward);
         if (isForward) {
             compiler->func->bytecode.data[from] = OP_JUMP;
@@ -560,8 +559,9 @@ static void compile_for(Compiler *compiler, const ForNode *node) {
     compile_declare_var(compiler, node->loopVar);
     compile_node(compiler, node->iterable);
     emit_instr(compiler, OP_MAKE_ITER, get_node_pos(node->iterable));
-    u32 iterStart = emit_unpatched_jump(compiler, OP_ITER_OR_JUMP, get_node_pos(node->iterable));
-
+    const u32 iterStart = emit_unpatched_jump(
+        compiler, OP_ITER_OR_JUMP, get_node_pos(node->iterable)
+    );
     U32Array oldBreaks, oldContinues;
     push_loop_controls(compiler, &oldBreaks, &oldContinues);
     compile_block(compiler, node->body);
@@ -578,7 +578,7 @@ static void compile_loop_control(Compiler *compiler, const LoopControlNode *node
     emit_local_pops(compiler, node->localsAmount, node->pos);
     emit_captured_pops(compiler, node->capturedAmount, node->pos);
 
-    u32 controlSpot = emit_unpatched_jump(compiler, 0, node->pos);
+    const u32 controlSpot = emit_unpatched_jump(compiler, 0, node->pos);
     switch (node->keyword) {
     case TOKEN_BREAK_KW: APPEND_DA(&compiler->breaks, controlSpot); break;
     case TOKEN_CONTINUE_KW: APPEND_DA(&compiler->continues, controlSpot); break;
