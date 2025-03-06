@@ -24,6 +24,7 @@
 
 #define NULL_NODE(parser) (new_keyword_node(parser->program, create_token("null", TOKEN_NULL_KW)))
 
+static Node *assignment(Parser *parser);
 static Node *expression(Parser *parser);
 static Node *declaration(Parser *parser);
 
@@ -380,17 +381,55 @@ static Node *range(Parser *parser) {
     return expr;
 }
 
+/** 
+ * Handles assignments with an operation augment.
+ * 
+ * Simply desugars the augmented assignment to a normal assignment with an extra
+ * variable get + an operation applied to whatever is right of the assignment, and puts that
+ * on a normal assignment node.
+ */
+static Node *augmented_assignment(Parser *parser, Node *expr) {
+    if (expr->type != AST_GET_VAR) {
+        parser_error_at(parser, &PEEK(parser), false, "Invalid assignment name.");
+    }
+    Token augAssign = ADVANCE_PEEK(parser);
+    switch (augAssign.type) {
+        case TOKEN_PLUS_EQ: augAssign.type = TOKEN_PLUS; break;
+        case TOKEN_MINUS_EQ: augAssign.type = TOKEN_MINUS; break;
+        case TOKEN_STAR_EQ: augAssign.type = TOKEN_STAR; break;
+        case TOKEN_SLASH_EQ: augAssign.type = TOKEN_SLASH; break;
+        case TOKEN_PERCENT_EQ: augAssign.type = TOKEN_PERCENT; break;
+        case TOKEN_EXPO: augAssign.type = TOKEN_EXPO_EQ; break;
+        case TOKEN_LSHIFT_EQ: augAssign.type = TOKEN_LSHIFT; break;
+        case TOKEN_RSHIFT_EQ: augAssign.type = TOKEN_RSHIFT; break;
+        case TOKEN_BAR_EQ: augAssign.type = TOKEN_BAR; break;
+        case TOKEN_AMPER_EQ: augAssign.type = TOKEN_AMPER; break;
+        case TOKEN_CARET_EQ: augAssign.type = TOKEN_CARET; break;
+        default: UNREACHABLE_ERROR();
+    }
+    Node *value = assignment(parser);
+    value = new_binary_node(parser->program, expr, augAssign, value);
+    return new_assign_var_node(parser->program, AS_PTR(GetVarNode, expr)->name, value);
+}
+
 /** Handles assignment expressions. TODO: do multi-assignments and document how they're parsed. */
 static Node *assignment(Parser *parser) {
     Node *expr = range(parser);
     if (CHECK(parser, TOKEN_EQ)) {
-        Token assignLocation = ADVANCE_PEEK(parser);
-        Node *value = assignment(parser);
-        if (expr->type == AST_GET_VAR) {
-            return new_assign_var_node(parser->program, AS_PTR(GetVarNode, expr)->name, value);
-        } else {
-            parser_error_at(parser, &assignLocation, false, "Invalid assignment name.");
+        if (expr->type != AST_GET_VAR) {
+            parser_error_at(parser, &PEEK(parser), false, "Invalid assignment name.");
         }
+        ADVANCE(parser); // Equal token.
+        Node *value = assignment(parser);
+        return new_assign_var_node(parser->program, AS_PTR(GetVarNode, expr)->name, value);
+    } else if (
+        CHECK(parser, TOKEN_PLUS_EQ) || CHECK(parser, TOKEN_MINUS_EQ)
+        || CHECK(parser, TOKEN_STAR_EQ) || CHECK(parser, TOKEN_SLASH_EQ)
+        || CHECK(parser, TOKEN_PERCENT_EQ) || CHECK(parser, TOKEN_EXPO_EQ)
+        || CHECK(parser, TOKEN_LSHIFT_EQ) || CHECK(parser, TOKEN_RSHIFT_EQ)
+        || CHECK(parser, TOKEN_BAR_EQ) || CHECK(parser, TOKEN_AMPER_EQ)
+    ) {
+        expr = augmented_assignment(parser, expr);
     }
     return expr;
 }

@@ -894,6 +894,7 @@ static void lex_token(Lexer *lexer) {
     case ']': append_lexed(lexer, TOKEN_RSQUARE); break;
     case '{': append_lexed(lexer, TOKEN_LCURLY); break;
     case '}': append_lexed(lexer, TOKEN_RCURLY); break;
+    case '~': append_lexed(lexer, TOKEN_TILDE); break;
 
     case '+': one_or_default(lexer, TOKEN_PLUS, '=', TOKEN_PLUS_EQ); break;
     case '-': one_or_default(lexer, TOKEN_MINUS, '=', TOKEN_MINUS_EQ); break;
@@ -902,7 +903,6 @@ static void lex_token(Lexer *lexer) {
     case '=': one_or_default(lexer, TOKEN_EQ, '=', TOKEN_EQ_EQ); break;
     case '!': one_or_default(lexer, TOKEN_BANG, '=', TOKEN_BANG_EQ); break;
     case '^': one_or_default(lexer, TOKEN_CARET, '=', TOKEN_CARET_EQ); break;
-    case '~': one_or_default(lexer, TOKEN_TILDE, '=', TOKEN_TILDE_EQ); break;
     case '.': one_or_default(lexer, TOKEN_DOT, '.', TOKEN_DOT_DOT); break;
     
     case '&': 

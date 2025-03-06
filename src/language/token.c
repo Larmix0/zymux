@@ -62,7 +62,6 @@ char *token_type_string(const TokenType type) {
     case TOKEN_CARET_EQ: return "CARET_EQUAL";
     case TOKEN_LSHIFT_EQ: return "LEFT_SHIFT_EQUAL";
     case TOKEN_RSHIFT_EQ: return "RIGHT_SHIFT_EQUAL";
-    case TOKEN_TILDE_EQ: return "TILDE_EQUAL";
     case TOKEN_PLUS: return "PLUS";
     case TOKEN_MINUS: return "MINUS";
     case TOKEN_STAR: return "STAR";

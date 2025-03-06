@@ -183,6 +183,7 @@ Node *new_assign_var_node(ZmxProgram *program, const Token name, Node *value) {
     AssignVarNode *node = NEW_NODE(program, AST_ASSIGN_VAR, AssignVarNode);
     node->name = name;
     node->value = value;
+
     node->resolution.index = UNRESOLVED_NUMBER;
     node->resolution.scope = UNRESOLVED_NAME_SCOPE;
     return AS_NODE(node);
