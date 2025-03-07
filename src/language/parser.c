@@ -283,9 +283,10 @@ static Node *data_type_operation(Parser *parser) {
             && AS_PTR(KeywordNode, dataType)->keyword != TOKEN_STRING_KW)
         ) {
             parser_error_at(
-                parser, &PEEK(parser), false, "Expected data type after '%s'.",
+                parser, &PEEK_PREVIOUS(parser), false, "Expected data type after '%s'.",
                 operation.type == TOKEN_IS_KW ? "is" : "as"
             );
+            return new_error_node(parser->program);
         }
         expr = new_data_type_op_node(
             parser->program, expr, operation, AS_PTR(KeywordNode, dataType)->keyword

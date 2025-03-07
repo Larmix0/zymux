@@ -472,11 +472,29 @@ bool equal_obj(const Obj *left, const Obj *right) {
     UNREACHABLE_ERROR();
 }
 
+/** Returns a new string object that is formed from concatenating left with right. */
+StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringObj *right) {
+    char *concatenated = ARRAY_ALLOC(left->length + right->length + 1, char);
+    strncpy(concatenated, left->string, left->length);
+    strncpy(concatenated + left->length, right->string, right->length);
+    concatenated[left->length + right->length] = '\0';
+
+    StringObj *result = new_string_obj(program, concatenated, left->length + right->length);
+    free(concatenated);
+    return result;
+}
+
 /** Verifies that a string can be converted to an integer or float. */
 static bool verify_string_is_num(char *string) {
+    if (string[0] == '\0') {
+        return false; // Empty string, not a number.
+    }
     char current;
     while ((current = *string++)) {
         if (current == '.') {
+            if (string[0] == '\0') {
+                return false; // Nothing after the float dot, invalid.
+            }
             while ((current = *string++)) {
                 if (!IS_DIGIT(current)) {
                     return false;   
@@ -488,18 +506,6 @@ static bool verify_string_is_num(char *string) {
         }
     }
     return true; // Finished integer.
-}
-
-/** Returns a new string object that is formed from concatenating left with right. */
-StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringObj *right) {
-    char *concatenated = ARRAY_ALLOC(left->length + right->length + 1, char);
-    strncpy(concatenated, left->string, left->length);
-    strncpy(concatenated + left->length, right->string, right->length);
-    concatenated[left->length + right->length] = '\0';
-
-    StringObj *result = new_string_obj(program, concatenated, left->length + right->length);
-    free(concatenated);
-    return result;
 }
 
 /** Returns a copy of the passed object as an integer. Returns NULL if conversion failed. */
