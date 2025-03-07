@@ -186,16 +186,15 @@ PRIVATE_TEST_CASE(test_lex_errors) {
 
 /** Performs a test on a source code that includes every single token in Zymux. */
 PRIVATE_TEST_CASE(test_lex_all_tokens) {
-    char *source = "string int float bool list map class const let private func if else while for "
+    char *source = "string int float bool class const let private func if else while for "
         "do return break continue true false null as is in super this init abstract inherits "
-        "match case default from import && || ! & | ^ << >> ~ += -= *= /= %= **= &= |= <<= >>= ~= "
+        "match case default from import && || ! & | ^ << >> ~ += -= *= /= %= **= &= |= <<= >>= "
         "+-*/%** == != > >= < <= ()[]{} ; , . ?: $'str literal {100}' 22 44.2 = variable ..";
     TokenArray allTokens = CREATE_DA();
     append_test_tokens(
-        &allTokens, 87,
+        &allTokens, 84,
         create_token("string", TOKEN_STRING_KW), create_token("int", TOKEN_INT_KW),
         create_token("float", TOKEN_FLOAT_KW), create_token("bool", TOKEN_BOOL_KW),
-        create_token("list", TOKEN_LIST_KW), create_token("map", TOKEN_MAP_KW),
         create_token("class", TOKEN_CLASS_KW), create_token("const", TOKEN_CONST_KW),
         create_token("let", TOKEN_LET_KW), create_token("private", TOKEN_PRIVATE_KW),
         create_token("func", TOKEN_FUNC_KW), create_token("if", TOKEN_IF_KW),
@@ -220,21 +219,21 @@ PRIVATE_TEST_CASE(test_lex_all_tokens) {
         create_token("%=", TOKEN_PERCENT_EQ), create_token("**=", TOKEN_EXPO_EQ),
         create_token("&=", TOKEN_AMPER_EQ), create_token("|=", TOKEN_BAR_EQ),
         create_token("<<=", TOKEN_LSHIFT_EQ), create_token(">>=", TOKEN_RSHIFT_EQ),
-        create_token("~=", TOKEN_TILDE_EQ), create_token("+", TOKEN_PLUS),
-        create_token("-", TOKEN_MINUS), create_token("*", TOKEN_STAR),
-        create_token("/", TOKEN_SLASH), create_token("%", TOKEN_PERCENT),
-        create_token("**", TOKEN_EXPO), create_token("==", TOKEN_EQ_EQ),
-        create_token("!=", TOKEN_BANG_EQ), create_token(">", TOKEN_GREATER),
-        create_token(">=", TOKEN_GREATER_EQ), create_token("<", TOKEN_LESS),
-        create_token("<=", TOKEN_LESS_EQ), create_token("(", TOKEN_LPAR),
-        create_token(")", TOKEN_RPAR), create_token("[", TOKEN_LSQUARE),
-        create_token("]", TOKEN_RSQUARE), create_token("{", TOKEN_LCURLY),
-        create_token("}", TOKEN_RCURLY), create_token(";", TOKEN_SEMICOLON),
-        create_token(",", TOKEN_COMMA), create_token(".", TOKEN_DOT),
-        create_token("?", TOKEN_QUESTION_MARK), create_token(":", TOKEN_COLON),
-        create_string_token("str literal "), create_token("", TOKEN_INTERPOLATE),
-        create_int_token("100", 10), create_token("", TOKEN_STRING_END),
-        create_int_token("22", 10), create_float_token("44.2"), create_token("=", TOKEN_EQ),
+        create_token("+", TOKEN_PLUS), create_token("-", TOKEN_MINUS),
+        create_token("*", TOKEN_STAR), create_token("/", TOKEN_SLASH),
+        create_token("%", TOKEN_PERCENT), create_token("**", TOKEN_EXPO),
+        create_token("==", TOKEN_EQ_EQ), create_token("!=", TOKEN_BANG_EQ),
+        create_token(">", TOKEN_GREATER), create_token(">=", TOKEN_GREATER_EQ),
+        create_token("<", TOKEN_LESS), create_token("<=", TOKEN_LESS_EQ),
+        create_token("(", TOKEN_LPAR), create_token(")", TOKEN_RPAR),
+        create_token("[", TOKEN_LSQUARE), create_token("]", TOKEN_RSQUARE),
+        create_token("{", TOKEN_LCURLY), create_token("}", TOKEN_RCURLY),
+        create_token(";", TOKEN_SEMICOLON), create_token(",", TOKEN_COMMA),
+        create_token(".", TOKEN_DOT), create_token("?", TOKEN_QUESTION_MARK),
+        create_token(":", TOKEN_COLON), create_string_token("str literal "),
+        create_token("", TOKEN_INTERPOLATE), create_int_token("100", 10),
+        create_token("", TOKEN_STRING_END), create_int_token("22", 10),
+        create_float_token("44.2"), create_token("=", TOKEN_EQ),
         create_token("variable", TOKEN_IDENTIFIER), create_token("..", TOKEN_DOT_DOT)
     );
     ZmxProgram program = create_zmx_program("testAll", false);
