@@ -766,6 +766,20 @@ static bool execute_vm(Vm *vm) {
             vm->frame->ip -= jump;
             break;
         }
+        case OP_JUMP_IF: {
+            const u32 jump = READ_NUMBER(vm);
+            if (as_bool(vm->program, PEEK(vm))->boolean) {
+                vm->frame->ip += jump;
+            }
+            break;
+        }
+        case OP_JUMP_IF_NOT: {
+            const u32 jump = READ_NUMBER(vm);
+            if (!(as_bool(vm->program, PEEK(vm))->boolean)) {
+                vm->frame->ip += jump;
+            }
+            break;
+        }
         case OP_MAKE_ITER: {
             if (!is_iterable(PEEK(vm))) {
                 return runtime_error(

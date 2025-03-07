@@ -119,11 +119,12 @@ static void compile_unary(Compiler *compiler, const UnaryNode *node) {
 }
 
 /** Handles a binary operation with a data type right hand side (like "is" and "as"). */
-static void compile_data_type_op(Compiler *compiler, const DataTypeOpNode *node) {
+static void binary_data_type_op(Compiler *compiler, const BinaryNode *node) {
+    ASSERT(node->rhs->type == AST_KEYWORD, "Expected keyword node to compile data type operation.");
     compile_node(compiler, node->lhs);
 
     DataType dataType;
-    switch (node->dataType) {
+    switch (AS_PTR(KeywordNode, node->rhs)->keyword) {
     case TOKEN_INT_KW: dataType = TYPE_INT; break;
     case TOKEN_FLOAT_KW: dataType = TYPE_FLOAT; break;
     case TOKEN_BOOL_KW: dataType = TYPE_BOOL; break;
@@ -137,6 +138,34 @@ static void compile_data_type_op(Compiler *compiler, const DataTypeOpNode *node)
 }
 
 /** 
+ * Handles binary operations where the operation is a logical OR/AND ("||" and "&&").
+ * 
+ * First loads the left hand side, then emits a conditional jump on the left hand side's truthiness,
+ * where if it's an OR it'll short-circuit if the left object is truthy,
+ * while leaving the left hand side on the stack.
+ * 
+ * But, if it's an AND it'll short-circuit if the left hand side is not truthy because we
+ * don't need to check the right hand side since the whole expression is the falsy left thing.
+ * 
+ * Also, binary logical operators don't actually leave booleans on the stack,
+ * rather they leave the last object that represents the condition (truthy or falsy)
+ * on the stack to be used, whether as a bool or a whole object.
+ * This means a truthy AND/a falsy OR will both leave the right hand side object on the stack,
+ * while a failed AND will leave the first falsy object on the stack, and a successful OR will
+ * leave the first truthy object on the stack.
+ */
+static void binary_logical_op(Compiler *compiler, const BinaryNode *node) {
+    compile_node(compiler, node->lhs);
+
+    OpCode jumpInstr = node->operation.type == TOKEN_BAR_BAR ? OP_JUMP_IF : OP_JUMP_IF_NOT;
+    u32 shortCircuit = emit_unpatched_jump(compiler, jumpInstr, node->operation.pos);
+    
+    emit_local_pops(compiler, 1, node->operation.pos);
+    compile_node(compiler, node->rhs);
+    patch_jump(compiler, shortCircuit, compiler->func->bytecode.length, true);
+}
+
+/** 
  * Compiles a node with a value to its left and right and an operation between.
  * 
  * In compilation however, we compile the left side, right side and then the operation.
@@ -144,6 +173,13 @@ static void compile_data_type_op(Compiler *compiler, const DataTypeOpNode *node)
  * their operations.
  */
 static void compile_binary(Compiler *compiler, const BinaryNode *node) {
+    if (node->operation.type == TOKEN_IS_KW || node->operation.type == TOKEN_AS_KW) {
+        binary_data_type_op(compiler, node);
+        return;
+    } else if (node->operation.type == TOKEN_BAR_BAR || node->operation.type == TOKEN_AMPER_AMPER) {
+        binary_logical_op(compiler, node);
+        return;
+    }
     compile_node(compiler, node->lhs);
     compile_node(compiler, node->rhs);
 
@@ -703,7 +739,6 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_KEYWORD: compile_keyword(compiler, AS_PTR(KeywordNode, node)); break;
     case AST_UNARY: compile_unary(compiler, AS_PTR(UnaryNode, node)); break;
     case AST_BINARY: compile_binary(compiler, AS_PTR(BinaryNode, node)); break;
-    case AST_DATA_TYPE_OP: compile_data_type_op(compiler, AS_PTR(DataTypeOpNode, node)); break;
     case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: compile_range(compiler, AS_PTR(RangeNode, node)); break;
     case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;

@@ -78,13 +78,6 @@ static void append_binary(AstBuilder *ast, const BinaryNode *node) {
     append_node(ast, node->rhs);
 }
 
-/** Appends a data type operation's left side, operation, and data type (right side). */
-static void append_data_type_op(AstBuilder *ast, const DataTypeOpNode *node) {
-    buffer_append_token(&ast->string, node->operation);
-    append_node(ast, node->lhs);
-    buffer_append_format(&ast->string, "%s ", token_type_string(node->dataType));
-}
-
 /** Appends a parentheses node, which just orders an expression's precedence manually. */
 static void append_parentheses(AstBuilder *ast, const ParenthesesNode *node) {
     buffer_append_char(&ast->string, '(');
@@ -296,7 +289,6 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_KEYWORD: append_keyword(ast, AS_PTR(KeywordNode, node)); break;
     case AST_UNARY: append_unary(ast, AS_PTR(UnaryNode, node)); break;
     case AST_BINARY: append_binary(ast, AS_PTR(BinaryNode, node)); break;
-    case AST_DATA_TYPE_OP: append_data_type_op(ast, AS_PTR(DataTypeOpNode, node)); break;
     case AST_PARENTHESES: append_parentheses(ast, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: append_range(ast, AS_PTR(RangeNode, node)); break;
     case AST_CALL: append_call(ast, AS_PTR(CallNode, node)); break;

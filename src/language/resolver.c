@@ -259,11 +259,6 @@ static void resolve_binary(Resolver *resolver, const BinaryNode *node) {
     resolve_node(resolver, node->rhs);
 }
 
-/** Resolves a data type operation's operand. */
-static void resolve_data_type_op(Resolver *resolver, const DataTypeOpNode *node) {
-    resolve_node(resolver, node->lhs);
-}
-
 /** Resolves the expression which is wrapped in the parentheses node. */
 static void resolve_parentheses(Resolver *resolver, const ParenthesesNode *node) {
     resolve_node(resolver, node->expr);
@@ -852,7 +847,6 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_STRING: resolve_string(resolver, AS_PTR(StringNode, node)); break;
     case AST_UNARY: resolve_unary(resolver, AS_PTR(UnaryNode, node)); break;
     case AST_BINARY: resolve_binary(resolver, AS_PTR(BinaryNode, node)); break;
-    case AST_DATA_TYPE_OP: resolve_data_type_op(resolver, AS_PTR(DataTypeOpNode, node)); break;
     case AST_PARENTHESES: resolve_parentheses(resolver, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: resolve_range(resolver, AS_PTR(RangeNode, node)); break;
     case AST_CALL: resolve_call(resolver, AS_PTR(CallNode, node)); break;

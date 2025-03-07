@@ -120,6 +120,8 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_CLOSURE: print_const_instr("CLOSURE", func, &idx, size); break;
     case OP_JUMP: print_number_instr("JUMP", func, &idx, size); break;
     case OP_JUMP_BACK: print_number_instr("JUMP_BACK", func, &idx, size); break;
+    case OP_JUMP_IF: print_number_instr("JUMP_IF", func, &idx, size); break;
+    case OP_JUMP_IF_NOT: print_number_instr("JUMP_IF_NOT", func, &idx, size); break;
     case OP_ITER_OR_JUMP: print_number_instr("ITER_OR_JUMP", func, &idx, size); break;
     case OP_POP_JUMP_IF_NOT: print_number_instr("POP_JUMP_IF_NOT", func, &idx, size); break;
     case OP_POP_JUMP_BACK_IF: print_number_instr("POP_JUMP_BACK_IF", func, &idx, size); break;

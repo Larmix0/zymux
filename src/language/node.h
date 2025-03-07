@@ -18,7 +18,6 @@ typedef enum {
     AST_KEYWORD,
     AST_UNARY,
     AST_BINARY,
-    AST_DATA_TYPE_OP,
     AST_PARENTHESES,
     AST_RANGE,
     AST_CALL,
@@ -116,14 +115,6 @@ typedef struct {
     Token operation;
     Node *rhs;
 } BinaryNode;
-
-/** An operation where the left side has some operation applied to it related to a data type. */
-typedef struct {
-    Node node;
-    Node *lhs;
-    Token operation;
-    TokenType dataType;
-} DataTypeOpNode;
 
 /** Holds an expression in parentheses in order to change precedence. */
 typedef struct {
@@ -329,11 +320,6 @@ Node *new_unary_node(ZmxProgram *program, const Token operation, Node *rhs);
 
 /** Allocates a binary node, which holds information of an operation done between 2 operands. */
 Node *new_binary_node(ZmxProgram *program, Node *lhs, const Token operation, Node *rhs);
-
-/** Allocates a node for an operation with a left side and a data type. */
-Node *new_data_type_op_node(
-    ZmxProgram *program, Node *lhs, const Token operation, const TokenType dataType
-);
 
 /** Allocates a parentheses node, which wraps an expression inside it to dictate precedence. */
 Node *new_parentheses_node(ZmxProgram *program, Node *expr);

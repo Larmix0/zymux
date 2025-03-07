@@ -86,6 +86,19 @@ Comparison:
 
 ----------------------------------------------------------------------------------------------------
 
+Jumping:
+    Increments or decrements the instruction pointer (IP) of the VM by a certain amount read
+    after the instruction. Might be conditional or backwards, but the jump is the same.
+
+    Includes:
+        OP_JUMP, OP_JUMP_BACK, OP_JUMP_IF, OP_JUMP_IF_NOT,  OP_POP_JUMP_IF_NOT, OP_POP_JUMP_BACK_IF
+
+    Example:
+        OP_JUMP_IF will read a number, and increment IP by that number only of the top element
+        of the stack is truthy.
+
+----------------------------------------------------------------------------------------------------
+
 ========================================== Other opcodes ===========================================
 
 OP_LOAD_CONST:
@@ -246,12 +259,6 @@ OP_CLOSURE:
     Copies over all captured variables of the current frame over to the function in the stack,
     loads it after wrapping it over a closure object.
 
-OP_JUMP:
-    Reads a number, which is how many bytes to increment the IP.
-
-OP_JUMP_BACK:
-    Reads a number, which is how many bytes to decrement the IP.
-
 OP_MAKE_ITER:
     Grabs the topmost object in the stack and wraps it inside a new iterator object.
     If the topmost object is not iterable, then it causes a runtime error.
@@ -262,14 +269,6 @@ OP_ITER_OR_JUMP:
     the top of the stack. If the iterator returned a signal that it's exhausted, then it jumps
     forward the number that it read, otherwise assigns the local at the second to last stack spot
     without making a jump. 
-
-OP_POP_JUMP_IF_NOT:
-    Increments IP a read number after the instruction if the topmost object on the stack is falsey,
-    and always pops that object off of the stack.
-
-OP_POP_JUMP_IF_NOT:
-    Decrements IP a read number after the instruction if the topmost object on the stack is truthy,
-    and always pops that object off of the stack.
 
 OP_POP_LOCAL:
     Pops one object from the top of the stack and disposes of it.

@@ -82,6 +82,8 @@ typedef enum {
     OP_CLOSURE,
     OP_JUMP,
     OP_JUMP_BACK,
+    OP_JUMP_IF,
+    OP_JUMP_IF_NOT,
     OP_MAKE_ITER,
     OP_ITER_OR_JUMP,
     OP_POP_JUMP_IF_NOT,

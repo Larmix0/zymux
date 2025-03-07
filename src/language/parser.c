@@ -259,7 +259,7 @@ static Node *call(Parser *parser) {
 
 /** 
  * A unary is just a primary with a some operation to the left of it.
- * We allow unary to be recursive to allow something like (---10).
+ * We allow unary to be recursive to make something like (---10) possible.
  */
 static Node *unary(Parser *parser) {
     if (CHECK(parser, TOKEN_MINUS) || CHECK(parser, TOKEN_BANG) || CHECK(parser, TOKEN_TILDE)) {
@@ -269,8 +269,8 @@ static Node *unary(Parser *parser) {
     return call(parser);    
 }
 
-/** Operations relating to data types, like "is" checks and "as" conversions. */
-static Node *data_type_operation(Parser *parser) {
+/** Binary operations relating to data types, like "is" checks and "as" conversions. */
+static Node *binary_data_type(Parser *parser) {
     Node *expr = unary(parser);
     if (CHECK(parser, TOKEN_IS_KW) || CHECK(parser, TOKEN_AS_KW)) {
         Token operation = ADVANCE_PEEK(parser);
@@ -288,19 +288,17 @@ static Node *data_type_operation(Parser *parser) {
             );
             return new_error_node(parser->program);
         }
-        expr = new_data_type_op_node(
-            parser->program, expr, operation, AS_PTR(KeywordNode, dataType)->keyword
-        );
+        expr = new_binary_node(parser->program, expr, operation, dataType);
     }
     return expr;
 }
 
 /** Handles the precedence of exponents, which is tighter than terms and factors. */
 static Node *exponent(Parser *parser) {
-    Node *expr = data_type_operation(parser);
+    Node *expr = binary_data_type(parser);
     while (CHECK(parser, TOKEN_EXPO)) {
         Token operation = ADVANCE_PEEK(parser);
-        Node *rhs = data_type_operation(parser);
+        Node *rhs = binary_data_type(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
     return expr;
@@ -343,7 +341,7 @@ static Node *binary_bitwise(Parser *parser) {
         || CHECK(parser, TOKEN_BAR) || CHECK(parser, TOKEN_AMPER) || CHECK(parser, TOKEN_CARET)
     ) {
         Token operation = ADVANCE_PEEK(parser);
-        Node *rhs = factor(parser);
+        Node *rhs = term(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);   
     }
     return expr;
@@ -357,7 +355,7 @@ static Node *comparison(Parser *parser) {
         || CHECK(parser, TOKEN_LESS) || CHECK(parser, TOKEN_LESS_EQ)
     ) {
         Token operation = ADVANCE_PEEK(parser);
-        Node *rhs = term(parser);
+        Node *rhs = binary_bitwise(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
     return expr;
@@ -411,6 +409,17 @@ static Node *range(Parser *parser) {
     return expr;
 }
 
+/** Handles binary logical operators (like "||" and "&&"). */
+static Node *binary_logical(Parser *parser) {
+    Node *expr = range(parser);
+    if (CHECK(parser, TOKEN_BAR_BAR) || CHECK(parser, TOKEN_AMPER_AMPER)) {
+        Token operation = ADVANCE_PEEK(parser);
+        Node *rhs = binary_logical(parser);
+        expr = new_binary_node(parser->program, expr, operation, rhs);
+    }
+    return expr;
+}
+
 /** 
  * Handles assignments with an operation augment.
  * 
@@ -444,7 +453,7 @@ static Node *augmented_assignment(Parser *parser, Node *expr) {
 
 /** Handles assignment expressions. TODO: do multi-assignments and document how they're parsed. */
 static Node *assignment(Parser *parser) {
-    Node *expr = range(parser);
+    Node *expr = binary_logical(parser);
     if (CHECK(parser, TOKEN_EQ)) {
         if (expr->type != AST_GET_VAR) {
             parser_error_at(parser, &PEEK(parser), false, "Invalid assignment name.");
