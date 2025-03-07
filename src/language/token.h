@@ -8,7 +8,7 @@
 /** Every type of token that Zymux supports. */
 typedef enum {
     /** Data type keyword. */
-    TOKEN_STRING_KW, TOKEN_INT_KW, TOKEN_FLOAT_KW, TOKEN_BOOL_KW, TOKEN_LIST_KW, TOKEN_MAP_KW,
+    TOKEN_STRING_KW, TOKEN_INT_KW, TOKEN_FLOAT_KW, TOKEN_BOOL_KW,
 
     /** Identifier declaration keyword. */
     TOKEN_CLASS_KW, TOKEN_CONST_KW, TOKEN_LET_KW, TOKEN_PRIVATE_KW, TOKEN_FUNC_KW,

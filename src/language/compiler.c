@@ -118,6 +118,24 @@ static void compile_unary(Compiler *compiler, const UnaryNode *node) {
     emit_instr(compiler, unaryOp, node->operation.pos);
 }
 
+/** Handles a binary operation with a data type right hand side (like "is" and "as"). */
+static void compile_data_type_op(Compiler *compiler, const DataTypeOpNode *node) {
+    compile_node(compiler, node->lhs);
+
+    DataType dataType;
+    switch (node->dataType) {
+    case TOKEN_INT_KW: dataType = TYPE_INT; break;
+    case TOKEN_FLOAT_KW: dataType = TYPE_FLOAT; break;
+    case TOKEN_BOOL_KW: dataType = TYPE_BOOL; break;
+    case TOKEN_STRING_KW: dataType = TYPE_STRING; break;
+    default: UNREACHABLE_ERROR();
+    }
+
+    emit_number(
+        compiler, node->operation.type == TOKEN_IS_KW ? OP_IS : OP_AS, dataType, node->operation.pos
+    );
+}
+
 /** 
  * Compiles a node with a value to its left and right and an operation between.
  * 
@@ -685,6 +703,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_KEYWORD: compile_keyword(compiler, AS_PTR(KeywordNode, node)); break;
     case AST_UNARY: compile_unary(compiler, AS_PTR(UnaryNode, node)); break;
     case AST_BINARY: compile_binary(compiler, AS_PTR(BinaryNode, node)); break;
+    case AST_DATA_TYPE_OP: compile_data_type_op(compiler, AS_PTR(DataTypeOpNode, node)); break;
     case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: compile_range(compiler, AS_PTR(RangeNode, node)); break;
     case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;

@@ -11,8 +11,6 @@ char *token_type_string(const TokenType type) {
     case TOKEN_INT_KW: return "INT";
     case TOKEN_FLOAT_KW: return "FLOAT";
     case TOKEN_BOOL_KW: return "BOOL";
-    case TOKEN_LIST_KW: return "LIST";
-    case TOKEN_MAP_KW: return "MAP";
     case TOKEN_CLASS_KW: return "CLASS";
     case TOKEN_CONST_KW: return "CONST";
     case TOKEN_LET_KW: return "LET";
@@ -159,9 +157,9 @@ bool equal_token(const Token left, const Token right) {
     }
     if (left.type == TOKEN_STRING_LIT) {
         return left.stringVal.length == right.stringVal.length
-                && strncmp(left.stringVal.text, right.stringVal.text, left.stringVal.length) == 0;
+            && strncmp(left.stringVal.text, right.stringVal.text, left.stringVal.length) == 0;
     }
 
     return left.pos.length == right.pos.length
-            && strncmp(left.lexeme, right.lexeme, left.pos.length) == 0;
+        && strncmp(left.lexeme, right.lexeme, left.pos.length) == 0;
 }

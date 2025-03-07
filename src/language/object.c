@@ -4,6 +4,7 @@
 
 #include "allocator.h"
 #include "char_buffer.h"
+#include "lexer.h"
 #include "object.h"
 #include "program.h"
 
@@ -471,6 +472,24 @@ bool equal_obj(const Obj *left, const Obj *right) {
     UNREACHABLE_ERROR();
 }
 
+/** Verifies that a string can be converted to an integer or float. */
+static bool verify_string_is_num(char *string) {
+    char current;
+    while ((current = *string++)) {
+        if (current == '.') {
+            while ((current = *string++)) {
+                if (!IS_DIGIT(current)) {
+                    return false;   
+                }
+            }
+            return true; // Finished float.
+        } else if (!IS_DIGIT(current)) {
+            return false;   
+        }
+    }
+    return true; // Finished integer.
+}
+
 /** Returns a new string object that is formed from concatenating left with right. */
 StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringObj *right) {
     char *concatenated = ARRAY_ALLOC(left->length + right->length + 1, char);
@@ -483,15 +502,65 @@ StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringO
     return result;
 }
 
-// TODO: objects which can error during conversion can simply change the program's hasErrored
-// and/or return NULL?
+/** Returns a copy of the passed object as an integer. Returns NULL if conversion failed. */
+IntObj *as_int(ZmxProgram *program, const Obj *object) {
+    ZmxInt result;
+    switch (object->type) {
+    case OBJ_INT: result = AS_PTR(IntObj, object)->number; break;
+    case OBJ_FLOAT: result = (ZmxInt)(AS_PTR(FloatObj, object)->number); break;
+    case OBJ_STRING: {
+        StringObj *str = AS_PTR(StringObj, object);
+        if (!verify_string_is_num(str->string)) {
+            return NULL;
+        }
+        result = strtoll(str->string, NULL, 10);
+        break;
+    }
 
-/** Returns a copy of the passed object as a string. */
-StringObj *as_string(ZmxProgram *program, const Obj *object) {
-    CharBuffer cstring = object_cstring(object);
-    StringObj *result = new_string_obj(program, cstring.text, cstring.length);
-    free_char_buffer(&cstring);
-    return result;
+    case OBJ_BOOL:
+    case OBJ_NULL:
+    case OBJ_RANGE:
+    case OBJ_LIST:
+    case OBJ_MAP:
+    case OBJ_CAPTURED:
+    case OBJ_FUNC:
+    case OBJ_NATIVE_FUNC:
+    case OBJ_ITERATOR:
+        // Can't ever convert to integer.
+        return NULL;
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
+    }
+    return new_int_obj(program, result);   
+}
+
+/** Returns a copy of the passed object as a float. Returns NULL if conversion failed. */
+FloatObj *as_float(ZmxProgram *program, const Obj *object) {
+    ZmxFloat result;
+    switch (object->type) {
+    case OBJ_INT: result = (ZmxFloat)(AS_PTR(IntObj, object)->number); break;
+    case OBJ_FLOAT: result = AS_PTR(FloatObj, object)->number; break;
+    case OBJ_STRING: {
+        StringObj *str = AS_PTR(StringObj, object);
+        if (!verify_string_is_num(str->string)) {
+            return NULL;
+        }
+        result = strtod(str->string, NULL);
+        break;
+    }
+    case OBJ_BOOL:
+    case OBJ_NULL:
+    case OBJ_RANGE:
+    case OBJ_LIST:
+    case OBJ_MAP:
+    case OBJ_CAPTURED:
+    case OBJ_FUNC:
+    case OBJ_NATIVE_FUNC:
+    case OBJ_ITERATOR:
+        // Can't ever convert to float.
+        return NULL;
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
+    }
+    return new_float_obj(program, result);      
 }
 
 /** Returns a copy of the passed object's boolean (whether the object is "truthy" or "falsy"). */
@@ -517,6 +586,14 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     return new_bool_obj(program, result);
+}
+
+/** Returns a copy of the passed object as a string. */
+StringObj *as_string(ZmxProgram *program, const Obj *object) {
+    CharBuffer cstring = object_cstring(object);
+    StringObj *result = new_string_obj(program, cstring.text, cstring.length - 1); // -1 for NUL.
+    free_char_buffer(&cstring);
+    return result;
 }
 
 /** 

@@ -27,10 +27,6 @@
 #define MATCH(lexer, expected) (PEEK(lexer) == (expected) ? (ADVANCE(lexer), true) : false)
 #define RETREAT(lexer) ((lexer)->column--, (lexer)->current--)
 
-#define LOWERED_CHAR(ch) ((ch) >= 'A' && (ch) <= 'Z' ? (ch) + 32 : (ch))
-#define IS_ALPHA(ch) ((LOWERED_CHAR(ch) >= 'a' && LOWERED_CHAR(ch) <= 'z') || (ch) == '_')
-#define IS_DIGIT(ch) ((ch) >= '0' && (ch) <= '9')
-
 #define IS_EOF(lexer) (*(lexer)->current == '\0')
 
 /** Signature of a function used for checking if a character is within a base. */
@@ -347,12 +343,10 @@ static TokenType get_name_type(Lexer *lexer) {
         if (is_keyword(lexer, "import")) return TOKEN_IMPORT_KW;
         break;
     case 'l':
-        if (is_keyword(lexer, "list")) return TOKEN_LIST_KW;
         if (is_keyword(lexer, "let")) return TOKEN_LET_KW;
         break;
     case 'm':
         if (is_keyword(lexer, "match")) return TOKEN_MATCH_KW;
-        if (is_keyword(lexer, "map")) return TOKEN_MAP_KW;
         break;
     case 'n':
         if (is_keyword(lexer, "null")) return TOKEN_NULL_KW;

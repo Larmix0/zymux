@@ -97,6 +97,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_MINUS: print_bare_instr("MINUS", &idx); break;
     case OP_NOT: print_bare_instr("NOT", &idx); break;
     case OP_TILDE: print_bare_instr("TILDE", &idx); break;
+    case OP_IS: print_data_type_instr("IS", func, &idx, size); break;
     case OP_AS: print_data_type_instr("AS", func, &idx, size); break;
     case OP_TERNARY: print_bare_instr("TERNARY", &idx); break;
     case OP_LIST: print_number_instr("LIST", func, &idx, size); break;

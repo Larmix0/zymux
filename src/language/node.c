@@ -70,6 +70,17 @@ Node *new_binary_node(ZmxProgram *program, Node *lhs, const Token operation, Nod
     return AS_NODE(node);
 }
 
+/** Allocates a node for an operation with a left side and a data type. */
+Node *new_data_type_op_node(
+    ZmxProgram *program, Node *lhs, const Token operation, const TokenType dataType
+) {
+    DataTypeOpNode *node = NEW_NODE(program, AST_DATA_TYPE_OP, DataTypeOpNode);
+    node->lhs = lhs;
+    node->operation = operation;
+    node->dataType = dataType;
+    return AS_NODE(node);
+}
+
 /** Allocates a parentheses node which wraps an expression inside it to dictate precedence. */
 Node *new_parentheses_node(ZmxProgram *program, Node *expr) {
     ParenthesesNode *node = NEW_NODE(program, AST_PARENTHESES, ParenthesesNode);
@@ -288,6 +299,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_KEYWORD: return AS_PTR(KeywordNode, node)->pos;
     case AST_UNARY: return AS_PTR(UnaryNode, node)->operation.pos;
     case AST_BINARY: return AS_PTR(BinaryNode, node)->operation.pos;
+    case AST_DATA_TYPE_OP: return AS_PTR(DataTypeOpNode, node)->operation.pos;
 
     // Can safely index 0 here since a string node is gauranteed to at least have one empty string.
     case AST_STRING: return get_node_pos(AS_PTR(StringNode, node)->exprs.data[0]);
@@ -344,6 +356,7 @@ static void free_node(Node *node) {
     case AST_KEYWORD:
     case AST_UNARY:
     case AST_BINARY:
+    case AST_DATA_TYPE_OP:
     case AST_PARENTHESES:
     case AST_RANGE:
     case AST_ASSIGN_SUBSCR:

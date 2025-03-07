@@ -538,16 +538,37 @@ static bool execute_vm(Vm *vm) {
             PEEK(vm) = AS_OBJ(new_int_obj(vm->program, flipped));
             break;
         }
+        case OP_IS: {
+            ObjType checkedType;
+            switch ((DataType)READ_NUMBER(vm)) {
+            case TYPE_INT: checkedType = OBJ_INT; break;
+            case TYPE_FLOAT: checkedType = OBJ_FLOAT; break;
+            case TYPE_BOOL: checkedType = OBJ_BOOL; break;
+            case TYPE_STRING: checkedType = OBJ_STRING; break;
+            TOGGLEABLE_DEFAULT_UNREACHABLE();
+            }
+            PEEK(vm) = AS_OBJ(new_bool_obj(vm->program, PEEK(vm)->type == checkedType));
+            break;
+        }
         case OP_AS: {
             Obj *converted;
-            const DataType conversionType = READ_NUMBER(vm);
-            switch (conversionType) {
+            switch ((DataType)READ_NUMBER(vm)) {
+            case TYPE_INT: converted = AS_OBJ(as_int(vm->program, PEEK(vm))); break;
+            case TYPE_FLOAT: converted = AS_OBJ(as_float(vm->program, PEEK(vm))); break;
             case TYPE_BOOL: converted = AS_OBJ(as_bool(vm->program, PEEK(vm))); break;
             case TYPE_STRING: converted = AS_OBJ(as_string(vm->program, PEEK(vm))); break;
-            // TODO: add as_int() and as_float() implementations once the "as" keyword is added.
-            case TYPE_INT: UNREACHABLE_ERROR();
-            case TYPE_FLOAT: UNREACHABLE_ERROR();
             TOGGLEABLE_DEFAULT_UNREACHABLE();
+            }
+            if (converted == NULL) {
+                if (PEEK(vm)->type == OBJ_STRING) {
+                    return runtime_error(
+                        vm, "Can't convert string '%s' to number.",
+                        AS_PTR(StringObj, PEEK(vm))->string
+                    );
+                }
+                return runtime_error(
+                    vm, "Can't convert %s to a number.", obj_type_str(PEEK(vm)->type)
+                );
             }
             PEEK(vm) = AS_OBJ(converted);
             break;

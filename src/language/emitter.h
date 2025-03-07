@@ -59,6 +59,7 @@ typedef enum {
     OP_MINUS,
     OP_NOT,
     OP_TILDE,
+    OP_IS,
     OP_AS,
     OP_FINISH_STRING,
     OP_RANGE,

@@ -4,6 +4,10 @@
 #include "program.h"
 #include "token.h"
 
+#define LOWERED_CHAR(ch) ((ch) >= 'A' && (ch) <= 'Z' ? (ch) + 32 : (ch))
+#define IS_ALPHA(ch) ((LOWERED_CHAR(ch) >= 'a' && LOWERED_CHAR(ch) <= 'z') || (ch) == '_')
+#define IS_DIGIT(ch) ((ch) >= '0' && (ch) <= '9')
+
 /** A lexer for a given piece of source code to produce its array of tokens for parsing later. */
 typedef struct {
     char *tokenStart;

@@ -130,9 +130,13 @@ static Node *parse_string(Parser *parser) {
  */
 static Node *primary(Parser *parser) {
     switch (ADVANCE_PEEK(parser).type) {
+    case TOKEN_NULL_KW:
     case TOKEN_TRUE_KW:
     case TOKEN_FALSE_KW:
-    case TOKEN_NULL_KW:
+    case TOKEN_INT_KW:
+    case TOKEN_FLOAT_KW:
+    case TOKEN_BOOL_KW:
+    case TOKEN_STRING_KW:
         return new_keyword_node(parser->program, PEEK_PREVIOUS(parser));
     case TOKEN_INT_LIT:
     case TOKEN_FLOAT_LIT:
@@ -265,12 +269,37 @@ static Node *unary(Parser *parser) {
     return call(parser);    
 }
 
+/** Operations relating to data types, like "is" checks and "as" conversions. */
+static Node *data_type_operation(Parser *parser) {
+    Node *expr = unary(parser);
+    if (CHECK(parser, TOKEN_IS_KW) || CHECK(parser, TOKEN_AS_KW)) {
+        Token operation = ADVANCE_PEEK(parser);
+        Node *dataType = unary(parser);
+        if (
+            dataType->type != AST_KEYWORD ||
+            (AS_PTR(KeywordNode, dataType)->keyword != TOKEN_INT_KW
+            && AS_PTR(KeywordNode, dataType)->keyword != TOKEN_FLOAT_KW
+            && AS_PTR(KeywordNode, dataType)->keyword != TOKEN_BOOL_KW
+            && AS_PTR(KeywordNode, dataType)->keyword != TOKEN_STRING_KW)
+        ) {
+            parser_error_at(
+                parser, &PEEK(parser), false, "Expected data type after '%s'.",
+                operation.type == TOKEN_IS_KW ? "is" : "as"
+            );
+        }
+        expr = new_data_type_op_node(
+            parser->program, expr, operation, AS_PTR(KeywordNode, dataType)->keyword
+        );
+    }
+    return expr;
+}
+
 /** Handles the precedence of exponents, which is tighter than terms and factors. */
 static Node *exponent(Parser *parser) {
-    Node *expr = unary(parser);
+    Node *expr = data_type_operation(parser);
     while (CHECK(parser, TOKEN_EXPO)) {
         Token operation = ADVANCE_PEEK(parser);
-        Node *rhs = unary(parser);
+        Node *rhs = data_type_operation(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
     return expr;
@@ -394,18 +423,18 @@ static Node *augmented_assignment(Parser *parser, Node *expr) {
     }
     Token augAssign = ADVANCE_PEEK(parser);
     switch (augAssign.type) {
-        case TOKEN_PLUS_EQ: augAssign.type = TOKEN_PLUS; break;
-        case TOKEN_MINUS_EQ: augAssign.type = TOKEN_MINUS; break;
-        case TOKEN_STAR_EQ: augAssign.type = TOKEN_STAR; break;
-        case TOKEN_SLASH_EQ: augAssign.type = TOKEN_SLASH; break;
-        case TOKEN_PERCENT_EQ: augAssign.type = TOKEN_PERCENT; break;
-        case TOKEN_EXPO: augAssign.type = TOKEN_EXPO_EQ; break;
-        case TOKEN_LSHIFT_EQ: augAssign.type = TOKEN_LSHIFT; break;
-        case TOKEN_RSHIFT_EQ: augAssign.type = TOKEN_RSHIFT; break;
-        case TOKEN_BAR_EQ: augAssign.type = TOKEN_BAR; break;
-        case TOKEN_AMPER_EQ: augAssign.type = TOKEN_AMPER; break;
-        case TOKEN_CARET_EQ: augAssign.type = TOKEN_CARET; break;
-        default: UNREACHABLE_ERROR();
+    case TOKEN_PLUS_EQ: augAssign.type = TOKEN_PLUS; break;
+    case TOKEN_MINUS_EQ: augAssign.type = TOKEN_MINUS; break;
+    case TOKEN_STAR_EQ: augAssign.type = TOKEN_STAR; break;
+    case TOKEN_SLASH_EQ: augAssign.type = TOKEN_SLASH; break;
+    case TOKEN_PERCENT_EQ: augAssign.type = TOKEN_PERCENT; break;
+    case TOKEN_EXPO: augAssign.type = TOKEN_EXPO_EQ; break;
+    case TOKEN_LSHIFT_EQ: augAssign.type = TOKEN_LSHIFT; break;
+    case TOKEN_RSHIFT_EQ: augAssign.type = TOKEN_RSHIFT; break;
+    case TOKEN_BAR_EQ: augAssign.type = TOKEN_BAR; break;
+    case TOKEN_AMPER_EQ: augAssign.type = TOKEN_AMPER; break;
+    case TOKEN_CARET_EQ: augAssign.type = TOKEN_CARET; break;
+    default: UNREACHABLE_ERROR();
     }
     Node *value = assignment(parser);
     value = new_binary_node(parser->program, expr, augAssign, value);

@@ -262,11 +262,17 @@ bool equal_obj(const Obj *left, const Obj *right);
 /** Returns a new string object that is formed from concatenating left with right. */
 StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringObj *right);
 
-/** Returns a copy of the passed object as a string. */
-StringObj *as_string(ZmxProgram *program, const Obj *object);
+/** Returns a copy of the passed object as an integer. Returns NULL if conversion failed. */
+IntObj *as_int(ZmxProgram *program, const Obj *object);
+
+/** Returns a copy of the passed object as a float. Returns NULL if conversion failed. */
+FloatObj *as_float(ZmxProgram *program, const Obj *object);
 
 /** Returns a copy of the passed object's boolean (whether the object is "truthy" or "falsy"). */
 BoolObj *as_bool(ZmxProgram *program, const Obj *object);
+
+/** Returns a copy of the passed object as a string. */
+StringObj *as_string(ZmxProgram *program, const Obj *object);
 
 /** 
  * Prints the passed object to the console.
