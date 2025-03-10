@@ -694,6 +694,33 @@ static void resolve_if_else(Resolver *resolver, IfElseNode *node) {
     resolve_node(resolver, node->elseBranch);
 }
 
+/** 
+ * Resolve the matched expression, label expressions, their blocks, and default block if used.
+ * 
+ * Appends the matched expression implicitly as if it were a variable, because we leave it
+ * on the stack at runtime for performance reasons, so we need to make sure it gets popped
+ * just like any other variables in all cases (like breaking out of a loop).
+ */
+static void resolve_match(Resolver *resolver, MatchNode *node) {
+    push_scope(resolver, SCOPE_NORMAL);
+    resolve_node(resolver, node->matchedExpr);
+    const u32 implicitMatchVar = CURRENT_LOCALS(resolver)->length;
+    APPEND_DA(
+        CURRENT_LOCALS(resolver),
+        create_variable(
+            false, false, false, create_token("<matched expr>", 0), resolver->scopeDepth,
+            create_var_resolution(implicitMatchVar, VAR_LOCAL), NULL
+        )
+    );
+    resolve_node_array(resolver, &node->caseLabels);
+    resolve_node_array(resolver, &node->caseBlocks);
+
+    if (node->defaultCase != NULL) {
+        resolve_node(resolver, AS_NODE(node->defaultCase));
+    }
+    pop_scope(resolver, SCOPE_NORMAL);
+}
+
 /** Resolves a while loop's condition and its body statements inside a loop scope. */
 static void resolve_while(Resolver *resolver, WhileNode *node) {
     resolve_node(resolver, node->condition);
@@ -861,6 +888,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_ASSIGN_VAR: resolve_assign_var(resolver, AS_PTR(AssignVarNode, node)); break;
     case AST_GET_VAR: resolve_get_var(resolver, AS_PTR(GetVarNode, node)); break;
     case AST_IF_ELSE: resolve_if_else(resolver, AS_PTR(IfElseNode, node)); break;
+    case AST_MATCH: resolve_match(resolver, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: resolve_while(resolver, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: resolve_do_while(resolver, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: resolve_for(resolver, AS_PTR(ForNode, node)); break;

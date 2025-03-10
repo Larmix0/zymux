@@ -219,6 +219,25 @@ static void append_if_else(AstBuilder *ast, const IfElseNode *node) {
     }
 }
 
+/** Appends the matched expression, case labels, their corresponding blocks, and default if used. */
+static void append_match(AstBuilder *ast, const MatchNode *node) {
+    buffer_append_string(&ast->string, "<match> ");
+    append_node(ast, node->matchedExpr);
+    buffer_append_string(&ast->string, "-> ");
+    for (u32 i = 0; i < node->caseLabels.length; i++) {
+        buffer_append_string(&ast->string, "<case> ");
+        append_node(ast, node->caseLabels.data[i]);
+        buffer_append_string(&ast->string, "-> ");
+        append_node(ast, node->caseBlocks.data[i]);
+    }
+    if (node->defaultCase != NULL) {
+        buffer_append_string(&ast->string, "<default> -> ");
+        append_node(ast, AS_NODE(node->defaultCase));
+    } else {
+        buffer_append_string(&ast->string, "<no default> ");
+    }
+}
+
 /** Appends a while loop, its condition, and body. */
 static void append_while(AstBuilder *ast, const WhileNode *node) {
     buffer_append_string(&ast->string, "<while> ");
@@ -261,8 +280,12 @@ static void append_func(AstBuilder *ast, const FuncNode *node) {
 
 /** Appends a return node + the returned value. */
 static void append_return(AstBuilder *ast, const ReturnNode *node) {
-    buffer_append_string(&ast->string, "<return> ");
-    append_node(ast, node->returnValue);
+    if (node->returnValue != NULL) {
+        buffer_append_string(&ast->string, "<return> ");
+        append_node(ast, node->returnValue);
+    } else {
+        buffer_append_string(&ast->string, "<empty return> ");
+    }
 }
 
 /** Appends an EOF string to the AST string. */
@@ -303,6 +326,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_ASSIGN_VAR: append_assign_var(ast, AS_PTR(AssignVarNode, node)); break;
     case AST_GET_VAR: append_get_var(ast, AS_PTR(GetVarNode, node)); break;
     case AST_IF_ELSE: append_if_else(ast, AS_PTR(IfElseNode, node)); break;
+    case AST_MATCH: append_match(ast, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: append_while(ast, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: append_do_while(ast, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: append_for(ast, AS_PTR(ForNode, node)); break;

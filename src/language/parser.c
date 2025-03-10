@@ -535,6 +535,32 @@ static Node *parse_if_else(Parser *parser) {
     return new_if_else_node(parser->program, condition, AS_PTR(BlockNode, ifBranch), elseBranch);
 }
 
+/** Matches a specific expression with a set labels, if it's one of them, executes their block. */
+static Node *parse_match(Parser *parser) {
+    Node *matchedExpr = expression(parser);
+    CONSUME(parser, TOKEN_LCURLY, "Expected '{' after the matched expression.");
+
+    NodeArray caseLabels = CREATE_DA();
+    NodeArray caseBlocks = CREATE_DA();
+    while (MATCH(parser, TOKEN_CASE_KW)) {
+        APPEND_DA(&caseLabels, expression(parser));
+        CONSUME(parser, TOKEN_LCURLY, "Expected '{' after 'case'.");
+        APPEND_DA(&caseBlocks, finish_block(parser));
+    }
+    
+    Node *defaultCase = NULL;
+    if (MATCH(parser, TOKEN_DEFAULT_KW)) {
+        CONSUME(parser, TOKEN_LCURLY, "Expected '{' after 'default'.");
+        defaultCase = finish_block(parser);
+    }
+    char *messageOnError = defaultCase == NULL ? "Expected '}' or 'case' or 'default' in match."
+        : "Expected '}' after match's default.";
+    CONSUME(parser, TOKEN_RCURLY, messageOnError);
+    return new_match_node(
+        parser->program, matchedExpr, caseLabels, caseBlocks, AS_PTR(BlockNode, defaultCase)
+    );
+}
+
 /** A while loop executes its block statement as long as the loop's condition evalutes to true. */
 static Node *parse_while(Parser *parser) {
     Node *condition = expression(parser);
@@ -598,6 +624,7 @@ static Node *statement(Parser *parser) {
     switch (ADVANCE_PEEK(parser).type) {
     case TOKEN_LCURLY: node = finish_block(parser); break;
     case TOKEN_IF_KW: node = parse_if_else(parser); break;
+    case TOKEN_MATCH_KW: node = parse_match(parser); break;
     case TOKEN_WHILE_KW: node = parse_while(parser); break;
     case TOKEN_DO_KW: node = parse_do_while(parser); break;
     case TOKEN_FOR_KW: node = parse_for(parser); break;
@@ -644,7 +671,7 @@ static Node *one_param(Parser *parser) {
 /** Handles parsing and returning the array of parameters for any form of function. */
 static NodeArray parse_params(Parser *parser) {
     NodeArray params = CREATE_DA();
-    CONSUME(parser, TOKEN_LPAR, "Expected opening parenthesis before parameters.");
+    CONSUME(parser, TOKEN_LPAR, "Expected '(' before parameters.");
     if (!MATCH(parser, TOKEN_RPAR)) {
         APPEND_DA(&params, one_param(parser));
         while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser) && !parser->isPanicking) {

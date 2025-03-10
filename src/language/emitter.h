@@ -93,6 +93,7 @@ typedef enum {
     OP_POP_CAPTURES,
     OP_RETURN,
     OP_CLOSURE_RETURN,
+    OP_COPY_TOP,
     OP_END
 } OpCode;
 

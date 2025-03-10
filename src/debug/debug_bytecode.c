@@ -130,6 +130,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_POP_CAPTURES: print_number_instr("POP_CAPTURES", func, &idx, size); break;
     case OP_RETURN: print_bare_instr("RETURN", &idx); break;
     case OP_CLOSURE_RETURN: print_number_instr("CLOSURE_RETURN", func, &idx, size); break;
+    case OP_COPY_TOP: print_bare_instr("COPY_TOP", &idx); break;
     case OP_END: print_bare_instr("END", &idx); break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }

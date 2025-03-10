@@ -847,6 +847,11 @@ static bool execute_vm(Vm *vm) {
             DROP_AMOUNT_DA(&closure->captures, READ_NUMBER(vm));
             call_return(vm);
             break;
+        case OP_COPY_TOP: {
+            Obj *top = PEEK(vm);
+            PUSH(vm, top);
+            break;
+        }
         case OP_END:
             return true;
         TOGGLEABLE_DEFAULT_UNREACHABLE();

@@ -210,6 +210,19 @@ Node *new_if_else_node(
     return AS_NODE(node);
 }
 
+/** Allocates a new match-case statement, with an optional default case. */
+Node *new_match_node(
+    ZmxProgram *program, Node *matchedExpr, const NodeArray caseLabels, const NodeArray caseBlocks,
+    BlockNode *defaultCase
+) {
+    MatchNode *node = NEW_NODE(program, AST_MATCH, MatchNode);
+    node->matchedExpr = matchedExpr;
+    node->caseLabels = caseLabels;
+    node->caseBlocks = caseBlocks;
+    node->defaultCase = defaultCase;
+    return AS_NODE(node);
+}
+
 /** Allocates a while loop statement. */
 Node *new_while_node(ZmxProgram *program, Node *condition, BlockNode *body) {
     WhileNode *node = NEW_NODE(program, AST_WHILE, WhileNode);
@@ -305,6 +318,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_ASSIGN_VAR: return AS_PTR(AssignVarNode, node)->name.pos;
     case AST_GET_VAR: return AS_PTR(GetVarNode, node)->name.pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
+    case AST_MATCH: return get_node_pos(AS_PTR(MatchNode, node)->matchedExpr);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
     case AST_DO_WHILE: return AS_PTR(DoWhileNode, node)->body->pos;
     case AST_FOR: return AS_PTR(ForNode, node)->loopVar->name.pos;
@@ -331,6 +345,10 @@ static void free_node(Node *node) {
         break;
     case AST_BLOCK:
         FREE_DA(&AS_PTR(BlockNode, node)->stmts);
+        break;
+    case AST_MATCH:
+        FREE_DA(&AS_PTR(MatchNode, node)->caseLabels);
+        FREE_DA(&AS_PTR(MatchNode, node)->caseBlocks);
         break;
     case AST_CALL:
         FREE_DA(&AS_PTR(CallNode, node)->args);

@@ -36,3 +36,6 @@ Optimization:
         (In other words, use the dot operator instead of the arrow).
 
 ----------------------------------------------------------------------------------------------------
+
+Change certain nodes/objects so they simply initialize their dynamic arrays,
+instead of having to manually create external arrays and append to them first.

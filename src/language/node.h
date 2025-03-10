@@ -32,6 +32,7 @@ typedef enum {
     AST_ASSIGN_VAR,
     AST_GET_VAR,
     AST_IF_ELSE,
+    AST_MATCH,
     AST_WHILE,
     AST_DO_WHILE,
     AST_FOR,
@@ -234,6 +235,15 @@ typedef struct {
     Node *elseBranch; /** Could be a block or another if-else. */
 } IfElseNode;
 
+/** A match-case statement, which matches a value to a case value/default if there's one. */
+typedef struct {
+    Node node;
+    Node *matchedExpr; /** The main expression being matched with the cases. */
+    NodeArray caseLabels; /** The array of actual matched case expressions. */
+    NodeArray caseBlocks; /* Blocks to execute if their corresponding labels are matched. */
+    BlockNode *defaultCase; /** the "default" block in matches. NULL if unused. */
+} MatchNode;
+
 /** A while loop which executes a block repeatedly while its condition evaluates to true. */
 typedef struct {
     Node node;
@@ -371,6 +381,12 @@ Node *new_get_var_node(ZmxProgram *program, const Token name);
 
 /** Allocates an if-else node with their condition. The else branch can optionally be NULL. */
 Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBranch, Node *elseBranch);
+
+/** Allocates a new match-case statement, with an optional default case. */
+Node *new_match_node(
+    ZmxProgram *program, Node *matchedExpr, const NodeArray caseLabels, const NodeArray caseBlocks,
+    BlockNode *defaultCase
+);
 
 /** Allocates a while loop node. */
 Node *new_while_node(ZmxProgram *program, Node *condition, BlockNode *body);

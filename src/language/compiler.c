@@ -485,6 +485,61 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     }
 }
 
+/** 
+ * Compiles the exit of the match statement.
+ * 
+ * A match is exited by first popping the matched expression off of the stack, then resolving
+ * all the automatic jumps to outside the match that every case gets at the end.
+ */
+static void match_end(Compiler *compiler, U32Array *caseJumps) {
+    const u32 matchExit = compiler->func->bytecode.length;
+    emit_local_pops(compiler, 1, PREVIOUS_OPCODE_POS(compiler)); // Pop matched expr.
+    for (u32 i = 0; i < caseJumps->length; i++) {
+        const u32 from = caseJumps->data[i];
+        patch_jump(compiler, from, matchExit, true);
+    }
+}
+
+/** 
+ * Compiles a match's matched expression, cases, and default if there is one.
+ * 
+ * First loads the matched expression on the stack, then for each case we copy a second version
+ * of the matched expression to compare its equality with the label of thee case.
+ * Checks their equality and pop it off the stack. If they match,
+ * we simply fall done and execute the case's block, which always ends with an automatic jump
+ * that exits the match statement.
+ * 
+ * However, if the labels don't match, then it jumps to the code that copies the matched expression
+ * again and compares equality, all until jumping outside the loop or into a default case
+ * before exiting the match.
+ * 
+ * A default automatically executes its block and just falls down to the match statement's ending.
+ */
+static void compile_match(Compiler *compiler, const MatchNode *node) {
+    compile_node(compiler, node->matchedExpr);
+
+    U32Array caseJumps = CREATE_DA();
+    for (u32 i = 0; i < node->caseLabels.length; i++) {
+        Node *label = node->caseLabels.data[i];
+        emit_instr(compiler, OP_COPY_TOP, get_node_pos(label));
+        compile_node(compiler, label);
+        emit_instr(compiler, OP_EQUAL, get_node_pos(label));
+
+        const u32 labelSpot = emit_unpatched_jump(compiler, OP_POP_JUMP_IF_NOT, get_node_pos(label));
+        compile_node(compiler, node->caseBlocks.data[i]);
+        const u32 caseEnd = emit_unpatched_jump(compiler, OP_JUMP, get_node_pos(label));
+        APPEND_DA(&caseJumps, caseEnd);
+
+        patch_jump(compiler, labelSpot, compiler->func->bytecode.length, true);
+    }
+    if (node->defaultCase != NULL) {
+        compile_node(compiler, AS_NODE(node->defaultCase));
+    }
+
+    match_end(compiler, &caseJumps);
+    FREE_DA(&caseJumps);
+}
+
 /** Starts new arrays for loop control statements (breaks/continues). */
 static void push_loop_controls(Compiler *compiler, U32Array *oldBreaks, U32Array *oldContinues) {
     *oldBreaks = compiler->breaks;
@@ -753,6 +808,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_ASSIGN_VAR: compile_assign_var(compiler, AS_PTR(AssignVarNode, node)); break;
     case AST_GET_VAR: compile_get_var(compiler, AS_PTR(GetVarNode, node)); break;
     case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
+    case AST_MATCH: compile_match(compiler, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: compile_do_while(compiler, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: compile_for(compiler, AS_PTR(ForNode, node)); break;
