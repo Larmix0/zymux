@@ -198,7 +198,9 @@ void free_vm(Vm *vm) {
 /** Performs an assignment on some indexed array element. */
 static bool list_assign_subscr(Vm *vm, ListObj *callee, Obj *subscript, Obj *value) {
     if (subscript->type != OBJ_INT) {
-        return runtime_error(vm, "Can only assign to list indices with integers.");
+        return runtime_error(
+            vm, "List indexing expected integer, got %s instead.", obj_type_str(subscript->type)
+        );
     }
     const ZmxInt index = AS_PTR(IntObj, subscript)->number;
     if (IS_WITHIN_LENGTH(callee->items.length, index)) {

@@ -37,6 +37,7 @@ typedef enum {
     AST_DO_WHILE,
     AST_FOR,
     AST_LOOP_CONTROL,
+    AST_ENUM,
     AST_FUNC,
     AST_RETURN,
     AST_EOF
@@ -285,6 +286,13 @@ typedef struct {
     i64 capturedAmount; /** Amount of declared locals captured within the loop before this node. */
 } LoopControlNode;
 
+/** Holds an array of names that correspond to ordered numbers. */
+typedef struct {
+    Node node;
+    DeclareVarNode *nameDecl;
+    TokenArray members; /** Array of enumerated member names of the enum. */
+} EnumNode;
+
 /** Holds some form of a function (normal function, method, initializer, etc.). */
 typedef struct {
     Node node;
@@ -399,6 +407,9 @@ Node *new_for_node(ZmxProgram *program, DeclareVarNode *loopVar, Node *iterable,
 
 /** Allocates a node for some loop control statement (break or continue). */
 Node *new_loop_control_node(ZmxProgram *program, const Token keyword);
+
+/** Allocates an enum with members that represent a text/readable number. */
+Node *new_enum_node(ZmxProgram *program, DeclareVarNode *nameDecl, const TokenArray members);
 
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(

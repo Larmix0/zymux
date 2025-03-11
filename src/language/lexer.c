@@ -325,6 +325,7 @@ static TokenType get_name_type(Lexer *lexer) {
         break;
     case 'e':
         if (is_keyword(lexer, "else")) return TOKEN_ELSE_KW;
+        if (is_keyword(lexer, "enum")) return TOKEN_ENUM_KW;
         break;
     case 'f':
         if (is_keyword(lexer, "float")) return TOKEN_FLOAT_KW;

@@ -10,7 +10,7 @@
 #define FIRST_COLLECTION_SIZE 128 * 1024
 
 static void mark_obj_array(ObjArray objects);
-static void mark_table(Table *table);
+static void mark_table(Table table);
 
 /** Creates a garbage collector. The parameters can be NULL if they don't exist. */
 Gc create_gc(Compiler *compiler, Vm *vm) {
@@ -48,8 +48,20 @@ static void mark_obj(Obj *object) {
 #endif
     object->isReachable = true;
     switch (object->type) {
-    case OBJ_CAPTURED:
-        mark_obj(AS_PTR(CapturedObj, object)->captured);
+    case OBJ_LIST:
+        mark_obj_array(AS_PTR(ListObj, object)->items);
+        break;
+    case OBJ_MAP:
+        mark_table(AS_PTR(MapObj, object)->table);
+        break;
+    case OBJ_ENUM:
+        mark_obj_array(AS_PTR(EnumObj, object)->members);
+        mark_table(AS_PTR(EnumObj, object)->lookupTable);
+        mark_obj(AS_OBJ(AS_PTR(EnumObj, object)->name));
+        break;
+    case OBJ_ENUM_MEMBER:
+        mark_obj(AS_OBJ(AS_PTR(EnumMemberObj, object)->originalEnum));
+        mark_obj(AS_OBJ(AS_PTR(EnumMemberObj, object)->name));
         break;
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);
@@ -64,17 +76,14 @@ static void mark_obj(Obj *object) {
         }
         break;
     }
+    case OBJ_CAPTURED:
+        mark_obj(AS_PTR(CapturedObj, object)->captured);
+        break;
     case OBJ_NATIVE_FUNC:
         mark_obj(AS_OBJ(AS_PTR(NativeFuncObj, object)->name));
         break;
     case OBJ_ITERATOR:
         mark_obj(AS_OBJ(AS_PTR(IteratorObj, object)->iterable));
-        break;
-    case OBJ_LIST:
-        mark_obj_array(AS_PTR(ListObj, object)->items);
-        break;
-    case OBJ_MAP:
-        mark_table(&AS_PTR(MapObj, object)->table);
         break;
     case OBJ_INT:
     case OBJ_FLOAT:
@@ -95,10 +104,10 @@ static void mark_obj_array(ObjArray objects) {
 }
 
 /** Marks all objects inside the passed hash table. */
-static void mark_table(Table *table) {
-    for (u32 i = 0; i < table->capacity; i++) {
-        mark_obj(table->entries[i].key);
-        mark_obj(table->entries[i].value);
+static void mark_table(Table table) {
+    for (u32 i = 0; i < table.capacity; i++) {
+        mark_obj(table.entries[i].key);
+        mark_obj(table.entries[i].value);
     }
 }
 
@@ -115,7 +124,7 @@ static void mark_vm(Vm *vm) {
     for (u32 i = 0; i < vm->callStack.length; i++) {
         mark_obj(AS_OBJ(vm->callStack.data[i].func));
     }
-    mark_table(&vm->globals);
+    mark_table(vm->globals);
 }
 
 /** Marks all reachable objects in the program. */
@@ -135,7 +144,7 @@ static void gc_mark(ZmxProgram *program) {
     mark_obj(AS_OBJ(program->internedNull));
     mark_obj(AS_OBJ(program->internedTrue));
     mark_obj(AS_OBJ(program->internedFalse));
-    mark_table(&program->builtIn);
+    mark_table(program->builtIn);
 }
 
 /**

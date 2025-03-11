@@ -12,10 +12,11 @@ char *token_type_string(const TokenType type) {
     case TOKEN_FLOAT_KW: return "FLOAT";
     case TOKEN_BOOL_KW: return "BOOL";
     case TOKEN_CLASS_KW: return "CLASS";
+    case TOKEN_FUNC_KW: return "FUNC";
+    case TOKEN_ENUM_KW: return "ENUM";
     case TOKEN_CONST_KW: return "CONST";
     case TOKEN_LET_KW: return "LET";
     case TOKEN_PRIVATE_KW: return "PRIVATE";
-    case TOKEN_FUNC_KW: return "FUNC";
     case TOKEN_IF_KW: return "IF";
     case TOKEN_ELSE_KW: return "ELSE";
     case TOKEN_WHILE_KW: return "WHILE";

@@ -121,19 +121,36 @@ ListObj *new_list_obj(ZmxProgram *program, const ObjArray items) {
     return object;
 }
 
-/** Returns an object which holds a hash table of key-value pairs. */
+/** Returns a map, which holds a hash table of key-value pairs. */
 MapObj *new_map_obj(ZmxProgram *program, const Table table) {
     MapObj *object = NEW_OBJ(program, OBJ_MAP, MapObj);
     object->table = table;
     return object;
 }
 
-/** Returns a newely created indirect reference to the passed object (capturing the object). */
-CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackLocation) {
-    CapturedObj *object = NEW_OBJ(program, OBJ_CAPTURED, CapturedObj);
-    object->isOpen = true;
-    object->stackLocation = stackLocation;
-    object->captured = captured;
+/**
+ * Returns one member of an enum.
+ * 
+ * Holds the original enum it's a member of, its own member textual representation as a name,
+ * and its index inside the enum.
+ */
+EnumMemberObj *new_enum_member_obj(
+    ZmxProgram *program, EnumObj *originalEnum, StringObj *name, const ZmxInt index
+) {
+    EnumMemberObj *object = NEW_OBJ(program, OBJ_ENUM_MEMBER, EnumMemberObj);
+    object->originalEnum = originalEnum;
+    object->name = name;
+    object->index = index;
+    return object;
+}
+
+/** Returns an enum, which holds a bunch of names in order. */
+EnumObj *new_enum_obj(ZmxProgram *program, StringObj *name) {
+    EnumObj *object = NEW_OBJ(program, OBJ_ENUM, EnumObj);
+    object->name = name;
+
+    object->lookupTable = create_table();
+    INIT_DA(&object->members);
     return object;
 }
 
@@ -154,6 +171,15 @@ FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 arity, con
     INIT_DA(&object->bytecode);
     INIT_DA(&object->positions);
     INIT_DA(&object->constPool);
+    return object;
+}
+
+/** Returns a newely created indirect reference to the passed object (capturing the object). */
+CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackLocation) {
+    CapturedObj *object = NEW_OBJ(program, OBJ_CAPTURED, CapturedObj);
+    object->isOpen = true;
+    object->stackLocation = stackLocation;
+    object->captured = captured;
     return object;
 }
 
@@ -276,15 +302,25 @@ static CharBuffer object_cstring(const Obj *object) {
     case OBJ_MAP:
         map_cstring(AS_PTR(MapObj, object), &string);
         break;
+    case OBJ_ENUM:
+        buffer_append_format(&string, "<enum %s>", AS_PTR(EnumObj, object)->name->string);
+        break;
+    case OBJ_ENUM_MEMBER: {
+        EnumMemberObj *member = AS_PTR(EnumMemberObj, object);
+        buffer_append_format(
+            &string, "%s.%s", member->originalEnum->name->string, member->name->string
+        );
+        break;
+    }
+    case OBJ_FUNC:
+        buffer_append_format(&string, "<function %s>", AS_PTR(FuncObj, object)->name->string);
+        break;
     case OBJ_CAPTURED: {
         CharBuffer capturedBuf = object_cstring(AS_PTR(CapturedObj, object)->captured);
         buffer_append_format(&string, "<captured %s>", capturedBuf.text);
         free_char_buffer(&capturedBuf);
         break;
     }
-    case OBJ_FUNC:
-        buffer_append_format(&string, "<function %s>", AS_PTR(FuncObj, object)->name->string);
-        break;
     case OBJ_NATIVE_FUNC:
         buffer_append_format(
             &string, "<native function %s>", AS_PTR(NativeFuncObj, object)->name->string
@@ -308,14 +344,16 @@ bool is_iterable(const Obj *object) {
     case OBJ_RANGE:
     case OBJ_LIST:
     case OBJ_MAP:
+    case OBJ_ENUM:
         return true;
 
     case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:
     case OBJ_NULL:
-    case OBJ_CAPTURED:
+    case OBJ_ENUM_MEMBER:
     case OBJ_FUNC:
+    case OBJ_CAPTURED:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return false;
@@ -362,7 +400,7 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
     case OBJ_MAP: {
         MapObj *map = AS_PTR(MapObj, iterator->iterable);
         if (iterator->iteration >= map->table.count) {
-            return NULL; // Exhausted.
+            return NULL;
         }
         iterator->iteration++;
         u32 filledCounter = 0; // How many non-empty entries we have encountered.
@@ -379,12 +417,20 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
         }
         UNREACHABLE_ERROR();
     }
+    case OBJ_ENUM: {
+        EnumObj *enumObj = AS_PTR(EnumObj, iterator->iterable);
+        if (iterator->iteration >= enumObj->members.length) {
+            return NULL;
+        }
+        return enumObj->members.data[iterator->iteration++];
+    }
     case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:
     case OBJ_NULL:
-    case OBJ_CAPTURED:
+    case OBJ_ENUM_MEMBER:
     case OBJ_FUNC:
+    case OBJ_CAPTURED:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         UNREACHABLE_ERROR();
@@ -446,25 +492,33 @@ bool equal_obj(const Obj *left, const Obj *right) {
 
     switch (left->type) {
     case OBJ_STRING:
-    case OBJ_CAPTURED:
+    case OBJ_ENUM:
     case OBJ_FUNC:
+    case OBJ_CAPTURED:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return left == right; // Compare addresses directly.
-    case OBJ_LIST:
-        return equal_lists(AS_PTR(ListObj, left), AS_PTR(ListObj, right));
-    case OBJ_MAP:
-        return equal_maps(AS_PTR(MapObj, left), AS_PTR(MapObj, right));
+
+    case OBJ_BOOL:
+        return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
+    case OBJ_NULL:
+        return true;
     case OBJ_RANGE: {
         RangeObj *leftRange = AS_PTR(RangeObj, left);
         RangeObj *rightRange = AS_PTR(RangeObj, right);
         return leftRange->start == rightRange->start && leftRange->end == rightRange->end
             && leftRange->step == rightRange->step;
     }
-    case OBJ_BOOL:
-        return AS_PTR(BoolObj, left)->boolean == AS_PTR(BoolObj, right)->boolean;
-    case OBJ_NULL:
-        return true;
+    case OBJ_LIST:
+        return equal_lists(AS_PTR(ListObj, left), AS_PTR(ListObj, right));
+    case OBJ_MAP:
+        return equal_maps(AS_PTR(MapObj, left), AS_PTR(MapObj, right));
+    case OBJ_ENUM_MEMBER: {
+        EnumMemberObj *leftMember = AS_PTR(EnumMemberObj, left);
+        EnumMemberObj *rightMember = AS_PTR(EnumMemberObj, right);
+        return equal_obj(AS_OBJ(leftMember->originalEnum), AS_OBJ(rightMember->originalEnum))
+            && leftMember->index == rightMember->index;
+    }
     case OBJ_INT:
     case OBJ_FLOAT:
         UNREACHABLE_ERROR(); // Ints and floats were handled at the top.
@@ -514,6 +568,7 @@ IntObj *as_int(ZmxProgram *program, const Obj *object) {
     switch (object->type) {
     case OBJ_INT: result = AS_PTR(IntObj, object)->number; break;
     case OBJ_FLOAT: result = (ZmxInt)(AS_PTR(FloatObj, object)->number); break;
+    case OBJ_BOOL: result = (ZmxInt)(AS_PTR(BoolObj, object)->boolean); break;
     case OBJ_STRING: {
         StringObj *str = AS_PTR(StringObj, object);
         if (!verify_string_is_num(str->string)) {
@@ -522,14 +577,15 @@ IntObj *as_int(ZmxProgram *program, const Obj *object) {
         result = strtoll(str->string, NULL, 10);
         break;
     }
+    case OBJ_ENUM_MEMBER: result = AS_PTR(EnumMemberObj, object)->index; break;
 
-    case OBJ_BOOL:
     case OBJ_NULL:
     case OBJ_RANGE:
     case OBJ_LIST:
     case OBJ_MAP:
-    case OBJ_CAPTURED:
+    case OBJ_ENUM:
     case OBJ_FUNC:
+    case OBJ_CAPTURED:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         // Can't ever convert to integer.
@@ -545,6 +601,7 @@ FloatObj *as_float(ZmxProgram *program, const Obj *object) {
     switch (object->type) {
     case OBJ_INT: result = (ZmxFloat)(AS_PTR(IntObj, object)->number); break;
     case OBJ_FLOAT: result = AS_PTR(FloatObj, object)->number; break;
+    case OBJ_BOOL: result = (ZmxFloat)(AS_PTR(BoolObj, object)->boolean); break;
     case OBJ_STRING: {
         StringObj *str = AS_PTR(StringObj, object);
         if (!verify_string_is_num(str->string)) {
@@ -553,13 +610,15 @@ FloatObj *as_float(ZmxProgram *program, const Obj *object) {
         result = strtod(str->string, NULL);
         break;
     }
-    case OBJ_BOOL:
+    case OBJ_ENUM_MEMBER: result = (ZmxFloat)(AS_PTR(EnumMemberObj, object)->index); break;
+
     case OBJ_NULL:
     case OBJ_RANGE:
     case OBJ_LIST:
     case OBJ_MAP:
-    case OBJ_CAPTURED:
+    case OBJ_ENUM:
     case OBJ_FUNC:
+    case OBJ_CAPTURED:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         // Can't ever convert to float.
@@ -574,21 +633,23 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     bool result;
     switch (object->type) {
     case OBJ_RANGE:
-    case OBJ_CAPTURED:
+    case OBJ_ENUM:
     case OBJ_FUNC:
+    case OBJ_CAPTURED:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         // Always considered "truthy".
         result = true;
         break;
 
-    case OBJ_LIST: result = AS_PTR(ListObj, object)->items.length != 0; break;
-    case OBJ_MAP: result = AS_PTR(MapObj, object)->table.count != 0; break;
     case OBJ_INT: result = AS_PTR(IntObj, object)->number != 0; break;
     case OBJ_FLOAT: result = AS_PTR(FloatObj, object)->number != 0.0; break;
-    case OBJ_STRING: result = AS_PTR(StringObj, object)->length != 0; break;
     case OBJ_BOOL: result = AS_PTR(BoolObj, object)->boolean; break;
     case OBJ_NULL: result = false; break;
+    case OBJ_STRING: result = AS_PTR(StringObj, object)->length != 0; break;
+    case OBJ_LIST: result = AS_PTR(ListObj, object)->items.length != 0; break;
+    case OBJ_MAP: result = AS_PTR(MapObj, object)->table.count != 0; break;
+    case OBJ_ENUM_MEMBER: result = AS_PTR(EnumMemberObj, object)->index != 0; break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     return new_bool_obj(program, result);
@@ -631,8 +692,10 @@ char *obj_type_str(ObjType type) {
     case OBJ_RANGE: return "range";
     case OBJ_LIST: return "list";
     case OBJ_MAP: return "map";
-    case OBJ_CAPTURED: return "captured";
+    case OBJ_ENUM: return "enum";
+    case OBJ_ENUM_MEMBER: return "enum member";
     case OBJ_FUNC: return "function";
+    case OBJ_CAPTURED: return "captured";
     case OBJ_NATIVE_FUNC: return "native function";
     case OBJ_ITERATOR: return "iterator";
     }
@@ -670,6 +733,10 @@ void free_obj(Obj *object) {
     case OBJ_MAP:
         free_table(&AS_PTR(MapObj, object)->table);
         break;
+    case OBJ_ENUM:
+        free_table(&AS_PTR(EnumObj, object)->lookupTable);
+        FREE_DA(&AS_PTR(EnumObj, object)->members);
+        break;
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);
         if (func->isClosure) {
@@ -688,6 +755,7 @@ void free_obj(Obj *object) {
     case OBJ_BOOL:
     case OBJ_NULL:
     case OBJ_RANGE:
+    case OBJ_ENUM_MEMBER:
     case OBJ_CAPTURED:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:

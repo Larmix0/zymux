@@ -20,11 +20,13 @@ bool is_hashable(const Obj *object) {
     case OBJ_NULL:
     case OBJ_STRING:
     case OBJ_RANGE:
+    case OBJ_ENUM_MEMBER:
         return true;
     case OBJ_LIST:
     case OBJ_MAP:
-    case OBJ_CAPTURED:
+    case OBJ_ENUM:
     case OBJ_FUNC:
+    case OBJ_CAPTURED:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return false;
@@ -75,11 +77,13 @@ u32 get_hash(const Obj *object) {
         RangeObj *range = AS_PTR(RangeObj, object);
         return hash_int(range->start) + hash_int(range->end) + hash_int(range->step);
     }
+    case OBJ_ENUM_MEMBER: return hash_int(AS_PTR(EnumMemberObj, object)->index);
 
     case OBJ_LIST:
     case OBJ_MAP:
-    case OBJ_CAPTURED:
+    case OBJ_ENUM:
     case OBJ_FUNC:
+    case OBJ_CAPTURED:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         UNREACHABLE_ERROR();

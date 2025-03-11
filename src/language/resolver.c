@@ -809,6 +809,11 @@ static void resolve_loop_control(Resolver *resolver, LoopControlNode *node) {
     node->capturedAmount = get_loop_vars_amount(resolver, CURRENT_CAPTURED(resolver));
 }
 
+/** Resolves an enum, which only has its name declaration (as the members are just ints as text). */
+static void resolve_enum(Resolver *resolver, const EnumNode *node) {
+    resolve_node(resolver, AS_NODE(node->nameDecl));
+}
+
 /** Handles the resolutions of a function's parameters and body. */
 static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
     for (u32 i = 0; i < node->params.length; i++) {
@@ -893,6 +898,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_DO_WHILE: resolve_do_while(resolver, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: resolve_for(resolver, AS_PTR(ForNode, node)); break;
     case AST_LOOP_CONTROL: resolve_loop_control(resolver, AS_PTR(LoopControlNode, node)); break;
+    case AST_ENUM: resolve_enum(resolver, AS_PTR(EnumNode, node)); break;
     case AST_FUNC: resolve_func(resolver, AS_PTR(FuncNode, node)); break;
     case AST_RETURN: resolve_return(resolver, AS_PTR(ReturnNode, node)); break;
 

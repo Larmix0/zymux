@@ -16,25 +16,14 @@
 /** Increments the number which allows protecting newly created objects from the GC if > 0. */
 #define GC_PUSH_PROTECTION(gc) ((gc)->protectionLayers++)
 
-/** Decrements the number which allows protecting newly created objects from the GC if > 0. */
-#define GC_POP_PROTECTION(gc) ((gc)->protectionLayers--)
-
-/** Clears the pool of protected objects if there aren't any current protection layers. */
-#define GC_CLEAR_PROTECTED(gc) \
+/** decrement the counter protecting new objects and clear the protected pool if safe to do so. */
+#define GC_POP_PROTECTION(gc) \
     do { \
+        (gc)->protectionLayers--; \
         if ((gc)->protectionLayers <= 0) { \
             FREE_DA(&(gc)->protected); \
             INIT_DA(&(gc)->protected); \
         } \
-    } while (false)
-
-/** Clear the protected pool, and decrement the counter protecting new objects. */
-#define GC_POP_AND_CLEAR_PROTECTED(gc) \
-    do { \
-        if ((gc)->protectionLayers > 0) { \
-            GC_POP_PROTECTION(gc); \
-        } \
-        GC_CLEAR_PROTECTED(gc); \
     } while (false)
 
 typedef struct Compiler Compiler;

@@ -38,8 +38,10 @@ typedef enum {
     OBJ_RANGE,
     OBJ_LIST,
     OBJ_MAP,
-    OBJ_CAPTURED,
+    OBJ_ENUM_MEMBER,
+    OBJ_ENUM,
     OBJ_FUNC,
+    OBJ_CAPTURED,
     OBJ_NATIVE_FUNC,
     OBJ_ITERATOR
 } ObjType;
@@ -111,16 +113,26 @@ typedef struct {
     Table table;
 } MapObj;
 
-/** An object that simply stores a reference to another object. */
+/** 
+ * An enum which has its name, and holds different names inside it in some ordering.
+ * 
+ * It's implemented by having the enums own name, and a mapping of strings that represent the text
+ * of each enum, and a corresponding value in the map which has the enum member object itself.
+ */
 typedef struct {
     Obj obj;
-    bool isOpen; /** Whether or not the original variable is still alive on the stack. */
-    u32 stackLocation; /** Index of the original object getting captured on the VM's stack. */
-    Obj *captured; /** The final object of the local variable which was captured. */
-} CapturedObj;
+    StringObj *name; /** Name of the created enum itself. */
+    ObjArray members; /** All the member objects in an ordered array of their indices. */
+    Table lookupTable; /** Multiple strings of name keys and integer values to index members. */
+} EnumObj;
 
-/** An array of captured objects. */
-DECLARE_DA_STRUCT(CapturedObjArray, CapturedObj *);
+/** Represents one enum value in an enum. */
+typedef struct {
+    Obj obj;
+    EnumObj *originalEnum; /** The enum which holds this member. */
+    StringObj *name; /** The textual string of the member used to access it. */
+    ZmxInt index; /** The index on the array of members it's on. */
+} EnumMemberObj;
 
 /**
  * Represents an object that holds some bytecode, its positions and a constant pool for them.
@@ -156,6 +168,17 @@ typedef struct {
     /** Whether this function can have closure objects inheriting it with a closure context. */
     bool isClosure;
 } FuncObj;
+
+/** An object that simply stores a reference to another object. */
+typedef struct {
+    Obj obj;
+    bool isOpen; /** Whether or not the original variable is still alive on the stack. */
+    u32 stackLocation; /** Index of the original object getting captured on the VM's stack. */
+    Obj *captured; /** The final object of the local variable which was captured. */
+} CapturedObj;
+
+/** An array of captured objects. */
+DECLARE_DA_STRUCT(CapturedObjArray, CapturedObj *);
 
 /** 
  * A closure which wraps over a function with a context of some captured variables. Not an object
@@ -222,11 +245,24 @@ ListObj *new_list_obj(ZmxProgram *program, const ObjArray items);
 /** Returns an object which holds a hash table of key-value pairs. */
 MapObj *new_map_obj(ZmxProgram *program, const Table table);
 
-/** Returns a newely created indirect reference to the passed object (capturing the object). */
-CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackLocation);
+/**
+ * Returns one member of an enum.
+ * 
+ * Holds the original enum it's a member of, its own member textual representation as a name,
+ * and its index inside the enum.
+ */
+EnumMemberObj *new_enum_member_obj(
+    ZmxProgram *program, EnumObj *originalEnum, StringObj *name, const ZmxInt index
+);
+
+/** Returns an enum, which holds a bunch of names in order. */
+EnumObj *new_enum_obj(ZmxProgram *program, StringObj *name);
 
 /** Returns a new allocated function object. */
 FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 arity, const int constIdx);
+
+/** Returns a newely created indirect reference to the passed object (capturing the object). */
+CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackLocation);
 
 /** 
  * Returns a new closure, which is merely an extended function that has a closure context in it.

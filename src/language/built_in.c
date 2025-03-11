@@ -91,7 +91,7 @@ static void load_native_func(ZmxProgram *program, const char *name, NativeFunc f
     NativeFuncObj *native = new_native_func_obj(program, func, nameObj);
     
     table_set(&program->builtIn, AS_OBJ(nameObj), AS_OBJ(native));
-    GC_POP_AND_CLEAR_PROTECTED(&program->gc);
+    GC_POP_PROTECTION(&program->gc);
 }
 
 /** Loads all built-in objects into the program. */

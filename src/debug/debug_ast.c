@@ -269,6 +269,20 @@ static void append_loop_control(AstBuilder *ast, const LoopControlNode *node) {
     buffer_append_format(&ast->string, "%s ", token_type_string(node->keyword));
 }
 
+/** Appends an enum and its enumerators (members). */
+static void append_enum(AstBuilder *ast, const EnumNode *node) {
+    buffer_append_format(&ast->string, "<enum> ");
+    buffer_append_token(&ast->string, node->nameDecl->name);
+    buffer_append_string(&ast->string, "-> ");
+    for (u32 i = 0; i < node->members.length; i++) {
+        if (i != 0) {
+            buffer_pop(&ast->string); // Pop spurious space.
+            buffer_append_string(&ast->string, ", ");
+        }
+        buffer_append_token(&ast->string, node->members.data[i]);
+    }
+}
+
 /** Appends a generic function node, which includes its name, parameters, and body. */
 static void append_func(AstBuilder *ast, const FuncNode *node) {
     buffer_append_string(&ast->string, "<func> ");
@@ -331,6 +345,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_DO_WHILE: append_do_while(ast, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: append_for(ast, AS_PTR(ForNode, node)); break;
     case AST_LOOP_CONTROL: append_loop_control(ast, AS_PTR(LoopControlNode, node)); break;
+    case AST_ENUM: append_enum(ast, AS_PTR(EnumNode, node)); break;
     case AST_FUNC: append_func(ast, AS_PTR(FuncNode, node)); break;
     case AST_RETURN: append_return(ast, AS_PTR(ReturnNode, node)); break;
     case AST_EOF: append_eof(ast); break;

@@ -259,6 +259,14 @@ Node *new_loop_control_node(ZmxProgram *program, const Token keyword) {
     return AS_NODE(node);
 }
 
+/** Allocates an enum with members that represent a text/readable number. */
+Node *new_enum_node(ZmxProgram *program, DeclareVarNode *nameDecl, const TokenArray members) {
+    EnumNode *node = NEW_NODE(program, AST_ENUM, EnumNode);
+    node->nameDecl = nameDecl;
+    node->members = members;
+    return AS_NODE(node);
+}
+
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(
     ZmxProgram *program, DeclareVarNode *nameDecl, const NodeArray params, BlockNode *body
@@ -323,6 +331,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_DO_WHILE: return AS_PTR(DoWhileNode, node)->body->pos;
     case AST_FOR: return AS_PTR(ForNode, node)->loopVar->name.pos;
     case AST_LOOP_CONTROL: return AS_PTR(LoopControlNode, node)->pos;
+    case AST_ENUM: return AS_PTR(EnumNode, node)->nameDecl->name.pos;
     case AST_FUNC: return AS_PTR(FuncNode, node)->nameDecl->name.pos;
     case AST_RETURN: return get_node_pos(AS_PTR(ReturnNode, node)->returnValue);
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
@@ -352,6 +361,9 @@ static void free_node(Node *node) {
         break;
     case AST_CALL:
         FREE_DA(&AS_PTR(CallNode, node)->args);
+        break;
+    case AST_ENUM:
+        FREE_DA(&AS_PTR(EnumNode, node)->members);
         break;
     case AST_FUNC:
         FREE_DA(&AS_PTR(FuncNode, node)->params);

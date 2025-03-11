@@ -30,8 +30,6 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast) {
         .func = AS_PTR(FuncObj, new_closure_obj(program, new_func_obj(program, name, 0, -1), true)),
         .jumps = CREATE_DA(), .breaks = CREATE_DA(), .continues = CREATE_DA(),
     };
-
-    GC_POP_PROTECTION(&program->gc);
     return compiler;
 }
 
@@ -701,6 +699,33 @@ static void compile_loop_control(Compiler *compiler, const LoopControlNode *node
     }
 }
 
+/** Compiles an enum declaration. TODO: add docs. */
+static void compile_enum(Compiler *compiler, const EnumNode *node) {
+    GC_PUSH_PROTECTION(&compiler->program->gc);
+    StringObj *enumName = new_string_obj(
+        compiler->program, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
+    );
+    EnumObj *enumObj = new_enum_obj(compiler->program, enumName);
+    
+    for (u32 i = 0; i < node->members.length; i++) {
+        StringObj *memberText = new_string_obj(
+            compiler->program, node->members.data[i].lexeme, node->members.data[i].pos.length
+        );
+        EnumMemberObj *memberVal = new_enum_member_obj(
+            compiler->program, enumObj, memberText, (ZmxInt)i
+        );
+        APPEND_DA(&enumObj->members, AS_OBJ(memberVal));
+        table_set(
+            &enumObj->lookupTable, AS_OBJ(memberText),
+            AS_OBJ(new_int_obj(compiler->program, (ZmxInt)i))
+        );
+    }
+
+    emit_const(compiler, OP_LOAD_CONST, AS_OBJ(enumObj), get_node_pos(AS_NODE(node)));
+    compile_declare_var(compiler, node->nameDecl);
+    GC_POP_PROTECTION(&compiler->program->gc);
+}
+
 /** 
  * Finishes compiling the current function on the compiler. TODO: add optional params.
  * 
@@ -758,7 +783,7 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
     emit_const(
         compiler, node->isClosure ? OP_CLOSURE : OP_LOAD_CONST, AS_OBJ(finished), previousPos
     );
-    GC_POP_AND_CLEAR_PROTECTED(&compiler->program->gc);
+    GC_POP_PROTECTION(&compiler->program->gc);
     compile_declare_var(compiler, node->nameDecl);
 }
 
@@ -813,6 +838,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_DO_WHILE: compile_do_while(compiler, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: compile_for(compiler, AS_PTR(ForNode, node)); break;
     case AST_LOOP_CONTROL: compile_loop_control(compiler, AS_PTR(LoopControlNode, node)); break;
+    case AST_ENUM: compile_enum(compiler, AS_PTR(EnumNode, node)); break;
     case AST_FUNC: compile_func(compiler, AS_PTR(FuncNode, node)); break;
     case AST_RETURN: compile_return(compiler, AS_PTR(ReturnNode, node)); break;
     case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
@@ -883,7 +909,7 @@ Compiler compile_source(ZmxProgram *program, char *source) {
     Compiler compiler = create_compiler(program, resolver.ast);
     // Set this compiler as the one being garbage collected. Now compiler's objects can be GC'd.
     program->gc.compiler = &compiler;
-    GC_CLEAR_PROTECTED(&program->gc);
+    GC_POP_PROTECTION(&program->gc);
     if (!compile(&compiler)) {
         free_out_of_compilation(&lexer, &parser, &resolver, &compiler);
         return emptyCompiler;

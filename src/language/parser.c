@@ -644,7 +644,7 @@ static Node *statement(Parser *parser) {
  * 
  * TODO: add documentation for multi-variable declaration.
  */
-static Node *parse_declare_var(Parser *parser, const bool isConst) {
+static Node *parse_var_declaration(Parser *parser, const bool isConst) {
     Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected declared variable's name.");
     Node *value;
     if (MATCH(parser, TOKEN_SEMICOLON)) {
@@ -660,6 +660,30 @@ static Node *parse_declare_var(Parser *parser, const bool isConst) {
         );
     }
     return new_declare_var_node(parser->program, name, value, isConst);
+}
+
+/** Declares an enum with an array of enum values that are named but just represent integers. */
+static Node *parse_enum(Parser *parser) {
+    const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected enum name.");
+    DeclareVarNode *declaration = AS_PTR(
+        DeclareVarNode, new_declare_var_node(parser->program, name, NULL, false)
+    );
+    CONSUME(parser, TOKEN_LCURLY, "Expected '{' after enum name.");
+
+    TokenArray members = CREATE_DA();
+    if (!MATCH(parser, TOKEN_RCURLY)) {
+        const Token firstMember = CONSUME(parser, TOKEN_IDENTIFIER, "Expected enum member or '}'.");
+        APPEND_DA(&members, firstMember);
+        
+        while (!MATCH(parser, TOKEN_RCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
+            CONSUME(parser, TOKEN_COMMA, "Expected ',' or '}' after enum member.");
+            const Token member = CONSUME(
+                parser, TOKEN_IDENTIFIER, "Expected enum member after ','."
+            );
+            APPEND_DA(&members, member);
+        }
+    }
+    return new_enum_node(parser->program, declaration, members);
 }
 
 /** Returns a parsed parameter for a function. TODO: expand later with optional parameters. */
@@ -739,8 +763,9 @@ static void synchronize(Parser *parser) {
 static Node *declaration(Parser *parser) {
     Node *node;
     switch (ADVANCE_PEEK(parser).type) {
-    case TOKEN_LET_KW: node = parse_declare_var(parser, false); break;
-    case TOKEN_CONST_KW: node = parse_declare_var(parser, true); break;
+    case TOKEN_LET_KW: node = parse_var_declaration(parser, false); break;
+    case TOKEN_CONST_KW: node = parse_var_declaration(parser, true); break;
+    case TOKEN_ENUM_KW: node = parse_enum(parser); break;
     case TOKEN_FUNC_KW: node = parse_func(parser); break;
     default:
         RETREAT(parser);
