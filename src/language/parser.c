@@ -615,7 +615,7 @@ static Node *parse_loop_control(Parser *parser) {
 static Node *parse_return(Parser *parser) {
     Node *value;
     if (CHECK(parser, TOKEN_SEMICOLON)) {
-        value = new_keyword_node(parser->program, create_token("null", TOKEN_NULL_KW));
+        value = NULL_NODE(parser);
     } else {
         value = expression(parser);
     }
@@ -653,7 +653,7 @@ static Node *parse_var_declaration(Parser *parser, const bool isConst) {
     Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected declared variable's name.");
     Node *value;
     if (MATCH(parser, TOKEN_SEMICOLON)) {
-        value = new_keyword_node(parser->program, create_token("null", TOKEN_NULL_KW));   
+        value = NULL_NODE(parser);   
     } else if (MATCH(parser, TOKEN_EQ)){
         value = expression(parser);
         CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after variable's value.");
