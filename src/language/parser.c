@@ -248,6 +248,11 @@ static Node *call(Parser *parser) {
         if (MATCH(parser, TOKEN_LPAR)) {
             NodeArray args = parse_args(parser);
             expr = new_call_node(parser->program, expr, args);
+        } else if (MATCH(parser, TOKEN_DOT)) {
+            const Token property = CONSUME(
+                parser, TOKEN_IDENTIFIER, "Expected a field or a method name after '.'."
+            );
+            expr = new_get_property_node(parser->program, property, expr);
         } else if (MATCH(parser, TOKEN_LSQUARE)) {
             expr = parse_subscr(parser, expr);
         } else {
@@ -263,7 +268,7 @@ static Node *call(Parser *parser) {
  */
 static Node *unary(Parser *parser) {
     if (CHECK(parser, TOKEN_MINUS) || CHECK(parser, TOKEN_BANG) || CHECK(parser, TOKEN_TILDE)) {
-        Token operation = ADVANCE_PEEK(parser);
+        const Token operation = ADVANCE_PEEK(parser);
         return new_unary_node(parser->program, operation, unary(parser));
     }
     return call(parser);    
@@ -674,7 +679,7 @@ static Node *parse_enum(Parser *parser) {
     if (!MATCH(parser, TOKEN_RCURLY)) {
         const Token firstMember = CONSUME(parser, TOKEN_IDENTIFIER, "Expected enum member or '}'.");
         APPEND_DA(&members, firstMember);
-        
+
         while (!MATCH(parser, TOKEN_RCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
             CONSUME(parser, TOKEN_COMMA, "Expected ',' or '}' after enum member.");
             const Token member = CONSUME(

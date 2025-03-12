@@ -31,6 +31,7 @@ typedef enum {
     AST_DECLARE_VAR,
     AST_ASSIGN_VAR,
     AST_GET_VAR,
+    AST_GET_PROPERTY,
     AST_IF_ELSE,
     AST_MATCH,
     AST_WHILE,
@@ -228,6 +229,13 @@ typedef struct {
     VarResolution resolution;
 } GetVarNode;
 
+/** Represents a node which gets a field/method inside some object that has it. */
+typedef struct {
+    Node node;
+    Token property; /** Property being accessed. */
+    Node *originalObj; /** The original object which holds the accessed property. */
+} GetPropertyNode;
+
 /** Represents a full conditional if-else statement in a node where the else part is optional. */
 typedef struct {
     Node node;
@@ -386,6 +394,9 @@ Node *new_assign_var_node(ZmxProgram *program, const Token name, Node *value);
 
 /** Allocates a node which holds the name of a variable to get its value. */
 Node *new_get_var_node(ZmxProgram *program, const Token name);
+
+/** Allocates a node which holds a property access into some object. */
+Node *new_get_property_node(ZmxProgram *program, const Token property, Node *originalObj);
 
 /** Allocates an if-else node with their condition. The else branch can optionally be NULL. */
 Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBranch, Node *elseBranch);

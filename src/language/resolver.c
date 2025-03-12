@@ -687,6 +687,11 @@ static void resolve_get_var(Resolver *resolver, GetVarNode *node) {
     );
 }
 
+/** Resolves accessing an object to get/lookup some property out of it. */
+static void resolve_get_property(Resolver *resolver, GetPropertyNode *node) {
+    resolve_node(resolver, node->originalObj);
+}
+
 /** Resolves the condition and branches of an if-else statement. */
 static void resolve_if_else(Resolver *resolver, IfElseNode *node) {
     resolve_node(resolver, node->condition);
@@ -872,7 +877,7 @@ static void resolve_return(Resolver *resolver, ReturnNode *node) {
 /** Resolves the passed nodes and anything inside it that requires resolution. */
 static void resolve_node(Resolver *resolver, Node *node) {
     if (node == NULL) {
-        return; // Nothing in the node.
+        return;
     }
 
     switch (node->type) {
@@ -892,6 +897,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_DECLARE_VAR: resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node)); break;
     case AST_ASSIGN_VAR: resolve_assign_var(resolver, AS_PTR(AssignVarNode, node)); break;
     case AST_GET_VAR: resolve_get_var(resolver, AS_PTR(GetVarNode, node)); break;
+    case AST_GET_PROPERTY: resolve_get_property(resolver, AS_PTR(GetPropertyNode, node)); break;
     case AST_IF_ELSE: resolve_if_else(resolver, AS_PTR(IfElseNode, node)); break;
     case AST_MATCH: resolve_match(resolver, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: resolve_while(resolver, AS_PTR(WhileNode, node)); break;

@@ -444,6 +444,20 @@ static void compile_get_var(Compiler *compiler, const GetVarNode *node) {
 }
 
 /** 
+ * Compiles getting some property out of an accessed object.
+ * 
+ * First, loads the accessed object to be on the top of the stack, then emits a const string
+ * to be read that has the name of the property we're getting.
+ */
+static void compile_get_property(Compiler *compiler, const GetPropertyNode *node) {
+    compile_node(compiler, node->originalObj);
+    Obj *property = AS_OBJ(new_string_obj(
+        compiler->program, node->property.lexeme, node->property.pos.length
+    ));
+    emit_const(compiler, OP_GET_PROPERTY, property, get_node_pos(AS_NODE(node)));
+}
+
+/** 
  * Compiles an if-statement and its optional else branch if one exists.
  * 
  * Compiles the condition of the "if" then emits a conditional jump, which skips over
@@ -699,7 +713,12 @@ static void compile_loop_control(Compiler *compiler, const LoopControlNode *node
     }
 }
 
-/** Compiles an enum declaration. TODO: add docs. */
+/** 
+ * Compiles an enum declaration.
+ * 
+ * Makes an enum object and loads it as a normal const with no special instruction, as enums
+ * can be fully handled at compilation time since no changing runtime variables are involved.
+ */
 static void compile_enum(Compiler *compiler, const EnumNode *node) {
     GC_PUSH_PROTECTION(&compiler->program->gc);
     StringObj *enumName = new_string_obj(
@@ -832,6 +851,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_DECLARE_VAR: compile_declare_var(compiler, AS_PTR(DeclareVarNode, node)); break;
     case AST_ASSIGN_VAR: compile_assign_var(compiler, AS_PTR(AssignVarNode, node)); break;
     case AST_GET_VAR: compile_get_var(compiler, AS_PTR(GetVarNode, node)); break;
+    case AST_GET_PROPERTY: compile_get_property(compiler, AS_PTR(GetPropertyNode, node)); break;
     case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
     case AST_MATCH: compile_match(compiler, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;

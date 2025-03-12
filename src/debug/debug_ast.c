@@ -207,6 +207,14 @@ static void append_get_var(AstBuilder *ast, const GetVarNode *node) {
     buffer_append_token(&ast->string, node->name);
 }
 
+/** Appends a property get, which also has an original object that we get the property from. */
+static void append_get_property(AstBuilder *ast, const GetPropertyNode *node) {
+    append_node(ast, node->originalObj);
+    buffer_pop(&ast->string);
+    buffer_append_string(&ast->string, ".");
+    buffer_append_token(&ast->string, node->property);
+}
+
 /** Appends a representation of an if-else statement where the else is optional. */
 static void append_if_else(AstBuilder *ast, const IfElseNode *node) {
     buffer_append_string(&ast->string, "<if> ");
@@ -339,6 +347,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_DECLARE_VAR: append_declare_var(ast, AS_PTR(DeclareVarNode, node)); break;
     case AST_ASSIGN_VAR: append_assign_var(ast, AS_PTR(AssignVarNode, node)); break;
     case AST_GET_VAR: append_get_var(ast, AS_PTR(GetVarNode, node)); break;
+    case AST_GET_PROPERTY: append_get_property(ast, AS_PTR(GetPropertyNode, node)); break;
     case AST_IF_ELSE: append_if_else(ast, AS_PTR(IfElseNode, node)); break;
     case AST_MATCH: append_match(ast, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: append_while(ast, AS_PTR(WhileNode, node)); break;

@@ -43,6 +43,10 @@ only when fields and methods are added to built-in objects.
 
 ----------------------------------------------------------------------------------------------------
 
+Be more consistent with usage of get_node_pos().
+
+Make sure tokens are const wherever they can be, especially in the parser and compiler.
+
 Change certain nodes/objects so they simply initialize their dynamic arrays,
 instead of having to manually create external arrays and pass them to "new_*" functions first.
 

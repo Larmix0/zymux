@@ -198,6 +198,13 @@ Node *new_get_var_node(ZmxProgram *program, const Token name) {
     return AS_NODE(node);
 }
 
+/** Allocates a node which holds a property access into some object. */
+Node *new_get_property_node(ZmxProgram *program, const Token property, Node *originalObj) {
+    GetPropertyNode *node = NEW_NODE(program, AST_GET_PROPERTY, GetPropertyNode);
+    node->property = property;
+    node->originalObj = originalObj;
+    return AS_NODE(node);
+}
 
 /** Allocates an if-else statement with their condition. The else branch can optionally be NULL. */
 Node *new_if_else_node(
@@ -325,6 +332,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_DECLARE_VAR: return AS_PTR(DeclareVarNode, node)->name.pos;
     case AST_ASSIGN_VAR: return AS_PTR(AssignVarNode, node)->name.pos;
     case AST_GET_VAR: return AS_PTR(GetVarNode, node)->name.pos;
+    case AST_GET_PROPERTY: return AS_PTR(GetPropertyNode, node)->property.pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
     case AST_MATCH: return get_node_pos(AS_PTR(MatchNode, node)->matchedExpr);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
@@ -383,6 +391,7 @@ static void free_node(Node *node) {
     case AST_DECLARE_VAR:
     case AST_ASSIGN_VAR:
     case AST_GET_VAR:
+    case AST_GET_PROPERTY:
     case AST_IF_ELSE:
     case AST_WHILE:
     case AST_DO_WHILE:

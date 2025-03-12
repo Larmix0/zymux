@@ -225,6 +225,11 @@ OP_GET_CAPTURED:
     then we push the one on the stack to the top,
     but if it's not, then we push the thing inside the captured object instead.
 
+OP_GET_PROPERTY:
+    Loads a property of some object that is at the top of the stack. The property that should be
+    loaded from that object is read from the stack as a string object.
+    Replaces the object on the top of the stack with the resulting object from the property access.
+
 OP_CALL:
     Reads a number, which is the number of arguments on the stack for the calle. The topmost object
     in the stack is the rightmost argument in code, and the deeper on the stack the more to the left

@@ -117,7 +117,11 @@ typedef struct {
  * An enum which has its name, and holds different names inside it in some ordering.
  * 
  * It's implemented by having the enums own name, and a mapping of strings that represent the text
- * of each enum, and a corresponding value in the map which has the enum member object itself.
+ * of each enum, and a corresponding value in the map which has the index where the enum member
+ * object itself is located in the members array.
+ * 
+ * This formation is important as it allows us the speed of table lookups but also ensures members
+ * are ordered in an array for optimized iteration in loops.
  */
 typedef struct {
     Obj obj;
@@ -126,7 +130,8 @@ typedef struct {
     Table lookupTable; /** Multiple strings of name keys and integer values to index members. */
 } EnumObj;
 
-/** Represents one enum value in an enum. */
+/** 
+ * Represents one enum value in an enum. */
 typedef struct {
     Obj obj;
     EnumObj *originalEnum; /** The enum which holds this member. */

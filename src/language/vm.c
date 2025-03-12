@@ -417,6 +417,26 @@ static void capture_variable(Vm *vm, Obj *capturedObj, const u32 stackLocation) 
     APPEND_DA(&vm->openCaptures, capture);
 }
 
+/** Access a property inside some object that might have multiple properties inside it. */
+static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
+    // TODO: Modify and extend this especially when most objects get built-in fields/methods.
+    if (originalObj->type == OBJ_ENUM) {
+        EnumObj *enumObj = AS_PTR(EnumObj, originalObj);
+        Obj *propertyIdx = table_get(&enumObj->lookupTable, AS_OBJ(name));
+        if (propertyIdx == NULL) {
+            return runtime_error(vm, "No enum member called '%s'.", name->string);
+        }
+        ASSERT(propertyIdx->type == OBJ_INT, "Expected enum lookup table value to be int.");
+        PEEK(vm) = enumObj->members.data[AS_PTR(IntObj, propertyIdx)->number];
+    } else {
+        return runtime_error(
+            vm, "Object of type %s doesn't have properties.",
+            obj_type_str(originalObj->type)
+        );
+    }
+    return true;
+}
+
 /** 
  * Executes all the bytecode in the passed VM's function object.
  * 
@@ -700,6 +720,14 @@ static bool execute_vm(Vm *vm) {
                 PUSH(vm, vm->stack.objects[capture->stackLocation]);
             } else {
                 PUSH(vm, capture->captured);
+            }
+            break;
+        }
+        case OP_GET_PROPERTY: {
+            Obj *originalObj = PEEK(vm);
+            StringObj *name = AS_PTR(StringObj, READ_CONST(vm));
+            if (!get_property(vm, originalObj, name)) {
+                return false;
             }
             break;
         }
