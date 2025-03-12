@@ -62,7 +62,7 @@ static void compile_literal(Compiler *compiler, const LiteralNode *node) {
     default:
         UNREACHABLE_ERROR();
     }
-    emit_const(compiler, OP_LOAD_CONST, literalAsObj, node->value.pos);
+    emit_const(compiler, OP_LOAD_CONST, literalAsObj, get_node_pos(AS_NODE(node)));
 }
 
 /** 
@@ -113,7 +113,7 @@ static void compile_unary(Compiler *compiler, const UnaryNode *node) {
     case TOKEN_TILDE: unaryOp = OP_TILDE; break;
     default: UNREACHABLE_ERROR();
     }
-    emit_instr(compiler, unaryOp, node->operation.pos);
+    emit_instr(compiler, unaryOp, get_node_pos(AS_NODE(node)));
 }
 
 /** Handles a binary operation with a data type right hand side (like "is" and "as"). */
@@ -131,7 +131,8 @@ static void binary_data_type_op(Compiler *compiler, const BinaryNode *node) {
     }
 
     emit_number(
-        compiler, node->operation.type == TOKEN_IS_KW ? OP_IS : OP_AS, dataType, node->operation.pos
+        compiler, node->operation.type == TOKEN_IS_KW ? OP_IS : OP_AS, dataType,
+        get_node_pos(AS_NODE(node))
     );
 }
 
@@ -156,9 +157,9 @@ static void binary_logical_op(Compiler *compiler, const BinaryNode *node) {
     compile_node(compiler, node->lhs);
 
     OpCode jumpInstr = node->operation.type == TOKEN_BAR_BAR ? OP_JUMP_IF : OP_JUMP_IF_NOT;
-    u32 shortCircuit = emit_unpatched_jump(compiler, jumpInstr, node->operation.pos);
+    u32 shortCircuit = emit_unpatched_jump(compiler, jumpInstr, get_node_pos(AS_NODE(node)));
     
-    emit_local_pops(compiler, 1, node->operation.pos);
+    emit_local_pops(compiler, 1, get_node_pos(AS_NODE(node)));
     compile_node(compiler, node->rhs);
     patch_jump(compiler, shortCircuit, compiler->func->bytecode.length, true);
 }
@@ -202,7 +203,7 @@ static void compile_binary(Compiler *compiler, const BinaryNode *node) {
     case TOKEN_LESS_EQ: binaryOp = OP_LESS_EQ; break;
     default: UNREACHABLE_ERROR();
     }
-    emit_instr(compiler, binaryOp, node->operation.pos);
+    emit_instr(compiler, binaryOp, get_node_pos(AS_NODE(node)));
 }
 
 /** Compiles the parenthesized expression as a way to isolate that expression's precedence. */
@@ -349,7 +350,7 @@ static void compile_declare_var(Compiler *compiler, const DeclareVarNode *node) 
     case VAR_LOCAL:
         break;
     case VAR_CAPTURED:
-        emit_instr(compiler, OP_CAPTURE, node->name.pos);
+        emit_instr(compiler, OP_CAPTURE, name.pos);
         break;
     case VAR_GLOBAL: {
         StringObj *nameAsObj = new_string_obj(compiler->program, name.lexeme, name.pos.length);
