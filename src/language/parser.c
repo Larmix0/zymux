@@ -108,7 +108,7 @@ static Node *parse_string(Parser *parser) {
     while (!MATCH(parser, TOKEN_STRING_END)) {
         ASSERT(!IS_EOF(parser), "No string end token to parse for string.");
         if (nextIsString) {
-            Token literal = CONSUME(parser, TOKEN_STRING_LIT, "Expected a string literal.");
+            const Token literal = CONSUME(parser, TOKEN_STRING_LIT, "Expected a string literal.");
             bool emptyString = literal.stringVal.length > 0;
             bool onlyString = CHECK(parser, TOKEN_STRING_END) && exprs.length == 0;
             if (emptyString || onlyString) {
@@ -278,7 +278,7 @@ static Node *unary(Parser *parser) {
 static Node *binary_data_type(Parser *parser) {
     Node *expr = unary(parser);
     if (CHECK(parser, TOKEN_IS_KW) || CHECK(parser, TOKEN_AS_KW)) {
-        Token operation = ADVANCE_PEEK(parser);
+        const Token operation = ADVANCE_PEEK(parser);
         Node *dataType = unary(parser);
         if (
             dataType->type != AST_KEYWORD ||
@@ -302,7 +302,7 @@ static Node *binary_data_type(Parser *parser) {
 static Node *exponent(Parser *parser) {
     Node *expr = binary_data_type(parser);
     while (CHECK(parser, TOKEN_EXPO)) {
-        Token operation = ADVANCE_PEEK(parser);
+        const Token operation = ADVANCE_PEEK(parser);
         Node *rhs = binary_data_type(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
@@ -315,7 +315,7 @@ static Node *factor(Parser *parser) {
     while (
         CHECK(parser, TOKEN_STAR) || CHECK(parser, TOKEN_SLASH) || CHECK(parser, TOKEN_PERCENT)
     ) {
-        Token operation = ADVANCE_PEEK(parser);
+        const Token operation = ADVANCE_PEEK(parser);
         Node *rhs = exponent(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
@@ -326,7 +326,7 @@ static Node *factor(Parser *parser) {
 static Node *term(Parser *parser) {
     Node *expr = factor(parser);
     while (CHECK(parser, TOKEN_PLUS) || CHECK(parser, TOKEN_MINUS)) {
-        Token operation = ADVANCE_PEEK(parser);
+        const Token operation = ADVANCE_PEEK(parser);
         Node *rhs = factor(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
@@ -345,7 +345,7 @@ static Node *binary_bitwise(Parser *parser) {
         CHECK(parser, TOKEN_LSHIFT) || CHECK(parser, TOKEN_RSHIFT) || CHECK(parser, TOKEN_TILDE)
         || CHECK(parser, TOKEN_BAR) || CHECK(parser, TOKEN_AMPER) || CHECK(parser, TOKEN_CARET)
     ) {
-        Token operation = ADVANCE_PEEK(parser);
+        const Token operation = ADVANCE_PEEK(parser);
         Node *rhs = term(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);   
     }
@@ -359,7 +359,7 @@ static Node *comparison(Parser *parser) {
         CHECK(parser, TOKEN_GREATER) || CHECK(parser, TOKEN_GREATER_EQ)
         || CHECK(parser, TOKEN_LESS) || CHECK(parser, TOKEN_LESS_EQ)
     ) {
-        Token operation = ADVANCE_PEEK(parser);
+        const Token operation = ADVANCE_PEEK(parser);
         Node *rhs = binary_bitwise(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
@@ -370,7 +370,7 @@ static Node *comparison(Parser *parser) {
 static Node *equality(Parser *parser) {
     Node *expr = comparison(parser);
     while (CHECK(parser, TOKEN_EQ_EQ) || CHECK(parser, TOKEN_BANG_EQ)) {
-        Token operation = ADVANCE_PEEK(parser);
+        const Token operation = ADVANCE_PEEK(parser);
         Node *rhs = comparison(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
@@ -418,7 +418,7 @@ static Node *range(Parser *parser) {
 static Node *binary_logical(Parser *parser) {
     Node *expr = range(parser);
     if (CHECK(parser, TOKEN_BAR_BAR) || CHECK(parser, TOKEN_AMPER_AMPER)) {
-        Token operation = ADVANCE_PEEK(parser);
+        const Token operation = ADVANCE_PEEK(parser);
         Node *rhs = binary_logical(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
@@ -603,7 +603,7 @@ static Node *parse_for(Parser *parser) {
 
 /** A keyword statement followed by a semicolon to jump somewhere in a loop (like continue). */
 static Node *parse_loop_control(Parser *parser) {
-    Token keyword = PEEK_PREVIOUS(parser);
+    const Token keyword = PEEK_PREVIOUS(parser);
     Node *node = new_loop_control_node(parser->program, keyword);
     CONSUME(
         parser, TOKEN_SEMICOLON, "Expected ';' after '%.*s'.", keyword.pos.length, keyword.lexeme
@@ -650,7 +650,7 @@ static Node *statement(Parser *parser) {
  * TODO: add documentation for multi-variable declaration.
  */
 static Node *parse_var_declaration(Parser *parser, const bool isConst) {
-    Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected declared variable's name.");
+    const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected declared variable's name.");
     Node *value;
     if (MATCH(parser, TOKEN_SEMICOLON)) {
         value = NULL_NODE(parser);   

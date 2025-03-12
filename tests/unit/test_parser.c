@@ -58,9 +58,9 @@ PRIVATE_TEST_CASE(test_parser_macros) {
     ASSERT_TRUE(lex(&lexer));
     Parser parser = create_parser(&program, lexer.tokens);
 
-    Token one = create_int_token("1", 10);
-    Token plus = create_token("+", TOKEN_PLUS);
-    Token three = create_int_token("3", 10);
+    const Token one = create_int_token("1", 10);
+    const Token plus = create_token("+", TOKEN_PLUS);
+    const Token three = create_int_token("3", 10);
     ASSERT_FALSE(IS_EOF(&parser));
     ASSERT_TRUE(equal_token(PEEK(&parser), one));
     ASSERT_TRUE(equal_token(ADVANCE_PEEK(&parser), one));
@@ -78,7 +78,7 @@ PRIVATE_TEST_CASE(test_parser_macros) {
     ASSERT_TRUE(MATCH(&parser, TOKEN_PLUS));
     ASSERT_TRUE(equal_token(PEEK(&parser), three));
 
-    Token consumedThree = CONSUME(&parser, TOKEN_INT_LIT, "This should succeed");
+    const Token consumedThree = CONSUME(&parser, TOKEN_INT_LIT, "This should succeed");
     ASSERT_TRUE(equal_token(three, consumedThree));
     ASSERT_FALSE(parser.program->hasErrored);
     CONSUME(&parser, TOKEN_BAR_BAR, "This should fail.");

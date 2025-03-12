@@ -13,23 +13,23 @@ PRIVATE_TEST_CASE(test_token_type_to_string) {
 
 /** Tests if the functions for creating arbitrary non-positioned tokens work. */
 PRIVATE_TEST_CASE(test_token_creators) {
-    Token leftShift = create_token("<<", TOKEN_LSHIFT);
+    const Token leftShift = create_token("<<", TOKEN_LSHIFT);
     ASSERT_STRING_EQUAL(leftShift.lexeme, "<<");
     ASSERT_TRUE(leftShift.type == TOKEN_LSHIFT);
 
-    Token decimalInt = create_int_token("23", 10);
+    const Token decimalInt = create_int_token("23", 10);
     ASSERT_STRING_EQUAL(decimalInt.lexeme, "23");
     ASSERT_INT_EQUAL(decimalInt.intVal, 23);
 
-    Token hexInt = create_int_token("E2D", 16);
+    const Token hexInt = create_int_token("E2D", 16);
     ASSERT_STRING_EQUAL(hexInt.lexeme, "E2D");
     ASSERT_INT_EQUAL(hexInt.intVal, 3629);
 
-    Token floatNumber = create_float_token("33.4");
+    const Token floatNumber = create_float_token("33.4");
     ASSERT_STRING_EQUAL(floatNumber.lexeme, "33.4");
     ASSERT_FLOAT_EQUAL(floatNumber.floatVal, 33.4);
 
-    Token string = create_string_token("String.");
+    const Token string = create_string_token("String.");
     ASSERT_STRING_EQUAL(string.lexeme, "String.");
     ASSERT_STRING_EQUAL(string.stringVal.text, "String.");
 }

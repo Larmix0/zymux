@@ -45,7 +45,7 @@ void free_compiler(Compiler *compiler) {
  * It is done by adding its obj form in the constants pool and emitting the index where its at.
  */
 static void compile_literal(Compiler *compiler, const LiteralNode *node) {
-    Token value = node->value;
+    const Token value = node->value;
     Obj *literalAsObj;
     switch (value.type) {
     case TOKEN_INT_LIT:
