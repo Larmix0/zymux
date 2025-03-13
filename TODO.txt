@@ -42,3 +42,5 @@ which is a list of 2 element lists that represent the key and value. This will b
 only when fields and methods are added to built-in objects.
 
 ----------------------------------------------------------------------------------------------------
+
+Consistently treat NULL checks as implicit booleans.

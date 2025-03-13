@@ -43,6 +43,8 @@ typedef enum {
     OBJ_FUNC,
     OBJ_CAPTURED,
     OBJ_CLASS,
+    OBJ_INSTANCE,
+    OBJ_METHOD,
     OBJ_NATIVE_FUNC,
     OBJ_ITERATOR
 } ObjType;
@@ -135,7 +137,7 @@ typedef struct {
  * Represents one enum value in an enum. */
 typedef struct {
     Obj obj;
-    EnumObj *originalEnum; /** The enum which holds this member. */
+    EnumObj *enumObj; /** The enum which holds this member. */
     StringObj *name; /** The textual string of the member used to access it. */
     ZmxInt index; /** The index on the array of members it's on. */
 } EnumMemberObj;
@@ -219,6 +221,20 @@ typedef struct {
     Table methods;
 } ClassObj;
 
+/** Holds the original class, and its own fields which can change at runtime. */
+typedef struct {
+    Obj obj;
+    ClassObj *cls;
+    Table fields;
+} InstanceObj;
+
+/** A method with the instance tied to it (in order to access "this" inside the method). */
+typedef struct {
+    Obj obj;
+    InstanceObj *instance;
+    FuncObj *func;
+} MethodObj;
+
 /** A built-in Zymux function whose implementation is written in C. */
 typedef struct {
     Obj obj;
@@ -266,7 +282,7 @@ MapObj *new_map_obj(ZmxProgram *program, const Table table);
  * and its index inside the enum.
  */
 EnumMemberObj *new_enum_member_obj(
-    ZmxProgram *program, EnumObj *originalEnum, StringObj *name, const ZmxInt index
+    ZmxProgram *program, EnumObj *enumObj, StringObj *name, const ZmxInt index
 );
 
 /** Returns an enum, which holds a bunch of names in order. */
@@ -286,8 +302,14 @@ CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stac
  */
 ClosureObj *new_closure_obj(ZmxProgram *program, FuncObj *closedFunc, const bool isToplevel);
 
-/** Creates a bare-bones class with only a name. Other information is added later. */
+/** Returns a bare-bones class with only a name. Other information is added later. */
 ClassObj *new_class_obj(ZmxProgram *program, StringObj *name);
+
+/** Returns a separate instance of the class, which has its own fields. */
+InstanceObj *new_instance_obj(ZmxProgram *program, ClassObj *cls);
+
+/** Returns a method of a class, which is tied to an instance of it (to access its properties). */
+MethodObj *new_method_obj(ZmxProgram *program, InstanceObj *instance, FuncObj *func);
 
 /** Returns a new allocated native function object. */
 NativeFuncObj *new_native_func_obj(ZmxProgram *program, NativeFunc func, StringObj *name);

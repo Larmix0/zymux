@@ -135,10 +135,10 @@ MapObj *new_map_obj(ZmxProgram *program, const Table table) {
  * and its index inside the enum.
  */
 EnumMemberObj *new_enum_member_obj(
-    ZmxProgram *program, EnumObj *originalEnum, StringObj *name, const ZmxInt index
+    ZmxProgram *program, EnumObj *enumObj, StringObj *name, const ZmxInt index
 ) {
     EnumMemberObj *object = NEW_OBJ(program, OBJ_ENUM_MEMBER, EnumMemberObj);
-    object->originalEnum = originalEnum;
+    object->enumObj = enumObj;
     object->name = name;
     object->index = index;
     return object;
@@ -211,6 +211,22 @@ ClassObj *new_class_obj(ZmxProgram *program, StringObj *name) {
     object->name = name;
     object->init = NULL;
     object->methods = create_table();
+    return object;
+}
+
+/** Returns a separate instance of the class, which has its own fields. */
+InstanceObj *new_instance_obj(ZmxProgram *program, ClassObj *cls) {
+    InstanceObj *object = NEW_OBJ(program, OBJ_INSTANCE, InstanceObj);
+    object->cls = cls;
+    object->fields = create_table();
+    return object;
+}
+
+/** Returns a method of a class, which is tied to an instance of it (to access its properties). */
+MethodObj *new_method_obj(ZmxProgram *program, InstanceObj *instance, FuncObj *func) {
+    MethodObj *object = NEW_OBJ(program, OBJ_METHOD, MethodObj);
+    object->instance = instance;
+    object->func = func;
     return object;
 }
 
@@ -317,7 +333,7 @@ static CharBuffer object_cstring(const Obj *object) {
     case OBJ_ENUM_MEMBER: {
         EnumMemberObj *member = AS_PTR(EnumMemberObj, object);
         buffer_append_format(
-            &string, "%s.%s", member->originalEnum->name->string, member->name->string
+            &string, "%s.%s", member->enumObj->name->string, member->name->string
         );
         break;
     }
@@ -333,6 +349,19 @@ static CharBuffer object_cstring(const Obj *object) {
     case OBJ_CLASS:
         buffer_append_format(&string, "<class %s>", AS_PTR(ClassObj, object)->name->string);
         break;
+    case OBJ_INSTANCE:
+        buffer_append_format(
+            &string, "<instance of %s>", AS_PTR(InstanceObj, object)->cls->name->string
+        );
+        break;
+    case OBJ_METHOD: {
+        MethodObj *method = AS_PTR(MethodObj, object);
+        buffer_append_format(
+            &string, "<instance method %s.%s>",
+            method->instance->cls->name->string, method->func->name->string
+        );
+        break;
+    }
     case OBJ_NATIVE_FUNC:
         buffer_append_format(
             &string, "<native function %s>", AS_PTR(NativeFuncObj, object)->name->string
@@ -367,6 +396,8 @@ bool is_iterable(const Obj *object) {
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
+    case OBJ_INSTANCE:
+    case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return false;
@@ -445,6 +476,8 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
+    case OBJ_INSTANCE:
+    case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         UNREACHABLE_ERROR();
@@ -510,6 +543,8 @@ bool equal_obj(const Obj *left, const Obj *right) {
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
+    case OBJ_INSTANCE:
+    case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return left == right; // Compare addresses directly.
@@ -531,7 +566,7 @@ bool equal_obj(const Obj *left, const Obj *right) {
     case OBJ_ENUM_MEMBER: {
         EnumMemberObj *leftMember = AS_PTR(EnumMemberObj, left);
         EnumMemberObj *rightMember = AS_PTR(EnumMemberObj, right);
-        return equal_obj(AS_OBJ(leftMember->originalEnum), AS_OBJ(rightMember->originalEnum))
+        return equal_obj(AS_OBJ(leftMember->enumObj), AS_OBJ(rightMember->enumObj))
             && leftMember->index == rightMember->index;
     }
     case OBJ_INT:
@@ -602,6 +637,8 @@ IntObj *as_int(ZmxProgram *program, const Obj *object) {
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
+    case OBJ_INSTANCE:
+    case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         // Can't ever convert to integer.
@@ -636,6 +673,8 @@ FloatObj *as_float(ZmxProgram *program, const Obj *object) {
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
+    case OBJ_INSTANCE:
+    case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         // Can't ever convert to float.
@@ -654,6 +693,8 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
+    case OBJ_INSTANCE:
+    case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         // Always considered "truthy".
@@ -715,6 +756,8 @@ char *obj_type_str(ObjType type) {
     case OBJ_FUNC: return "function";
     case OBJ_CAPTURED: return "captured";
     case OBJ_CLASS: return "class";
+    case OBJ_INSTANCE: return "instance";
+    case OBJ_METHOD: return "instance method";
     case OBJ_NATIVE_FUNC: return "native function";
     case OBJ_ITERATOR: return "iterator";
     }
@@ -772,6 +815,9 @@ void free_obj(Obj *object) {
     case OBJ_CLASS:
         free_table(&AS_PTR(ClassObj, object)->methods);
         break;
+    case OBJ_INSTANCE:
+        free_table(&AS_PTR(InstanceObj, object)->fields);
+        break;
     case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:
@@ -779,6 +825,7 @@ void free_obj(Obj *object) {
     case OBJ_RANGE:
     case OBJ_ENUM_MEMBER:
     case OBJ_CAPTURED:
+    case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         break; // The object itself doesn't own any memory.

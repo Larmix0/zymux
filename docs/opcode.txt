@@ -225,9 +225,20 @@ OP_GET_CAPTURED:
     then we push the one on the stack to the top,
     but if it's not, then we push the thing inside the captured object instead.
 
+OP_SET_PROPERTY:
+    Loads a property of some object that is at the top of the stack. The property name
+    that should be loaded from that object is read from the stack as a string object.
+
+    Then, it tries to assign the value located at the second to top slot in the stack to
+    the property name on the object that's being accessed. If that property doesn't exist,
+    create it.
+    
+    Finally, it pops the object being accessed so that only the assignment value
+    is left on the stack.
+
 OP_GET_PROPERTY:
-    Loads a property of some object that is at the top of the stack. The property that should be
-    loaded from that object is read from the stack as a string object.
+    Loads a property of some object that is at the top of the stack. The property name
+    that should be loaded from that object is read from the stack as a string object.
     Replaces the object on the top of the stack with the resulting object from the property access.
 
 OP_CALL:

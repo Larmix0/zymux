@@ -10,6 +10,13 @@
 /** Converts anything that "inherits" from node to its type punning base form. */
 #define AS_NODE(node) ((Node *)node)
 
+/** An automatic null node for convenience (as they're all identical). */
+#define NULL_NODE(program) (new_keyword_node(program, create_token("null", TOKEN_NULL_KW)))
+
+/** A declaration with only a name, and should not load a value by itself. */
+#define NO_VALUE_DECLARATION(program, name) \
+    (AS_PTR(DeclareVarNode, new_declare_var_node(program, name, NULL, false)))
+
 /** An enum to represent different types of AST nodes. */
 typedef enum {
     AST_ERROR,
@@ -31,6 +38,7 @@ typedef enum {
     AST_DECLARE_VAR,
     AST_ASSIGN_VAR,
     AST_GET_VAR,
+    AST_SET_PROPERTY,
     AST_GET_PROPERTY,
     AST_IF_ELSE,
     AST_MATCH,
@@ -39,9 +47,9 @@ typedef enum {
     AST_FOR,
     AST_LOOP_CONTROL,
     AST_ENUM,
+    AST_RETURN,
     AST_FUNC,
     AST_CLASS,
-    AST_RETURN,
     AST_EOF
 } AstType;
 
@@ -233,9 +241,16 @@ typedef struct {
 /** Represents a node which gets a field/method inside some object that has it. */
 typedef struct {
     Node node;
-    Token property; /** Property being accessed. */
-    Node *originalObj; /** The original object which holds the accessed property. */
+    Token property;
+    Node *originalObj;
 } GetPropertyNode;
+
+/** Sets (declare or assign) a new value to a field/method inside some object. */
+typedef struct {
+    Node node;
+    GetPropertyNode *get;
+    Node *value;
+} SetPropertyNode;
 
 /** Represents a full conditional if-else statement in a node where the else part is optional. */
 typedef struct {
@@ -302,12 +317,23 @@ typedef struct {
     TokenArray members; /** Array of enumerated member names of the enum. */
 } EnumNode;
 
+/** For exiting a function with a certain value. Empty return values get resolved later. */
+typedef struct {
+    Node node;
+    Node *value; /** Normal return value parsed (NULL if returning nothing). */
+    SourcePosition pos; /** Return keyword position. Very needed especially when value is NULL. */
+
+    Node *defaultVal; /** The default value given to empty returns depending on function type. */
+    i64 capturedPops; /** How many captured should be popped when returning. 0 if none. */
+} ReturnNode;
+
 /** Holds some form of a function (normal function, method, initializer, etc.). */
 typedef struct {
     Node node;
     DeclareVarNode *nameDecl;
     NodeArray params;
     BlockNode *body;
+    ReturnNode *defaultReturn; /** The return which is auto emitted at the end of this func. */
 
     bool isClosure;
     U32Array capturedParams; /** An array of each index into the params array that is captured. */
@@ -320,14 +346,6 @@ typedef struct {
     FuncNode *init; /** NULL if there isn't an initializer. */
     NodeArray methods;
 } ClassNode;
-
-/** For exiting a function with a certain value (null by default if nothing is provided). */
-typedef struct {
-    Node node;
-    Node *returnValue;
-
-    i64 capturedPops; /** How many captured should be popped when returning. 0 if none. */
-} ReturnNode;
 
 /** Node that simply represents EOF and holds its position. */
 typedef struct {
@@ -404,6 +422,9 @@ Node *new_assign_var_node(ZmxProgram *program, const Token name, Node *value);
 /** Allocates a node which holds the name of a variable to get its value. */
 Node *new_get_var_node(ZmxProgram *program, const Token name);
 
+/** Allocates a node which declares/assigns a property in some object. */
+Node *new_set_property_node(ZmxProgram *program, GetPropertyNode *get, Node *value);
+
 /** Allocates a node which holds a property access into some object. */
 Node *new_get_property_node(ZmxProgram *program, const Token property, Node *originalObj);
 
@@ -431,6 +452,9 @@ Node *new_loop_control_node(ZmxProgram *program, const Token keyword);
 /** Allocates an enum with members that represent a text/readable number. */
 Node *new_enum_node(ZmxProgram *program, DeclareVarNode *nameDecl, const TokenArray members);
 
+/** Allocates a return node, which exits a function with a specific object/value. */
+Node *new_return_node(ZmxProgram *program, Node *value, const SourcePosition pos);
+
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(
     ZmxProgram *program, DeclareVarNode *nameDecl, const NodeArray params, BlockNode *body
@@ -444,9 +468,6 @@ Node *new_func_node(
  * (and not having to create too many variables).
  */
 Node *new_class_node(ZmxProgram *program, DeclareVarNode *nameDecl);
-
-/** Allocates a return node, which exits a functino with a specific object/value. */
-Node *new_return_node(ZmxProgram *program, Node *returnValue);
 
 /** Allocates a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos);

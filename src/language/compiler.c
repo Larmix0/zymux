@@ -381,7 +381,6 @@ static void compile_declare_var(Compiler *compiler, const DeclareVarNode *node) 
  * For captured locals, we do the same as we do for locals, but emit a different instruction
  * followed by a number that access the current function's captured array, instead of the stack.
  * 
- * TODO: add more explanation for closures.
  * TODO: add more explanation for multi-assignments.
  */
 static void compile_assign_var(Compiler *compiler, const AssignVarNode *node) {
@@ -442,6 +441,18 @@ static void compile_get_var(Compiler *compiler, const GetVarNode *node) {
         UNREACHABLE_ERROR();
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
+}
+
+/** 
+ * Compiles setting a value to some property which is inside an object.
+ */
+static void compile_set_property(Compiler *compiler, const SetPropertyNode *node) {
+    compile_node(compiler, node->value);
+    compile_node(compiler, node->get->originalObj);
+    Obj *property = AS_OBJ(new_string_obj(
+        compiler->program, node->get->property.lexeme, node->get->property.pos.length
+    ));
+    emit_const(compiler, OP_SET_PROPERTY, property, get_node_pos(AS_NODE(node)));
 }
 
 /** 
@@ -747,6 +758,23 @@ static void compile_enum(Compiler *compiler, const EnumNode *node) {
 }
 
 /** 
+ * Compiles a return statement with the returned value being loaded on the stack beforehand.
+ * 
+ * If there's no value to return, it automatically uses the default return resolved instead.
+ * Also, emits a special return for closures which handles their captured variables.
+ */
+static void compile_return(Compiler *compiler, const ReturnNode *node) {
+    ASSERT(node->capturedPops >= 0, "Expected capture pops to be 0 or positive, not negative.");
+
+    compile_node(compiler, node->value != NULL ? node->value : node->defaultVal);
+    if (node->capturedPops > 0) {
+        emit_number(compiler, OP_CLOSURE_RETURN, node->capturedPops, get_node_pos(AS_NODE(node)));
+    } else {
+        emit_instr(compiler, OP_RETURN, get_node_pos(AS_NODE(node)));
+    }
+}
+
+/** 
  * Finishes compiling the current function on the compiler. TODO: add optional params.
  * 
  * First emits the appropriate instructions for handling the parameters declaration/capturement,
@@ -765,8 +793,7 @@ static void finish_func(Compiler *compiler, const FuncNode *node) {
 
     // Manually compile the body's statements to optimize out pops that occur before the func's end.
     compile_node_array(compiler, &node->body->stmts);
-    emit_instr(compiler, OP_NULL, PREVIOUS_OPCODE_POS(compiler));
-    emit_instr(compiler, OP_RETURN, PREVIOUS_OPCODE_POS(compiler));
+    compile_return(compiler, node->defaultReturn);
     write_jumps(compiler);
     FREE_DA(&compiler->jumps);
     compiler->jumps = previous;
@@ -778,8 +805,6 @@ static void finish_func(Compiler *compiler, const FuncNode *node) {
  * We compile functions by switching the compiler's current function to the new one being created,
  * then we compile the function itself. After we're done with that,
  * we emit the new compiled function as a const inside the const pool of the previous function.
- * 
- * TODO: add more differentiating stuff for func types (like methods, initializers, etc.).
  */
 static void compile_func(Compiler *compiler, const FuncNode *node) {
     GC_PUSH_PROTECTION(&compiler->program->gc);
@@ -807,7 +832,14 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
     compile_declare_var(compiler, node->nameDecl);
 }
 
-/** Compile class. TODO: add docs. */
+/** 
+ * Compile a class declaration and all others things relating to that declaration.
+ * 
+ * First, create a barebones version of the class with only the name, then emit all methods
+ * as functions and add them to that class which is still at the back of the stack.
+ * 
+ * After that, add the init method separately if there is one.
+ */
 static void compile_class(Compiler *compiler, const ClassNode *node) {
     StringObj *nameAsObj = new_string_obj(
         compiler->program, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
@@ -827,21 +859,6 @@ static void compile_class(Compiler *compiler, const ClassNode *node) {
         emit_instr(compiler, OP_ADD_INIT, get_node_pos(AS_NODE(node)));
     }
     compile_declare_var(compiler, node->nameDecl);
-}
-
-/** 
- * Compiles a return statement with the returned value being loaded on the stack beforehand.
- * Emits a special return for closures which handles their captured variables.
- */
-static void compile_return(Compiler *compiler, const ReturnNode *node) {
-    ASSERT(node->capturedPops >= 0, "Expected capture pops to be 0 or positive, not negative.");
-
-    compile_node(compiler, node->returnValue);
-    if (node->capturedPops > 0) {
-        emit_number(compiler, OP_CLOSURE_RETURN, node->capturedPops, get_node_pos(AS_NODE(node)));
-    } else {
-        emit_instr(compiler, OP_RETURN, get_node_pos(AS_NODE(node)));
-    }
 }
 
 /** Compiles an EOF node, which is placed to indicate the end of the bytecode. */
@@ -874,6 +891,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_DECLARE_VAR: compile_declare_var(compiler, AS_PTR(DeclareVarNode, node)); break;
     case AST_ASSIGN_VAR: compile_assign_var(compiler, AS_PTR(AssignVarNode, node)); break;
     case AST_GET_VAR: compile_get_var(compiler, AS_PTR(GetVarNode, node)); break;
+    case AST_SET_PROPERTY: compile_set_property(compiler, AS_PTR(SetPropertyNode, node)); break;
     case AST_GET_PROPERTY: compile_get_property(compiler, AS_PTR(GetPropertyNode, node)); break;
     case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
     case AST_MATCH: compile_match(compiler, AS_PTR(MatchNode, node)); break;
@@ -882,9 +900,9 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_FOR: compile_for(compiler, AS_PTR(ForNode, node)); break;
     case AST_LOOP_CONTROL: compile_loop_control(compiler, AS_PTR(LoopControlNode, node)); break;
     case AST_ENUM: compile_enum(compiler, AS_PTR(EnumNode, node)); break;
+    case AST_RETURN: compile_return(compiler, AS_PTR(ReturnNode, node)); break;
     case AST_FUNC: compile_func(compiler, AS_PTR(FuncNode, node)); break;
     case AST_CLASS: compile_class(compiler, AS_PTR(ClassNode, node)); break;
-    case AST_RETURN: compile_return(compiler, AS_PTR(ReturnNode, node)); break;
     case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
     case AST_ERROR: break; // Do nothing on erroneous nodes.
     TOGGLEABLE_DEFAULT_UNREACHABLE();

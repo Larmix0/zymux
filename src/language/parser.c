@@ -22,13 +22,6 @@
             
 #define IS_EOF(parser) (CHECK(parser, TOKEN_EOF))
 
-/** A declaration with only a name, and should not load a value by itself. */
-#define NO_VALUE_DECLARATION(parser, name) \
-    (AS_PTR(DeclareVarNode, new_declare_var_node((parser)->program, name, NULL, false)))
-
-/** An automatic null node for convenience (as they're all identical). */
-#define NULL_NODE(parser) (new_keyword_node((parser)->program, create_token("null", TOKEN_NULL_KW)))
-
 static Node *assignment(Parser *parser);
 static Node *expression(Parser *parser);
 static Node *declaration(Parser *parser);
@@ -467,12 +460,16 @@ static Node *augmented_assignment(Parser *parser, Node *expr) {
 static Node *assignment(Parser *parser) {
     Node *expr = binary_logical(parser);
     if (CHECK(parser, TOKEN_EQ)) {
-        if (expr->type != AST_GET_VAR) {
-            parser_error_at(parser, &PEEK(parser), false, "Invalid assignment name.");
-        }
         ADVANCE(parser); // Equal token.
         Node *value = assignment(parser);
-        return new_assign_var_node(parser->program, AS_PTR(GetVarNode, expr)->name, value);
+
+        if (expr->type == AST_GET_VAR) {
+            return new_assign_var_node(parser->program, AS_PTR(GetVarNode, expr)->name, value);
+        } else if (expr->type == AST_GET_PROPERTY) {
+            return new_set_property_node(parser->program, AS_PTR(GetPropertyNode, expr), value);
+        } else {
+            parser_error_at(parser, &PEEK(parser), false, "Invalid assignment name.");
+        }
     } else if (
         CHECK(parser, TOKEN_PLUS_EQ) || CHECK(parser, TOKEN_MINUS_EQ)
         || CHECK(parser, TOKEN_STAR_EQ) || CHECK(parser, TOKEN_SLASH_EQ)
@@ -597,7 +594,7 @@ static Node *parse_do_while(Parser *parser) {
 static Node *parse_for(Parser *parser) {
     Node *loopVar = new_declare_var_node(
         parser->program, CONSUME(parser, TOKEN_IDENTIFIER, "Expected loop variable after 'for'."),
-        NULL_NODE(parser), false
+        NULL_NODE(parser->program), false
     );
     
     CONSUME(parser, TOKEN_IN_KW, "Expected 'in' after for loop's variable name.");
@@ -620,16 +617,12 @@ static Node *parse_loop_control(Parser *parser) {
     return node;
 }
 
-/** Parses a return statement and its optional value (defaults to null if nothing is provided). */
+/** Parses a return statement and its optional value (defaults to NULL if nothing is provided). */
 static Node *parse_return(Parser *parser) {
-    Node *value;
-    if (CHECK(parser, TOKEN_SEMICOLON)) {
-        value = NULL_NODE(parser);
-    } else {
-        value = expression(parser);
-    }
+    const SourcePosition pos = PEEK_PREVIOUS(parser).pos;
+    Node *value = CHECK(parser, TOKEN_SEMICOLON) ? NULL : expression(parser);
     CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after return statement.");
-    return new_return_node(parser->program, value);
+    return new_return_node(parser->program, value, pos);
 }
 
 /** Parses and returns a statement or expression-statement. */
@@ -662,7 +655,7 @@ static Node *parse_var_declaration(Parser *parser, const bool isConst) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected declared variable's name.");
     Node *value;
     if (MATCH(parser, TOKEN_SEMICOLON)) {
-        value = NULL_NODE(parser);   
+        value = NULL_NODE(parser->program);   
     } else if (MATCH(parser, TOKEN_EQ)){
         value = expression(parser);
         CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after variable's value.");
@@ -679,7 +672,7 @@ static Node *parse_var_declaration(Parser *parser, const bool isConst) {
 /** Declares an enum with an array of enum values that are named but just represent integers. */
 static Node *parse_enum(Parser *parser) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected enum name.");
-    DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser, name);
+    DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser->program, name);
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after enum name.");
 
     TokenArray members = CREATE_DA();
@@ -720,7 +713,7 @@ static NodeArray parse_params(Parser *parser) {
 
 /** Parses any type of function whose name was already parsed and passed to this. */
 static Node *named_func(Parser *parser, const Token name) {
-    DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser, name);
+    DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser->program, name);
     NodeArray params = parse_params(parser);
 
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after function parameters.");
@@ -760,7 +753,7 @@ static void class_body(Parser *parser, ClassNode *classNode) {
 /** Parses and returns an entire class with all of its information. */
 static Node *parse_class(Parser *parser) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected class name.");
-    DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser, name);
+    DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser->program, name);
     ClassNode *classNode = AS_PTR(ClassNode, new_class_node(parser->program, declaration));
 
     class_body(parser, classNode);

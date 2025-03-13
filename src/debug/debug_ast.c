@@ -207,6 +207,13 @@ static void append_get_var(AstBuilder *ast, const GetVarNode *node) {
     buffer_append_token(&ast->string, node->name);
 }
 
+/** Appends a property set */
+static void append_set_property(AstBuilder *ast, const SetPropertyNode *node) {
+    append_node(ast, AS_NODE(node->get));
+    buffer_append_string(&ast->string, "= ");
+    append_node(ast, node->value);
+}
+
 /** Appends a property get, which also has an original object that we get the property from. */
 static void append_get_property(AstBuilder *ast, const GetPropertyNode *node) {
     append_node(ast, node->originalObj);
@@ -291,6 +298,16 @@ static void append_enum(AstBuilder *ast, const EnumNode *node) {
     }
 }
 
+/** Appends a return node + the returned value. */
+static void append_return(AstBuilder *ast, const ReturnNode *node) {
+    if (node->value != NULL) {
+        buffer_append_string(&ast->string, "<return> ");
+        append_node(ast, node->value);
+    } else {
+        buffer_append_string(&ast->string, "<empty return> ");
+    }
+}
+
 /** Appends a generic function node, which includes its name, parameters, and body. */
 static void append_func(AstBuilder *ast, const FuncNode *node) {
     buffer_append_string(&ast->string, "<func> ");
@@ -307,16 +324,6 @@ static void append_class(AstBuilder *ast, const ClassNode *node) {
 
     append_node(ast, AS_NODE(node->init));
     append_node_array(ast, &node->methods);
-}
-
-/** Appends a return node + the returned value. */
-static void append_return(AstBuilder *ast, const ReturnNode *node) {
-    if (node->returnValue != NULL) {
-        buffer_append_string(&ast->string, "<return> ");
-        append_node(ast, node->returnValue);
-    } else {
-        buffer_append_string(&ast->string, "<empty return> ");
-    }
 }
 
 /** Appends an EOF string to the AST string. */
@@ -356,6 +363,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_DECLARE_VAR: append_declare_var(ast, AS_PTR(DeclareVarNode, node)); break;
     case AST_ASSIGN_VAR: append_assign_var(ast, AS_PTR(AssignVarNode, node)); break;
     case AST_GET_VAR: append_get_var(ast, AS_PTR(GetVarNode, node)); break;
+    case AST_SET_PROPERTY: append_set_property(ast, AS_PTR(SetPropertyNode, node)); break;
     case AST_GET_PROPERTY: append_get_property(ast, AS_PTR(GetPropertyNode, node)); break;
     case AST_IF_ELSE: append_if_else(ast, AS_PTR(IfElseNode, node)); break;
     case AST_MATCH: append_match(ast, AS_PTR(MatchNode, node)); break;
@@ -364,9 +372,9 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_FOR: append_for(ast, AS_PTR(ForNode, node)); break;
     case AST_LOOP_CONTROL: append_loop_control(ast, AS_PTR(LoopControlNode, node)); break;
     case AST_ENUM: append_enum(ast, AS_PTR(EnumNode, node)); break;
+    case AST_RETURN: append_return(ast, AS_PTR(ReturnNode, node)); break;
     case AST_FUNC: append_func(ast, AS_PTR(FuncNode, node)); break;
     case AST_CLASS: append_class(ast, AS_PTR(ClassNode, node)); break;
-    case AST_RETURN: append_return(ast, AS_PTR(ReturnNode, node)); break;
     case AST_EOF: append_eof(ast); break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }

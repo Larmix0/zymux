@@ -28,6 +28,8 @@ bool is_hashable(const Obj *object) {
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
+    case OBJ_INSTANCE:
+    case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return false;
@@ -86,6 +88,8 @@ u32 get_hash(const Obj *object) {
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
+    case OBJ_INSTANCE:
+    case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         UNREACHABLE_ERROR();

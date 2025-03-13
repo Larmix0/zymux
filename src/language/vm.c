@@ -341,7 +341,8 @@ static bool map_get_subscr(Vm *vm, MapObj *callee, Obj *subscript) {
 
 /** Attempts to call the passed object. Returns whether or not it managed to call it. */
 static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
-    if (callee->type == OBJ_FUNC) {
+    switch (callee->type) {
+    case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, callee);
         if (func->arity != argAmount) {
             return runtime_error(
@@ -352,7 +353,23 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
         }
         push_stack_frame(vm, func, args - 1, vm->frame->sp);
         return true;
-    } else if (callee->type == OBJ_NATIVE_FUNC) {
+    }
+    case OBJ_CLASS: {
+        ClassObj *cls = AS_PTR(ClassObj, callee);
+        PEEK_DEPTH(vm, argAmount) = AS_OBJ(new_instance_obj(vm->program, cls));
+        if (cls->init != NULL) {
+            return call(vm, AS_OBJ(cls->init), args, argAmount);
+        } else if (argAmount != 0) {
+            return runtime_error(vm, "Expected 0 arguments, but got %"PRIu32" instead.", argAmount);
+        }
+        return true;
+    }
+    case OBJ_METHOD: {
+        MethodObj *method = AS_PTR(MethodObj, callee);
+        PEEK_DEPTH(vm, argAmount) = AS_OBJ(method->instance);
+        return call(vm, AS_OBJ(method->func), args, argAmount);
+    }
+    case OBJ_NATIVE_FUNC: {
         Obj *nativeReturn = AS_PTR(NativeFuncObj, callee)->func(vm, args, argAmount);
         if (nativeReturn == NULL) {
             return false;
@@ -360,10 +377,10 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
         PEEK_DEPTH(vm, argAmount) = nativeReturn;
         DROP_AMOUNT(vm, argAmount);
         return true;
-    } else {
+    }
+    default:
         return runtime_error(vm, "Can't call object of type %s.", obj_type_str(PEEK(vm)->type));
     }
-    UNREACHABLE_ERROR();
 }
 
 /** 
@@ -417,10 +434,39 @@ static void capture_variable(Vm *vm, Obj *capturedObj, const u32 stackLocation) 
     APPEND_DA(&vm->openCaptures, capture);
 }
 
+/** Set (assign or create if one doesn't exist) a value on some property inside an object. */
+static bool set_property(Vm *vm, Obj *originalObj, StringObj *name, Obj *value) {
+    switch (originalObj->type) {
+    case OBJ_INSTANCE:
+        table_set(&AS_PTR(InstanceObj, originalObj)->fields, AS_OBJ(name), value);
+        DROP(vm); // Pop the object being accessed, leaving only the value on the top of the stack.
+        break;
+    default:
+        return runtime_error(
+            vm, "Can't set property on object of type %s.", obj_type_str(originalObj->type)
+        );  
+    }
+    return true;
+}
+
 /** Access a property inside some object that might have multiple properties inside it. */
 static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
-    // TODO: Modify and extend this especially when most objects get built-in fields/methods.
-    if (originalObj->type == OBJ_ENUM) {
+    switch (originalObj->type) {
+    case OBJ_INSTANCE: {
+        InstanceObj *instance = AS_PTR(InstanceObj, originalObj);
+        Obj *field = table_get(&instance->fields, AS_OBJ(name));
+        if (field != NULL) {
+            PEEK(vm) = field;
+            return true;
+        }
+        Obj *method = table_get(&instance->cls->methods, AS_OBJ(name));
+        if (method != NULL) {
+            PEEK(vm) = AS_OBJ(new_method_obj(vm->program, instance, AS_PTR(FuncObj, method)));
+            return true;
+        }
+        return runtime_error(vm, "No property called '%s'.", name->string);
+    }
+    case OBJ_ENUM: {
         EnumObj *enumObj = AS_PTR(EnumObj, originalObj);
         Obj *propertyIdx = table_get(&enumObj->lookupTable, AS_OBJ(name));
         if (propertyIdx == NULL) {
@@ -428,12 +474,14 @@ static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
         }
         ASSERT(propertyIdx->type == OBJ_INT, "Expected enum lookup table value to be int.");
         PEEK(vm) = enumObj->members.data[AS_PTR(IntObj, propertyIdx)->number];
-    } else {
+        break;
+    }
+    default:
         return runtime_error(
-            vm, "Object of type %s doesn't have properties.",
-            obj_type_str(originalObj->type)
+            vm, "Object of type %s doesn't have properties.", obj_type_str(originalObj->type)
         );
     }
+
     return true;
 }
 
@@ -720,6 +768,15 @@ static bool execute_vm(Vm *vm) {
                 PUSH(vm, vm->stack.objects[capture->stackLocation]);
             } else {
                 PUSH(vm, capture->captured);
+            }
+            break;
+        }
+        case OP_SET_PROPERTY: {
+            Obj *originalObj = PEEK(vm);
+            StringObj *name = AS_PTR(StringObj, READ_CONST(vm));
+            Obj *value = PEEK_DEPTH(vm, 1);
+            if (!set_property(vm, originalObj, name, value)) {
+                return false;
             }
             break;
         }

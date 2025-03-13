@@ -688,6 +688,12 @@ static void resolve_get_var(Resolver *resolver, GetVarNode *node) {
     );
 }
 
+/** Resolves the property being set and the value of the assignment. */
+static void resolve_set_property(Resolver *resolver, SetPropertyNode *node) {
+    resolve_node(resolver, AS_NODE(node->get));
+    resolve_node(resolver, node->value);
+}
+
 /** Resolves accessing an object to get/lookup some property out of it. */
 static void resolve_get_property(Resolver *resolver, GetPropertyNode *node) {
     resolve_node(resolver, node->originalObj);
@@ -820,6 +826,38 @@ static void resolve_enum(Resolver *resolver, const EnumNode *node) {
     resolve_node(resolver, AS_NODE(node->nameDecl));
 }
 
+/** 
+ * Resolves a return by resolving the returned value.
+ * 
+ * Errors if the return occurred outside a function, or if we attempted to return an actual
+ * value inside an initializer.
+ * Also, for initializers they automatically always return the instance.
+ */
+static void resolve_return(Resolver *resolver, ReturnNode *node) {
+    if (resolver->currentFunc == FUNC_NONE) {
+        resolution_error(
+            resolver, get_node_pos(AS_NODE(node)), "Can't return outside a function scope."
+        );
+    }
+    if (resolver->currentFunc == FUNC_INIT) {
+        if (node->value != NULL) {
+            resolution_error(
+                resolver, get_node_pos(AS_NODE(node)), "Can't return a value inside an initializer."
+            );
+        }
+        // Return the instance in initializers.
+        node->defaultVal = new_get_var_node(
+            resolver->program, create_token("this", TOKEN_THIS_KW)
+        );
+    } else {
+        node->defaultVal = NULL_NODE(resolver->program);
+    }
+
+    resolve_node(resolver, node->value); // Won't do anything if it's NULL.
+    resolve_node(resolver, node->defaultVal);
+    node->capturedPops = get_local_captures(CURRENT_CLOSURE(resolver));
+}
+
 /** Handles the resolutions of a function's parameters and body. */
 static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
     for (u32 i = 0; i < node->params.length; i++) {
@@ -841,6 +879,7 @@ static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
         APPEND_DA(CURRENT_LOCALS(resolver), parameter);
     }
     unscoped_block(resolver, node->body);
+    resolve_return(resolver, node->defaultReturn); // Automatically exit the function.
 }
 
 /**
@@ -895,22 +934,6 @@ static void resolve_class(Resolver *resolver, ClassNode *node) {
     pop_scope(resolver, SCOPE_NORMAL);
 }
 
-/** Resolves a return by resolving the returned value and erroring if we're not inside a func. */
-static void resolve_return(Resolver *resolver, ReturnNode *node) {
-    if (resolver->currentFunc == FUNC_NONE) {
-        resolution_error(
-            resolver, get_node_pos(AS_NODE(node)), "Can't return outside a function scope."
-        );
-    }
-    if (resolver->currentFunc == FUNC_INIT) {
-        resolution_error(
-            resolver, get_node_pos(AS_NODE(node)), "Can't return inside initializer."
-        );
-    }
-    resolve_node(resolver, node->returnValue);
-    node->capturedPops = get_local_captures(CURRENT_CLOSURE(resolver));
-}
-
 /** Resolves the passed nodes and anything inside it that requires resolution. */
 static void resolve_node(Resolver *resolver, Node *node) {
     if (node == NULL) {
@@ -934,6 +957,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_DECLARE_VAR: resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node)); break;
     case AST_ASSIGN_VAR: resolve_assign_var(resolver, AS_PTR(AssignVarNode, node)); break;
     case AST_GET_VAR: resolve_get_var(resolver, AS_PTR(GetVarNode, node)); break;
+    case AST_SET_PROPERTY: resolve_set_property(resolver, AS_PTR(SetPropertyNode, node)); break;
     case AST_GET_PROPERTY: resolve_get_property(resolver, AS_PTR(GetPropertyNode, node)); break;
     case AST_IF_ELSE: resolve_if_else(resolver, AS_PTR(IfElseNode, node)); break;
     case AST_MATCH: resolve_match(resolver, AS_PTR(MatchNode, node)); break;
@@ -942,9 +966,9 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_FOR: resolve_for(resolver, AS_PTR(ForNode, node)); break;
     case AST_LOOP_CONTROL: resolve_loop_control(resolver, AS_PTR(LoopControlNode, node)); break;
     case AST_ENUM: resolve_enum(resolver, AS_PTR(EnumNode, node)); break;
+    case AST_RETURN: resolve_return(resolver, AS_PTR(ReturnNode, node)); break;
     case AST_FUNC: resolve_func(resolver, AS_PTR(FuncNode, node), FUNC_FUNCTION); break;
     case AST_CLASS: resolve_class(resolver, AS_PTR(ClassNode, node)); break;
-    case AST_RETURN: resolve_return(resolver, AS_PTR(ReturnNode, node)); break;
 
     case AST_LITERAL:
     case AST_KEYWORD:

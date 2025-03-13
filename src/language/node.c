@@ -198,6 +198,14 @@ Node *new_get_var_node(ZmxProgram *program, const Token name) {
     return AS_NODE(node);
 }
 
+/** Allocates a node which declares/assigns a property in some object. */
+Node *new_set_property_node(ZmxProgram *program, GetPropertyNode *get, Node *value) {
+    SetPropertyNode *node = NEW_NODE(program, AST_SET_PROPERTY, SetPropertyNode);
+    node->get = get;
+    node->value = value;
+    return AS_NODE(node);
+}
+
 /** Allocates a node which holds a property access into some object. */
 Node *new_get_property_node(ZmxProgram *program, const Token property, Node *originalObj) {
     GetPropertyNode *node = NEW_NODE(program, AST_GET_PROPERTY, GetPropertyNode);
@@ -274,6 +282,17 @@ Node *new_enum_node(ZmxProgram *program, DeclareVarNode *nameDecl, const TokenAr
     return AS_NODE(node);
 }
 
+/** Allocates a return node, which exits a function with a specific object/value. */
+Node *new_return_node(ZmxProgram *program, Node *value, const SourcePosition pos) {
+    ReturnNode *node = NEW_NODE(program, AST_RETURN, ReturnNode);
+    node->value = value;
+    node->pos = pos;
+
+    node->defaultVal = NULL;
+    node->capturedPops = UNRESOLVED_NUMBER;
+    return AS_NODE(node);
+}
+
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(
     ZmxProgram *program, DeclareVarNode *nameDecl, const NodeArray params, BlockNode *body
@@ -283,6 +302,9 @@ Node *new_func_node(
     node->params = params;
     node->body = body;
 
+    node->defaultReturn = AS_PTR(
+        ReturnNode, new_return_node(program, NULL, get_node_pos(AS_NODE(body)))
+    );
     node->isClosure = false;
     INIT_DA(&node->capturedParams);
     return AS_NODE(node);
@@ -301,14 +323,6 @@ Node *new_class_node(ZmxProgram *program, DeclareVarNode *nameDecl) {
 
     node->init = NULL;
     INIT_DA(&node->methods);
-    return AS_NODE(node);
-}
-
-/** Allocates a return node, which exits a functino with a specific object/value. */
-Node *new_return_node(ZmxProgram *program, Node *returnValue) {
-    ReturnNode *node = NEW_NODE(program, AST_RETURN, ReturnNode);
-    node->returnValue = returnValue;
-    node->capturedPops = UNRESOLVED_NUMBER;
     return AS_NODE(node);
 }
 
@@ -347,6 +361,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_BLOCK: return AS_PTR(BlockNode, node)->pos;
     case AST_DECLARE_VAR: return AS_PTR(DeclareVarNode, node)->name.pos;
     case AST_ASSIGN_VAR: return AS_PTR(AssignVarNode, node)->name.pos;
+    case AST_SET_PROPERTY: return get_node_pos(AS_NODE(AS_PTR(SetPropertyNode, node)->get));
     case AST_GET_VAR: return AS_PTR(GetVarNode, node)->name.pos;
     case AST_GET_PROPERTY: return AS_PTR(GetPropertyNode, node)->property.pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
@@ -356,9 +371,9 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_FOR: return AS_PTR(ForNode, node)->loopVar->name.pos;
     case AST_LOOP_CONTROL: return AS_PTR(LoopControlNode, node)->pos;
     case AST_ENUM: return AS_PTR(EnumNode, node)->nameDecl->name.pos;
+    case AST_RETURN: return AS_PTR(ReturnNode, node)->pos;
     case AST_FUNC: return AS_PTR(FuncNode, node)->nameDecl->name.pos;
     case AST_CLASS: return AS_PTR(ClassNode, node)->nameDecl->name.pos;
-    case AST_RETURN: return get_node_pos(AS_PTR(ReturnNode, node)->returnValue);
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
     }
     UNREACHABLE_ERROR();
@@ -411,6 +426,7 @@ static void free_node(Node *node) {
     case AST_DECLARE_VAR:
     case AST_ASSIGN_VAR:
     case AST_GET_VAR:
+    case AST_SET_PROPERTY:
     case AST_GET_PROPERTY:
     case AST_IF_ELSE:
     case AST_WHILE:

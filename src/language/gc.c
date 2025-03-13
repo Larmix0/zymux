@@ -60,7 +60,7 @@ static void mark_obj(Obj *object) {
         mark_obj(AS_OBJ(AS_PTR(EnumObj, object)->name));
         break;
     case OBJ_ENUM_MEMBER:
-        mark_obj(AS_OBJ(AS_PTR(EnumMemberObj, object)->originalEnum));
+        mark_obj(AS_OBJ(AS_PTR(EnumMemberObj, object)->enumObj));
         mark_obj(AS_OBJ(AS_PTR(EnumMemberObj, object)->name));
         break;
     case OBJ_FUNC: {
@@ -79,13 +79,19 @@ static void mark_obj(Obj *object) {
     case OBJ_CAPTURED:
         mark_obj(AS_PTR(CapturedObj, object)->captured);
         break;
-    case OBJ_CLASS: {
-        ClassObj *cls = AS_PTR(ClassObj, object);
-        mark_obj(AS_OBJ(cls->name));
-        mark_obj(AS_OBJ(cls->init));
-        mark_table(cls->methods);
+    case OBJ_CLASS:
+        mark_obj(AS_OBJ(AS_PTR(ClassObj, object)->name));
+        mark_obj(AS_OBJ(AS_PTR(ClassObj, object)->init));
+        mark_table(AS_PTR(ClassObj, object)->methods);
         break;
-    }
+    case OBJ_INSTANCE: 
+        mark_obj(AS_OBJ(AS_PTR(InstanceObj, object)->cls));
+        mark_table(AS_PTR(InstanceObj, object)->fields);
+        break;
+    case OBJ_METHOD:
+        mark_obj(AS_OBJ(AS_PTR(MethodObj, object)->instance));
+        mark_obj(AS_OBJ(AS_PTR(MethodObj, object)->func));
+        break;
     case OBJ_NATIVE_FUNC:
         mark_obj(AS_OBJ(AS_PTR(NativeFuncObj, object)->name));
         break;
