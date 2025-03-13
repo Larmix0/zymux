@@ -42,10 +42,3 @@ which is a list of 2 element lists that represent the key and value. This will b
 only when fields and methods are added to built-in objects.
 
 ----------------------------------------------------------------------------------------------------
-
-Change certain nodes/objects so they simply initialize their dynamic arrays,
-instead of having to manually create external arrays and pass them to "new_*" functions first.
-
-If we start parsings by creating the objects immediately instead of returning them first,
-then we might change all node.c/.h nodes to return without converting with AS_NODE(),
-which would actually make them consistent with how objects are returned too.

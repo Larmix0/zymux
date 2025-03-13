@@ -5,9 +5,9 @@
 #include "node.h"
 #include "resolver.h"
 
-/** Allocates a new node of actualType. */
-#define NEW_NODE(program, astType, actualType) \
-    ((actualType *)new_node(program, astType, sizeof(actualType)))
+/** Allocates and returns a node. astType is the enum type, cType is the C struct itself. */
+#define NEW_NODE(program, astType, cType) \
+    ((cType *)new_node(program, astType, sizeof(cType)))
 
 /** Allocates a new node of the passed type. */
 static Node *new_node(ZmxProgram *program, const AstType type, const size_t size) {
@@ -288,6 +288,22 @@ Node *new_func_node(
     return AS_NODE(node);
 }
 
+/** 
+ * Allocates a node which represents a class and all of its information.
+ * 
+ * Note that this only takes information before the body of the class as arguments,
+ * while the information inside the body should be added to the node whilst parsing for convenience
+ * (and not having to create too many variables).
+ */
+Node *new_class_node(ZmxProgram *program, DeclareVarNode *nameDecl) {
+    ClassNode *node = NEW_NODE(program, AST_CLASS, ClassNode);
+    node->nameDecl = nameDecl;
+
+    node->init = NULL;
+    INIT_DA(&node->methods);
+    return AS_NODE(node);
+}
+
 /** Allocates a return node, which exits a functino with a specific object/value. */
 Node *new_return_node(ZmxProgram *program, Node *returnValue) {
     ReturnNode *node = NEW_NODE(program, AST_RETURN, ReturnNode);
@@ -341,6 +357,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_LOOP_CONTROL: return AS_PTR(LoopControlNode, node)->pos;
     case AST_ENUM: return AS_PTR(EnumNode, node)->nameDecl->name.pos;
     case AST_FUNC: return AS_PTR(FuncNode, node)->nameDecl->name.pos;
+    case AST_CLASS: return AS_PTR(ClassNode, node)->nameDecl->name.pos;
     case AST_RETURN: return get_node_pos(AS_PTR(ReturnNode, node)->returnValue);
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
     }
@@ -376,6 +393,9 @@ static void free_node(Node *node) {
     case AST_FUNC:
         FREE_DA(&AS_PTR(FuncNode, node)->params);
         FREE_DA(&AS_PTR(FuncNode, node)->capturedParams);
+        break;
+    case AST_CLASS:
+        FREE_DA(&AS_PTR(ClassNode, node)->methods);
         break;
     case AST_ERROR:
     case AST_LITERAL:

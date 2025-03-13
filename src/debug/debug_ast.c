@@ -300,6 +300,15 @@ static void append_func(AstBuilder *ast, const FuncNode *node) {
     append_node(ast, AS_NODE(node->body));
 }
 
+/** Appends a class node and all the information it has. */
+static void append_class(AstBuilder *ast, const ClassNode *node) {
+    buffer_append_string(&ast->string, "<class> ");
+    buffer_append_token(&ast->string, node->nameDecl->name);
+
+    append_node(ast, AS_NODE(node->init));
+    append_node_array(ast, &node->methods);
+}
+
 /** Appends a return node + the returned value. */
 static void append_return(AstBuilder *ast, const ReturnNode *node) {
     if (node->returnValue != NULL) {
@@ -356,6 +365,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_LOOP_CONTROL: append_loop_control(ast, AS_PTR(LoopControlNode, node)); break;
     case AST_ENUM: append_enum(ast, AS_PTR(EnumNode, node)); break;
     case AST_FUNC: append_func(ast, AS_PTR(FuncNode, node)); break;
+    case AST_CLASS: append_class(ast, AS_PTR(ClassNode, node)); break;
     case AST_RETURN: append_return(ast, AS_PTR(ReturnNode, node)); break;
     case AST_EOF: append_eof(ast); break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();

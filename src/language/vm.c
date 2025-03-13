@@ -786,6 +786,27 @@ static bool execute_vm(Vm *vm) {
             PUSH(vm, AS_OBJ(closure));
             break;
         }
+        case OP_CREATE_CLASS: {
+            ClassObj *cls = new_class_obj(vm->program, AS_PTR(StringObj, READ_CONST(vm)));
+            PUSH(vm, AS_OBJ(cls));
+            break;
+        }
+        case OP_ADD_METHODS: {
+            const u32 amount = READ_NUMBER(vm);
+            ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(vm, amount));
+            for (u32 i = 0; i < amount; i++) {
+                // Order of appending doesn't matter since we're using a hash table.
+                FuncObj *method = AS_PTR(FuncObj, PEEK_DEPTH(vm, i));
+                table_set(&cls->methods, AS_OBJ(method->name), AS_OBJ(method));
+            }
+            DROP_AMOUNT(vm, amount);
+            break;
+        }
+        case OP_ADD_INIT: {
+            ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(vm, 1));
+            cls->init = AS_PTR(FuncObj, POP(vm));
+            break;
+        }
         case OP_JUMP: {
             const u32 jump = READ_NUMBER(vm);
             vm->frame->ip += jump;

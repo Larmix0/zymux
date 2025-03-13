@@ -42,6 +42,7 @@ typedef enum {
     OBJ_ENUM,
     OBJ_FUNC,
     OBJ_CAPTURED,
+    OBJ_CLASS,
     OBJ_NATIVE_FUNC,
     OBJ_ITERATOR
 } ObjType;
@@ -210,6 +211,14 @@ typedef struct {
     CapturedObjArray captures;
 } ClosureObj;
 
+/** Represents a class, which has a name, initializer, and methods. */
+typedef struct {
+    Obj obj;
+    StringObj *name;
+    FuncObj *init;
+    Table methods;
+} ClassObj;
+
 /** A built-in Zymux function whose implementation is written in C. */
 typedef struct {
     Obj obj;
@@ -276,6 +285,9 @@ CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stac
  * extension allocated, and that extension can be revealed by converting to the closure type.
  */
 ClosureObj *new_closure_obj(ZmxProgram *program, FuncObj *closedFunc, const bool isToplevel);
+
+/** Creates a bare-bones class with only a name. Other information is added later. */
+ClassObj *new_class_obj(ZmxProgram *program, StringObj *name);
 
 /** Returns a new allocated native function object. */
 NativeFuncObj *new_native_func_obj(ZmxProgram *program, NativeFunc func, StringObj *name);

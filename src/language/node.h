@@ -40,6 +40,7 @@ typedef enum {
     AST_LOOP_CONTROL,
     AST_ENUM,
     AST_FUNC,
+    AST_CLASS,
     AST_RETURN,
     AST_EOF
 } AstType;
@@ -312,6 +313,14 @@ typedef struct {
     U32Array capturedParams; /** An array of each index into the params array that is captured. */
 } FuncNode;
 
+/** Holds a Zymux class with all of its information. */
+typedef struct {
+    Node node;
+    DeclareVarNode *nameDecl;
+    FuncNode *init; /** NULL if there isn't an initializer. */
+    NodeArray methods;
+} ClassNode;
+
 /** For exiting a function with a certain value (null by default if nothing is provided). */
 typedef struct {
     Node node;
@@ -426,6 +435,15 @@ Node *new_enum_node(ZmxProgram *program, DeclareVarNode *nameDecl, const TokenAr
 Node *new_func_node(
     ZmxProgram *program, DeclareVarNode *nameDecl, const NodeArray params, BlockNode *body
 );
+
+/** 
+ * Allocates a node which represents a class and all of its information.
+ * 
+ * Note that this only takes information before the body of the class as arguments,
+ * while the information inside the body should be added to the node whilst parsing for convenience
+ * (and not having to create too many variables).
+ */
+Node *new_class_node(ZmxProgram *program, DeclareVarNode *nameDecl);
 
 /** Allocates a return node, which exits a functino with a specific object/value. */
 Node *new_return_node(ZmxProgram *program, Node *returnValue);

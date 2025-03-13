@@ -79,6 +79,13 @@ static void mark_obj(Obj *object) {
     case OBJ_CAPTURED:
         mark_obj(AS_PTR(CapturedObj, object)->captured);
         break;
+    case OBJ_CLASS: {
+        ClassObj *cls = AS_PTR(ClassObj, object);
+        mark_obj(AS_OBJ(cls->name));
+        mark_obj(AS_OBJ(cls->init));
+        mark_table(cls->methods);
+        break;
+    }
     case OBJ_NATIVE_FUNC:
         mark_obj(AS_OBJ(AS_PTR(NativeFuncObj, object)->name));
         break;

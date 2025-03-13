@@ -8,9 +8,9 @@
 #include "object.h"
 #include "program.h"
 
-/** Allocates and returns an object. objType is the enum type, actualType is the C struct itself. */
-#define NEW_OBJ(program, objType, actualType) \
-    ((actualType *)new_obj(program, objType, sizeof(actualType)))
+/** Allocates and returns an object. objType is the enum type, cType is the C struct itself. */
+#define NEW_OBJ(program, objType, cType) \
+    ((cType *)new_obj(program, objType, sizeof(cType)))
 
 static CharBuffer object_cstring(const Obj *object);
 void print_obj(const Obj *object, const bool debugPrint);
@@ -205,6 +205,15 @@ ClosureObj *new_closure_obj(ZmxProgram *program, FuncObj *closedFunc, const bool
     return object;
 }
 
+/** Creates a bare-bones class with only a name. Other information is added later. */
+ClassObj *new_class_obj(ZmxProgram *program, StringObj *name) {
+    ClassObj *object = NEW_OBJ(program, OBJ_CLASS, ClassObj);
+    object->name = name;
+    object->init = NULL;
+    object->methods = create_table();
+    return object;
+}
+
 /** Returns a new allocated native function object. */
 NativeFuncObj *new_native_func_obj(ZmxProgram *program, NativeFunc func, StringObj *name) {
     NativeFuncObj *object = NEW_OBJ(program, OBJ_NATIVE_FUNC, NativeFuncObj);
@@ -321,6 +330,9 @@ static CharBuffer object_cstring(const Obj *object) {
         free_char_buffer(&capturedBuf);
         break;
     }
+    case OBJ_CLASS:
+        buffer_append_format(&string, "<class %s>", AS_PTR(ClassObj, object)->name->string);
+        break;
     case OBJ_NATIVE_FUNC:
         buffer_append_format(
             &string, "<native function %s>", AS_PTR(NativeFuncObj, object)->name->string
@@ -354,6 +366,7 @@ bool is_iterable(const Obj *object) {
     case OBJ_ENUM_MEMBER:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
+    case OBJ_CLASS:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return false;
@@ -431,6 +444,7 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
     case OBJ_ENUM_MEMBER:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
+    case OBJ_CLASS:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         UNREACHABLE_ERROR();
@@ -495,6 +509,7 @@ bool equal_obj(const Obj *left, const Obj *right) {
     case OBJ_ENUM:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
+    case OBJ_CLASS:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         return left == right; // Compare addresses directly.
@@ -586,6 +601,7 @@ IntObj *as_int(ZmxProgram *program, const Obj *object) {
     case OBJ_ENUM:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
+    case OBJ_CLASS:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         // Can't ever convert to integer.
@@ -619,6 +635,7 @@ FloatObj *as_float(ZmxProgram *program, const Obj *object) {
     case OBJ_ENUM:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
+    case OBJ_CLASS:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         // Can't ever convert to float.
@@ -636,6 +653,7 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     case OBJ_ENUM:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
+    case OBJ_CLASS:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         // Always considered "truthy".
@@ -696,6 +714,7 @@ char *obj_type_str(ObjType type) {
     case OBJ_ENUM_MEMBER: return "enum member";
     case OBJ_FUNC: return "function";
     case OBJ_CAPTURED: return "captured";
+    case OBJ_CLASS: return "class";
     case OBJ_NATIVE_FUNC: return "native function";
     case OBJ_ITERATOR: return "iterator";
     }
@@ -750,6 +769,9 @@ void free_obj(Obj *object) {
         }
         break;
     }
+    case OBJ_CLASS:
+        free_table(&AS_PTR(ClassObj, object)->methods);
+        break;
     case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:

@@ -22,7 +22,12 @@
             
 #define IS_EOF(parser) (CHECK(parser, TOKEN_EOF))
 
-#define NULL_NODE(parser) (new_keyword_node(parser->program, create_token("null", TOKEN_NULL_KW)))
+/** A declaration with only a name, and should not load a value by itself. */
+#define NO_VALUE_DECLARATION(parser, name) \
+    (AS_PTR(DeclareVarNode, new_declare_var_node((parser)->program, name, NULL, false)))
+
+/** An automatic null node for convenience (as they're all identical). */
+#define NULL_NODE(parser) (new_keyword_node((parser)->program, create_token("null", TOKEN_NULL_KW)))
 
 static Node *assignment(Parser *parser);
 static Node *expression(Parser *parser);
@@ -138,6 +143,8 @@ static Node *primary(Parser *parser) {
     case TOKEN_BOOL_KW:
     case TOKEN_STRING_KW:
         return new_keyword_node(parser->program, PEEK_PREVIOUS(parser));
+    case TOKEN_THIS_KW:
+        return new_get_var_node(parser->program, PEEK_PREVIOUS(parser));
     case TOKEN_INT_LIT:
     case TOKEN_FLOAT_LIT:
         return new_literal_node(parser->program, PEEK_PREVIOUS(parser));
@@ -483,7 +490,9 @@ static Node *ternary(Parser *parser) {
     Node *expr = assignment(parser);
     if (MATCH(parser, TOKEN_QUESTION_MARK)) {
         Node *trueExpr = assignment(parser);
-        CONSUME(parser, TOKEN_COLON, "Expected ':' after ternary condtion and true expression.");
+        CONSUME(
+            parser, TOKEN_COLON, "Expected ':' after ternary condtion and true case expression."
+        );
         Node *falseExpr = assignment(parser);
         expr = new_ternary_node(parser->program, expr, trueExpr, falseExpr);
     }
@@ -513,7 +522,7 @@ static Node *finish_block(Parser *parser) {
     while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser)) {
         APPEND_DA(&stmts, declaration(parser));
     }
-    CONSUME(parser, TOKEN_RCURLY, "Expected closing '}' for block.");
+    CONSUME(parser, TOKEN_RCURLY, "Expected closing '}'.");
     return new_block_node(parser->program, stmts, pos);
 }
 
@@ -670,9 +679,7 @@ static Node *parse_var_declaration(Parser *parser, const bool isConst) {
 /** Declares an enum with an array of enum values that are named but just represent integers. */
 static Node *parse_enum(Parser *parser) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected enum name.");
-    DeclareVarNode *declaration = AS_PTR(
-        DeclareVarNode, new_declare_var_node(parser->program, name, NULL, false)
-    );
+    DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser, name);
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after enum name.");
 
     TokenArray members = CREATE_DA();
@@ -711,17 +718,53 @@ static NodeArray parse_params(Parser *parser) {
     return params;
 }
 
-/** Parses any type of function. TODO: Handle the few differences between funcs, methods, etc. */
-static Node *parse_func(Parser *parser) {
-    const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected function name.");
-    DeclareVarNode *declaration = AS_PTR(
-        DeclareVarNode, new_declare_var_node(parser->program, name, NULL, false)
-    );
-    
+/** Parses any type of function whose name was already parsed and passed to this. */
+static Node *named_func(Parser *parser, const Token name) {
+    DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser, name);
     NodeArray params = parse_params(parser);
+
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after function parameters.");
     Node *body = finish_block(parser);
     return new_func_node(parser->program, declaration, params, AS_PTR(BlockNode, body));
+}
+
+/** Parses a function and its name before the function itself for convenience. */
+static Node *parse_func(Parser *parser) {
+    const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected function name.");
+    return named_func(parser, name);
+}
+
+/** Handles parsing one method (or initializers) and putting it inside the class node. */
+static void class_method(Parser *parser, ClassNode *classNode) {
+    if (CHECK(parser, TOKEN_INIT_KW)) {
+        if (classNode->init != NULL) {
+            parser_error_at(
+                parser, &PEEK(parser), false, "Can't have multiple intializers in class."
+            );
+        }
+        classNode->init = AS_PTR(FuncNode, named_func(parser, ADVANCE_PEEK(parser)));
+    } else {
+        APPEND_DA(&classNode->methods, parse_func(parser));
+    }
+}
+
+/** Handles parsing a class's body, and adds its information to the class node. */
+static void class_body(Parser *parser, ClassNode *classNode) {
+    CONSUME(parser, TOKEN_LCURLY, "Expected '{' for the class body.");
+    while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser)) {
+        class_method(parser, classNode);
+    }
+    CONSUME(parser, TOKEN_RCURLY, "Expected '}' at the end of class.");
+}
+
+/** Parses and returns an entire class with all of its information. */
+static Node *parse_class(Parser *parser) {
+    const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected class name.");
+    DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser, name);
+    ClassNode *classNode = AS_PTR(ClassNode, new_class_node(parser->program, declaration));
+
+    class_body(parser, classNode);
+    return AS_NODE(classNode);
 }
 
 /** 
@@ -772,6 +815,7 @@ static Node *declaration(Parser *parser) {
     case TOKEN_CONST_KW: node = parse_var_declaration(parser, true); break;
     case TOKEN_ENUM_KW: node = parse_enum(parser); break;
     case TOKEN_FUNC_KW: node = parse_func(parser); break;
+    case TOKEN_CLASS_KW: node = parse_class(parser); break;
     default:
         RETREAT(parser);
         node = statement(parser);

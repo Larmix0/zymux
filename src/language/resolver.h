@@ -10,6 +10,14 @@
 /** An array for variable resolution addresses */
 DECLARE_DA_STRUCT(VarResolutionArray, VarResolution *);
 
+/** Represents what type of (or lack of) function the resolver should use as context. */
+typedef enum {
+    FUNC_NONE,
+    FUNC_FUNCTION,
+    FUNC_INIT,
+    FUNC_METHOD
+} FuncType;
+
 /** Represents a variable and its resolution information at compilation time. */
 typedef struct {
     bool isPrivate; /** Whether it's private or publicly accessible from the outside. */
@@ -76,8 +84,10 @@ typedef struct {
 
     ClosedVariables globals; /** An array of only globally declared variables. */
     ClosedVariablesArray locals; /** All variables excluding globals as an array of closures. */
+
     U32Array loopScopes; /** An array of scopes which are considered loop scopes. */
     u32 scopeDepth; /** How deep the current scope is. */
+    FuncType currentFunc; /** Function context for things like "return". */
 } Resolver;
 
 /** Returns a starting resolve for the passed AST. */

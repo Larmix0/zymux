@@ -807,6 +807,28 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
     compile_declare_var(compiler, node->nameDecl);
 }
 
+/** Compile class. TODO: add docs. */
+static void compile_class(Compiler *compiler, const ClassNode *node) {
+    StringObj *nameAsObj = new_string_obj(
+        compiler->program, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
+    );
+    emit_const(compiler, OP_CREATE_CLASS, AS_OBJ(nameAsObj), get_node_pos(AS_NODE(node)));
+
+    for (u32 i = 0; i < node->methods.length; i++) {
+        compile_node(compiler, node->methods.data[i]);
+    }
+    // Only emit the add methods instruction if there are any methods to begin with (optimization).
+    if (node->methods.length > 0) {
+        emit_number(compiler, OP_ADD_METHODS, node->methods.length, get_node_pos(AS_NODE(node)));
+    }
+
+    if (node->init != NULL) {
+        compile_func(compiler, node->init);
+        emit_instr(compiler, OP_ADD_INIT, get_node_pos(AS_NODE(node)));
+    }
+    compile_declare_var(compiler, node->nameDecl);
+}
+
 /** 
  * Compiles a return statement with the returned value being loaded on the stack beforehand.
  * Emits a special return for closures which handles their captured variables.
@@ -861,6 +883,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_LOOP_CONTROL: compile_loop_control(compiler, AS_PTR(LoopControlNode, node)); break;
     case AST_ENUM: compile_enum(compiler, AS_PTR(EnumNode, node)); break;
     case AST_FUNC: compile_func(compiler, AS_PTR(FuncNode, node)); break;
+    case AST_CLASS: compile_class(compiler, AS_PTR(ClassNode, node)); break;
     case AST_RETURN: compile_return(compiler, AS_PTR(ReturnNode, node)); break;
     case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
     case AST_ERROR: break; // Do nothing on erroneous nodes.

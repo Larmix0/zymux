@@ -264,6 +264,18 @@ OP_CLOSURE:
     Copies over all captured variables of the current frame over to the function in the stack,
     loads it after wrapping it over a closure object.
 
+OP_CREATE_CLASS:
+    Creates a bare-bones class with no init and no methods using a read constant for its name.
+
+OP_ADD_METHODS:
+    Reads a number, which is how many functions on the stack are as methods for the class
+    that is one slot behind them. Adds all of those functions as table entries of name keys
+    and function (method) values to the class, then pops all of them off of the stack after.
+
+OP_ADD_INIT:
+    Grabs the topmost element (expected to be a function) and adds it as an initializer for
+    the class that will be sitting one slot behind it in the stack. Pops the init function after.
+
 OP_MAKE_ITER:
     Grabs the topmost object in the stack and wraps it inside a new iterator object.
     If the topmost object is not iterable, then it causes a runtime error.

@@ -33,8 +33,9 @@ static ClosedVariables empty_closure() {
 /** Returns a starting resolver for the passed AST. */
 Resolver create_resolver(ZmxProgram *program, NodeArray ast) {
     Resolver resolver = {
-        .program = program, .ast = ast, .globals = empty_closure(), .locals = CREATE_DA(),
-        .scopeDepth = 0, .loopScopes = CREATE_DA()
+        .program = program, .ast = ast,
+        .globals = empty_closure(), .locals = CREATE_DA(),
+        .loopScopes = CREATE_DA(), .scopeDepth = 0, .currentFunc = FUNC_NONE
     };
     // Add the permanent closure for locals not covered by functions (like vars in global loops).
     APPEND_DA(&resolver.locals, empty_closure());
@@ -314,14 +315,14 @@ static void resolve_expr_stmt(Resolver *resolver, const ExprStmtNode *node) {
 }
 
 /** Resolves a block's array of statements without pushing/popping a scope on top of it. */
-static void block(Resolver *resolver, BlockNode *node) {
+static void unscoped_block(Resolver *resolver, BlockNode *node) {
     resolve_node_array(resolver, &node->stmts);
 }
 
-/** Resolves a block's array of statements under the depth of a new passed scope. */
-static void scoped_block(Resolver *resolver, BlockNode *node, const ScopeType type) {
+/** Resolves a block's array of statements under the depth of a new passed scope, then pops it. */
+static void block(Resolver *resolver, BlockNode *node, const ScopeType type) {
     push_scope(resolver, type);
-    block(resolver, node);
+    unscoped_block(resolver, node);
     pop_scope_block(resolver, node, type);
 }
 
@@ -729,12 +730,12 @@ static void resolve_match(Resolver *resolver, MatchNode *node) {
 /** Resolves a while loop's condition and its body statements inside a loop scope. */
 static void resolve_while(Resolver *resolver, WhileNode *node) {
     resolve_node(resolver, node->condition);
-    scoped_block(resolver, node->body, SCOPE_LOOP);
+    block(resolver, node->body, SCOPE_LOOP);
 }
 
 /** Resolves a do-while loop, which is like a while, but its condition's resolved after the body. */
 static void resolve_do_while(Resolver *resolver, DoWhileNode *node) {
-    scoped_block(resolver, node->body, SCOPE_LOOP);
+    block(resolver, node->body, SCOPE_LOOP);
     resolve_node(resolver, node->condition);
 }
 
@@ -764,7 +765,7 @@ static void resolve_for(Resolver *resolver, ForNode *node) {
         )
     );
     resolve_node(resolver, node->iterable);
-    scoped_block(resolver, node->body, SCOPE_LOOP);
+    block(resolver, node->body, SCOPE_LOOP);
 
     pop_scope(resolver, SCOPE_NORMAL);
 }
@@ -839,7 +840,7 @@ static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
         APPEND_DA(&parameter.resolutions, &parameter.resolution);
         APPEND_DA(CURRENT_LOCALS(resolver), parameter);
     }
-    block(resolver, node->body);
+    unscoped_block(resolver, node->body);
 }
 
 /**
@@ -848,26 +849,62 @@ static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
  * Manually appends the function's name a second time to the recently created locals of itself
  * in order to allow recursion by accessinig index 0 inside BP at runtime
  * (as BP starts on the callee).
+ * 
+ * If the function is some class's method, then the keyword name "this" is added instead of
+ * the function itself a second time, so that the instance can be accessed instead.
  */
-static void resolve_func(Resolver *resolver, FuncNode *node) {
+static void resolve_func(Resolver *resolver, FuncNode *node, const FuncType type) {
+    const FuncType previous = resolver->currentFunc;
+    resolver->currentFunc = type;
+
     resolve_declare_var(resolver, node->nameDecl);
     push_scope(resolver, SCOPE_FUNC);
+
+    const Token usedName = type == FUNC_INIT || type == FUNC_METHOD ?
+        create_token("this", TOKEN_THIS_KW) : node->nameDecl->name;
     Variable declared = create_variable(
         false, node->nameDecl->isConst, false,
-        node->nameDecl->name, resolver->scopeDepth, node->nameDecl->resolution, NULL
+        usedName, resolver->scopeDepth, node->nameDecl->resolution, NULL
     );
     APPEND_DA(CURRENT_LOCALS(resolver), declared);
 
     finish_func_resolution(resolver, node);
     node->isClosure = CURRENT_CLOSURE(resolver)->isClosure;
     pop_scope_block(resolver, node->body, SCOPE_FUNC);
+    resolver->currentFunc = previous;
+}
+
+/** 
+ * Resolves a class's variable declaration, initializer (if there's one), and all methods.
+ * 
+ * While resolving the methods, it pushes a temporary scope which forces the function to be treated
+ * as a local variable when created, and not a global (which is the case for classes).
+ * Not to mention that it does make sense to go into a new scope considering the body braces
+ * of the class itself.
+ */
+static void resolve_class(Resolver *resolver, ClassNode *node) {
+    resolve_declare_var(resolver, node->nameDecl);
+
+    push_scope(resolver, SCOPE_NORMAL);
+    if (node->init != NULL) {
+        resolve_func(resolver, node->init, FUNC_INIT);
+    }
+    for (u32 i = 0; i < node->methods.length; i++) {
+        resolve_func(resolver, AS_PTR(FuncNode, node->methods.data[i]), FUNC_METHOD);
+    }
+    pop_scope(resolver, SCOPE_NORMAL);
 }
 
 /** Resolves a return by resolving the returned value and erroring if we're not inside a func. */
 static void resolve_return(Resolver *resolver, ReturnNode *node) {
-    if (resolver->locals.length < 2) {
+    if (resolver->currentFunc == FUNC_NONE) {
         resolution_error(
             resolver, get_node_pos(AS_NODE(node)), "Can't return outside a function scope."
+        );
+    }
+    if (resolver->currentFunc == FUNC_INIT) {
+        resolution_error(
+            resolver, get_node_pos(AS_NODE(node)), "Can't return inside initializer."
         );
     }
     resolve_node(resolver, node->returnValue);
@@ -893,7 +930,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_LIST: resolve_list(resolver, AS_PTR(ListNode, node)); break;
     case AST_MAP: resolve_map(resolver, AS_PTR(MapNode, node)); break;
     case AST_EXPR_STMT: resolve_expr_stmt(resolver, AS_PTR(ExprStmtNode, node)); break;
-    case AST_BLOCK: scoped_block(resolver, AS_PTR(BlockNode, node), SCOPE_NORMAL); break;
+    case AST_BLOCK: block(resolver, AS_PTR(BlockNode, node), SCOPE_NORMAL); break;
     case AST_DECLARE_VAR: resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node)); break;
     case AST_ASSIGN_VAR: resolve_assign_var(resolver, AS_PTR(AssignVarNode, node)); break;
     case AST_GET_VAR: resolve_get_var(resolver, AS_PTR(GetVarNode, node)); break;
@@ -905,7 +942,8 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_FOR: resolve_for(resolver, AS_PTR(ForNode, node)); break;
     case AST_LOOP_CONTROL: resolve_loop_control(resolver, AS_PTR(LoopControlNode, node)); break;
     case AST_ENUM: resolve_enum(resolver, AS_PTR(EnumNode, node)); break;
-    case AST_FUNC: resolve_func(resolver, AS_PTR(FuncNode, node)); break;
+    case AST_FUNC: resolve_func(resolver, AS_PTR(FuncNode, node), FUNC_FUNCTION); break;
+    case AST_CLASS: resolve_class(resolver, AS_PTR(ClassNode, node)); break;
     case AST_RETURN: resolve_return(resolver, AS_PTR(ReturnNode, node)); break;
 
     case AST_LITERAL:
