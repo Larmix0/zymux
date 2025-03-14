@@ -227,6 +227,17 @@ Node *new_multi_declare_node(
     return AS_NODE(node);
 }
 
+/** Allocates a node for multiple assignments on an iterable value. */
+Node *new_multi_assign_node(
+    ZmxProgram *program, const NodeArray assignments, Node *value, const SourcePosition pos
+) {
+    MultiAssignNode *node = NEW_NODE(program, AST_MULTI_ASSIGN, MultiAssignNode);
+    node->assignments = assignments;
+    node->value = value;
+    node->pos = pos;
+    return AS_NODE(node);
+}
+
 /** Allocates an if-else statement with their condition. The else branch can optionally be NULL. */
 Node *new_if_else_node(
     ZmxProgram *program, Node *condition, BlockNode *ifBranch, Node *elseBranch
@@ -378,6 +389,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_SET_PROPERTY: return get_node_pos(AS_NODE(AS_PTR(SetPropertyNode, node)->get));
     case AST_GET_PROPERTY: return AS_PTR(GetPropertyNode, node)->property.pos;
     case AST_MULTI_DECLARE: return AS_PTR(MultiDeclareNode, node)->pos;
+    case AST_MULTI_ASSIGN: return AS_PTR(MultiAssignNode, node)->pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
     case AST_MATCH: return get_node_pos(AS_PTR(MatchNode, node)->matchedExpr);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
@@ -411,6 +423,9 @@ static void free_node(Node *node) {
         break;
     case AST_MULTI_DECLARE:
         FREE_DA(&AS_PTR(MultiDeclareNode, node)->declarations);
+        break;
+    case AST_MULTI_ASSIGN:
+        FREE_DA(&AS_PTR(MultiAssignNode, node)->assignments);
         break;
     case AST_MATCH:
         FREE_DA(&AS_PTR(MatchNode, node)->caseLabels);

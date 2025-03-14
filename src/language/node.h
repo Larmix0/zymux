@@ -41,6 +41,7 @@ typedef enum {
     AST_SET_PROPERTY,
     AST_GET_PROPERTY,
     AST_MULTI_DECLARE,
+    AST_MULTI_ASSIGN,
     AST_IF_ELSE,
     AST_MATCH,
     AST_WHILE,
@@ -254,8 +255,10 @@ typedef struct {
 } SetPropertyNode;
 
 /** 
- * Declares multiple variables at once. They're set to elements in an iterable value.
- * If the value is a C NULL, it will treat it as having no initializer.
+ * Declares multiple variables at once (which are supposed to have not been declared beforehand).
+ * 
+ * They're set to elements in an iterable value, and if the value is a C NULL,
+ * it will treat it as having no initializer.
  */
 typedef struct {
     Node node;
@@ -264,6 +267,17 @@ typedef struct {
     bool isConst; /** Applies to all variables whether they're all const or none of them are. */
     SourcePosition pos;
 } MultiDeclareNode;
+
+/** 
+ * Assigns values to multiple variables using some iterable, which must be a valid, parsable value.
+ * The array of assignments allow anything assignable (like variables and fields).
+ */
+typedef struct {
+    Node node;
+    NodeArray assignments; /** Array of all assignments (which could be of different types). */
+    Node *value; /** The iterable value they're set to. */
+    SourcePosition pos;
+} MultiAssignNode;
 
 /** Represents a full conditional if-else statement in a node where the else part is optional. */
 typedef struct {
@@ -445,6 +459,11 @@ Node *new_get_property_node(ZmxProgram *program, const Token property, Node *ori
 Node *new_multi_declare_node(
     ZmxProgram *program, const NodeArray declarations, Node *value,
     const bool isConst, const SourcePosition pos
+);
+
+/** Allocates a node for multiple assignments on an iterable value. */
+Node *new_multi_assign_node(
+    ZmxProgram *program, const NodeArray assignments, Node *value, const SourcePosition pos
 );
 
 /** Allocates an if-else node with their condition. The else branch can optionally be NULL. */

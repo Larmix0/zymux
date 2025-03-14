@@ -46,3 +46,5 @@ only when fields and methods are added to built-in objects.
 Consistently treat NULL checks as implicit booleans.
 
 Add destructuring in for loops.
+
+Add runtime error stack traces.

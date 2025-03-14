@@ -230,8 +230,20 @@ static void append_get_property(AstBuilder *ast, const GetPropertyNode *node) {
 static void append_multi_declare(AstBuilder *ast, const MultiDeclareNode *node) {
     buffer_append_string(&ast->string, "<multi declare> ");
     append_node_array(ast, &node->declarations);
-    buffer_append_string(&ast->string, "= ");
-    append_node(ast, node->value);
+    if (node->value) {
+        buffer_append_string(&ast->string, "= ");
+        append_node(ast, node->value);
+    }
+}
+
+/** Appends an expression which assigns multiple variables to a value. */
+static void append_multi_assign(AstBuilder *ast, const MultiAssignNode *node) {
+    buffer_append_string(&ast->string, "<multi assign> ");
+    append_node_array(ast, &node->assignments);
+    if (node->value) {
+        buffer_append_string(&ast->string, "= ");
+        append_node(ast, node->value);
+    }
 }
 
 /** Appends a representation of an if-else statement where the else is optional. */
@@ -378,6 +390,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_SET_PROPERTY: append_set_property(ast, AS_PTR(SetPropertyNode, node)); break;
     case AST_GET_PROPERTY: append_get_property(ast, AS_PTR(GetPropertyNode, node)); break;
     case AST_MULTI_DECLARE: append_multi_declare(ast, AS_PTR(MultiDeclareNode, node)); break;
+    case AST_MULTI_ASSIGN: append_multi_assign(ast, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: append_if_else(ast, AS_PTR(IfElseNode, node)); break;
     case AST_MATCH: append_match(ast, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: append_while(ast, AS_PTR(WhileNode, node)); break;

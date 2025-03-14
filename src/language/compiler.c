@@ -496,6 +496,24 @@ static void compile_multi_declare(Compiler *compiler, const MultiDeclareNode *no
 }
 
 /** 
+ * Compiles a multi-assign node.
+ * 
+ * For multi-assigns, they must have a set value, so we load that and destructure it.
+ * Then, we simply compile all assignments in reverse order, as destructuring will load the iterable
+ * value it's expecting in order, meaning that the last destructured item will be at the top
+ * of the stack, so we must assign the last variable first.
+ */
+static void compile_multi_assign(Compiler *compiler, const MultiAssignNode *node) {
+    compile_node(compiler, node->value);
+    emit_number(compiler, OP_DESTRUCTURE, node->assignments.length, get_node_pos(node->value));
+    for (i64 i = (i64)node->assignments.length - 1; i >= 0; i--) {
+        compile_node(compiler, node->assignments.data[i]);
+        emit_local_pops(compiler, 1, get_node_pos(node->assignments.data[i])); // Pop assigned val.
+    }
+    compile_node(compiler, node->value); // So original value is left on the stack for use.
+}
+
+/** 
  * Compiles an if-statement and its optional else branch if one exists.
  * 
  * Compiles the condition of the "if" then emits a conditional jump, which skips over
@@ -920,6 +938,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_SET_PROPERTY: compile_set_property(compiler, AS_PTR(SetPropertyNode, node)); break;
     case AST_GET_PROPERTY: compile_get_property(compiler, AS_PTR(GetPropertyNode, node)); break;
     case AST_MULTI_DECLARE: compile_multi_declare(compiler, AS_PTR(MultiDeclareNode, node)); break;
+    case AST_MULTI_ASSIGN: compile_multi_assign(compiler, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
     case AST_MATCH: compile_match(compiler, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;

@@ -426,6 +426,37 @@ static Node *binary_logical(Parser *parser) {
 }
 
 /** 
+ * Handles verifying that a list node is filled with valid assignable names as elements.
+ * 
+ * This function expects to be called right after consuming the closing ']' bracket.
+ * It's primary purpose is just to throw errors at the user if their assignment list is invalid,
+ * but otherwise doesn't affect the flow of the program.
+ */
+static Node *multi_assignment(Parser *parser, ListNode *list) {
+    Token *leftBracket = &PEEK_PREVIOUS(parser);
+    if (list->items.length == 0) {
+        parser_error_at(parser, leftBracket, false, "Assignment list can't be empty.");
+    }
+    ADVANCE(parser); // Equal token.
+    Node *value = assignment(parser);
+
+    NodeArray assigns = CREATE_DA();
+    for (u32 i = 0; i < list->items.length; i++) {
+        Node *assignVar = list->items.data[i];
+        if (assignVar->type == AST_GET_VAR) {
+            const Token name = AS_PTR(GetVarNode, list->items.data[i])->name;
+            APPEND_DA(&assigns, new_assign_var_node(parser->program, name, NULL));
+        } else if (assignVar->type == AST_GET_PROPERTY) {
+            GetPropertyNode *get = AS_PTR(GetPropertyNode, list->items.data[i]);
+            APPEND_DA(&assigns, new_set_property_node(parser->program, get, NULL));
+        } else {
+            parser_error_at(parser, leftBracket, false, "Expected only valid assignment names.");
+        }
+    }
+    return new_multi_assign_node(parser->program, assigns, value, list->pos);
+}
+
+/** 
  * Handles assignments with an operation augment.
  * 
  * Simply desugars the augmented assignment to a normal assignment with an extra
@@ -456,10 +487,13 @@ static Node *augmented_assignment(Parser *parser, Node *expr) {
     return new_assign_var_node(parser->program, AS_PTR(GetVarNode, expr)->name, value);
 }
 
-/** Handles assignment expressions. TODO: do multi-assignments and document how they're parsed. */
+/** Handles assignment expressions. Includes augmented assigns and multi-variable assigns. */
 static Node *assignment(Parser *parser) {
     Node *expr = binary_logical(parser);
     if (CHECK(parser, TOKEN_EQ)) {
+        if (expr->type == AST_LIST) {
+            return multi_assignment(parser, AS_PTR(ListNode, expr));
+        }
         ADVANCE(parser); // Equal token.
         Node *value = assignment(parser);
 
