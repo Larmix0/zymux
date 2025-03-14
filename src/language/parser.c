@@ -647,26 +647,70 @@ static Node *statement(Parser *parser) {
 }
 
 /** 
- * Variable declarations initialize with an expression or default to null if nothing is provided.
+ * Finishes the parsing of some variable declaration and returns the value parsed.
  * 
- * TODO: add documentation for multi-variable declaration.
+ * Either an actual parsed node, or an implicit null node is returned as the value.
+ * Only returns a C NULL address if it errored.
  */
-static Node *parse_var_declaration(Parser *parser, const bool isConst) {
-    const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected declared variable's name.");
-    Node *value;
+static Node *declaration_value(Parser *parser) {
+    Node *value = NULL;
     if (MATCH(parser, TOKEN_SEMICOLON)) {
         value = NULL_NODE(parser->program);   
     } else if (MATCH(parser, TOKEN_EQ)){
         value = expression(parser);
-        CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after variable's value.");
+        CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after declaration's value.");
     } else {
-        // TODO: later add a comma option that turns into multiple declaration
-        // TODO: also, make this if-else chain a switch after the comma option is added.
         parser_error_missing(
-            parser, &PEEK(parser), true, "Expected ';' or '=' after variable declaration."
+            parser, &PEEK(parser), true, "Expected ';' or '=' after declaration."
         );
     }
-    return new_declare_var_node(parser->program, name, value, isConst);
+    return value;
+}
+
+/** 
+ * Returns a node of multiple declarations to one (presumably) iterable value.
+ * Assumes the left bracket was consumed.
+ */
+static Node *multi_declaration(Parser *parser, const bool isConst) {
+    const SourcePosition pos = PEEK_PREVIOUS(parser).pos; // Left bracket.
+    if (CHECK(parser, TOKEN_RSQUARE)) {
+        parser_error_at(
+            parser, &PEEK_PREVIOUS(parser), false,
+            "Expected at least one variable in multi-variable declaration."
+        );
+        return new_error_node(parser->program);
+    }
+
+    NodeArray declarations = CREATE_DA();
+    const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected variable name.");
+    APPEND_DA(&declarations, AS_NODE(NO_VALUE_DECLARATION(parser->program, name)));
+    while (!MATCH(parser, TOKEN_RSQUARE) && !IS_EOF(parser) && !parser->isPanicking) {
+        CONSUME(parser, TOKEN_COMMA, "Expected ',' or ']' after declared variable's name.");
+        const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected variable name after ','.");
+        APPEND_DA(&declarations, AS_NODE(NO_VALUE_DECLARATION(parser->program, name)));
+    }
+    if (IS_EOF(parser)) {
+        parser_error_at(
+            parser, &PEEK(parser), true, "Multi-variable declaration never closed with ']'."
+        );
+        return new_error_node(parser->program); // Can't parse a value if EOF.
+    }
+
+    Node *value = MATCH(parser, TOKEN_SEMICOLON) ? NULL : declaration_value(parser);
+    return new_multi_declare_node(parser->program, declarations, value, isConst, pos);
+}
+
+/** 
+ * Variable declarations initialize with an expression or default to null if nothing is provided.
+ * This includes normal declarations and multi-variable declarations.
+ */
+static Node *parse_var_declaration(Parser *parser, const bool isConst) {
+    if (MATCH(parser, TOKEN_LSQUARE)) {
+        return multi_declaration(parser, isConst);
+    } else {
+        const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected declared variable's name.");
+        return new_declare_var_node(parser->program, name, declaration_value(parser), isConst);
+    }
 }
 
 /** Declares an enum with an array of enum values that are named but just represent integers. */

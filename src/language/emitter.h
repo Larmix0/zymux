@@ -66,6 +66,7 @@ typedef enum {
     OP_TERNARY,
     OP_LIST,
     OP_MAP,
+    OP_DESTRUCTURE,
     OP_GET_BUILT_IN,
     OP_DECLARE_GLOBAL,
     OP_ASSIGN_GLOBAL,

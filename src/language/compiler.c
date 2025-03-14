@@ -470,6 +470,32 @@ static void compile_get_property(Compiler *compiler, const GetPropertyNode *node
 }
 
 /** 
+ * Compiles multiple declarations on the stack in a row.
+ * 
+ * First either loads an amount of nullss equal to the variables declared if it's an implicit
+ * declaration, or loads an iterable and destructures it on the stack.
+ * 
+ * After that, it starts declaring the variables in reverse, as the destructure instruction
+ * will load the iterable in order, placing the last element on the top of the stack,
+ * so we need to start by also declaring the last variable first.
+ */
+static void compile_multi_declare(Compiler *compiler, const MultiDeclareNode *node) {
+    if (node->value) {
+        compile_node(compiler, node->value);
+        emit_number(compiler, OP_DESTRUCTURE, node->declarations.length, get_node_pos(node->value));
+    } else {
+        for (u32 i = 0; i < node->declarations.length; i++) {
+            // Implicit null for each variable.
+            compile_node(compiler, AS_NODE(NULL_NODE(compiler->program)));
+        }
+    }
+
+    for (i64 i = (i64)node->declarations.length - 1; i >= 0; i--) {
+        compile_node(compiler, node->declarations.data[i]);
+    }
+}
+
+/** 
  * Compiles an if-statement and its optional else branch if one exists.
  * 
  * Compiles the condition of the "if" then emits a conditional jump, which skips over
@@ -893,6 +919,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_GET_VAR: compile_get_var(compiler, AS_PTR(GetVarNode, node)); break;
     case AST_SET_PROPERTY: compile_set_property(compiler, AS_PTR(SetPropertyNode, node)); break;
     case AST_GET_PROPERTY: compile_get_property(compiler, AS_PTR(GetPropertyNode, node)); break;
+    case AST_MULTI_DECLARE: compile_multi_declare(compiler, AS_PTR(MultiDeclareNode, node)); break;
     case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
     case AST_MATCH: compile_match(compiler, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;

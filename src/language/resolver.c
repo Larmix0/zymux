@@ -699,6 +699,12 @@ static void resolve_get_property(Resolver *resolver, GetPropertyNode *node) {
     resolve_node(resolver, node->originalObj);
 }
 
+/** Resolves all variables of a multi-variable declaration and the value they're destructuring. */
+static void resolve_multi_declare(Resolver *resolver, MultiDeclareNode *node) {
+    resolve_node_array(resolver, &node->declarations);
+    resolve_node(resolver, node->value);
+}
+
 /** Resolves the condition and branches of an if-else statement. */
 static void resolve_if_else(Resolver *resolver, IfElseNode *node) {
     resolve_node(resolver, node->condition);
@@ -959,6 +965,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_GET_VAR: resolve_get_var(resolver, AS_PTR(GetVarNode, node)); break;
     case AST_SET_PROPERTY: resolve_set_property(resolver, AS_PTR(SetPropertyNode, node)); break;
     case AST_GET_PROPERTY: resolve_get_property(resolver, AS_PTR(GetPropertyNode, node)); break;
+    case AST_MULTI_DECLARE: resolve_multi_declare(resolver, AS_PTR(MultiDeclareNode, node)); break;
     case AST_IF_ELSE: resolve_if_else(resolver, AS_PTR(IfElseNode, node)); break;
     case AST_MATCH: resolve_match(resolver, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: resolve_while(resolver, AS_PTR(WhileNode, node)); break;

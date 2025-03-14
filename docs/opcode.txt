@@ -166,6 +166,11 @@ OP_MAP:
     all map entries are read, and used to create a map object.
     Finally, that created map is pushed to the stack after all key-value pairs are popped.
 
+OP_DESTRUCTURE:
+    Expects the topmost element to be an iterable. Pops it and unpacks its objects on the stack
+    one by one, with the first element of the iterable being on top of the stack, and the last
+    element being furthest from the top.
+
 OP_GET_BUILT_IN:
     Reads a string const, which is the name of the variable whose value is to be extracted from
     the program's loaded built-ins.

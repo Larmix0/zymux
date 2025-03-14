@@ -40,6 +40,7 @@ typedef enum {
     AST_GET_VAR,
     AST_SET_PROPERTY,
     AST_GET_PROPERTY,
+    AST_MULTI_DECLARE,
     AST_IF_ELSE,
     AST_MATCH,
     AST_WHILE,
@@ -211,7 +212,7 @@ typedef struct {
     i64 capturedAmount; /** How many captured variables were declared within this block. */
 } BlockNode;
 
-/** Holds a variable declaration statement */
+/** Holds a variable declaration statement. Value is a C NULL if it doesn't have an initializer. */
 typedef struct {
     Node node;
     Token name;
@@ -251,6 +252,18 @@ typedef struct {
     GetPropertyNode *get;
     Node *value;
 } SetPropertyNode;
+
+/** 
+ * Declares multiple variables at once. They're set to elements in an iterable value.
+ * If the value is a C NULL, it will treat it as having no initializer.
+ */
+typedef struct {
+    Node node;
+    NodeArray declarations; /** Array variable declarations that don't have explicit values set. */
+    Node *value; /** The iterable each one of them is set to one of its elements. */
+    bool isConst; /** Applies to all variables whether they're all const or none of them are. */
+    SourcePosition pos;
+} MultiDeclareNode;
 
 /** Represents a full conditional if-else statement in a node where the else part is optional. */
 typedef struct {
@@ -427,6 +440,12 @@ Node *new_set_property_node(ZmxProgram *program, GetPropertyNode *get, Node *val
 
 /** Allocates a node which holds a property access into some object. */
 Node *new_get_property_node(ZmxProgram *program, const Token property, Node *originalObj);
+
+/** Allocates a node for declaring multiple variables in one declarative statement. */
+Node *new_multi_declare_node(
+    ZmxProgram *program, const NodeArray declarations, Node *value,
+    const bool isConst, const SourcePosition pos
+);
 
 /** Allocates an if-else node with their condition. The else branch can optionally be NULL. */
 Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBranch, Node *elseBranch);

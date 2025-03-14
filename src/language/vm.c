@@ -339,6 +339,43 @@ static bool map_get_subscr(Vm *vm, MapObj *callee, Obj *subscript) {
     return true;
 }
 
+/** 
+ * Destructures an iterable which is expected to have "amount" of elements to destructure.
+ * 
+ * Creates an iterator to wrap the iterable at the top of the stack, and manually protects it
+ * then starts a while loop iteration which loads all iterated elements on the stack.
+ * 
+ * If the amount of iterations ("i") is less than the expected number of iterations ("amount")
+ * then the iterable didn't have enough elements,
+ * and if the iterator wasn't fully exhausted ("current" not being NULL) then it had too many
+ * elements instead. Both are an error.
+ */
+static bool destructure(Vm *vm, const u32 amount) {
+    if (!is_iterable(PEEK(vm))) {
+        return runtime_error(
+            vm, "Expected iterable for destructuring, got %s instead.",
+            obj_type_str(PEEK(vm)->type)
+        );
+    }
+    GC_PUSH_PROTECTION(&vm->program->gc);
+    IteratorObj *iterator = new_iterator_obj(vm->program, PEEK(vm));
+    GC_PROTECT_OBJ(&vm->program->gc, AS_OBJ(iterator)); // Protect iterator while iterating.
+    DROP(vm); // Now safe to pop iterable, as the protected iterator holds it.
+
+    Obj *current;
+    u32 i = 0;
+    while ((current = iterate(vm->program, iterator)) && i < amount) {
+        PUSH(vm, current);
+        i++;
+    }
+    GC_POP_PROTECTION(&vm->program->gc);
+    if (i < amount || current) {
+        // One of the finishing conditions hasn't been met, so either too few or too many elements.
+        return runtime_error(vm, "Expected %"PRIu32" elements in iterable.", amount);
+    }
+    return true;
+}
+
 /** Attempts to call the passed object. Returns whether or not it managed to call it. */
 static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     switch (callee->type) {
@@ -784,6 +821,13 @@ static bool execute_vm(Vm *vm) {
             Obj *originalObj = PEEK(vm);
             StringObj *name = AS_PTR(StringObj, READ_CONST(vm));
             if (!get_property(vm, originalObj, name)) {
+                return false;
+            }
+            break;
+        }
+        case OP_DESTRUCTURE: {
+            const u32 amount = READ_NUMBER(vm);
+            if (!destructure(vm, amount)) {
                 return false;
             }
             break;

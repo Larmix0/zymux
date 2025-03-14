@@ -191,15 +191,19 @@ static void append_block(AstBuilder *ast, const BlockNode *node) {
 static void append_declare_var(AstBuilder *ast, const DeclareVarNode *node) {
     buffer_append_string(&ast->string, node->isConst ? "const " : "let ");
     buffer_append_token(&ast->string, node->name);
-    buffer_append_string(&ast->string, "= ");
-    append_node(ast, node->value);
+    if (node->value) {
+        buffer_append_string(&ast->string, "= ");
+        append_node(ast, node->value);
+    }
 }
 
 /** Appends a variable assignment. */
 static void append_assign_var(AstBuilder *ast, const AssignVarNode *node) {
     buffer_append_token(&ast->string, node->name);
-    buffer_append_string(&ast->string, "= ");
-    append_node(ast, node->value);
+    if (node->value) {
+        buffer_append_string(&ast->string, "= ");
+        append_node(ast, node->value);
+    }
 }
 
 /** Appends the name of a variable whose value is to be extracted in the program. */
@@ -220,6 +224,14 @@ static void append_get_property(AstBuilder *ast, const GetPropertyNode *node) {
     buffer_pop(&ast->string);
     buffer_append_string(&ast->string, ".");
     buffer_append_token(&ast->string, node->property);
+}
+
+/** Appends a multi-declaration statement's declared names and the value they're set to. */
+static void append_multi_declare(AstBuilder *ast, const MultiDeclareNode *node) {
+    buffer_append_string(&ast->string, "<multi declare> ");
+    append_node_array(ast, &node->declarations);
+    buffer_append_string(&ast->string, "= ");
+    append_node(ast, node->value);
 }
 
 /** Appends a representation of an if-else statement where the else is optional. */
@@ -365,6 +377,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_GET_VAR: append_get_var(ast, AS_PTR(GetVarNode, node)); break;
     case AST_SET_PROPERTY: append_set_property(ast, AS_PTR(SetPropertyNode, node)); break;
     case AST_GET_PROPERTY: append_get_property(ast, AS_PTR(GetPropertyNode, node)); break;
+    case AST_MULTI_DECLARE: append_multi_declare(ast, AS_PTR(MultiDeclareNode, node)); break;
     case AST_IF_ELSE: append_if_else(ast, AS_PTR(IfElseNode, node)); break;
     case AST_MATCH: append_match(ast, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: append_while(ast, AS_PTR(WhileNode, node)); break;

@@ -214,6 +214,19 @@ Node *new_get_property_node(ZmxProgram *program, const Token property, Node *ori
     return AS_NODE(node);
 }
 
+/** Allocates a node for declaring multiple variables in one declarative statement. */
+Node *new_multi_declare_node(
+    ZmxProgram *program, const NodeArray declarations, Node *value,
+    const bool isConst, const SourcePosition pos
+) {
+    MultiDeclareNode *node = NEW_NODE(program, AST_MULTI_DECLARE, MultiDeclareNode);
+    node->declarations = declarations;
+    node->value = value;
+    node->isConst = isConst;
+    node->pos = pos;
+    return AS_NODE(node);
+}
+
 /** Allocates an if-else statement with their condition. The else branch can optionally be NULL. */
 Node *new_if_else_node(
     ZmxProgram *program, Node *condition, BlockNode *ifBranch, Node *elseBranch
@@ -361,9 +374,10 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_BLOCK: return AS_PTR(BlockNode, node)->pos;
     case AST_DECLARE_VAR: return AS_PTR(DeclareVarNode, node)->name.pos;
     case AST_ASSIGN_VAR: return AS_PTR(AssignVarNode, node)->name.pos;
-    case AST_SET_PROPERTY: return get_node_pos(AS_NODE(AS_PTR(SetPropertyNode, node)->get));
     case AST_GET_VAR: return AS_PTR(GetVarNode, node)->name.pos;
+    case AST_SET_PROPERTY: return get_node_pos(AS_NODE(AS_PTR(SetPropertyNode, node)->get));
     case AST_GET_PROPERTY: return AS_PTR(GetPropertyNode, node)->property.pos;
+    case AST_MULTI_DECLARE: return AS_PTR(MultiDeclareNode, node)->pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
     case AST_MATCH: return get_node_pos(AS_PTR(MatchNode, node)->matchedExpr);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
@@ -394,6 +408,9 @@ static void free_node(Node *node) {
         break;
     case AST_BLOCK:
         FREE_DA(&AS_PTR(BlockNode, node)->stmts);
+        break;
+    case AST_MULTI_DECLARE:
+        FREE_DA(&AS_PTR(MultiDeclareNode, node)->declarations);
         break;
     case AST_MATCH:
         FREE_DA(&AS_PTR(MatchNode, node)->caseLabels);
