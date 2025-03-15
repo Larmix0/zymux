@@ -103,6 +103,7 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_LIST: print_number_instr("LIST", func, &idx, size); break;
     case OP_MAP: print_number_instr("MAP", func, &idx, size); break;
     case OP_DESTRUCTURE: print_number_instr("DESTRUCTURE", func, &idx, size); break;
+    case OP_FOR_ASSIGN_VARS: print_number_instr("FOR_ASSIGN_VARS", func, &idx, size); break;
     case OP_MAKE_ITER: print_bare_instr("MAKE_ITER", &idx); break;
     case OP_FINISH_STRING: print_number_instr("FINISH_STRING", func, &idx, size); break;
     case OP_GET_BUILT_IN: print_const_instr("GET_BUILT_IN", func, &idx, size); break;
@@ -128,7 +129,8 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_JUMP_BACK: print_number_instr("JUMP_BACK", func, &idx, size); break;
     case OP_JUMP_IF: print_number_instr("JUMP_IF", func, &idx, size); break;
     case OP_JUMP_IF_NOT: print_number_instr("JUMP_IF_NOT", func, &idx, size); break;
-    case OP_ITER_OR_JUMP: print_number_instr("ITER_OR_JUMP", func, &idx, size); break;
+    case OP_FOR_ITER_ASSIGN: print_number_instr("FOR_ITER_ASSIGN", func, &idx, size); break;
+    case OP_FOR_ITER_LOAD: print_number_instr("FOR_ITER_LOAD", func, &idx, size); break;
     case OP_POP_JUMP_IF_NOT: print_number_instr("POP_JUMP_IF_NOT", func, &idx, size); break;
     case OP_POP_JUMP_BACK_IF: print_number_instr("POP_JUMP_BACK_IF", func, &idx, size); break;
     case OP_POP_LOCAL: print_bare_instr("POP_LOCAL", &idx); break;

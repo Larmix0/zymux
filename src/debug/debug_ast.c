@@ -296,7 +296,7 @@ static void append_do_while(AstBuilder *ast, const DoWhileNode *node) {
 /** Appends a for loop, which also includes the loop's variable, iterable, and body. */
 static void append_for(AstBuilder *ast, const ForNode *node) {
     buffer_append_string(&ast->string, "<for> ");
-    buffer_append_token(&ast->string, node->loopVar->name);
+    append_node(ast, node->loopVar);
     buffer_append_string(&ast->string, "<in> ");
     append_node(ast, node->iterable);
     buffer_append_string(&ast->string, "-> ");

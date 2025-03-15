@@ -316,7 +316,7 @@ typedef struct {
 /** A for in loop, which executes until we fully iterated through the loop's iterable. */
 typedef struct {
     Node node;
-    DeclareVarNode *loopVar;
+    Node *loopVar; /** Could be a normal declaration or a multi-declaration. */
     Node *iterable; /** An expression which should result in an iterable object at runtime. */
     BlockNode *body;
 } ForNode;
@@ -482,7 +482,7 @@ Node *new_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
 Node *new_do_while_node(ZmxProgram *program, Node *condition, BlockNode *body);
 
 /** Allocates a for loop node. */
-Node *new_for_node(ZmxProgram *program, DeclareVarNode *loopVar, Node *iterable, BlockNode *body);
+Node *new_for_node(ZmxProgram *program, Node *loopVar, Node *iterable, BlockNode *body);
 
 /** Allocates a node for some loop control statement (break or continue). */
 Node *new_loop_control_node(ZmxProgram *program, const Token keyword);

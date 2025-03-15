@@ -25,6 +25,7 @@
 static Node *assignment(Parser *parser);
 static Node *expression(Parser *parser);
 static Node *declaration(Parser *parser);
+static Node *multi_declaration(Parser *parser, const bool isConst, const bool scanValue);
 
 /** Returns an initialized parser. */
 Parser create_parser(ZmxProgram *program, TokenArray tokens) {
@@ -626,19 +627,24 @@ static Node *parse_do_while(Parser *parser) {
 
 /** Zymux uses for-in loops, which iterate over the elements of an iterable object. */
 static Node *parse_for(Parser *parser) {
-    Node *loopVar = new_declare_var_node(
-        parser->program, CONSUME(parser, TOKEN_IDENTIFIER, "Expected loop variable after 'for'."),
-        NULL_NODE(parser->program), false
-    );
+    Node *loopVar;
+    if (MATCH(parser, TOKEN_IDENTIFIER)) {
+        loopVar = new_declare_var_node(
+            parser->program, PEEK_PREVIOUS(parser), NULL_NODE(parser->program), false
+        );
+    } else if (MATCH(parser, TOKEN_LSQUARE)) {
+        loopVar = multi_declaration(parser, false, false);
+    } else {
+        parser_error_at(parser, &PEEK(parser), true, "Expected for loop variable.");
+        return new_error_node(parser->program);
+    }
     
-    CONSUME(parser, TOKEN_IN_KW, "Expected 'in' after for loop's variable name.");
+    CONSUME(parser, TOKEN_IN_KW, "Expected 'in' after for loop's variable.");
     Node *iterable = expression(parser);
 
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after for loop's iterable.");
     Node *body = finish_block(parser);
-    return new_for_node(
-        parser->program, AS_PTR(DeclareVarNode, loopVar), iterable, AS_PTR(BlockNode, body)
-    );
+    return new_for_node(parser->program, loopVar, iterable, AS_PTR(BlockNode, body));
 }
 
 /** A keyword statement followed by a semicolon to jump somewhere in a loop (like continue). */
@@ -705,9 +711,9 @@ static Node *declaration_value(Parser *parser) {
  * Returns a node of multiple declarations to one (presumably) iterable value.
  * Assumes the left bracket was consumed.
  */
-static Node *multi_declaration(Parser *parser, const bool isConst) {
+static Node *multi_declaration(Parser *parser, const bool isConst, const bool scanValue) {
     const SourcePosition pos = PEEK_PREVIOUS(parser).pos; // Left bracket.
-    if (CHECK(parser, TOKEN_RSQUARE)) {
+    if (MATCH(parser, TOKEN_RSQUARE)) {
         parser_error_at(
             parser, &PEEK_PREVIOUS(parser), false,
             "Expected at least one variable in multi-variable declaration."
@@ -730,7 +736,7 @@ static Node *multi_declaration(Parser *parser, const bool isConst) {
         return new_error_node(parser->program); // Can't parse a value if EOF.
     }
 
-    Node *value = MATCH(parser, TOKEN_SEMICOLON) ? NULL : declaration_value(parser);
+    Node *value = !scanValue || MATCH(parser, TOKEN_SEMICOLON) ? NULL : declaration_value(parser);
     return new_multi_declare_node(parser->program, declarations, value, isConst, pos);
 }
 
@@ -740,7 +746,7 @@ static Node *multi_declaration(Parser *parser, const bool isConst) {
  */
 static Node *parse_var_declaration(Parser *parser, const bool isConst) {
     if (MATCH(parser, TOKEN_LSQUARE)) {
-        return multi_declaration(parser, isConst);
+        return multi_declaration(parser, isConst, true);
     } else {
         const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected declared variable's name.");
         return new_declare_var_node(parser->program, name, declaration_value(parser), isConst);

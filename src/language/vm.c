@@ -376,6 +376,23 @@ static bool destructure(Vm *vm, const u32 amount) {
     return true;
 }
 
+/** 
+ * Attempts to iterate an element of a for loop instruction.
+ * 
+ * Returns the iterated object, or NULL if exhausted (jumps forward if exhausted).
+ */
+static Obj *for_iter_or_jump(Vm *vm) {
+    ASSERT(PEEK(vm)->type == OBJ_ITERATOR, "Must iterate with an iterator.");
+    IteratorObj *iterator = AS_PTR(IteratorObj, PEEK(vm));
+    const u32 jump = READ_NUMBER(vm);
+    
+    Obj *element = iterate(vm->program, iterator);
+    if (element == NULL) {
+        vm->frame->ip += jump;
+    }
+    return element;
+}
+
 /** Attempts to call the passed object. Returns whether or not it managed to call it. */
 static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     switch (callee->type) {
@@ -832,6 +849,18 @@ static bool execute_vm(Vm *vm) {
             }
             break;
         }
+        case OP_FOR_ASSIGN_VARS: {
+            const u32 amount = READ_NUMBER(vm);
+            if (!destructure(vm, amount)) {
+                return false;
+            }
+            for (u32 i = 0; i < amount; i++) {
+                // +1 to go over the iterator.
+                PEEK_DEPTH(vm, amount + i + 1) = PEEK_DEPTH(vm, i);
+            }
+            DROP_AMOUNT(vm, amount);
+            break;
+        }
         case OP_CALL: {
             const u32 argAmount = READ_NUMBER(vm);
             if (!call(vm, PEEK_DEPTH(vm, argAmount), vm->frame->sp - argAmount, argAmount)) {
@@ -942,16 +971,17 @@ static bool execute_vm(Vm *vm) {
             PEEK(vm) = AS_OBJ(iterator);
             break;
         }
-        case OP_ITER_OR_JUMP: {
-            ASSERT(PEEK(vm)->type == OBJ_ITERATOR, "Must iterate with an iterator.");
-            IteratorObj *iterator = AS_PTR(IteratorObj, PEEK(vm));
-            const u32 jump = READ_NUMBER(vm);
-            
-            Obj *element = iterate(vm->program, iterator);
-            if (element == NULL) {
-                vm->frame->ip += jump;
-            } else {
-                PEEK_DEPTH(vm, 1) = element;
+        case OP_FOR_ITER_ASSIGN: {
+            Obj *iterated = for_iter_or_jump(vm);
+            if (iterated) {
+                PEEK_DEPTH(vm, 1) = iterated;
+            }
+            break;
+        }
+        case OP_FOR_ITER_LOAD: {
+            Obj *iterated = for_iter_or_jump(vm);
+            if (iterated) {
+                PUSH(vm, iterated);
             }
             break;
         }

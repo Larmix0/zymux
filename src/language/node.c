@@ -279,7 +279,7 @@ Node *new_do_while_node(ZmxProgram *program, Node *condition, BlockNode *body) {
 }
 
 /** Allocates a for loop node, which is a for-in loop for Zymux. */
-Node *new_for_node(ZmxProgram *program, DeclareVarNode *loopVar, Node *iterable, BlockNode *body) {
+Node *new_for_node(ZmxProgram *program, Node *loopVar, Node *iterable, BlockNode *body) {
     ForNode *node = NEW_NODE(program, AST_FOR, ForNode);
     node->loopVar = loopVar;
     node->iterable = iterable;
@@ -394,7 +394,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_MATCH: return get_node_pos(AS_PTR(MatchNode, node)->matchedExpr);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
     case AST_DO_WHILE: return AS_PTR(DoWhileNode, node)->body->pos;
-    case AST_FOR: return AS_PTR(ForNode, node)->loopVar->name.pos;
+    case AST_FOR: return get_node_pos(AS_PTR(ForNode, node)->loopVar);
     case AST_LOOP_CONTROL: return AS_PTR(LoopControlNode, node)->pos;
     case AST_ENUM: return AS_PTR(EnumNode, node)->nameDecl->name.pos;
     case AST_RETURN: return AS_PTR(ReturnNode, node)->pos;

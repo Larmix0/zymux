@@ -729,29 +729,36 @@ static void compile_do_while(Compiler *compiler, const DoWhileNode *node) {
  * each iteration.
  * 
  * Example:
- *     1 Load null (The loop variable, temporarily null just to place it on the stack).
+ *     1 Load null(s) (The loop variable(s), temporarily null just to place on the stack).
  *     2 Load the thing being iterated/looped on.
  *     3 Wrap the iterable on an iterator object to prepare for the loop.
- *     4 if exhausted go to 7, otherwise iterate the iterator and assign it to the loop variable.
+ *     4 if exhausted go to 7, otherwise iterate the iterator and assign it to the loop variable(s).
  *     5 {For loop body}.
  *     6 Go to 4 unconditionally.
- *     7 Pop 2 elements off the top of the stack (the loop variable and iterator).
+ *     7 Pop all loop variables and iterator off the top of the stack.
  *     8 {Bytecode outside for loop}.
  */
 static void compile_for(Compiler *compiler, const ForNode *node) {
-    compile_declare_var(compiler, node->loopVar);
+    compile_node(compiler, node->loopVar);
     compile_node(compiler, node->iterable);
     emit_instr(compiler, OP_MAKE_ITER, get_node_pos(node->iterable));
-    const u32 iterStart = emit_unpatched_jump(
-        compiler, OP_ITER_OR_JUMP, get_node_pos(node->iterable)
-    );
+
+    OpCode iterOp = node->loopVar->type == AST_DECLARE_VAR ? OP_FOR_ITER_ASSIGN : OP_FOR_ITER_LOAD;
+    u32 popAmount = 2; // Default loop var and iterator.
+    const u32 iterStart = emit_unpatched_jump(compiler, iterOp, get_node_pos(node->iterable));
+    if (iterOp == OP_FOR_ITER_LOAD) {
+        const u32 varAmount = AS_PTR(MultiDeclareNode, node->loopVar)->declarations.length;
+        emit_number(compiler, OP_FOR_ASSIGN_VARS, varAmount, get_node_pos(node->iterable));
+        popAmount = varAmount + 1; // +1 to also pop iterator.
+    }
+
     U32Array oldBreaks, oldContinues;
     push_loop_controls(compiler, &oldBreaks, &oldContinues);
     compile_block(compiler, node->body);
     emit_jump(compiler, OP_JUMP_BACK, iterStart, false, PREVIOUS_OPCODE_POS(compiler));
 
     const u32 loopExit = compiler->func->bytecode.length;
-    emit_local_pops(compiler, 2, PREVIOUS_OPCODE_POS(compiler)); // Pop loop var and iterator.
+    emit_local_pops(compiler, popAmount, PREVIOUS_OPCODE_POS(compiler)); // Loop vars and iterator.
     patch_jump(compiler, iterStart, loopExit, true);
     pop_loop_controls(compiler, oldBreaks, loopExit, true, oldContinues, iterStart, false);
 }

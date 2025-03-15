@@ -98,6 +98,17 @@ Jumping:
         of the stack is truthy.
 
 ----------------------------------------------------------------------------------------------------
+For loop iteration:
+    Assumes the second to last object in the stack is a local variable, and the topmost is
+    an iterator object. Reads a number and calls the iteration function on the iterator at
+    the top of the stack. If the iterator returned a signal that it's exhausted, then it jumps
+    forward the number that it read, otherwise assigns/loads the iterated value for the loop
+    variable(s).
+
+    Includes:
+        OP_FOR_ITER_ASSIGN, OP_FOR_ITER_LOAD
+
+----------------------------------------------------------------------------------------------------
 
 ========================================== Other opcodes ===========================================
 
@@ -170,6 +181,14 @@ OP_DESTRUCTURE:
     Expects the topmost element to be an iterable. Pops it and unpacks its objects on the stack
     one by one, with the first element of the iterable being on top of the stack, and the last
     element being furthest from the top.
+
+OP_FOR_ASSIGN_VARS:
+    In a for loop iteration, expects the topmost element to be an iterable that is to be assigned
+    to the multiple variables behind the iterable of the loop. Reads a number which is how many
+    variables are to be assigned using the iterable.
+
+    Assignment is done by first destructuring the iterable, then assigning each destructured element
+    to the variable in its corresponding index behind the loop iterator. 
 
 OP_GET_BUILT_IN:
     Reads a string const, which is the name of the variable whose value is to be extracted from
@@ -295,13 +314,6 @@ OP_ADD_INIT:
 OP_MAKE_ITER:
     Grabs the topmost object in the stack and wraps it inside a new iterator object.
     If the topmost object is not iterable, then it causes a runtime error.
-
-OP_ITER_OR_JUMP:
-    Assuming the second to last object in the stack is a local variable, and the topmost is
-    an iterator object, it reads a number and calls the iteration function on the iterator at
-    the top of the stack. If the iterator returned a signal that it's exhausted, then it jumps
-    forward the number that it read, otherwise assigns the local at the second to last stack spot
-    without making a jump. 
 
 OP_POP_LOCAL:
     Pops one object from the top of the stack and disposes of it.

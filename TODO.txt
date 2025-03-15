@@ -48,3 +48,5 @@ Consistently treat NULL checks as implicit booleans.
 Add destructuring in for loops.
 
 Add runtime error stack traces.
+
+Improve the positioning of some bytecode for error handling.

@@ -774,7 +774,7 @@ static void resolve_for(Resolver *resolver, ForNode *node) {
     push_scope(resolver, SCOPE_NORMAL);
 
     const u32 loopVarSpot = CURRENT_LOCALS(resolver)->length;
-    resolve_declare_var(resolver, node->loopVar);
+    resolve_node(resolver, node->loopVar);
     APPEND_DA(
         CURRENT_LOCALS(resolver),
         create_variable(
