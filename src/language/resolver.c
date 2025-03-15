@@ -760,14 +760,14 @@ static void resolve_do_while(Resolver *resolver, DoWhileNode *node) {
 /** 
  * Resolves a for loop statement.
  * 
- * For loops declare 2 scopes: a first, non-loop scope which it puts its loop variable and iterator
- * on, then the 2nd deeper scope, which is a loop scope that encapsulates
+ * For loops declare 2 scopes: a first, non-loop scope which it puts its loop variable(s)
+ * and iterator on, then the 2nd deeper scope, which is a loop scope that encapsulates
  * the loop's inner statements.
  * 
- * The reason for having the loop var + iterator scope be a different one from the loop itself is so
- * that jump statements (like break or continue) don't accidentally pop the iterator and loop 
- * variable.
- * For break, it already jumps to the place where the loop variable
+ * The reason for having the loop variable(s) + iterator scope be a different one from
+ * the loop itself is so that jump statements (like break or continue) don't accidentally
+ * pop the iterator and loop variable(s).
+ * For break, it already jumps to the place where the loop variable(s)
  * and iterator pop instructions are, so we don't want to end up popping them multiple times.
  */
 static void resolve_for(Resolver *resolver, ForNode *node) {

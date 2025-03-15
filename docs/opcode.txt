@@ -1,28 +1,35 @@
 This file is documentation for each one of Zymux's operation codes (opcodes) for the VM.
 
-Basic information:
-    InstrSize is an enum that represents the size of the next instruction.
-    It could be one byte, 2 bytes (short), and even 4 bytes (integer).
-    It's primarily used for reading/emitting numbers for instructions, so that the VM
-    wouldn't be limited to 255 to represent numbers after instruction.
-    Example: having more than 256 constants in one chunk.
+----------------------------------------------------------------------------------------------------
 
-    DataType is an enum that represents all the different data types in Zymux as a language.
-    It's used as an enum for certain instructions to pass a number that represents which
-    data type is being used.
-    Example: Emitting a DataType string enum after an "is" opcode to know what type to check
-        at the top of the stack.
+Basic information:
+    InstrSize:
+        An enum that represents the size of the next instruction.
+        It could be one byte, 2 bytes (short), and even 4 bytes (integer).
+        It's primarily used for reading/emitting numbers for instructions, so that the VM
+        wouldn't be limited to 255 to represent numbers after instruction.
+        Example:
+            having more than 256 constants in one chunk.
+
+    DataType:
+        An enum that represents all the different data types in Zymux as a language.
+        It's used as an enum for certain instructions to pass a number that represents which
+        data type is being used.
+        Example:
+            Emitting a DataType string enum after an "is" opcode to know what type to check
+            at the top of the stack.
 
 ----------------------------------------------------------------------------------------------------
 
-Binary math:
+Binary:
     Each one of these opcodes pops a first object from the stack, then a second one.
     After that, applies a math operation where the second popped object is the left operand,
     and the first popped object is the right operand.
     Finally, the result of the operation is pushed to the top of the stack.
 
     Includes:
-        OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE, OP_MODULO, OP_EXPONENT
+        OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE, OP_MODULO, OP_EXPONENT,
+        OP_LSHIFT, OP_RSHIFT, OP_BITWISE_OR, OP_BITWISE_AND, OP_XOR,
 
     Example:
         Divide opcode first pops obj1, then obj2. The result of obj2 / obj1 is pushed to the stack.
@@ -68,7 +75,7 @@ Equality:
     Pops them, then pushes a boolean depending on the results.
 
     Includes:
-        OP_EQ, OP_NOT_EQ
+        OP_EQUAL, OP_NOT_EQ
 
 ----------------------------------------------------------------------------------------------------
 
@@ -82,7 +89,7 @@ Comparison:
         OP_GREATER, OP_GREATER_EQ, OP_LESS, OP_LESS_EQ
 
     Example:
-        OP_GREATER pops obj1 then obj2. The resulting boolean of obj2 > obj1 is pushed.
+        Greater opcode pops obj1 then obj2. The resulting boolean of obj2 > obj1 is pushed.
 
 ----------------------------------------------------------------------------------------------------
 
@@ -94,10 +101,11 @@ Jumping:
         OP_JUMP, OP_JUMP_BACK, OP_JUMP_IF, OP_JUMP_IF_NOT,  OP_POP_JUMP_IF_NOT, OP_POP_JUMP_BACK_IF
 
     Example:
-        OP_JUMP_IF will read a number, and increment IP by that number only of the top element
+        Jump if opcode will read a number, and increment IP by that number only of the top element
         of the stack is truthy.
 
 ----------------------------------------------------------------------------------------------------
+
 For loop iteration:
     Assumes the second to last object in the stack is a local variable, and the topmost is
     an iterator object. Reads a number and calls the iteration function on the iterator at
@@ -119,12 +127,16 @@ OP_LOAD_CONST:
     constant object pool that is currently being used.
     It loads that object into the top of the stack.
 
+OP_IS:
+    Changes the topmost object on the stack to be a boolean of whether or not
+    it is the same data type as the one from the DataType enum number read.
+
 OP_AS:
     Converts the topmost object of the stack to a certain data type.
     That data type is a DataType enum number read after the instruction.
 
     Example:
-        Integer 3 is the top of the stack. Then, OP_AS reads a string data type enum after.
+        Integer 3 is the top of the stack. Then the "as" opcode reads a string data type enum after.
         The topmost object (integer of 3) is popped and a string version of it is pushed ("3").
 
 OP_NULL:
@@ -139,7 +151,7 @@ OP_FINISH_STRING:
 
     Example:
         The stack looks like the following: {"Hi"} | {" middle "} | {"end."}
-        We expect the number after OP_FINISH_STRING to be 3 in this case.
+        We expect the number after the opcode to be 3 in this case.
         Then, we'll start with an empty string (""). After that, we'll peek 3 deep into the stack
         (which will be "Hi"). Then, combine our current string with the peeked string.
         The current empty string is on the left side, while "Hi" is on the right, making the current
