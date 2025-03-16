@@ -124,9 +124,34 @@
         PUSH(vm, resultObj); \
     } while (false)
 
+/** 
+ * Prints a stack trace for a runtime error.
+ * Prints in an order that makes the most recently executing function appear closest to the bottom.
+ * TODO: extend this by adding file information when imports are added.
+ */
+static void print_stack_trace(Vm *vm, const u32 bytecodeIdx) {
+    StringObj *mainNameObj = new_string_obj(vm->program, MAIN_NAME, strlen(MAIN_NAME));
+
+    fprintf(stderr, RED "Stack trace:\n" DEFAULT_COLOR);
+    for (u32 i = 0; i < vm->callStack.length; i++) {
+        FuncObj *func = vm->callStack.data[i].func;
+        fprintf(stderr, INDENT);
+
+        if (equal_obj(AS_OBJ(func->name), AS_OBJ(mainNameObj))) {
+            fprintf(stderr, "%s: ", func->name->string);
+        } else {
+            fprintf(stderr, "%s(): ", func->name->string);
+        }
+        fprintf(stderr, "line %d\n", func->positions.data[bytecodeIdx].line);
+    }
+    fputc('\n', stderr);
+}
+
 /** Reports a runtime error and always returns false to be used for convenience. */
 bool runtime_error(Vm *vm, const char *format, ...) {
     const u32 bytecodeIdx = vm->frame->ip - vm->frame->func->bytecode.data - 1;
+    print_stack_trace(vm, bytecodeIdx);
+
     va_list args;
     va_start(args, format);
     zmx_user_error(

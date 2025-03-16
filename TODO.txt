@@ -43,6 +43,4 @@ only when fields and methods are added to built-in objects.
 
 ----------------------------------------------------------------------------------------------------
 
-Add runtime error stack traces.
-
 Improve the positioning of some bytecode for error handling.

@@ -53,6 +53,9 @@
 /** Gets rid of a compiler warning for an unused parameter. */
 #define UNUSED_PARAMETER(parameter) ((void)(parameter))
 
+/** The implicitly given name to the main/first file executing and its top-level scope. */
+#define MAIN_NAME "<main>"
+
 /** Converts the passed pointer to a pointer of the passed type. */
 #define AS_PTR(type, value) ((type *)value)
 

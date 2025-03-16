@@ -23,8 +23,7 @@ static void compile_node_array(Compiler *compiler, const NodeArray *nodes);
 Compiler create_compiler(ZmxProgram *program, const NodeArray ast) {
     GC_PUSH_PROTECTION(&program->gc);
 
-    const char *mainName = "<main>";
-    StringObj *name = new_string_obj(program, mainName, strlen(mainName));
+    StringObj *name = new_string_obj(program, MAIN_NAME, strlen(MAIN_NAME));
     Compiler compiler = {
         .program = program, .ast = ast,
         .func = AS_PTR(FuncObj, new_closure_obj(program, new_func_obj(program, name, 0, -1), true)),
