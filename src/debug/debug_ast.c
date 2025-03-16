@@ -252,7 +252,7 @@ static void append_if_else(AstBuilder *ast, const IfElseNode *node) {
     append_node(ast, node->condition);
     buffer_append_string(&ast->string, "-> ");
     append_node(ast, AS_NODE(node->ifBranch));
-    if (node->elseBranch != NULL) {
+    if (node->elseBranch) {
         buffer_append_string(&ast->string, "<else> -> ");
         append_node(ast, node->elseBranch);
     }
@@ -269,7 +269,7 @@ static void append_match(AstBuilder *ast, const MatchNode *node) {
         buffer_append_string(&ast->string, "-> ");
         append_node(ast, node->caseBlocks.data[i]);
     }
-    if (node->defaultCase != NULL) {
+    if (node->defaultCase) {
         buffer_append_string(&ast->string, "<default> -> ");
         append_node(ast, AS_NODE(node->defaultCase));
     } else {
@@ -324,7 +324,7 @@ static void append_enum(AstBuilder *ast, const EnumNode *node) {
 
 /** Appends a return node + the returned value. */
 static void append_return(AstBuilder *ast, const ReturnNode *node) {
-    if (node->value != NULL) {
+    if (node->value) {
         buffer_append_string(&ast->string, "<return> ");
         append_node(ast, node->value);
     } else {

@@ -85,7 +85,7 @@ NullObj *new_null_obj(ZmxProgram *program) {
 StringObj *new_string_obj(ZmxProgram *program, const char *string, const u32 length) {
     const u32 hash = hash_string(string, length);
     Obj *interned = table_get_string(&program->internedStrings, string, length, hash);
-    if (interned != NULL) {
+    if (interned) {
         if (program->gc.protectionLayers > 0) {
             GC_PROTECT_OBJ(&program->gc, interned); // Manually protect interned string from GC.
         }
@@ -842,10 +842,10 @@ void free_all_objs(ZmxProgram *program) {
 
     Obj *current = program->allObjs;
     Obj *next = current->next;
-    while (current != NULL) {
+    while (current) {
         free_obj(current);
         current = next;
-        if (next != NULL) {
+        if (next) {
             next = next->next;
         }
     }

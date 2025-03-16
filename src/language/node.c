@@ -482,10 +482,10 @@ void free_all_nodes(ZmxProgram *program) {
 
     Node *current = program->allNodes;
     Node *next = current->next;
-    while (current != NULL) {
+    while (current) {
         free_node(current);
         current = next;
-        if (next != NULL) {
+        if (next) {
             next = next->next;
         }
     }

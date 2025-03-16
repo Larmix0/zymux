@@ -140,7 +140,7 @@ static void expand_table(Table *oldTable) {
     // Copy the key value pairs from the old to the new table.
     for (u32 i = 0; i < oldTable->capacity; i++) {
         Entry *entry = &oldTable->entries[i];
-        if (entry->key != NULL) {
+        if (entry->key) {
             table_set(&newTable, entry->key, entry->value);
         }
     }

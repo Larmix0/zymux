@@ -332,7 +332,7 @@ static void block(Resolver *resolver, BlockNode *node, const ScopeType type) {
  */
 static void declare_local(Resolver *resolver, DeclareVarNode *node) {
     const Token name = node->name;
-    if (find_top_scope_var(*CURRENT_LOCALS(resolver), name, resolver->scopeDepth) != NULL) {
+    if (find_top_scope_var(*CURRENT_LOCALS(resolver), name, resolver->scopeDepth)) {
         resolution_error(
             resolver, name.pos, "Can't redeclare local name '%.*s'.", name.pos.length, name.lexeme
         );
@@ -360,7 +360,7 @@ static void declare_local(Resolver *resolver, DeclareVarNode *node) {
  */
 static void declare_global(Resolver *resolver, DeclareVarNode *node) {
     const Token name = node->name;
-    if (find_closure_var(&resolver->globals, name) != NULL) {
+    if (find_closure_var(&resolver->globals, name)) {
         resolution_error(
             resolver, name.pos, "Can't redeclare global name '%.*s'.",
             name.pos.length, name.lexeme
@@ -388,7 +388,7 @@ static void resolve_declare_var(Resolver *resolver, DeclareVarNode *node) {
     
     const Token name = node->name;
     Obj *nameAsObj = AS_OBJ(new_string_obj(resolver->program, name.lexeme, name.pos.length));
-    if (table_get(&resolver->program->builtIn, nameAsObj) != NULL) {
+    if (table_get(&resolver->program->builtIn, nameAsObj)) {
         resolution_error(
             resolver, name.pos, "Can't redeclare built-in name '%.*s'.",
             name.pos.length, name.lexeme
@@ -487,7 +487,7 @@ static void capture_local(Resolver *resolver, Variable *toCapture, const u32 clo
 static Variable *search_captures(Resolver *resolver, const Token name, const i64 closureIdx) {
     ClosedVariables *closure = &resolver->locals.data[closureIdx];
     Variable *variable = find_closure_var(closure, name);
-    if (variable == NULL) {
+    if (!variable) {
         if (closureIdx <= 0) {
             return NULL;
         }
@@ -511,7 +511,7 @@ static Variable *search_captures(Resolver *resolver, const Token name, const i64
  */
 static bool try_assign_local(Resolver *resolver, AssignVarNode *node) {
     Variable *local = find_closure_var(CURRENT_CLOSURE(resolver), node->name);
-    if (local == NULL) {
+    if (!local) {
         return false;
     }
 
@@ -534,7 +534,7 @@ static bool try_assign_captured(Resolver *resolver, AssignVarNode *node) {
         return false;
     }
     Variable *local = search_captures(resolver, node->name, resolver->locals.length - 2);
-    if (local == NULL) {
+    if (!local) {
         return false;
     }
 
@@ -555,7 +555,7 @@ static bool try_assign_captured(Resolver *resolver, AssignVarNode *node) {
  */
 static bool try_assign_global(Resolver *resolver, AssignVarNode *node) {
     Variable *global = find_closure_var(&resolver->globals, node->name);
-    if (global == NULL) {
+    if (!global) {
         return false;
     }
 
@@ -586,7 +586,7 @@ static void resolve_assign_var(Resolver *resolver, AssignVarNode *node) {
 
     // Guaranteed error at this point. We just try to put a more informative error message.
     Obj *nameAsObj = AS_OBJ(new_string_obj(resolver->program, name.lexeme, name.pos.length));
-    if (table_get(&resolver->program->builtIn, nameAsObj) != NULL) {
+    if (table_get(&resolver->program->builtIn, nameAsObj)) {
         resolution_error(
             resolver, get_node_pos(AS_NODE(node)), "Can't assign to built-in name '%.*s'.",
             name.pos.length, name.lexeme
@@ -605,7 +605,7 @@ static void resolve_assign_var(Resolver *resolver, AssignVarNode *node) {
  */
 static bool try_get_local(Resolver *resolver, GetVarNode *node) {
     Variable *local = find_closure_var(CURRENT_CLOSURE(resolver), node->name);
-    if (local == NULL) {
+    if (!local) {
         return false;
     }
 
@@ -623,7 +623,7 @@ static bool try_get_captured(Resolver *resolver, GetVarNode *node) {
         return false;
     }
     Variable *local = search_captures(resolver, node->name, resolver->locals.length - 2);
-    if (local == NULL) {
+    if (!local) {
         return false;
     }
 
@@ -640,7 +640,7 @@ static bool try_get_captured(Resolver *resolver, GetVarNode *node) {
  */
 static bool try_get_global(Resolver *resolver, GetVarNode *node) {
     Variable *global = find_closure_var(&resolver->globals, node->name);
-    if (global == NULL) {
+    if (!global) {
         return false;
     }
 
@@ -656,12 +656,11 @@ static bool try_get_global(Resolver *resolver, GetVarNode *node) {
  * information about the node to be that of a built-in variable.
  */
 static bool try_get_built_in(Resolver *resolver, Obj *nameAsObj, GetVarNode *node) {
-    if (table_get(&resolver->program->builtIn, nameAsObj) == NULL) {
-        return false;
+    if (table_get(&resolver->program->builtIn, nameAsObj)) {
+        node->resolution.scope = VAR_BUILT_IN;
+        return true;
     }
-    
-    node->resolution.scope = VAR_BUILT_IN;
-    return true;
+    return false;
 }
 
 /** 
@@ -739,7 +738,7 @@ static void resolve_match(Resolver *resolver, MatchNode *node) {
     resolve_node_array(resolver, &node->caseLabels);
     resolve_node_array(resolver, &node->caseBlocks);
 
-    if (node->defaultCase != NULL) {
+    if (node->defaultCase) {
         resolve_node(resolver, AS_NODE(node->defaultCase));
     }
     pop_scope(resolver, SCOPE_NORMAL);
@@ -852,7 +851,7 @@ static void resolve_return(Resolver *resolver, ReturnNode *node) {
         );
     }
     if (resolver->currentFunc == FUNC_INIT) {
-        if (node->value != NULL) {
+        if (node->value) {
             resolution_error(
                 resolver, get_node_pos(AS_NODE(node)), "Can't return a value inside an initializer."
             );
@@ -875,7 +874,7 @@ static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
     for (u32 i = 0; i < node->params.length; i++) {
         ASSERT(node->params.data[i]->type == AST_LITERAL, "Parameter is not a variable literal.");
         const Token name = AS_PTR(LiteralNode, node->params.data[i])->value;
-        if (find_top_scope_var(*CURRENT_LOCALS(resolver), name, resolver->scopeDepth) != NULL) {
+        if (find_top_scope_var(*CURRENT_LOCALS(resolver), name, resolver->scopeDepth)) {
             resolution_error(
                 resolver, name.pos, "Repeated parameter '%.*s'.", name.pos.length, name.lexeme
             );
@@ -937,7 +936,7 @@ static void resolve_class(Resolver *resolver, ClassNode *node) {
     resolve_declare_var(resolver, node->nameDecl);
 
     push_scope(resolver, SCOPE_NORMAL);
-    if (node->init != NULL) {
+    if (node->init) {
         resolve_func(resolver, node->init, FUNC_INIT);
     }
     for (u32 i = 0; i < node->methods.length; i++) {

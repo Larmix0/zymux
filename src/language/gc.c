@@ -145,10 +145,10 @@ static void gc_mark(ZmxProgram *program) {
     Gc *gc = &program->gc;
     mark_obj_array(gc->protected);
     
-    if (gc->compiler != NULL) {
+    if (gc->compiler) {
         mark_compiler(gc->compiler);
     }
-    if (gc->vm != NULL) {
+    if (gc->vm) {
         mark_vm(gc->vm);
     }
     // Mark the program's stored objects.

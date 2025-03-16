@@ -541,15 +541,15 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     );
     compile_node(compiler, AS_NODE(node->ifBranch));
     
-    if (node->elseBranch == NULL) {
-        patch_jump(compiler, skipIfBranch, bytecode->length, true);
-    } else {
+    if (node->elseBranch) {
         const u32 skipElseBranch = emit_unpatched_jump(
             compiler, OP_JUMP, get_node_pos(node->elseBranch)
         );
         patch_jump(compiler, skipIfBranch, bytecode->length, true);
         compile_node(compiler, node->elseBranch);
         patch_jump(compiler, skipElseBranch, bytecode->length, true);
+    } else {
+        patch_jump(compiler, skipIfBranch, bytecode->length, true);
     }
 }
 
@@ -600,7 +600,7 @@ static void compile_match(Compiler *compiler, const MatchNode *node) {
 
         patch_jump(compiler, labelSpot, compiler->func->bytecode.length, true);
     }
-    if (node->defaultCase != NULL) {
+    if (node->defaultCase) {
         compile_node(compiler, AS_NODE(node->defaultCase));
     }
 
@@ -905,7 +905,7 @@ static void compile_class(Compiler *compiler, const ClassNode *node) {
         emit_number(compiler, OP_ADD_METHODS, node->methods.length, get_node_pos(AS_NODE(node)));
     }
 
-    if (node->init != NULL) {
+    if (node->init) {
         compile_func(compiler, node->init);
         emit_instr(compiler, OP_ADD_INIT, get_node_pos(AS_NODE(node)));
     }

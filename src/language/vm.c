@@ -411,7 +411,7 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     case OBJ_CLASS: {
         ClassObj *cls = AS_PTR(ClassObj, callee);
         PEEK_DEPTH(vm, argAmount) = AS_OBJ(new_instance_obj(vm->program, cls));
-        if (cls->init != NULL) {
+        if (cls->init) {
             return call(vm, AS_OBJ(cls->init), args, argAmount);
         } else if (argAmount != 0) {
             return runtime_error(vm, "Expected 0 arguments, but got %"PRIu32" instead.", argAmount);
@@ -509,12 +509,12 @@ static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
     case OBJ_INSTANCE: {
         InstanceObj *instance = AS_PTR(InstanceObj, originalObj);
         Obj *field = table_get(&instance->fields, AS_OBJ(name));
-        if (field != NULL) {
+        if (field) {
             PEEK(vm) = field;
             return true;
         }
         Obj *method = table_get(&instance->cls->methods, AS_OBJ(name));
-        if (method != NULL) {
+        if (method) {
             PEEK(vm) = AS_OBJ(new_method_obj(vm->program, instance, AS_PTR(FuncObj, method)));
             return true;
         }

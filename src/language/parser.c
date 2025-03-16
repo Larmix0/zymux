@@ -814,7 +814,7 @@ static Node *parse_func(Parser *parser) {
 /** Handles parsing one method (or initializers) and putting it inside the class node. */
 static void class_method(Parser *parser, ClassNode *classNode) {
     if (CHECK(parser, TOKEN_INIT_KW)) {
-        if (classNode->init != NULL) {
+        if (classNode->init) {
             parser_error_at(
                 parser, &PEEK(parser), false, "Can't have multiple intializers in class."
             );
