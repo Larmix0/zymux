@@ -48,6 +48,29 @@
 #define PEEK_DEPTH(vm, depth) (*((vm)->frame->sp - (depth) - 1))
 #define FREE_STACK(vm) (free((vm)->stack.objects))
 
+/** Calls the base runtime error raise function and resolves to a false value for convenience. */
+#define HELPER_RUNTIME_ERROR(vm, ...) (vm_runtime_error(vm, __VA_ARGS__), false)
+
+/** Returns an error if an uncaught error has occurred in the interpreter loop. */
+#define VM_EXIT_IF_ERROR(vm) \
+    do { \
+        if (vm->program->hasErrored) { \
+            return false; \
+        } \
+    } while (false)
+
+/** 
+ * Raises a runtime error in the interpreter loop's switch statement.
+ * 
+ * A break should always proceed this so when it catches an error and exit,
+ * it stops executing the instruction and continues from the catch point immediately.
+ */
+#define RAISE_RUNTIME_ERROR(vm, ...) \
+    do { \
+        vm_runtime_error(vm, __VA_ARGS__); \
+        VM_EXIT_IF_ERROR(vm); \
+    } while (false)
+
 #define BIN_LEFT(vm) (PEEK_DEPTH(vm, 1)) /** Left hand side object of a binary in the stack. */
 #define BIN_RIGHT(vm) (PEEK_DEPTH(vm, 0)) /** Right hand side object of a binary in the stack. */
 
@@ -56,9 +79,9 @@
 
 /** Writes a consistent runtime error message for all failed binary operations. */
 #define BIN_OP_ERROR(vm, opString) \
-    (runtime_error( \
+    RAISE_RUNTIME_ERROR( \
         vm, "Can't use '%s' between %s and %s.", \
-        opString, obj_type_str(BIN_LEFT(vm)->type), obj_type_str(BIN_RIGHT(vm)->type)) \
+        opString, obj_type_str(BIN_LEFT(vm)->type), obj_type_str(BIN_RIGHT(vm)->type) \
     )
 
 /** 
@@ -74,7 +97,8 @@
 #define MATH_BIN_OP(vm, opString, resultNum) \
     do { \
         if (!IS_NUM(BIN_LEFT(vm)) || !IS_NUM(BIN_RIGHT(vm))) { \
-            return BIN_OP_ERROR(vm, opString); \
+            BIN_OP_ERROR(vm, opString); \
+            break; \
         } \
         Obj *resultObj = BIN_HAS_FLOAT(vm) ? AS_OBJ(new_float_obj((vm)->program, resultNum)) \
             : AS_OBJ(new_int_obj((vm)->program, resultNum)); \
@@ -103,7 +127,8 @@
 #define NUM_BOOL_BIN_OP(vm, opString, resultBool) \
     do { \
         if (!IS_NUM(BIN_LEFT(vm)) || !IS_NUM(BIN_RIGHT(vm))) { \
-            return BIN_OP_ERROR(vm, opString); \
+            BIN_OP_ERROR(vm, opString); \
+            break; \
         } \
         BOOL_BIN_OP(vm, resultBool); \
     } while (false)
@@ -117,7 +142,8 @@
 #define BITWISE_BIN_OP(vm, opString, resultNum) \
     do { \
         if (!IS_BITWISABLE(BIN_LEFT(vm)) || !IS_BITWISABLE(BIN_RIGHT(vm))) { \
-            return BIN_OP_ERROR(vm, opString); \
+            BIN_OP_ERROR(vm, opString); \
+            break; \
         } \
         Obj *resultObj = AS_OBJ(new_int_obj((vm)->program, resultNum)); \
         DROP_AMOUNT(vm, 2); \
@@ -126,6 +152,7 @@
 
 /** 
  * Prints a stack trace for a runtime error.
+ * 
  * Prints in an order that makes the most recently executing function appear closest to the bottom.
  * TODO: extend this by adding file information when imports are added.
  */
@@ -147,8 +174,40 @@ static void print_stack_trace(Vm *vm, const u32 bytecodeIdx) {
     fputc('\n', stderr);
 }
 
-/** Reports a runtime error and always returns false to be used for convenience. */
-bool runtime_error(Vm *vm, const char *format, ...) {
+/** Catches a runtime error by setting its catching state as the current one executing. */
+static void catch_error(Vm *vm) {
+    CatchState catch = POP_DA(&vm->catches);
+    const u32 localPops = STACK_LENGTH(vm) - catch.localsAmount;
+    DROP_AMOUNT(vm, localPops);
+
+    const u32 openCapturePops = vm->openCaptures.length - catch.openCapturesAmount;
+    DROP_AMOUNT_DA(&vm->openCaptures, openCapturePops);
+
+    u32 capturePops = 0;
+    if (catch.func->isClosure) {
+        CapturedObjArray *captures = &AS_PTR(ClosureObj, catch.func)->captures;
+        capturePops = captures->length - catch.capturesAmount;
+        DROP_AMOUNT_DA(captures, capturePops);
+    }
+#if DEBUG_RUNTIME
+    print_caught_runtime_error(vm->program, catch.func, localPops, capturePops, openCapturePops);
+#endif
+
+    vm->frame->func = catch.func;
+    vm->frame->ip = catch.ip;
+}
+
+/** 
+ * Base function that tries to raise a runtime error.
+ * 
+ * Sets a catch state and doesn't error if there's one.
+ */
+void vm_runtime_error(Vm *vm, const char *format, ...) {
+    if (vm->catches.length != 0) {
+        catch_error(vm);
+        return;
+    }
+
     const u32 bytecodeIdx = vm->frame->ip - vm->frame->func->bytecode.data - 1;
     print_stack_trace(vm, bytecodeIdx);
 
@@ -158,7 +217,6 @@ bool runtime_error(Vm *vm, const char *format, ...) {
         vm->program, vm->frame->func->positions.data[bytecodeIdx], "Runtime error", format, &args
     );
     va_end(args);
-    return false;
 }
 
 /** 
@@ -187,6 +245,19 @@ static void reallocate_stack(Vm *vm) {
     }
 }
 
+/** Creates and returns a new catch state in the current VM and its stack frame. */
+static CatchState create_catch_state(Vm *vm, u8 *ip) {
+    const bool isClosure = vm->frame->func->isClosure;
+    const u32 capturesAmount = isClosure ? AS_PTR(ClosureObj, vm->frame->func)->captures.length : 0;
+
+    CatchState catchState = {
+        .func = vm->frame->func, .ip = ip,
+        .localsAmount = STACK_LENGTH(vm), .capturesAmount = capturesAmount,
+        .openCapturesAmount = vm->openCaptures.length
+    };
+    return catchState;
+}
+
 /** Pushes a new execution stack frame onto the passed VM. */
 static void push_stack_frame(Vm *vm, FuncObj *func, Obj **bp, Obj **sp) {
     StackFrame frame = {.func = func, .ip = func->bytecode.data, .bp = bp, .sp = sp};
@@ -204,7 +275,7 @@ static void pop_stack_frame(Vm *vm) {
 Vm create_vm(ZmxProgram *program, FuncObj *func) {
     Vm vm = {
         .program = program, .instrSize = INSTR_ONE_BYTE, .globals = create_table(),
-        .callStack = CREATE_DA(), .openCaptures = CREATE_DA(),
+        .catches = CREATE_DA(), .callStack = CREATE_DA(), .openCaptures = CREATE_DA(),
         .frame = NULL, .stack = CREATE_STACK()
     };
     // Push the frame which requires the stack after the VM itself and its stack were initialized.
@@ -217,13 +288,14 @@ void free_vm(Vm *vm) {
     free_table(&vm->globals);
     FREE_DA(&vm->callStack);
     FREE_DA(&vm->openCaptures);
+    FREE_DA(&vm->catches);
     FREE_STACK(vm);
 }
 
 /** Performs an assignment on some indexed array element. */
 static bool list_assign_subscr(Vm *vm, ListObj *callee, Obj *subscript, Obj *value) {
     if (subscript->type != OBJ_INT) {
-        return runtime_error(
+        return HELPER_RUNTIME_ERROR(
             vm, "List indexing expected integer, got %s instead.", obj_type_str(subscript->type)
         );
     }
@@ -232,7 +304,7 @@ static bool list_assign_subscr(Vm *vm, ListObj *callee, Obj *subscript, Obj *val
         callee->items.data[index] = value;
         return true;
     } else {
-        return runtime_error(vm, "Index " ZMX_INT_FMT " is out of range.", index);
+        return HELPER_RUNTIME_ERROR(vm, "Index " ZMX_INT_FMT " is out of range.", index);
     }
     DROP_AMOUNT(vm, 2);
 }
@@ -243,7 +315,7 @@ static bool list_assign_subscr(Vm *vm, ListObj *callee, Obj *subscript, Obj *val
  */
 static bool map_assign_subscr(Vm *vm, MapObj *callee, Obj *subscript, Obj *value) {
     if (!is_hashable(subscript)) {
-        return runtime_error(vm, "%s key is not hashable.", obj_type_str(subscript->type));
+        return HELPER_RUNTIME_ERROR(vm, "%s key is not hashable.", obj_type_str(subscript->type));
     }
     table_set(&callee->table, subscript, value);
     DROP_AMOUNT(vm, 2);
@@ -261,7 +333,7 @@ static bool array_get_item(
 ) {
     const ZmxInt index = AS_PTR(IntObj, subscript)->number;
     if (!IS_WITHIN_LENGTH(length, index)) {
-        return runtime_error(vm, "Index " ZMX_INT_FMT " is out of range.", index);
+        return HELPER_RUNTIME_ERROR(vm, "Index " ZMX_INT_FMT " is out of range.", index);
     }
     Obj *result = isList ? list->items.data[index] 
         : AS_OBJ(new_string_obj(vm->program, str->string + index, 1));
@@ -296,7 +368,7 @@ static bool array_slice(
         if (!IS_WITHIN_LENGTH(length, index)) {
             FREE_DA(&filteredList);
             free_char_buffer(&filteredStr);
-            return runtime_error(vm, "Slice goes out of range.");
+            return HELPER_RUNTIME_ERROR(vm, "Slice goes out of range.");
         }
         if (isList) {
             APPEND_DA(&filteredList, list->items.data[index]);
@@ -338,7 +410,7 @@ static bool array_get_subscr(Vm *vm, Obj *callee, Obj *subscript) {
     } else if (subscript->type == OBJ_RANGE) {
         return array_slice(vm, list, str, subscript, length, isList);
     }
-    return runtime_error(
+    return HELPER_RUNTIME_ERROR(
         vm, "Can't subscript %s with %s.", obj_type_str(callee->type), obj_type_str(subscript->type)
     );
 }
@@ -351,11 +423,11 @@ static bool array_get_subscr(Vm *vm, Obj *callee, Obj *subscript) {
  */
 static bool map_get_subscr(Vm *vm, MapObj *callee, Obj *subscript) {
     if (!is_hashable(subscript)) {
-        return runtime_error(vm, "%s key is not hashable.", obj_type_str(subscript->type));
+        return HELPER_RUNTIME_ERROR(vm, "%s key is not hashable.", obj_type_str(subscript->type));
     }
     Obj *result = table_get(&callee->table, subscript);
     if (result == NULL) {
-        return runtime_error(
+        return HELPER_RUNTIME_ERROR(
             vm, "Key '%s' does not exist in map.", as_string(vm->program, subscript)->string
         );
     }
@@ -377,9 +449,8 @@ static bool map_get_subscr(Vm *vm, MapObj *callee, Obj *subscript) {
  */
 static bool destructure(Vm *vm, const u32 amount) {
     if (!is_iterable(PEEK(vm))) {
-        return runtime_error(
-            vm, "Expected iterable for destructuring, got %s instead.",
-            obj_type_str(PEEK(vm)->type)
+        return HELPER_RUNTIME_ERROR(
+            vm, "Expected iterable for destructuring, got %s instead.", obj_type_str(PEEK(vm)->type)
         );
     }
     GC_PUSH_PROTECTION(&vm->program->gc);
@@ -396,7 +467,7 @@ static bool destructure(Vm *vm, const u32 amount) {
     GC_POP_PROTECTION(&vm->program->gc);
     if (i < amount || current) {
         // One of the finishing conditions hasn't been met, so either too few or too many elements.
-        return runtime_error(vm, "Expected %"PRIu32" elements in iterable.", amount);
+        return HELPER_RUNTIME_ERROR(vm, "Expected %"PRIu32" elements in iterable.", amount);
     }
     return true;
 }
@@ -424,7 +495,7 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, callee);
         if (func->arity != argAmount) {
-            return runtime_error(
+            return HELPER_RUNTIME_ERROR(
                 vm, "%s() expected %"PRIu32" %s, but got %"PRIu32" instead.",
                 func->name->string, func->arity,
                 func->arity == 1 ? "argument" : "arguments", argAmount
@@ -439,7 +510,9 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
         if (cls->init) {
             return call(vm, AS_OBJ(cls->init), args, argAmount);
         } else if (argAmount != 0) {
-            return runtime_error(vm, "Expected 0 arguments, but got %"PRIu32" instead.", argAmount);
+            return HELPER_RUNTIME_ERROR(
+                vm, "Expected 0 arguments, got %"PRIu32" instead.", argAmount
+            );
         }
         return true;
     }
@@ -458,7 +531,9 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
         return true;
     }
     default:
-        return runtime_error(vm, "Can't call object of type %s.", obj_type_str(PEEK(vm)->type));
+        return HELPER_RUNTIME_ERROR(
+            vm, "Can't call object of type %s.", obj_type_str(PEEK(vm)->type)
+        );
     }
 }
 
@@ -521,7 +596,7 @@ static bool set_property(Vm *vm, Obj *originalObj, StringObj *name, Obj *value) 
         DROP(vm); // Pop the object being accessed, leaving only the value on the top of the stack.
         break;
     default:
-        return runtime_error(
+        return HELPER_RUNTIME_ERROR(
             vm, "Can't set property on object of type %s.", obj_type_str(originalObj->type)
         );  
     }
@@ -543,20 +618,20 @@ static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
             PEEK(vm) = AS_OBJ(new_method_obj(vm->program, instance, AS_PTR(FuncObj, method)));
             return true;
         }
-        return runtime_error(vm, "No property called '%s'.", name->string);
+        return HELPER_RUNTIME_ERROR(vm, "No property called '%s'.", name->string);
     }
     case OBJ_ENUM: {
         EnumObj *enumObj = AS_PTR(EnumObj, originalObj);
         Obj *propertyIdx = table_get(&enumObj->lookupTable, AS_OBJ(name));
         if (propertyIdx == NULL) {
-            return runtime_error(vm, "No enum member called '%s'.", name->string);
+            return HELPER_RUNTIME_ERROR(vm, "No enum member called '%s'.", name->string);
         }
         ASSERT(propertyIdx->type == OBJ_INT, "Expected enum lookup table value to be int.");
         PEEK(vm) = enumObj->members.data[AS_PTR(IntObj, propertyIdx)->number];
         break;
     }
     default:
-        return runtime_error(
+        return HELPER_RUNTIME_ERROR(
             vm, "Object of type %s doesn't have properties.", obj_type_str(originalObj->type)
         );
     }
@@ -606,13 +681,15 @@ static bool execute_vm(Vm *vm) {
             break;
         case OP_DIVIDE:
             if (IS_NUM(BIN_LEFT(vm)) && IS_NUM(BIN_RIGHT(vm)) && NUM_VAL(BIN_RIGHT(vm)) == 0) {
-                return runtime_error(vm, "Can't divide by 0.");
+                RAISE_RUNTIME_ERROR(vm, "Can't divide by 0.");
+                break;
             }
             MATH_BIN_OP(vm, "/", NUM_VAL(BIN_LEFT(vm)) / NUM_VAL(BIN_RIGHT(vm)));
             break;
         case OP_MODULO:
             if (IS_NUM(BIN_LEFT(vm)) && IS_NUM(BIN_RIGHT(vm)) && NUM_VAL(BIN_RIGHT(vm)) == 0) {
-                return runtime_error(vm, "Can't modulo by 0.");
+                RAISE_RUNTIME_ERROR(vm, "Can't modulo by 0.");
+                break;
             }
             // Modulo doesn't handle floats in C, so use fmod() if there's a float in the operation.
             MATH_BIN_OP(
@@ -665,9 +742,10 @@ static bool execute_vm(Vm *vm) {
                 const ZmxFloat negated = -AS_PTR(FloatObj, POP(vm))->number;
                 PUSH(vm, AS_OBJ(new_float_obj(vm->program, negated)));
             } else {
-                return runtime_error(
+                RAISE_RUNTIME_ERROR(
                     vm, "Can't negate object of type %s.", obj_type_str(PEEK(vm)->type)
                 );
+                break;
             }
             break;
         case OP_NOT: {
@@ -682,7 +760,8 @@ static bool execute_vm(Vm *vm) {
             } else if (PEEK(vm)->type == OBJ_BOOL) {
                 flipped = ~((ZmxInt)AS_PTR(BoolObj, PEEK(vm))->boolean);
             } else {
-                return runtime_error(vm, "Can't apply '~' to %s.", obj_type_str(PEEK(vm)->type));
+                RAISE_RUNTIME_ERROR(vm, "Can't apply '~' to %s.", obj_type_str(PEEK(vm)->type));
+                break;
             }
             PEEK(vm) = AS_OBJ(new_int_obj(vm->program, flipped));
             break;
@@ -710,14 +789,16 @@ static bool execute_vm(Vm *vm) {
             }
             if (converted == NULL) {
                 if (PEEK(vm)->type == OBJ_STRING) {
-                    return runtime_error(
+                    RAISE_RUNTIME_ERROR(
                         vm, "Can't convert string '%s' to number.",
                         AS_PTR(StringObj, PEEK(vm))->string
                     );
+                    break;
                 }
-                return runtime_error(
+                RAISE_RUNTIME_ERROR(
                     vm, "Can't convert %s to a number.", obj_type_str(PEEK(vm)->type)
                 );
+                break;
             }
             PEEK(vm) = AS_OBJ(converted);
             break;
@@ -741,13 +822,15 @@ static bool execute_vm(Vm *vm) {
             Obj *end = PEEK_DEPTH(vm, 1);
             Obj *start = PEEK_DEPTH(vm, 2);
             if (start->type != OBJ_INT || end->type != OBJ_INT || step->type != OBJ_INT) {
-                return runtime_error(
+                RAISE_RUNTIME_ERROR(
                     vm, "Range takes 3 integers, got %s, %s, and %s instead.",
                     obj_type_str(start->type), obj_type_str(end->type), obj_type_str(step->type)
                 );
+                break;
             }
             if (AS_PTR(IntObj, step)->number < 0) {
-                return runtime_error(vm, "Range's step can't be a negative number.");
+                RAISE_RUNTIME_ERROR(vm, "Range's step can't be a negative number.");
+                break;
             }
             RangeObj *range = new_range_obj(
                 vm->program, NUM_VAL(start), NUM_VAL(end), NUM_VAL(step)
@@ -782,7 +865,8 @@ static bool execute_vm(Vm *vm) {
                 Obj *value = PEEK_DEPTH(vm, i);
                 Obj *key = PEEK_DEPTH(vm, i + 1);
                 if (!is_hashable(key)) {
-                    return runtime_error(vm, "Can't hash %s key.", obj_type_str(key->type));
+                    RAISE_RUNTIME_ERROR(vm, "Can't hash %s key.", obj_type_str(key->type));
+                    break;
                 }
                 table_set(&entries, key, value);
             }
@@ -855,7 +939,8 @@ static bool execute_vm(Vm *vm) {
             StringObj *name = AS_PTR(StringObj, READ_CONST(vm));
             Obj *value = PEEK_DEPTH(vm, 1);
             if (!set_property(vm, originalObj, name, value)) {
-                return false;
+                VM_EXIT_IF_ERROR(vm);
+                break;
             }
             break;
         }
@@ -863,21 +948,24 @@ static bool execute_vm(Vm *vm) {
             Obj *originalObj = PEEK(vm);
             StringObj *name = AS_PTR(StringObj, READ_CONST(vm));
             if (!get_property(vm, originalObj, name)) {
-                return false;
+                VM_EXIT_IF_ERROR(vm);
+                break;
             }
             break;
         }
         case OP_DESTRUCTURE: {
             const u32 amount = READ_NUMBER(vm);
             if (!destructure(vm, amount)) {
-                return false;
+                VM_EXIT_IF_ERROR(vm);
+                break;
             }
             break;
         }
         case OP_FOR_ASSIGN_VARS: {
             const u32 amount = READ_NUMBER(vm);
             if (!destructure(vm, amount)) {
-                return false;
+                VM_EXIT_IF_ERROR(vm);
+                break;
             }
             for (u32 i = 0; i < amount; i++) {
                 // +1 to go over the iterator.
@@ -889,7 +977,8 @@ static bool execute_vm(Vm *vm) {
         case OP_CALL: {
             const u32 argAmount = READ_NUMBER(vm);
             if (!call(vm, PEEK_DEPTH(vm, argAmount), vm->frame->sp - argAmount, argAmount)) {
-                return false;
+                VM_EXIT_IF_ERROR(vm);
+                break;
             }
             break;
         }
@@ -899,16 +988,19 @@ static bool execute_vm(Vm *vm) {
             Obj *value = PEEK_DEPTH(vm, 2);
             if (callee->type == OBJ_LIST) {
                 if (!list_assign_subscr(vm, AS_PTR(ListObj, callee), subscript, value)) {
-                    return false;
+                    VM_EXIT_IF_ERROR(vm);
+                    break;
                 }
             } else if (callee->type == OBJ_MAP) {
                 if (!map_assign_subscr(vm, AS_PTR(MapObj, callee), subscript, value)) {
-                    return false;
+                    VM_EXIT_IF_ERROR(vm);
+                    break;
                 }
             } else {
-                return runtime_error(
+                RAISE_RUNTIME_ERROR(
                     vm, "Can't subscript assign to %s.", obj_type_str(callee->type)
                 );
+                break;
             }
             break;
         }
@@ -917,14 +1009,17 @@ static bool execute_vm(Vm *vm) {
             Obj *callee = PEEK_DEPTH(vm, 1);
             if (callee->type == OBJ_LIST || callee->type == OBJ_STRING) {
                 if (!array_get_subscr(vm, callee, subscript)) {
-                    return false;
+                    VM_EXIT_IF_ERROR(vm);
+                    break;
                 }
             } else if (callee->type == OBJ_MAP) {
                 if (!map_get_subscr(vm, AS_PTR(MapObj, callee), subscript)) {
-                    return false;
+                    VM_EXIT_IF_ERROR(vm);
+                    break;
                 }
             } else {
-                runtime_error(vm, "Can't subscript object of type %s.", callee->type);
+                RAISE_RUNTIME_ERROR(vm, "Can't subscript object of type %s.", callee->type);
+                break;
             }
             break;
         }
@@ -988,9 +1083,10 @@ static bool execute_vm(Vm *vm) {
         }
         case OP_MAKE_ITER: {
             if (!is_iterable(PEEK(vm))) {
-                return runtime_error(
+                RAISE_RUNTIME_ERROR(
                     vm, "Can't iterate over object of type %s.", obj_type_str(PEEK(vm)->type)
                 );
+                break;
             }
             IteratorObj *iterator = new_iterator_obj(vm->program, PEEK(vm));
             PEEK(vm) = AS_OBJ(iterator);
@@ -1059,6 +1155,14 @@ static bool execute_vm(Vm *vm) {
             PUSH(vm, top);
             break;
         }
+        case OP_START_TRY: {
+            u8 *catchIp = vm->frame->func->bytecode.data + READ_NUMBER(vm);
+            APPEND_DA(&vm->catches, create_catch_state(vm, catchIp));
+            break;
+        }
+        case OP_FINISH_TRY:
+            DROP_DA(&vm->catches);
+            break;
         case OP_END:
             return true;
         TOGGLEABLE_DEFAULT_UNREACHABLE();

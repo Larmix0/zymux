@@ -10,4 +10,10 @@ void print_runtime_state(
     const u32 bytecodeOffset, InstrSize size
 );
 
+/** Prints information about a caught runtime error and its effects. */
+void print_caught_runtime_error(
+    ZmxProgram *program, FuncObj *setFunc, const u32 poppedLocals, const u32 poppedCaptures,
+    const u32 poppedOpenCaptures
+);
+
 #endif

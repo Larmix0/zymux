@@ -713,8 +713,14 @@ static void resolve_multi_assign(Resolver *resolver, MultiAssignNode *node) {
 /** Resolves the condition and branches of an if-else statement. */
 static void resolve_if_else(Resolver *resolver, IfElseNode *node) {
     resolve_node(resolver, node->condition);
-    resolve_node(resolver, AS_NODE(node->ifBranch));
-    resolve_node(resolver, node->elseBranch);
+    resolve_node(resolver, AS_NODE(node->ifBlock));
+    resolve_node(resolver, node->elseBlock);
+}
+
+/** Resolves a try-catch's blocks. */
+static void resolve_try_catch(Resolver *resolver, TryCatchNode *node) {
+    resolve_node(resolver, AS_NODE(node->tryBlock));
+    resolve_node(resolver, AS_NODE(node->catchBlock));
 }
 
 /** 
@@ -973,6 +979,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_MULTI_DECLARE: resolve_multi_declare(resolver, AS_PTR(MultiDeclareNode, node)); break;
     case AST_MULTI_ASSIGN: resolve_multi_assign(resolver, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: resolve_if_else(resolver, AS_PTR(IfElseNode, node)); break;
+    case AST_TRY_CATCH: resolve_try_catch(resolver, AS_PTR(TryCatchNode, node)); break;
     case AST_MATCH: resolve_match(resolver, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: resolve_while(resolver, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: resolve_do_while(resolver, AS_PTR(DoWhileNode, node)); break;

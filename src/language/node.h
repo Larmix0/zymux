@@ -43,6 +43,7 @@ typedef enum {
     AST_MULTI_DECLARE,
     AST_MULTI_ASSIGN,
     AST_IF_ELSE,
+    AST_TRY_CATCH,
     AST_MATCH,
     AST_WHILE,
     AST_DO_WHILE,
@@ -283,9 +284,19 @@ typedef struct {
 typedef struct {
     Node node;
     Node *condition;
-    BlockNode *ifBranch;
-    Node *elseBranch; /** Could be a block or another if-else. */
+    BlockNode *ifBlock;
+    Node *elseBlock; /** Could be a block or another if-else. */
 } IfElseNode;
+
+/** 
+ * An error handling statement which goes to the catch block if an error occurs inside the try.
+ * The always block simply executes every time, regardless of whether or not the catch was executed.
+ */
+typedef struct {
+    Node node;
+    BlockNode *tryBlock;
+    BlockNode *catchBlock;
+} TryCatchNode;
 
 /** A match-case statement, which matches a value to a case value/default if there's one. */
 typedef struct {
@@ -467,7 +478,10 @@ Node *new_multi_assign_node(
 );
 
 /** Allocates an if-else node with their condition. The else branch can optionally be NULL. */
-Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBranch, Node *elseBranch);
+Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBlock, Node *elseBlock);
+
+/** Allocates a statement which doesn't immediately exit and print a message on error. */
+Node *new_try_catch_node(ZmxProgram *program, BlockNode *tryBlock, BlockNode *catchBlock);
 
 /** Allocates a new match-case statement, with an optional default case. */
 Node *new_match_node(

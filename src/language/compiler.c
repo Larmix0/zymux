@@ -379,8 +379,6 @@ static void compile_declare_var(Compiler *compiler, const DeclareVarNode *node) 
  * 
  * For captured locals, we do the same as we do for locals, but emit a different instruction
  * followed by a number that access the current function's captured array, instead of the stack.
- * 
- * TODO: add more explanation for multi-assignments.
  */
 static void compile_assign_var(Compiler *compiler, const AssignVarNode *node) {
     compile_node(compiler, node->value);
@@ -538,18 +536,44 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
     const u32 skipIfBranch = emit_unpatched_jump(
         compiler, OP_POP_JUMP_IF_NOT, get_node_pos(AS_NODE(node))
     );
-    compile_node(compiler, AS_NODE(node->ifBranch));
+    compile_block(compiler, node->ifBlock);
     
-    if (node->elseBranch) {
+    if (node->elseBlock) {
         const u32 skipElseBranch = emit_unpatched_jump(
-            compiler, OP_JUMP, get_node_pos(node->elseBranch)
+            compiler, OP_JUMP, get_node_pos(node->elseBlock)
         );
         patch_jump(compiler, skipIfBranch, bytecode->length, true);
-        compile_node(compiler, node->elseBranch);
+        compile_node(compiler, node->elseBlock);
         patch_jump(compiler, skipElseBranch, bytecode->length, true);
     } else {
         patch_jump(compiler, skipIfBranch, bytecode->length, true);
     }
+}
+
+/** 
+ * Compiles a try-catch and their blocks.
+ * 
+ * Adds a start try instruction before the try block in order to include the block's bytecode
+ * in the try-catch's protection. After that, the try ends with an automatic jump that goes
+ * over the catch statement, as we only execute the catch if an error occured.
+ * 
+ * The start try instruction also emits a number after it which is where to go
+ * to land in the catch statement. The number is the absolute index in bytecode where
+ * the catch starts, and not a relative number like most other jumps. This is because we might
+ * error and use the catch at any arbitrary point in the try block,
+ * so we can't use relative numbers.
+ */
+static void compile_try_catch(Compiler *compiler, const TryCatchNode *node) {
+    const u32 trySpot = emit_unpatched_jump(compiler, OP_START_TRY, get_node_pos(AS_NODE(node)));
+    compile_block(compiler, node->tryBlock);
+    const u32 tryExit = emit_unpatched_jump(compiler, OP_JUMP, PREVIOUS_OPCODE_POS(compiler));
+
+    emit_instr(compiler, OP_FINISH_TRY, PREVIOUS_OPCODE_POS(compiler));
+    const u32 catchLocation = compiler->func->bytecode.length;
+    patch_absolute_jump(compiler, trySpot, catchLocation, true);
+
+    compile_block(compiler, node->catchBlock);
+    patch_jump(compiler, tryExit, compiler->func->bytecode.length, true);
 }
 
 /** 
@@ -825,7 +849,7 @@ static void compile_return(Compiler *compiler, const ReturnNode *node) {
 }
 
 /** 
- * Finishes compiling the current function on the compiler. TODO: add optional params.
+ * Finishes compiling the current function on the compiler.
  * 
  * First emits the appropriate instructions for handling the parameters declaration/capturement,
  * then compiles the loop body, after that it writes a default return statement in case the function
@@ -946,6 +970,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_MULTI_DECLARE: compile_multi_declare(compiler, AS_PTR(MultiDeclareNode, node)); break;
     case AST_MULTI_ASSIGN: compile_multi_assign(compiler, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
+    case AST_TRY_CATCH: compile_try_catch(compiler, AS_PTR(TryCatchNode, node)); break;
     case AST_MATCH: compile_match(compiler, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: compile_do_while(compiler, AS_PTR(DoWhileNode, node)); break;

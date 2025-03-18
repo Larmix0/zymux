@@ -251,11 +251,19 @@ static void append_if_else(AstBuilder *ast, const IfElseNode *node) {
     buffer_append_string(&ast->string, "<if> ");
     append_node(ast, node->condition);
     buffer_append_string(&ast->string, "-> ");
-    append_node(ast, AS_NODE(node->ifBranch));
-    if (node->elseBranch) {
+    append_node(ast, AS_NODE(node->ifBlock));
+    if (node->elseBlock) {
         buffer_append_string(&ast->string, "<else> -> ");
-        append_node(ast, node->elseBranch);
+        append_node(ast, node->elseBlock);
     }
+}
+
+/** Appends a try-catch statements with both of its blocks. */
+static void append_try_catch(AstBuilder *ast, const TryCatchNode *node) {
+    buffer_append_string(&ast->string, "<try> ");
+    append_node(ast, AS_NODE(node->tryBlock));
+    buffer_append_string(&ast->string, "<catch> ");
+    append_node(ast, AS_NODE(node->catchBlock));
 }
 
 /** Appends the matched expression, case labels, their corresponding blocks, and default if used. */
@@ -392,6 +400,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_MULTI_DECLARE: append_multi_declare(ast, AS_PTR(MultiDeclareNode, node)); break;
     case AST_MULTI_ASSIGN: append_multi_assign(ast, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: append_if_else(ast, AS_PTR(IfElseNode, node)); break;
+    case AST_TRY_CATCH: append_try_catch(ast, AS_PTR(TryCatchNode, node)); break;
     case AST_MATCH: append_match(ast, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: append_while(ast, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: append_do_while(ast, AS_PTR(DoWhileNode, node)); break;

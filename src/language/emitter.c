@@ -181,6 +181,17 @@ void patch_jump(Compiler *compiler, const u32 start, const u32 end, const bool i
     APPEND_DA(&compiler->jumps, create_jump(start, jumpSize, isForward));
 }
 
+/** Patches a jump that goes to some absolute point in the bytecode. */
+void patch_absolute_jump(
+    Compiler *compiler, const u32 start, const u32 location, const bool isForward
+) {
+    Jump jump = {
+        .index = start, .size = location, .isForward = isForward, .isResolved = false,
+        .instrSize = get_number_size(location), .indexOffset = 0, .sizeOffset = 0
+    };
+    APPEND_DA(&compiler->jumps, jump);
+}
+
 /** 
  * Emits a normal jump instruction which is already patched.
  * 

@@ -8,6 +8,24 @@
 /** Resolves to the length of the stack. */
 #define STACK_LENGTH(vm) ((vm)->frame->sp - (vm)->stack.objects)
 
+/** 
+ * Represents some information of the VM that needs to be reverted to when an error is caught.
+ * 
+ * Only stores the amount of locals/captures and not their arrays themselves, as any variables
+ * modified inside the try-catch should stay modified, the only thing we revert is removing
+ * new variables created inside the try-catch.
+ */
+typedef struct {
+    FuncObj *func; /** Function that has the try-catch block. */
+    u8 *ip; /** Points to the first instruction in the catch block of func. */
+    u32 localsAmount; /** Amount of locals in the VM's stack when this was created. */
+    u32 capturesAmount; /** 0 if func isn't a closure to begin with. */
+    u32 openCapturesAmount; /** The amount of captures not closed at the time of the try-catch. */
+} CatchState;
+
+/** An array of catch states for being inside try-catch statements. */
+DECLARE_DA_STRUCT(CatchStateArray, CatchState);
+
 /** Holds a frame around of information around the currently executing function object. */
 typedef struct {
     FuncObj *func; /** Current executing function. */
@@ -27,6 +45,7 @@ typedef struct Vm {
     StackFrame *frame; /** The current frame which holds the bytecode we're executing. */
     CapturedObjArray openCaptures; /** Captures whose locals are still alive on the stack. */
     Table globals; /** A table of global variable key names and values. */
+    CatchStateArray catches; /** Saved states for caught errors where last item is closest catch. */
 
     /** 
      * The stack that keeps track of objects while executing.
@@ -63,7 +82,11 @@ bool interpreet(Vm *vm);
  */
 bool interpret_source(ZmxProgram *program, char *source);
 
-/** Reports a runtime error and automatically returns false. */
-bool runtime_error(Vm *vm, const char *format, ...);
+/** 
+ * Base function that tries to raise a runtime error.
+ * 
+ * Sets a catch state and doesn't error if there's one.
+ */
+void vm_runtime_error(Vm *vm, const char *format, ...);
 
 #endif

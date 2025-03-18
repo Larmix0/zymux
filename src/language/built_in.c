@@ -13,15 +13,15 @@
 #define NATIVE_FUNC(name) \
     static Obj *native_##name(Vm *vm, Obj **args, const u32 argAmount)
 
+/** Returns an error signal without reporting a message. */
+#define RETURN_ERROR_SIGNAL() return NULL;
+
 /** Reports a runtime error and returns the "native errored" signal. */
 #define RETURN_ERROR(vm, ...) \
     do { \
-        runtime_error(vm, __VA_ARGS__); \
-        return NULL; \
+        vm_runtime_error(vm, __VA_ARGS__); \
+        RETURN_ERROR_SIGNAL(); \
     } while (false)
-
-/** Returns an error signal without reporting a message. */
-#define RETURN_ERROR_SIGNAL(vm) return NULL;
 
 /** Returns an error where no arguments were expected, but some were provided nonetheless. */
 #define RETURN_ERROR_TAKES_NO_ARGS(vm, nativeName, argAmount) \
@@ -66,9 +66,9 @@ NATIVE_FUNC(assert) {
         // Store the message in a buffer since the string gets freed when doing a runtime error.
         CharBuffer assertMessage = create_char_buffer();
         buffer_append_string(&assertMessage, AS_PTR(StringObj, args[1])->string);
-        runtime_error(vm, assertMessage.text);
+        vm_runtime_error(vm, assertMessage.text);
         free_char_buffer(&assertMessage);
-        RETURN_ERROR_SIGNAL(vm);
+        RETURN_ERROR_SIGNAL();
     }
     DEFAULT_RETURN(vm);
 }

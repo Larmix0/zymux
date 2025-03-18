@@ -39,6 +39,8 @@ char *token_type_string(const TokenType type) {
     case TOKEN_MATCH_KW: return "MATCH";
     case TOKEN_CASE_KW: return "CASE";
     case TOKEN_DEFAULT_KW: return "DEFAULT";
+    case TOKEN_TRY_KW: return "TRY";
+    case TOKEN_CATCH_KW: return "CATCH";
     case TOKEN_FROM_KW: return "FROM";
     case TOKEN_IMPORT_KW: return "IMPORT";
     case TOKEN_AMPER_AMPER: return "AMPERSAND_AMPERSAND";

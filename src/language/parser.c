@@ -208,19 +208,14 @@ static Node *map(Parser *parser) {
     return new_map_node(parser->program, keys, values, leftCurly->pos);
 }
 
-/** Returns a parsed argument for a call. TODO: expand later with keyword arguments. */
-static Node *one_arg(Parser *parser) {
-    return expression(parser);
-}
-
 /** Returns an array of parsed argument expressions that should end in a closing parenthesis. */
 static NodeArray parse_args(Parser *parser) {
     NodeArray args = CREATE_DA();
     if (!MATCH(parser, TOKEN_RPAR)) {
-        APPEND_DA(&args, one_arg(parser));
+        APPEND_DA(&args, expression(parser));
         while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser) && !parser->isPanicking) {
             CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after argument.");
-            APPEND_DA(&args, one_arg(parser));
+            APPEND_DA(&args, expression(parser));
         }
     }
     return args;
@@ -241,7 +236,6 @@ static Node *parse_subscr(Parser *parser, Node *expr) {
  * 
  * Calls can be recursive, like calling a function which is returned by a called function
  * Example: someFunc()();
- * TODO: allow keyword arguments and optional arguments.
  */
 static Node *call(Parser *parser) {
     Node *expr = map(parser);
@@ -567,18 +561,35 @@ static Node *finish_block(Parser *parser) {
 static Node *parse_if_else(Parser *parser) {
     Node *condition = expression(parser);
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after if statement's condition.");
-    Node *ifBranch = finish_block(parser);
-    Node *elseBranch = NULL;
+    Node *ifBlock = finish_block(parser);
+    Node *elseBlock = NULL;
     if (MATCH(parser, TOKEN_ELSE_KW)) {
         if (MATCH(parser, TOKEN_LCURLY)) {
-            elseBranch = finish_block(parser);
+            elseBlock = finish_block(parser);
         } else if (MATCH(parser, TOKEN_IF_KW)) {
-            elseBranch = parse_if_else(parser);
+            elseBlock = parse_if_else(parser);
         } else {
             parser_error_at(parser, &PEEK(parser), true, "Expected 'if' or '{' after else.");
         }
     }
-    return new_if_else_node(parser->program, condition, AS_PTR(BlockNode, ifBranch), elseBranch);
+    return new_if_else_node(parser->program, condition, AS_PTR(BlockNode, ifBlock), elseBlock);
+}
+
+/** 
+ * Wraps a block in a try statement and when it errors, executes a catch block and continues.
+ * The catch is a mandatory part after the try block.
+ */
+static Node *parse_try_catch(Parser *parser) {
+    CONSUME(parser, TOKEN_LCURLY, "Expected '{' after 'try'.");
+    Node *tryBlock = finish_block(parser);
+
+    CONSUME(parser, TOKEN_CATCH_KW, "Expected 'catch' after 'try' block.");
+    CONSUME(parser, TOKEN_LCURLY, "Expected '{' after 'catch'.");
+    Node *catchBlock = finish_block(parser);
+
+    return new_try_catch_node(
+        parser->program, AS_PTR(BlockNode, tryBlock), AS_PTR(BlockNode, catchBlock)
+    );
 }
 
 /** Matches a specific expression with a set labels, if it's one of them, executes their block. */
@@ -671,6 +682,7 @@ static Node *statement(Parser *parser) {
     switch (ADVANCE_PEEK(parser).type) {
     case TOKEN_LCURLY: node = finish_block(parser); break;
     case TOKEN_IF_KW: node = parse_if_else(parser); break;
+    case TOKEN_TRY_KW: node = parse_try_catch(parser); break;
     case TOKEN_MATCH_KW: node = parse_match(parser); break;
     case TOKEN_WHILE_KW: node = parse_while(parser); break;
     case TOKEN_DO_KW: node = parse_do_while(parser); break;
@@ -707,6 +719,12 @@ static Node *declaration_value(Parser *parser) {
     return value;
 }
 
+/** Returns a node of one name declaration that is a part of a multi-variable declaration. */
+static Node *one_declaration(Parser *parser) {
+    const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected variable name.");
+    return AS_NODE(NO_VALUE_DECLARATION(parser->program, name));
+}
+
 /** 
  * Returns a node of multiple declarations to one (presumably) iterable value.
  * Assumes the left bracket was consumed.
@@ -722,12 +740,10 @@ static Node *multi_declaration(Parser *parser, const bool isConst, const bool sc
     }
 
     NodeArray declarations = CREATE_DA();
-    const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected variable name.");
-    APPEND_DA(&declarations, AS_NODE(NO_VALUE_DECLARATION(parser->program, name)));
+    APPEND_DA(&declarations, one_declaration(parser));
     while (!MATCH(parser, TOKEN_RSQUARE) && !IS_EOF(parser) && !parser->isPanicking) {
         CONSUME(parser, TOKEN_COMMA, "Expected ',' or ']' after declared variable's name.");
-        const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected variable name after ','.");
-        APPEND_DA(&declarations, AS_NODE(NO_VALUE_DECLARATION(parser->program, name)));
+        APPEND_DA(&declarations, one_declaration(parser));
     }
     if (IS_EOF(parser)) {
         parser_error_at(
@@ -775,7 +791,7 @@ static Node *parse_enum(Parser *parser) {
     return new_enum_node(parser->program, declaration, members);
 }
 
-/** Returns a parsed parameter for a function. TODO: expand later with optional parameters. */
+/** Returns a parsed parameter for a function. */
 static Node *one_param(Parser *parser) {
     const Token paramName = CONSUME(parser, TOKEN_IDENTIFIER, "Expected parameter name");
     return new_literal_node(parser->program, paramName);

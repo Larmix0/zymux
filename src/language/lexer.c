@@ -318,6 +318,7 @@ static TokenType get_name_type(Lexer *lexer) {
         if (is_keyword(lexer, "const")) return TOKEN_CONST_KW;
         if (is_keyword(lexer, "continue")) return TOKEN_CONTINUE_KW;
         if (is_keyword(lexer, "class")) return TOKEN_CLASS_KW;
+        if (is_keyword(lexer, "catch")) return TOKEN_CATCH_KW;
         break;
     case 'd':
         if (is_keyword(lexer, "default")) return TOKEN_DEFAULT_KW;
@@ -365,6 +366,7 @@ static TokenType get_name_type(Lexer *lexer) {
     case 't':
         if (is_keyword(lexer, "true")) return TOKEN_TRUE_KW;
         if (is_keyword(lexer, "this")) return TOKEN_THIS_KW;
+        if (is_keyword(lexer, "try")) return TOKEN_TRY_KW;
         break;
     case 'w':
         if (is_keyword(lexer, "while")) return TOKEN_WHILE_KW;

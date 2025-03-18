@@ -240,12 +240,20 @@ Node *new_multi_assign_node(
 
 /** Allocates an if-else statement with their condition. The else branch can optionally be NULL. */
 Node *new_if_else_node(
-    ZmxProgram *program, Node *condition, BlockNode *ifBranch, Node *elseBranch
+    ZmxProgram *program, Node *condition, BlockNode *ifBlock, Node *elseBlock
 ) {
     IfElseNode *node = NEW_NODE(program, AST_IF_ELSE, IfElseNode);
     node->condition = condition;
-    node->ifBranch = ifBranch;
-    node->elseBranch = elseBranch;
+    node->ifBlock = ifBlock;
+    node->elseBlock = elseBlock;
+    return AS_NODE(node);
+}
+
+/** Allocates a statement which doesn't immediately exit and print a message on error. */
+Node *new_try_catch_node(ZmxProgram *program, BlockNode *tryBlock, BlockNode *catchBlock) {
+    TryCatchNode *node = NEW_NODE(program, AST_TRY_CATCH, TryCatchNode);
+    node->tryBlock = tryBlock;
+    node->catchBlock = catchBlock;
     return AS_NODE(node);
 }
 
@@ -391,6 +399,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_MULTI_DECLARE: return AS_PTR(MultiDeclareNode, node)->pos;
     case AST_MULTI_ASSIGN: return AS_PTR(MultiAssignNode, node)->pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
+    case AST_TRY_CATCH: return get_node_pos(AS_NODE(AS_PTR(TryCatchNode, node)->tryBlock));
     case AST_MATCH: return get_node_pos(AS_PTR(MatchNode, node)->matchedExpr);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
     case AST_DO_WHILE: return AS_PTR(DoWhileNode, node)->body->pos;
@@ -461,6 +470,7 @@ static void free_node(Node *node) {
     case AST_SET_PROPERTY:
     case AST_GET_PROPERTY:
     case AST_IF_ELSE:
+    case AST_TRY_CATCH:
     case AST_WHILE:
     case AST_DO_WHILE:
     case AST_FOR:

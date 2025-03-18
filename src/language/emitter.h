@@ -102,6 +102,8 @@ typedef enum {
     OP_RETURN,
     OP_CLOSURE_RETURN,
     OP_COPY_TOP,
+    OP_START_TRY,
+    OP_FINISH_TRY,
     OP_END
 } OpCode;
 
@@ -140,6 +142,11 @@ u32 emit_unpatched_jump(Compiler *compiler, u8 instr, const SourcePosition pos);
 
 /** Patches a jump in the compiler from the passed jump information. */
 void patch_jump(Compiler *compiler, const u32 start, const u32 end, const bool isForward);
+
+/** Patches a jump that goes to some absolute point in the bytecode. */
+void patch_absolute_jump(
+    Compiler *compiler, const u32 start, const u32 location, const bool isForward
+);
 
 /** 
  * Emits a normal jump instruction which is already patched.
