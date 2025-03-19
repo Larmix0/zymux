@@ -144,6 +144,8 @@ void file_error(const char *format, ...) {
  * 
  * This is reserved for errors that are due to the user's own mistake in a *.zmx file.
  * Like a compiler error or a runtime error.
+ * 
+ * If the passed args list is NULL, it'll simply print the passed string with no formatting.
  */
 void zmx_user_error(
     ZmxProgram *program, const SourcePosition pos, const char *errorName,
@@ -163,6 +165,10 @@ void zmx_user_error(
         stderr, "line %d in '%s':\n" INDENT RED "%s: " DEFAULT_COLOR,
         pos.line, program->currentFile->string, errorName
     );
-    vfprintf(stderr, format, *args);  
+    if (args != NULL) {
+        vfprintf(stderr, format, *args);  
+    } else {
+        fprintf(stderr, "%s", format);
+    }
     fputc('\n', stderr);
 }

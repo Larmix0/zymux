@@ -296,6 +296,7 @@ typedef struct {
     Node node;
     BlockNode *tryBlock;
     BlockNode *catchBlock;
+    DeclareVarNode *catchVar; /** Optional caught message at runtime. NULL if omitted. */
 } TryCatchNode;
 
 /** A match-case statement, which matches a value to a case value/default if there's one. */
@@ -481,7 +482,9 @@ Node *new_multi_assign_node(
 Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBlock, Node *elseBlock);
 
 /** Allocates a statement which doesn't immediately exit and print a message on error. */
-Node *new_try_catch_node(ZmxProgram *program, BlockNode *tryBlock, BlockNode *catchBlock);
+Node *new_try_catch_node(
+    ZmxProgram *program, BlockNode *tryBlock, BlockNode *catchBlock, DeclareVarNode *catchVar
+);
 
 /** Allocates a new match-case statement, with an optional default case. */
 Node *new_match_node(

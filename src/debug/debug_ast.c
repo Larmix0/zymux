@@ -258,12 +258,15 @@ static void append_if_else(AstBuilder *ast, const IfElseNode *node) {
     }
 }
 
-/** Appends a try-catch statements with both of its blocks. */
+/** Appends a try-catch with both of its blocks and a caught message variable if there's one. */
 static void append_try_catch(AstBuilder *ast, const TryCatchNode *node) {
     buffer_append_string(&ast->string, "<try> ");
     append_node(ast, AS_NODE(node->tryBlock));
     buffer_append_string(&ast->string, "<catch> ");
     append_node(ast, AS_NODE(node->catchBlock));
+    if (node->catchVar) {
+        append_declare_var(ast, node->catchVar);
+    }
 }
 
 /** Appends the matched expression, case labels, their corresponding blocks, and default if used. */

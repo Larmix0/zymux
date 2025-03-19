@@ -236,7 +236,7 @@ static void pop_scope(Resolver *resolver, const ScopeType type) {
 }
 
 /** Collapses a scope and assign the amount of variables popped to the passed block's resolution. */
-static void pop_scope_block(Resolver *resolver, BlockNode *block, const ScopeType type) {
+static void pop_block_scope(Resolver *resolver, BlockNode *block, const ScopeType type) {
     block->localsAmount = pop_top_scope(resolver, CURRENT_LOCALS(resolver));
     block->capturedAmount = pop_top_scope(resolver, CURRENT_CAPTURED(resolver));
     finish_scope(resolver, type);
@@ -323,7 +323,7 @@ static void unscoped_block(Resolver *resolver, BlockNode *node) {
 static void block(Resolver *resolver, BlockNode *node, const ScopeType type) {
     push_scope(resolver, type);
     unscoped_block(resolver, node);
-    pop_scope_block(resolver, node, type);
+    pop_block_scope(resolver, node, type);
 }
 
 /** 
@@ -720,7 +720,13 @@ static void resolve_if_else(Resolver *resolver, IfElseNode *node) {
 /** Resolves a try-catch's blocks. */
 static void resolve_try_catch(Resolver *resolver, TryCatchNode *node) {
     resolve_node(resolver, AS_NODE(node->tryBlock));
-    resolve_node(resolver, AS_NODE(node->catchBlock));
+
+    push_scope(resolver, SCOPE_NORMAL);
+    if (node->catchVar) {
+        resolve_declare_var(resolver, node->catchVar);
+    }
+    unscoped_block(resolver, node->catchBlock);
+    pop_block_scope(resolver, node->catchBlock, SCOPE_NORMAL);
 }
 
 /** 
@@ -926,7 +932,7 @@ static void resolve_func(Resolver *resolver, FuncNode *node, const FuncType type
 
     finish_func_resolution(resolver, node);
     node->isClosure = CURRENT_CLOSURE(resolver)->isClosure;
-    pop_scope_block(resolver, node->body, SCOPE_FUNC);
+    pop_block_scope(resolver, node->body, SCOPE_FUNC);
     resolver->currentFunc = previous;
 }
 

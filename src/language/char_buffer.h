@@ -8,7 +8,8 @@
 /**
  * An array of characters that is always NUL terminated (the NUL counts towards length).
  * 
- * The buffer's length always takes into account NUL.
+ * The buffer's length always takes into account the NUL terminator, so it's always 1
+ * number higher than using strlen().
  */
 typedef struct {
     u32 length;

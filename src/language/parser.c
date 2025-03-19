@@ -584,11 +584,18 @@ static Node *parse_try_catch(Parser *parser) {
     Node *tryBlock = finish_block(parser);
 
     CONSUME(parser, TOKEN_CATCH_KW, "Expected 'catch' after 'try' block.");
+    DeclareVarNode *catchVar = NULL;
+    if (MATCH(parser, TOKEN_AS_KW)) {
+        const Token name = CONSUME(
+            parser, TOKEN_IDENTIFIER, "Expected error message variable name after 'as'."
+        );
+        catchVar = NO_VALUE_DECLARATION(parser->program, name);
+    }
+    
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after 'catch'.");
     Node *catchBlock = finish_block(parser);
-
     return new_try_catch_node(
-        parser->program, AS_PTR(BlockNode, tryBlock), AS_PTR(BlockNode, catchBlock)
+        parser->program, AS_PTR(BlockNode, tryBlock), AS_PTR(BlockNode, catchBlock), catchVar
     );
 }
 

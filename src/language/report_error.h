@@ -118,6 +118,8 @@ void file_error(const char *format, ...);
  * Takes in the args directly as this is supposed to be a base error function,
  * which could be wrapped around for extra functionality regarding errors during other stages
  * of Zymux.
+ * 
+ * Passing NULL for the args parameter would simply print the passed bare string without formatting.
  */
 void zmx_user_error(
     ZmxProgram *program, const SourcePosition pos, const char *errorName,

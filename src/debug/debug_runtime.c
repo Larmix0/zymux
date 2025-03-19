@@ -30,12 +30,13 @@ void print_runtime_state(
     print_instr(func, bytecodeOffset, &size, FORMAT_NO_LINE_OR_PAD);
 }
 
-/** Prints information about a caught runtime error and its effects. */
+/** Prints information about a caught runtime error, its effects, and the error message . */
 void print_caught_runtime_error(
     ZmxProgram *program, FuncObj *setFunc, const u32 poppedLocals, const u32 poppedCaptures,
-    const u32 poppedOpenCaptures
+    const u32 poppedOpenCaptures, const char *errorMessage
 ) {
     printf("RUNTIME ERROR CAUGHT:\n" INDENT);
+    printf("Error message: %s\n" INDENT, errorMessage);
     printf(
         "Going back to %s: popping %"PRIu32" locals, %"PRIu32" captures (%"PRIu32" open).\n",
         as_string(program, AS_OBJ(setFunc))->string, poppedLocals, poppedCaptures,

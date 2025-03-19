@@ -19,7 +19,7 @@
 /** Reports a runtime error and returns the "native errored" signal. */
 #define RETURN_ERROR(vm, ...) \
     do { \
-        vm_runtime_error(vm, __VA_ARGS__); \
+        RUNTIME_ERROR(vm, __VA_ARGS__); \
         RETURN_ERROR_SIGNAL(); \
     } while (false)
 
@@ -66,7 +66,7 @@ NATIVE_FUNC(assert) {
         // Store the message in a buffer since the string gets freed when doing a runtime error.
         CharBuffer assertMessage = create_char_buffer();
         buffer_append_string(&assertMessage, AS_PTR(StringObj, args[1])->string);
-        vm_runtime_error(vm, assertMessage.text);
+        RUNTIME_ERROR(vm, assertMessage.text);
         free_char_buffer(&assertMessage);
         RETURN_ERROR_SIGNAL();
     }

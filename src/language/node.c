@@ -250,10 +250,13 @@ Node *new_if_else_node(
 }
 
 /** Allocates a statement which doesn't immediately exit and print a message on error. */
-Node *new_try_catch_node(ZmxProgram *program, BlockNode *tryBlock, BlockNode *catchBlock) {
+Node *new_try_catch_node(
+    ZmxProgram *program, BlockNode *tryBlock, BlockNode *catchBlock, DeclareVarNode *catchVar
+) {
     TryCatchNode *node = NEW_NODE(program, AST_TRY_CATCH, TryCatchNode);
     node->tryBlock = tryBlock;
     node->catchBlock = catchBlock;
+    node->catchVar = catchVar;
     return AS_NODE(node);
 }
 
