@@ -358,6 +358,15 @@ OP_COPY_TOP:
     that modify it without having to reload it every time, as copying/repushing is faster than
     loading a whole expression every time.
 
+OP_START_TRY:
+    Appends a new catch state to the current VM. Reads a loaded boolean on the stack
+    which represents whether or not the started try-catch will want to store whatever error messsage
+    is caught. Also reads a number that comes after the instruction, which is where in the current
+    function's bytecode will the catch statement start for the created catch state.
+
+OP_FINISH_TRY:
+    Pops the most recently added catch state in the VM to represent the end of a try-catch.
+
 OP_RAISE:
     Expects the topmost element in the stack to be a string. Pops it and uses it to induce
     an artificially created runtime error with that string as the error message.
