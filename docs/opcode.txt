@@ -358,5 +358,9 @@ OP_COPY_TOP:
     that modify it without having to reload it every time, as copying/repushing is faster than
     loading a whole expression every time.
 
+OP_RAISE:
+    Expects the topmost element in the stack to be a string. Pops it and uses it to induce
+    an artificially created runtime error with that string as the error message.
+
 OP_END:
     Ends the currently executing VM.

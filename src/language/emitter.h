@@ -104,6 +104,7 @@ typedef enum {
     OP_COPY_TOP,
     OP_START_TRY,
     OP_FINISH_TRY,
+    OP_RAISE,
     OP_END
 } OpCode;
 

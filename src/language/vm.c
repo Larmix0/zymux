@@ -1167,6 +1167,11 @@ static bool execute_vm(Vm *vm) {
         case OP_FINISH_TRY:
             DROP_DA(&vm->catches);
             break;
+        case OP_RAISE: {
+            StringObj *message = AS_PTR(StringObj, POP(vm));
+            VM_LOOP_RUNTIME_ERROR(vm, message->string);
+            break;
+        }
         case OP_END:
             return true;
         TOGGLEABLE_DEFAULT_UNREACHABLE();

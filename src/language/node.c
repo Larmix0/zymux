@@ -260,6 +260,14 @@ Node *new_try_catch_node(
     return AS_NODE(node);
 }
 
+/** Allocates a node which will try to raise an error at runtime. */
+Node *new_raise_node(ZmxProgram *program, Node *message, const SourcePosition pos) {
+    RaiseNode *node = NEW_NODE(program, AST_RAISE, RaiseNode);
+    node->message = message;
+    node->pos = pos;
+    return AS_NODE(node);    
+}
+
 /** Allocates a new match-case statement, with an optional default case. */
 Node *new_match_node(
     ZmxProgram *program, Node *matchedExpr, const NodeArray caseLabels, const NodeArray caseBlocks,
@@ -403,6 +411,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_MULTI_ASSIGN: return AS_PTR(MultiAssignNode, node)->pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
     case AST_TRY_CATCH: return get_node_pos(AS_NODE(AS_PTR(TryCatchNode, node)->tryBlock));
+    case AST_RAISE: return AS_PTR(RaiseNode, node)->pos;
     case AST_MATCH: return get_node_pos(AS_PTR(MatchNode, node)->matchedExpr);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
     case AST_DO_WHILE: return AS_PTR(DoWhileNode, node)->body->pos;
@@ -474,6 +483,7 @@ static void free_node(Node *node) {
     case AST_GET_PROPERTY:
     case AST_IF_ELSE:
     case AST_TRY_CATCH:
+    case AST_RAISE:
     case AST_WHILE:
     case AST_DO_WHILE:
     case AST_FOR:

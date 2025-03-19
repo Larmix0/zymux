@@ -729,6 +729,11 @@ static void resolve_try_catch(Resolver *resolver, TryCatchNode *node) {
     pop_block_scope(resolver, node->catchBlock, SCOPE_NORMAL);
 }
 
+/** Resolves a raise statement's message. */
+static void resolve_raise(Resolver *resolver, RaiseNode *node) {
+    resolve_node(resolver, node->message);
+}
+
 /** 
  * Resolve the matched expression, label expressions, their blocks, and default block if used.
  * 
@@ -986,6 +991,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_MULTI_ASSIGN: resolve_multi_assign(resolver, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: resolve_if_else(resolver, AS_PTR(IfElseNode, node)); break;
     case AST_TRY_CATCH: resolve_try_catch(resolver, AS_PTR(TryCatchNode, node)); break;
+    case AST_RAISE: resolve_raise(resolver, AS_PTR(RaiseNode, node)); break;
     case AST_MATCH: resolve_match(resolver, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: resolve_while(resolver, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: resolve_do_while(resolver, AS_PTR(DoWhileNode, node)); break;

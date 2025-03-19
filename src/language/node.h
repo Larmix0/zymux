@@ -44,6 +44,7 @@ typedef enum {
     AST_MULTI_ASSIGN,
     AST_IF_ELSE,
     AST_TRY_CATCH,
+    AST_RAISE,
     AST_MATCH,
     AST_WHILE,
     AST_DO_WHILE,
@@ -299,6 +300,13 @@ typedef struct {
     DeclareVarNode *catchVar; /** Optional caught message at runtime. NULL if omitted. */
 } TryCatchNode;
 
+/** Induces a runtime error with the error message it holds. */
+typedef struct {
+    Node node;
+    Node *message;
+    SourcePosition pos;
+} RaiseNode;
+
 /** A match-case statement, which matches a value to a case value/default if there's one. */
 typedef struct {
     Node node;
@@ -485,6 +493,9 @@ Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBlock,
 Node *new_try_catch_node(
     ZmxProgram *program, BlockNode *tryBlock, BlockNode *catchBlock, DeclareVarNode *catchVar
 );
+
+/** Allocates a node which will try to raise an error at runtime. */
+Node *new_raise_node(ZmxProgram *program, Node *message, const SourcePosition pos);
 
 /** Allocates a new match-case statement, with an optional default case. */
 Node *new_match_node(

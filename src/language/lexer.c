@@ -358,6 +358,7 @@ static TokenType get_name_type(Lexer *lexer) {
         break;
     case 'r':
         if (is_keyword(lexer, "return")) return TOKEN_RETURN_KW;
+        if (is_keyword(lexer, "raise")) return TOKEN_RAISE_KW;
         break;
     case 's':
         if (is_keyword(lexer, "string")) return TOKEN_STRING_KW;

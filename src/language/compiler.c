@@ -583,6 +583,16 @@ static void compile_try_catch(Compiler *compiler, const TryCatchNode *node) {
 }
 
 /** 
+ * Compiles a raise statement which will artificially induce an error during the interpreter.
+ * 
+ * First compiles the entire message node, then emits a bare raise instruction.
+ */
+static void compile_raise(Compiler *compiler, const RaiseNode *node) {
+    compile_node(compiler, node->message);
+    emit_instr(compiler, OP_RAISE, get_node_pos(AS_NODE(node)));
+}
+
+/** 
  * Compiles the exit of the match statement.
  * 
  * A match is exited by first popping the matched expression off of the stack, then resolving
@@ -977,6 +987,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_MULTI_ASSIGN: compile_multi_assign(compiler, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
     case AST_TRY_CATCH: compile_try_catch(compiler, AS_PTR(TryCatchNode, node)); break;
+    case AST_RAISE: compile_raise(compiler, AS_PTR(RaiseNode, node)); break;
     case AST_MATCH: compile_match(compiler, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: compile_do_while(compiler, AS_PTR(DoWhileNode, node)); break;

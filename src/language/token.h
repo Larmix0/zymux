@@ -32,7 +32,7 @@ typedef enum {
     TOKEN_MATCH_KW, TOKEN_CASE_KW, TOKEN_DEFAULT_KW,
 
     /** Error handling keyword. */
-    TOKEN_TRY_KW, TOKEN_CATCH_KW,
+    TOKEN_TRY_KW, TOKEN_CATCH_KW, TOKEN_RAISE_KW,
 
     /** Import-related keyword. */
     TOKEN_FROM_KW, TOKEN_IMPORT_KW,

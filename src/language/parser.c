@@ -599,6 +599,14 @@ static Node *parse_try_catch(Parser *parser) {
     );
 }
 
+/** A statement which induces an error with a message at runtime. */
+static Node *parse_raise(Parser *parser) {
+    const SourcePosition pos = PEEK_PREVIOUS(parser).pos; // The raise keyword.
+    Node *message = expression(parser);
+    CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after raise message.");
+    return new_raise_node(parser->program, message, pos);
+}
+
 /** Matches a specific expression with a set labels, if it's one of them, executes their block. */
 static Node *parse_match(Parser *parser) {
     Node *matchedExpr = expression(parser);
@@ -690,6 +698,7 @@ static Node *statement(Parser *parser) {
     case TOKEN_LCURLY: node = finish_block(parser); break;
     case TOKEN_IF_KW: node = parse_if_else(parser); break;
     case TOKEN_TRY_KW: node = parse_try_catch(parser); break;
+    case TOKEN_RAISE_KW: node = parse_raise(parser); break;
     case TOKEN_MATCH_KW: node = parse_match(parser); break;
     case TOKEN_WHILE_KW: node = parse_while(parser); break;
     case TOKEN_DO_KW: node = parse_do_while(parser); break;
