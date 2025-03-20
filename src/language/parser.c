@@ -103,13 +103,14 @@ static void parser_error_missing(
  */
 static Node *parse_string(Parser *parser) {
     NodeArray exprs = CREATE_DA();
+    SourcePosition pos = PEEK(parser).pos;
     bool nextIsString = true;
-    while (!MATCH(parser, TOKEN_STRING_END)) {
+    while (!MATCH(parser, TOKEN_STRING_END) && !parser->isPanicking) {
         ASSERT(!IS_EOF(parser), "No string end token to parse for string.");
         if (nextIsString) {
             const Token literal = CONSUME(parser, TOKEN_STRING_LIT, "Expected a string literal.");
-            bool emptyString = literal.stringVal.length > 0;
-            bool onlyString = CHECK(parser, TOKEN_STRING_END) && exprs.length == 0;
+            const bool emptyString = literal.stringVal.length > 0;
+            const bool onlyString = CHECK(parser, TOKEN_STRING_END) && exprs.length == 0;
             if (emptyString || onlyString) {
                 APPEND_DA(&exprs, new_literal_node(parser->program, literal));
             }
@@ -119,7 +120,7 @@ static Node *parse_string(Parser *parser) {
         nextIsString = !nextIsString;
         MATCH(parser, TOKEN_INTERPOLATE);
     }
-    return new_string_node(parser->program, exprs);
+    return new_string_node(parser->program, exprs, pos);
 }
 
 /** 

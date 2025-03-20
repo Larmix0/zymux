@@ -105,6 +105,7 @@ typedef struct {
 typedef struct {
     Node node;
     NodeArray exprs;
+    SourcePosition pos;
 } StringNode;
 
 /** Represents a keyword that is parsed as alone like true, false, null, super, etc. */
@@ -412,9 +413,9 @@ typedef struct {
 Node *new_error_node(ZmxProgram *program);
 
 /** Returns a string node: An array of nodes that alternate between string literals and exprs. */
-Node *new_string_node(ZmxProgram *program, const NodeArray exprs);
+Node *new_string_node(ZmxProgram *program, const NodeArray exprs, const SourcePosition pos);
 
-/** Returns a boolean of whether or not the string node starts with an literal. */
+/** Returns a boolean of whether or not the string node starts with a literal. */
 bool string_node_starts_with_literal(const StringNode *node);
 
 /** Allocates a new literal node which just holds the literal value. */

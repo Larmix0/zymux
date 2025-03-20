@@ -33,9 +33,10 @@ Node *new_literal_node(ZmxProgram *program, const Token value) {
 }
 
 /** Returns a string node: An array of nodes that alternate between string literals and exprs. */
-Node *new_string_node(ZmxProgram *program, const NodeArray exprs) {
+Node *new_string_node(ZmxProgram *program, const NodeArray exprs, const SourcePosition pos) {
     StringNode *node = NEW_NODE(program, AST_STRING, StringNode);
     node->exprs = exprs;
+    node->pos = pos;
     return AS_NODE(node);
 }
 
@@ -398,9 +399,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_KEYWORD: return AS_PTR(KeywordNode, node)->pos;
     case AST_UNARY: return AS_PTR(UnaryNode, node)->operation.pos;
     case AST_BINARY: return AS_PTR(BinaryNode, node)->operation.pos;
-
-    // Can safely index 0 here since a string node is gauranteed to at least have one empty string.
-    case AST_STRING: return get_node_pos(AS_PTR(StringNode, node)->exprs.data[0]);
+    case AST_STRING: return AS_PTR(StringNode, node)->pos;
     case AST_PARENTHESES: return get_node_pos(AS_PTR(ParenthesesNode, node)->expr);
     case AST_RANGE: return AS_PTR(RangeNode, node)->pos;
     case AST_CALL: return get_node_pos(AS_PTR(CallNode, node)->callee);
