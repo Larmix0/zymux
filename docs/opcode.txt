@@ -95,10 +95,11 @@ Comparison:
 
 Jumping:
     Increments or decrements the instruction pointer (IP) of the VM by a certain amount read
-    after the instruction. Might be conditional or backwards, but the jump is the same.
+    after the instruction. Might be conditional or backwards.
 
     Includes:
-        OP_JUMP, OP_JUMP_BACK, OP_JUMP_IF, OP_JUMP_IF_NOT,  OP_POP_JUMP_IF_NOT, OP_POP_JUMP_BACK_IF
+        OP_JUMP, OP_JUMP_BACK, OP_JUMP_IF, OP_JUMP_IF_NOT,  OP_POP_JUMP_IF, OP_POP_JUMP_IF_NOT,
+        OP_POP_JUMP_BACK_IF
 
     Example:
         Jump if opcode will read a number, and increment IP by that number only of the top element

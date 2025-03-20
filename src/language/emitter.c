@@ -192,6 +192,15 @@ void patch_absolute_jump(
     APPEND_DA(&compiler->jumps, jump);
 }
 
+/** Patches a u32 array of different opcode locations that all resolve to one place. */
+void patch_all_jumps(
+    Compiler *compiler, const U32Array starts, const u32 end, const bool isForward
+) {
+    for (u32 i = 0; i < starts.length; i++) {
+        patch_jump(compiler, starts.data[i], end, isForward);
+    }
+}
+
 /** 
  * Emits a normal jump instruction which is already patched.
  * 

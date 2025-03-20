@@ -268,16 +268,25 @@ Node *new_raise_node(ZmxProgram *program, Node *message, const SourcePosition po
     return AS_NODE(node);    
 }
 
+/** Allocates one new case for some match statement. */
+Node *new_case_node(
+    ZmxProgram *program, const NodeArray labelVals, BlockNode *block, const SourcePosition pos
+) {
+    CaseNode *node = NEW_NODE(program, AST_CASE, CaseNode);
+    node->labelVals = labelVals;
+    node->block = block;
+    node->pos = pos;
+    return AS_NODE(node);
+}
+
 /** Allocates a new match-case statement, with an optional default case. */
 Node *new_match_node(
-    ZmxProgram *program, Node *matchedExpr, const NodeArray caseLabels, const NodeArray caseBlocks,
-    BlockNode *defaultCase
+    ZmxProgram *program, Node *matchedExpr, const NodeArray cases, BlockNode *defaultBlock
 ) {
     MatchNode *node = NEW_NODE(program, AST_MATCH, MatchNode);
     node->matchedExpr = matchedExpr;
-    node->caseLabels = caseLabels;
-    node->caseBlocks = caseBlocks;
-    node->defaultCase = defaultCase;
+    node->cases = cases;
+    node->defaultBlock = defaultBlock;
     return AS_NODE(node);
 }
 
@@ -412,6 +421,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
     case AST_TRY_CATCH: return get_node_pos(AS_NODE(AS_PTR(TryCatchNode, node)->tryBlock));
     case AST_RAISE: return AS_PTR(RaiseNode, node)->pos;
+    case AST_CASE: return AS_PTR(CaseNode, node)->pos;
     case AST_MATCH: return get_node_pos(AS_PTR(MatchNode, node)->matchedExpr);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
     case AST_DO_WHILE: return AS_PTR(DoWhileNode, node)->body->pos;
@@ -448,9 +458,11 @@ static void free_node(Node *node) {
     case AST_MULTI_ASSIGN:
         FREE_DA(&AS_PTR(MultiAssignNode, node)->assignments);
         break;
+    case AST_CASE:
+        FREE_DA(&AS_PTR(CaseNode, node)->labelVals);
+        break;
     case AST_MATCH:
-        FREE_DA(&AS_PTR(MatchNode, node)->caseLabels);
-        FREE_DA(&AS_PTR(MatchNode, node)->caseBlocks);
+        FREE_DA(&AS_PTR(MatchNode, node)->cases);
         break;
     case AST_CALL:
         FREE_DA(&AS_PTR(CallNode, node)->args);

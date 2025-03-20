@@ -94,6 +94,7 @@ typedef enum {
     OP_MAKE_ITER,
     OP_FOR_ITER_ASSIGN,
     OP_FOR_ITER_LOAD,
+    OP_POP_JUMP_IF,
     OP_POP_JUMP_IF_NOT,
     OP_POP_JUMP_BACK_IF,
     OP_POP_LOCAL,
@@ -147,6 +148,11 @@ void patch_jump(Compiler *compiler, const u32 start, const u32 end, const bool i
 /** Patches a jump that goes to some absolute point in the bytecode. */
 void patch_absolute_jump(
     Compiler *compiler, const u32 start, const u32 location, const bool isForward
+);
+
+/** Patches a u32 array of different opcode locations that all resolve to one place. */
+void patch_all_jumps(
+    Compiler *compiler, const U32Array starts, const u32 end, const bool isForward
 );
 
 /** 

@@ -607,17 +607,28 @@ static Node *parse_raise(Parser *parser) {
     return new_raise_node(parser->program, message, pos);
 }
 
+/** Parses one case into the case labels and case blocks arrays. */
+static Node *parse_case(Parser *parser) {
+    NodeArray labelVals = CREATE_DA();
+    APPEND_DA(&labelVals, expression(parser));
+    const SourcePosition pos = get_node_pos(labelVals.data[0]); // First label value we just parsed.
+
+    while (!MATCH(parser, TOKEN_LCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
+        CONSUME(parser, TOKEN_COMMA, "Expected '{' or ',' after case label value.");
+        APPEND_DA(&labelVals, expression(parser));
+    }
+    Node *caseBlock = finish_block(parser);
+    return new_case_node(parser->program, labelVals, AS_PTR(BlockNode, caseBlock), pos);
+}
+
 /** Matches a specific expression with a set labels, if it's one of them, executes their block. */
 static Node *parse_match(Parser *parser) {
     Node *matchedExpr = expression(parser);
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after the matched expression.");
 
-    NodeArray caseLabels = CREATE_DA();
-    NodeArray caseBlocks = CREATE_DA();
+    NodeArray cases = CREATE_DA();
     while (MATCH(parser, TOKEN_CASE_KW)) {
-        APPEND_DA(&caseLabels, expression(parser));
-        CONSUME(parser, TOKEN_LCURLY, "Expected '{' after 'case'.");
-        APPEND_DA(&caseBlocks, finish_block(parser));
+        APPEND_DA(&cases, parse_case(parser));
     }
     
     Node *defaultCase = NULL;
@@ -629,7 +640,7 @@ static Node *parse_match(Parser *parser) {
         : "Expected '}' after match's default.";
     CONSUME(parser, TOKEN_RCURLY, messageOnError);
     return new_match_node(
-        parser->program, matchedExpr, caseLabels, caseBlocks, AS_PTR(BlockNode, defaultCase)
+        parser->program, matchedExpr, cases, AS_PTR(BlockNode, defaultCase)
     );
 }
 

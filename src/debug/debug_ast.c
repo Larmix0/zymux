@@ -275,20 +275,22 @@ static void append_raise(AstBuilder *ast, const RaiseNode *node) {
     append_node(ast, node->message);
 }
 
+/** Appends a case node's label values and its block. */
+static void append_case(AstBuilder *ast, const CaseNode *node) {
+    buffer_append_string(&ast->string, "<case> ");
+    append_node_array(ast, &node->labelVals);
+    append_node(ast, AS_NODE(node->block));
+}
+
 /** Appends the matched expression, case labels, their corresponding blocks, and default if used. */
 static void append_match(AstBuilder *ast, const MatchNode *node) {
     buffer_append_string(&ast->string, "<match> ");
     append_node(ast, node->matchedExpr);
     buffer_append_string(&ast->string, "-> ");
-    for (u32 i = 0; i < node->caseLabels.length; i++) {
-        buffer_append_string(&ast->string, "<case> ");
-        append_node(ast, node->caseLabels.data[i]);
-        buffer_append_string(&ast->string, "-> ");
-        append_node(ast, node->caseBlocks.data[i]);
-    }
-    if (node->defaultCase) {
+    append_node_array(ast, &node->cases);
+    if (node->defaultBlock) {
         buffer_append_string(&ast->string, "<default> -> ");
-        append_node(ast, AS_NODE(node->defaultCase));
+        append_node(ast, AS_NODE(node->defaultBlock));
     } else {
         buffer_append_string(&ast->string, "<no default> ");
     }
@@ -411,6 +413,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_IF_ELSE: append_if_else(ast, AS_PTR(IfElseNode, node)); break;
     case AST_TRY_CATCH: append_try_catch(ast, AS_PTR(TryCatchNode, node)); break;
     case AST_RAISE: append_raise(ast, AS_PTR(RaiseNode, node)); break;
+    case AST_CASE: append_case(ast, AS_PTR(CaseNode, node)); break;
     case AST_MATCH: append_match(ast, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: append_while(ast, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: append_do_while(ast, AS_PTR(DoWhileNode, node)); break;

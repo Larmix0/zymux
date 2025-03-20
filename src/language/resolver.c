@@ -734,6 +734,14 @@ static void resolve_raise(Resolver *resolver, RaiseNode *node) {
     resolve_node(resolver, node->message);
 }
 
+/** Resolves all of a case node's label values and its block. */
+static void resolve_case(Resolver *resolver, CaseNode *node) {
+    for (u32 i = 0; i < node->labelVals.length; i++) {
+        resolve_node(resolver, node->labelVals.data[i]);
+    }
+    resolve_node(resolver, AS_NODE(node->block));
+}
+
 /** 
  * Resolve the matched expression, label expressions, their blocks, and default block if used.
  * 
@@ -752,11 +760,10 @@ static void resolve_match(Resolver *resolver, MatchNode *node) {
             create_var_resolution(implicitMatchVar, VAR_LOCAL), NULL
         )
     );
-    resolve_node_array(resolver, &node->caseLabels);
-    resolve_node_array(resolver, &node->caseBlocks);
 
-    if (node->defaultCase) {
-        resolve_node(resolver, AS_NODE(node->defaultCase));
+    resolve_node_array(resolver, &node->cases);
+    if (node->defaultBlock) {
+        resolve_node(resolver, AS_NODE(node->defaultBlock));
     }
     pop_scope(resolver, SCOPE_NORMAL);
 }
@@ -992,6 +999,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_IF_ELSE: resolve_if_else(resolver, AS_PTR(IfElseNode, node)); break;
     case AST_TRY_CATCH: resolve_try_catch(resolver, AS_PTR(TryCatchNode, node)); break;
     case AST_RAISE: resolve_raise(resolver, AS_PTR(RaiseNode, node)); break;
+    case AST_CASE: resolve_case(resolver, AS_PTR(CaseNode, node)); break;
     case AST_MATCH: resolve_match(resolver, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: resolve_while(resolver, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: resolve_do_while(resolver, AS_PTR(DoWhileNode, node)); break;
