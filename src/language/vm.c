@@ -455,6 +455,62 @@ static bool map_get_subscr(Vm *vm, MapObj *callee, Obj *subscript) {
     return true;
 }
 
+/** Set (assign or create if one doesn't exist) a value on some property inside an object. */
+static bool set_property(Vm *vm, Obj *originalObj, StringObj *name, Obj *value) {
+    switch (originalObj->type) {
+    case OBJ_INSTANCE:
+        table_set(&AS_PTR(InstanceObj, originalObj)->fields, AS_OBJ(name), value);
+        DROP(vm); // Pop the object being accessed, leaving only the value on the top of the stack.
+        break;
+    default:
+        RUNTIME_ERROR(
+            vm, "Can't set property on object of type %s.", obj_type_str(originalObj->type)
+        );
+        return false;  
+    }
+    return true;
+}
+
+/** Access a property inside some object that might have multiple properties inside it. */
+static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
+    switch (originalObj->type) {
+    case OBJ_INSTANCE: {
+        InstanceObj *instance = AS_PTR(InstanceObj, originalObj);
+        Obj *field = table_get(&instance->fields, AS_OBJ(name));
+        if (field) {
+            PEEK(vm) = field;
+            return true;
+        }
+        Obj *method = table_get(&instance->cls->methods, AS_OBJ(name));
+        if (method) {
+            PEEK(vm) = AS_OBJ(new_method_obj(vm->program, instance, AS_PTR(FuncObj, method)));
+            return true;
+        }
+        RUNTIME_ERROR(vm, "No property called '%s'.", name->string);
+        return false;
+    }
+    case OBJ_ENUM: {
+        EnumObj *enumObj = AS_PTR(EnumObj, originalObj);
+        Obj *propertyIdx = table_get(&enumObj->lookupTable, AS_OBJ(name));
+        if (propertyIdx == NULL) {
+            RUNTIME_ERROR(vm, "No enum member called '%s'.", name->string);
+            return false;
+        }
+        ASSERT(propertyIdx->type == OBJ_INT, "Expected enum lookup table value to be int.");
+        PEEK(vm) = enumObj->members.data[AS_PTR(IntObj, propertyIdx)->number];
+        break;
+    }
+    default:
+        RUNTIME_ERROR(
+            vm, "Object of type %s doesn't have properties.", obj_type_str(originalObj->type)
+        );
+        return false;
+    }
+
+    return true;
+}
+
+
 /** 
  * Destructures an iterable which is expected to have "amount" of elements to destructure.
  * 
@@ -606,61 +662,6 @@ static void capture_variable(Vm *vm, Obj *capturedObj, const u32 stackLocation) 
     CapturedObj *capture = new_captured_obj(vm->program, capturedObj, stackLocation);
     APPEND_DA(&closure->captures, capture);
     APPEND_DA(&vm->openCaptures, capture);
-}
-
-/** Set (assign or create if one doesn't exist) a value on some property inside an object. */
-static bool set_property(Vm *vm, Obj *originalObj, StringObj *name, Obj *value) {
-    switch (originalObj->type) {
-    case OBJ_INSTANCE:
-        table_set(&AS_PTR(InstanceObj, originalObj)->fields, AS_OBJ(name), value);
-        DROP(vm); // Pop the object being accessed, leaving only the value on the top of the stack.
-        break;
-    default:
-        RUNTIME_ERROR(
-            vm, "Can't set property on object of type %s.", obj_type_str(originalObj->type)
-        );
-        return false;  
-    }
-    return true;
-}
-
-/** Access a property inside some object that might have multiple properties inside it. */
-static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
-    switch (originalObj->type) {
-    case OBJ_INSTANCE: {
-        InstanceObj *instance = AS_PTR(InstanceObj, originalObj);
-        Obj *field = table_get(&instance->fields, AS_OBJ(name));
-        if (field) {
-            PEEK(vm) = field;
-            return true;
-        }
-        Obj *method = table_get(&instance->cls->methods, AS_OBJ(name));
-        if (method) {
-            PEEK(vm) = AS_OBJ(new_method_obj(vm->program, instance, AS_PTR(FuncObj, method)));
-            return true;
-        }
-        RUNTIME_ERROR(vm, "No property called '%s'.", name->string);
-        return false;
-    }
-    case OBJ_ENUM: {
-        EnumObj *enumObj = AS_PTR(EnumObj, originalObj);
-        Obj *propertyIdx = table_get(&enumObj->lookupTable, AS_OBJ(name));
-        if (propertyIdx == NULL) {
-            RUNTIME_ERROR(vm, "No enum member called '%s'.", name->string);
-            return false;
-        }
-        ASSERT(propertyIdx->type == OBJ_INT, "Expected enum lookup table value to be int.");
-        PEEK(vm) = enumObj->members.data[AS_PTR(IntObj, propertyIdx)->number];
-        break;
-    }
-    default:
-        RUNTIME_ERROR(
-            vm, "Object of type %s doesn't have properties.", obj_type_str(originalObj->type)
-        );
-        return false;
-    }
-
-    return true;
 }
 
 /** 
@@ -985,6 +986,30 @@ static bool execute_vm(Vm *vm) {
             DROP_AMOUNT(vm, amount);
             break;
         }
+        case OP_MAKE_ITER: {
+            if (!is_iterable(PEEK(vm))) {
+                VM_LOOP_RUNTIME_ERROR(
+                    vm, "Can't iterate over object of type %s.", obj_type_str(PEEK(vm)->type)
+                );
+            }
+            IteratorObj *iterator = new_iterator_obj(vm->program, PEEK(vm));
+            PEEK(vm) = AS_OBJ(iterator);
+            break;
+        }
+        case OP_FOR_ITER_ASSIGN: {
+            Obj *iterated = for_iter_or_jump(vm);
+            if (iterated) {
+                PEEK_DEPTH(vm, 1) = iterated;
+            }
+            break;
+        }
+        case OP_FOR_ITER_LOAD: {
+            Obj *iterated = for_iter_or_jump(vm);
+            if (iterated) {
+                PUSH(vm, iterated);
+            }
+            break;
+        }
         case OP_CALL: {
             const u32 argAmount = READ_NUMBER(vm);
             if (!call(vm, PEEK_DEPTH(vm, argAmount), vm->frame->sp - argAmount, argAmount)) {
@@ -1082,30 +1107,6 @@ static bool execute_vm(Vm *vm) {
             const u32 jump = READ_NUMBER(vm);
             if (!(as_bool(vm->program, PEEK(vm))->boolean)) {
                 vm->frame->ip += jump;
-            }
-            break;
-        }
-        case OP_MAKE_ITER: {
-            if (!is_iterable(PEEK(vm))) {
-                VM_LOOP_RUNTIME_ERROR(
-                    vm, "Can't iterate over object of type %s.", obj_type_str(PEEK(vm)->type)
-                );
-            }
-            IteratorObj *iterator = new_iterator_obj(vm->program, PEEK(vm));
-            PEEK(vm) = AS_OBJ(iterator);
-            break;
-        }
-        case OP_FOR_ITER_ASSIGN: {
-            Obj *iterated = for_iter_or_jump(vm);
-            if (iterated) {
-                PEEK_DEPTH(vm, 1) = iterated;
-            }
-            break;
-        }
-        case OP_FOR_ITER_LOAD: {
-            Obj *iterated = for_iter_or_jump(vm);
-            if (iterated) {
-                PUSH(vm, iterated);
             }
             break;
         }

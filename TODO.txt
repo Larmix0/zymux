@@ -44,5 +44,3 @@ only when fields and methods are added to built-in objects.
 ----------------------------------------------------------------------------------------------------
 
 Improve the positioning of some bytecode for error handling.
-
-Make jumps uniform by using a universal helper function that takes different params of the jumps.
