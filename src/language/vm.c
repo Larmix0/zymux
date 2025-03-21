@@ -307,24 +307,26 @@ void free_vm(Vm *vm) {
 static bool list_assign_subscr(Vm *vm, ListObj *callee, Obj *subscript, Obj *value) {
     if (subscript->type != OBJ_INT) {
         RUNTIME_ERROR(
-            vm, "List indexing expected integer, got %s instead.", obj_type_str(subscript->type)
+            vm, "List element assign expected integer subscript, got %s instead.",
+            obj_type_str(subscript->type)
         );
         return false;
     }
     const ZmxInt index = AS_PTR(IntObj, subscript)->number;
-    if (IS_WITHIN_LENGTH(callee->items.length, index)) {
-        callee->items.data[index] = value;
-        return true;
-    } else {
+    if (!IS_WITHIN_LENGTH(callee->items.length, index)) {
         RUNTIME_ERROR(vm, "Index " ZMX_INT_FMT " is out of range.", index);
         return false;
     }
+    callee->items.data[index] = value;
     DROP_AMOUNT(vm, 2);
+    return true;
 }
 
 /** 
  * Assigns a key-value pair to a map.
+ * 
  * If the key already exists, just change the value, otherwise add a new entry completely.
+ * Pop the callee and the subscript off of the stack afterwards.
  */
 static bool map_assign_subscr(Vm *vm, MapObj *callee, Obj *subscript, Obj *value) {
     if (!is_hashable(subscript)) {
@@ -342,18 +344,51 @@ static bool map_assign_subscr(Vm *vm, MapObj *callee, Obj *subscript, Obj *value
  * Deletes the subscript and the callee of the subscript, and pushes the element on the callee
  * at the index of the integer subscript.
  */
-static bool array_get_item(
-    Vm *vm, ListObj *list, StringObj *str, Obj *subscript, const ZmxInt length, const bool isList
-) {
+static bool array_get_item(Vm *vm, Obj *callee, Obj *subscript, const ZmxInt length) {
     const ZmxInt index = AS_PTR(IntObj, subscript)->number;
     if (!IS_WITHIN_LENGTH(length, index)) {
         RUNTIME_ERROR(vm, "Index " ZMX_INT_FMT " is out of range.", index);
         return false;
     }
-    Obj *result = isList ? list->items.data[index] 
-        : AS_OBJ(new_string_obj(vm->program, str->string + index, 1));
+    Obj *result;
+    switch (callee->type) {
+    case OBJ_LIST:
+        result = AS_PTR(ListObj, callee)->items.data[index];
+        break;
+    case OBJ_STRING:
+        result = AS_OBJ(new_string_obj(vm->program, AS_PTR(StringObj, callee)->string + index, 1));
+        break;
+    case OBJ_ENUM:
+        result = AS_PTR(EnumObj, callee)->members.data[index];
+        break;
+    default: UNREACHABLE_ERROR(); // Assumes this was called with a subscriptable.
+    }
     DROP_AMOUNT(vm, 2);
     PUSH(vm, result);
+    return true;
+}
+
+/** 
+ * Covers one iteration of creating an array slice.
+ * 
+ * Errors if the slice is out of bounds, and otherwise appends the element iterated on its
+ * correct array depending on the type of object being sliced.
+ */
+static bool slice_iteration(
+    Vm *vm, Obj *callee, const ZmxInt index, const ZmxInt length,
+    ObjArray *listSlice, CharBuffer *strSlice
+) {
+    if (!IS_WITHIN_LENGTH(length, index)) {
+        FREE_DA(listSlice);
+        free_char_buffer(strSlice);
+        RUNTIME_ERROR(vm, "Slice goes out of range.");
+        return false;
+    }
+    if (callee->type == OBJ_LIST) {
+        APPEND_DA(listSlice, AS_PTR(ListObj, callee)->items.data[index]);
+    } else if (callee->type == OBJ_STRING) {
+        buffer_append_char(strSlice, AS_PTR(StringObj, callee)->string[index]);
+    }
     return true;
 }
 
@@ -369,37 +404,25 @@ static bool array_get_item(
  * After exhausting the iterator, we push the created subarray after
  * popping the original subscript, subscripted object, and the temporary iterator from the stack.
  */
-static bool array_slice(
-    Vm *vm, ListObj *list, StringObj *str, Obj *subscript, const ZmxInt length, const bool isList
-) {
-    ObjArray filteredList = CREATE_DA();
-    CharBuffer filteredStr = create_char_buffer();
+static bool array_slice(Vm *vm, Obj *callee, Obj *subscript, const ZmxInt length) {
+    ObjArray listSlice = CREATE_DA();
+    CharBuffer strSlice = create_char_buffer();
 
     IteratorObj *iterator = new_iterator_obj(vm->program, subscript);
     PUSH(vm, AS_OBJ(iterator)); // So iterator doesn't get GCed.
     Obj *current;
     while ((current = iterate(vm->program, iterator))) {
         const ZmxInt index = AS_PTR(IntObj, current)->number;
-        if (!IS_WITHIN_LENGTH(length, index)) {
-            FREE_DA(&filteredList);
-            free_char_buffer(&filteredStr);
-            RUNTIME_ERROR(vm, "Slice goes out of range.");
+        if (!slice_iteration(vm, callee, index, length, &listSlice, &strSlice)) {
             return false;
         }
-        if (isList) {
-            APPEND_DA(&filteredList, list->items.data[index]);
-        } else {
-            buffer_append_char(&filteredStr, str->string[index]);
-        }
     }
-    Obj *result = isList ? AS_OBJ(new_list_obj(vm->program, filteredList))
-        : AS_OBJ(new_string_obj(vm->program, filteredStr.text, filteredStr.length));
-    if (!isList) {
-        FREE_DA(&filteredList); // Only free if it's unused.
-    }
-    free_char_buffer(&filteredStr); // Always free here since new string copies the buffer anyway.
-    DROP_AMOUNT(vm, 3); // Pop the subscript, the thing being subscripted, and the iterator.
+    Obj *result = callee->type == OBJ_LIST ? AS_OBJ(new_list_obj(vm->program, listSlice))
+        : AS_OBJ(new_string_obj(vm->program, strSlice.text, strSlice.length));
+    DROP_AMOUNT(vm, 3); // Subscript, subscripted, and iterator.
     PUSH(vm, result);
+    
+    free_char_buffer(&strSlice); // Free here since new string copies the buffer, unlike new list.
     return true;
 }
 
@@ -413,18 +436,25 @@ static bool array_slice(
  */
 static bool array_get_subscr(Vm *vm, Obj *callee, Obj *subscript) {
     ASSERT(
-        callee->type == OBJ_LIST || callee->type == OBJ_STRING,
-        "Expected list or string for array subscript."
+        callee->type == OBJ_LIST || callee->type == OBJ_STRING || callee->type == OBJ_ENUM,
+        "Expected list, string, or enum for array subscript."
     );
-    const bool isList = callee->type == OBJ_LIST;
-    ListObj *list = isList ? AS_PTR(ListObj, callee) : NULL;
-    StringObj *str = isList ? NULL : AS_PTR(StringObj, callee);
-    const ZmxInt length = isList ? list->items.length : str->length;
+    ZmxInt length;
+    switch (callee->type) {
+        case OBJ_LIST: length = AS_PTR(ListObj, callee)->items.length; break;
+        case OBJ_STRING: length = AS_PTR(StringObj, callee)->length; break;
+        case OBJ_ENUM: length = AS_PTR(EnumObj, callee)->members.length; break;
+        default: UNREACHABLE_ERROR();
+    } 
 
     if (subscript->type == OBJ_INT) {
-        return array_get_item(vm, list, str, subscript, length, isList);
+        return array_get_item(vm, callee, subscript, length);
     } else if (subscript->type == OBJ_RANGE) {
-        return array_slice(vm, list, str, subscript, length, isList);
+        if (callee->type == OBJ_ENUM) {
+            RUNTIME_ERROR(vm, "Can't slice enum."); // No enum slicing. It's useless.
+            return false;
+        }
+        return array_slice(vm, callee, subscript, length);
     }
     RUNTIME_ERROR(
         vm, "Can't subscript %s with %s.", obj_type_str(callee->type), obj_type_str(subscript->type)
@@ -1039,7 +1069,9 @@ static bool execute_vm(Vm *vm) {
         case OP_GET_SUBSCR: {
             Obj *subscript = PEEK(vm);
             Obj *callee = PEEK_DEPTH(vm, 1);
-            if (callee->type == OBJ_LIST || callee->type == OBJ_STRING) {
+            if (
+                callee->type == OBJ_LIST || callee->type == OBJ_STRING || callee->type == OBJ_ENUM
+            ) {
                 if (!array_get_subscr(vm, callee, subscript)) {
                     VM_LOOP_FINISH_ERROR(vm);
                 }
