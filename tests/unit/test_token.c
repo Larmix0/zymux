@@ -25,11 +25,7 @@ PRIVATE_TEST_CASE(test_token_creators) {
     ASSERT_STRING_EQUAL(hexInt.lexeme, "E2D");
     ASSERT_INT_EQUAL(hexInt.intVal, 3629);
 
-    const Token floatNumber = create_float_token("33.4");
-    ASSERT_STRING_EQUAL(floatNumber.lexeme, "33.4");
-    ASSERT_FLOAT_EQUAL(floatNumber.floatVal, 33.4);
-
-    const Token string = create_string_token("String.");
+    const Token string = create_string_token("String.", strlen("String."));
     ASSERT_STRING_EQUAL(string.lexeme, "String.");
     ASSERT_STRING_EQUAL(string.stringVal.text, "String.");
 }

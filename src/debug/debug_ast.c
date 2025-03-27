@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "constants.h"
 #include "debug_ast.h"
@@ -106,7 +107,11 @@ static void append_range(AstBuilder *ast, const RangeNode *node) {
 static void append_call(AstBuilder *ast, const CallNode *node) {
     buffer_append_string(&ast->string, "<call> ");
     append_node(ast, node->callee);
-    append_node_array(ast, &node->args);
+
+    buffer_append_string(&ast->string, "<positional args> ");
+    append_node_array(ast, &node->positionalArgs);
+    buffer_append_string(&ast->string, "<keyword args> ");
+    append_node(ast, AS_NODE(node->keywordArgs));
 }
 
 /** Appends a subscript assignment's subscript, subscripted, and value being assigned. */
@@ -355,7 +360,12 @@ static void append_return(AstBuilder *ast, const ReturnNode *node) {
 static void append_func(AstBuilder *ast, const FuncNode *node) {
     buffer_append_string(&ast->string, "<func> ");
     buffer_append_token(&ast->string, node->nameDecl->name);
-    append_node_array(ast, &node->params);
+
+    buffer_append_string(&ast->string, "<mandatory arguments> ");
+    append_node_array(ast, &node->mandatoryParams);
+    buffer_append_string(&ast->string, "<optional arguments> ");
+    append_node_array(ast, &node->optionalParams);
+    
     buffer_append_string(&ast->string, "-> ");
     append_node(ast, AS_NODE(node->body));
 }

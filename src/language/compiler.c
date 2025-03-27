@@ -24,9 +24,9 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast) {
     GC_PUSH_PROTECTION(&program->gc);
 
     StringObj *name = new_string_obj(program, MAIN_NAME, strlen(MAIN_NAME));
+    ClosureObj *mainClosure = new_closure_obj(program, new_func_obj(program, name, 0, 0), true);
     Compiler compiler = {
-        .program = program, .ast = ast,
-        .func = AS_PTR(FuncObj, new_closure_obj(program, new_func_obj(program, name, 0, -1), true)),
+        .program = program, .ast = ast, .func = AS_PTR(FuncObj, mainClosure),
         .jumps = CREATE_DA(), .breaks = CREATE_DA(), .continues = CREATE_DA(),
     };
     return compiler;
@@ -223,23 +223,6 @@ static void compile_range(Compiler *compiler, const RangeNode *node) {
 }
 
 /** 
- * Compiles a call to a callable object.
- * 
- * First, we compile the callee (the object being called), then compile the arguments left to right.
- * After that, we emit a call operation that has a number proceeding it, which represents how many
- * argument objects are loaded on the stack.
- * 
- * Note that the callee is reliably found just one spot deeper in the stack than the first argument,
- * so the stack might look something like this: [Callee, arg-1, arg2, arg3...]
- * (The callee is lowest in the stack).
- */
-static void compile_call(Compiler *compiler, const CallNode *node) {
-    compile_node(compiler, node->callee);
-    compile_node_array(compiler, &node->args);
-    emit_number(compiler, OP_CALL, node->args.length, get_node_pos(AS_NODE(node)));
-}
-
-/** 
  * Compiles an assignment on a subscripted element.
  * 
  * Compiles the assignment expression first, so it's deepest on the stack, then the thing being
@@ -279,6 +262,11 @@ static void compile_ternary(Compiler *compiler, const TernaryNode *node) {
     emit_instr(compiler, OP_TERNARY, get_node_pos(AS_NODE(node)));
 }
 
+/** Emits the instruction which puts an amount of loaded objects into a list object. */
+static void make_list(Compiler *compiler, const u32 length, const SourcePosition pos) {
+    emit_number(compiler, OP_LIST, length, pos);
+}
+
 /**  
  * Compiles a list object.
  * 
@@ -289,7 +277,7 @@ static void compile_list(Compiler *compiler, const ListNode *node) {
     for (u32 i = 0; i < node->items.length; i++) {
         compile_node(compiler, node->items.data[i]);
     }
-    emit_number(compiler, OP_LIST, node->items.length, node->pos);
+    make_list(compiler, node->items.length, get_node_pos(AS_NODE(node)));
 }
 
 /** 
@@ -307,6 +295,25 @@ static void compile_map(Compiler *compiler, const MapNode *node) {
         compile_node(compiler, node->values.data[i]);
     }
     emit_number(compiler, OP_MAP, node->keys.length, node->pos);
+}
+
+/** 
+ * Compiles a call to a callable object.
+ * 
+ * First, we compile the callee (the object being called), then compile the positional arguments
+ * left to right. After that, compile the map of keyword arguments, then emit a call operation
+ * that has a number proceeding it, which represents how many positional arguments there are.
+ * 
+ * Note that the callee is reliably found just one spot deeper in the stack than the first argument,
+ * so the stack might look something like this: [callee, arg 1, arg 2, arg 3... keywordArgsMap]
+ * Therefore, the callee is lowest in the stack.
+ */
+static void compile_call(Compiler *compiler, const CallNode *node) {
+    compile_node(compiler, node->callee);
+    compile_node_array(compiler, &node->positionalArgs);
+    compile_map(compiler, node->keywordArgs);
+
+    emit_number(compiler, OP_CALL, node->positionalArgs.length, get_node_pos(AS_NODE(node)));
 }
 
 /** 
@@ -652,7 +659,7 @@ static void compile_match(Compiler *compiler, const MatchNode *node) {
         compile_case(compiler, AS_PTR(CaseNode, node->cases.data[i]), &exitJumps);
     }
     if (node->defaultBlock) {
-        compile_node(compiler, AS_NODE(node->defaultBlock));
+        compile_block(compiler, node->defaultBlock);
     }
 
     patch_all_jumps(compiler, exitJumps, compiler->func->bytecode.length, true);
@@ -890,16 +897,42 @@ static void finish_func(Compiler *compiler, const FuncNode *node) {
             compiler, OP_CAPTURE_AT, node->capturedParams.data[i], get_node_pos(AS_NODE(node))
         );
     }
-
-    JumpArray previous = compiler->jumps;
+    JumpArray previousJumps = compiler->jumps;
     INIT_DA(&compiler->jumps);
-
-    // Manually compile the body's statements to optimize out pops that occur before the func's end.
     compile_node_array(compiler, &node->body->stmts);
     compile_return(compiler, node->defaultReturn);
     write_jumps(compiler);
     FREE_DA(&compiler->jumps);
-    compiler->jumps = previous;
+    compiler->jumps = previousJumps;
+}
+
+/** 
+ * Compiles an array of optional parameters that a function might have.
+ * 
+ * First compiles a list of the optional parameters names in order, then does the same
+ * for the values of each one of the parameters. After that, emits an instruction which puts
+ * those lists inside the function on top of them which is expected to be at the top of the stack.
+ * 
+ * This means that the stack will first have the list of optional values at top, then the optional's
+ * string names as the second to top element, and finally the function as the third to top.
+ */
+static void compile_optionals(Compiler *compiler, const NodeArray optionals) {
+    for (u32 i = 0; i < optionals.length; i++) {
+        DeclareVarNode *param = AS_PTR(DeclareVarNode, optionals.data[i]);
+        StringObj *name = new_string_obj(
+            compiler->program, param->name.lexeme, param->name.pos.length
+        );
+        emit_const(compiler, OP_LOAD_CONST, AS_OBJ(name), get_node_pos(AS_NODE(param)));
+    }
+    make_list(compiler, optionals.length, PREVIOUS_OPCODE_POS(compiler));
+    
+    for (u32 i = 0; i < optionals.length; i++) {
+        DeclareVarNode *param = AS_PTR(DeclareVarNode, optionals.data[i]);
+        compile_node(compiler, param->value);
+    }
+    make_list(compiler, optionals.length, PREVIOUS_OPCODE_POS(compiler));
+
+    emit_instr(compiler, OP_FUNC_OPTIONALS, PREVIOUS_OPCODE_POS(compiler));
 }
 
 /** 
@@ -908,6 +941,7 @@ static void finish_func(Compiler *compiler, const FuncNode *node) {
  * We compile functions by switching the compiler's current function to the new one being created,
  * then we compile the function itself. After we're done with that,
  * we emit the new compiled function as a const inside the const pool of the previous function.
+ * Compiles optional parameters after the function itself if there are any.
  */
 static void compile_func(Compiler *compiler, const FuncNode *node) {
     GC_PUSH_PROTECTION(&compiler->program->gc);
@@ -918,7 +952,8 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
     GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(previous)); // Created before the protection push.
 
     compiler->func = new_func_obj(
-        compiler->program, nameAsObj, node->params.length, previous->constPool.length
+        compiler->program, nameAsObj,
+        node->mandatoryParams.length, node->mandatoryParams.length + node->optionalParams.length
     );
     finish_func(compiler, node);
 
@@ -932,6 +967,10 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
         compiler, node->isClosure ? OP_CLOSURE : OP_LOAD_CONST, AS_OBJ(finished), previousPos
     );
     GC_POP_PROTECTION(&compiler->program->gc);
+
+    if (node->optionalParams.length > 0) {
+        compile_optionals(compiler, node->optionalParams);
+    }
     compile_declare_var(compiler, node->nameDecl);
 }
 
@@ -983,12 +1022,12 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_BINARY: compile_binary(compiler, AS_PTR(BinaryNode, node)); break;
     case AST_PARENTHESES: compile_parentheses(compiler, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: compile_range(compiler, AS_PTR(RangeNode, node)); break;
-    case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;
     case AST_ASSIGN_SUBSCR: compile_assign_subscr(compiler, AS_PTR(AssignSubscrNode, node)); break;
     case AST_GET_SUBSCR: compile_get_subscr(compiler, AS_PTR(GetSubscrNode, node)); break;
     case AST_TERNARY: compile_ternary(compiler, AS_PTR(TernaryNode, node)); break;
     case AST_LIST: compile_list(compiler, AS_PTR(ListNode, node)); break;
     case AST_MAP: compile_map(compiler, AS_PTR(MapNode, node)); break;
+    case AST_CALL: compile_call(compiler, AS_PTR(CallNode, node)); break;
     case AST_EXPR_STMT: compile_expr_stmt(compiler, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: compile_block(compiler, AS_PTR(BlockNode, node)); break;
     case AST_DECLARE_VAR: compile_declare_var(compiler, AS_PTR(DeclareVarNode, node)); break;

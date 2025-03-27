@@ -161,12 +161,17 @@ EnumObj *new_enum_obj(ZmxProgram *program, StringObj *name) {
  * converted to a closure type that reveals an extra closure context that not every function may
  * have.
  */
-FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 arity, const int constIdx) {
-    FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);;
+FuncObj *new_func_obj(
+    ZmxProgram *program, StringObj *name, const u32 minArity, const u32 maxArity
+) {
+    FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);
     object->isClosure = false;
     object->name = name;
-    object->arity = arity;
-    object->constIdx = constIdx;
+
+    object->params.minArity = minArity;
+    object->params.maxArity = maxArity;
+    INIT_DA(&object->params.optionalNames);
+    INIT_DA(&object->params.optionalValues);
 
     INIT_DA(&object->bytecode);
     INIT_DA(&object->positions);
@@ -231,10 +236,13 @@ MethodObj *new_method_obj(ZmxProgram *program, InstanceObj *instance, FuncObj *f
 }
 
 /** Returns a new allocated native function object. */
-NativeFuncObj *new_native_func_obj(ZmxProgram *program, NativeFunc func, StringObj *name) {
+NativeFuncObj *new_native_func_obj(
+    ZmxProgram *program, StringObj *name, NativeFunc func, const FuncParams params
+) {
     NativeFuncObj *object = NEW_OBJ(program, OBJ_NATIVE_FUNC, NativeFuncObj);
-    object->func = func;
     object->name = name;
+    object->func = func;
+    object->params = params;
     return object;
 }
 
@@ -764,8 +772,15 @@ char *obj_type_str(ObjType type) {
     UNREACHABLE_ERROR();
 }
 
+/** Frees memory allocated by a function parameters struct. */
+static void free_func_params(FuncParams *params) {
+    FREE_DA(&params->optionalNames);
+    FREE_DA(&params->optionalValues);
+}
+
 /** Frees the allocated content/arrays of a function. */
 static void free_func_obj(FuncObj *func) {
+    free_func_params(&func->params);
     FREE_DA(&func->bytecode);
     FREE_DA(&func->constPool);
     FREE_DA(&func->positions);
@@ -818,6 +833,9 @@ void free_obj(Obj *object) {
     case OBJ_INSTANCE:
         free_table(&AS_PTR(InstanceObj, object)->fields);
         break;
+    case OBJ_NATIVE_FUNC:
+        free_func_params(&AS_PTR(NativeFuncObj, object)->params);
+        break;
     case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:
@@ -826,7 +844,6 @@ void free_obj(Obj *object) {
     case OBJ_ENUM_MEMBER:
     case OBJ_CAPTURED:
     case OBJ_METHOD:
-    case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
         break; // The object itself doesn't own any memory.
     TOGGLEABLE_DEFAULT_UNREACHABLE();

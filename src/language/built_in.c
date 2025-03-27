@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,7 +12,7 @@
 
 /** Defines a built-in function that can be used without any imports. */
 #define NATIVE_FUNC(name) \
-    static Obj *native_##name(Vm *vm, Obj **args, const u32 argAmount)
+    static Obj *native_##name(Vm *vm, Obj **args)
 
 /** Returns an error signal without reporting a message. */
 #define RETURN_ERROR_SIGNAL() return NULL;
@@ -23,45 +24,70 @@
         RETURN_ERROR_SIGNAL(); \
     } while (false)
 
-/** Returns an error where no arguments were expected, but some were provided nonetheless. */
-#define RETURN_ERROR_TAKES_NO_ARGS(vm, nativeName, argAmount) \
-    RETURN_ERROR(vm, nativeName " expected no arguments, got %"PRIu32" instead.", (argAmount))
-
-/** Returns an error where 1 argument was expected, but it got 0 or 2+ arguments. */
-#define RETURN_ERROR_TAKES_ONE_ARG(vm, nativeName, argAmount) \
-    RETURN_ERROR(vm, nativeName " expected 1 argument, got %"PRIu32" instead.", (argAmount))
-
-/** Returns an error where multiple arguments were expected, but the wrong amount was provided. */
-#define RETURN_ERROR_INCORRECT_MULTIPLE_ARGS(vm, nativeName, expectedAmount, actualAmount) \
-    RETURN_ERROR( \
-        vm, nativeName " expected %"PRIu32" arguments, got %"PRIu32" instead.", \
-        (expectedAmount), (actualAmount) \
-    )
+/** 
+ * Checks and returns an error with a message if one of the parameters wasn't of an expected type.
+ * 
+ * The index is for the argument in parameters which was of an unexpected type.
+ * The expected type is an obj type enum of what type the built-in expected that argument to be.
+ */
+#define TYPE_CHECK(index, expectedType) \
+    do { \
+        if (args[(index)]->type != (expectedType)) { \
+            RETURN_ERROR( \
+                vm, "Expected argument %"PRIu32" to be %s, got %s instead.", \
+                index + 1, obj_type_str(expectedType), obj_type_str(args[(index)]->type) \
+            ); \
+        } \
+    } while (false)
 
 /** The default return of a native that doesn't explicitly return anything. */
 #define DEFAULT_RETURN(vm) return AS_OBJ(new_null_obj((vm)->program))
 
-/** Built-in printing function. */
-NATIVE_FUNC(print) {
-    if (argAmount != 1) {
-        RETURN_ERROR_TAKES_ONE_ARG(vm, "print", argAmount);
+/** Returns an object in a native function (also performs the conversion to the base obj struct). */
+#define RETURN_OBJ(object) return AS_OBJ(object)
+
+/** Prints out an iterable and all of its objects. Adds newline after each element if it's set. */
+static void print_destructure(Vm *vm, Obj *toPrint, const bool addNewline) {
+    GC_PUSH_PROTECTION(&vm->program->gc);
+    IteratorObj *iterator = new_iterator_obj(vm->program, toPrint);
+    Obj *current;
+    while ((current = iterate(vm->program, iterator))) {
+        print_obj(current, false);
+        if (addNewline) {
+            putchar('\n');
+        }
     }
-    print_obj(args[0], false);
-    putchar('\n');
+    GC_POP_PROTECTION(&vm->program->gc);
+}
+
+/** Built-in printing function with some boolean flag settings. */
+NATIVE_FUNC(print) {
+    TYPE_CHECK(1, OBJ_BOOL);
+    TYPE_CHECK(2, OBJ_BOOL);
+
+    Obj *toPrint = args[0];
+    const bool addNewline = AS_PTR(BoolObj, args[1])->boolean;
+    const bool destructurePrint = AS_PTR(BoolObj, args[2])->boolean;
+    if (destructurePrint) {
+        if (!is_iterable(toPrint)) {
+            RETURN_ERROR(
+                vm, "Expected iterable in a destructuring print, got %s instead.",
+                obj_type_str(toPrint->type)
+            );
+        }
+        print_destructure(vm, toPrint, addNewline);
+    } else {
+        print_obj(toPrint, false);
+        if (addNewline) {
+            putchar('\n');
+        }
+    }
     DEFAULT_RETURN(vm);
 }
 
 /** Takes a condition and a string message to print if the assertion failed. */
 NATIVE_FUNC(assert) {
-    if (argAmount != 2) {
-        RETURN_ERROR_INCORRECT_MULTIPLE_ARGS(vm, "assert", 2, argAmount);
-    }
-    if (args[1]->type != OBJ_STRING) {
-        RETURN_ERROR(
-            vm, "Expected argument 2 to be string, got %s instead.", obj_type_str(args[1]->type)
-        );
-    }
-
+    TYPE_CHECK(1, OBJ_STRING);
     if (!as_bool(vm->program, args[0])->boolean) {
         // Store the message in a buffer since the string gets freed when doing a runtime error.
         CharBuffer assertMessage = create_char_buffer();
@@ -76,19 +102,48 @@ NATIVE_FUNC(assert) {
 /** Grab the current time and returns it. */
 NATIVE_FUNC(time) {
     UNUSED_PARAMETER(args);
-    if (argAmount != 0) {
-        RETURN_ERROR_TAKES_NO_ARGS(vm, "time", argAmount);
-    }
 
     const ZmxFloat currentTime = (ZmxFloat)clock() / CLOCKS_PER_SEC;
-    return AS_OBJ(new_float_obj(vm->program, currentTime));
+    RETURN_OBJ(new_float_obj(vm->program, currentTime));
+}
+
+/** Returns func parameters which have no optionals (only arity). */
+static FuncParams no_optionals(const u32 arity) {
+    FuncParams params = {
+        .minArity = arity, .maxArity = arity,
+        .optionalNames = CREATE_DA(), .optionalValues = CREATE_DA()
+    };
+    return params;
+}
+
+/** Returns a native function's parameters with some optionals. */
+static FuncParams native_params(
+    ZmxProgram *program, const u32 minArity, const u32 optionalsAmount, ...
+) {
+    const u32 maxArity = minArity + optionalsAmount;
+    FuncParams params = {
+        .minArity = minArity, .maxArity = maxArity,
+        .optionalNames = CREATE_DA(), .optionalValues = CREATE_DA()
+    };
+
+    va_list args;
+    va_start(args, optionalsAmount);
+    for (u32 i = 0; i < optionalsAmount; i++) {
+        char *name = va_arg(args, char *);
+        APPEND_DA(&params.optionalNames, AS_OBJ(new_string_obj(program, name, strlen(name))));
+        APPEND_DA(&params.optionalValues, va_arg(args, Obj *));
+    }
+    va_end(args);
+    return params;
 }
 
 /** Loads a native function into the passed table. */
-static void load_native_func(ZmxProgram *program, const char *name, NativeFunc func) {
+static void load_native_func(
+    ZmxProgram *program, const char *name, NativeFunc func, const FuncParams params
+) {
     GC_PUSH_PROTECTION(&program->gc);
     StringObj *nameObj = new_string_obj(program, name, strlen(name));
-    NativeFuncObj *native = new_native_func_obj(program, func, nameObj);
+    NativeFuncObj *native = new_native_func_obj(program, nameObj, func, params);
     
     table_set(&program->builtIn, AS_OBJ(nameObj), AS_OBJ(native));
     GC_POP_PROTECTION(&program->gc);
@@ -96,7 +151,21 @@ static void load_native_func(ZmxProgram *program, const char *name, NativeFunc f
 
 /** Loads all built-in objects into the program. */
 void load_built_ins(ZmxProgram *program) {
-    load_native_func(program, "print", native_print);
-    load_native_func(program, "assert", native_assert);
-    load_native_func(program, "time", native_time);
+    GC_PUSH_PROTECTION(&program->gc);
+    char *assertMessage = "Assert failed.";
+    load_native_func(
+        program, "assert", native_assert,
+        native_params(
+            program, 1, 1, "message", new_string_obj(program, assertMessage, strlen(assertMessage))
+        )
+    );
+    load_native_func(
+        program, "print", native_print,
+        native_params(
+            program, 1, 2,
+            "newline", new_bool_obj(program, true), "destructure", new_bool_obj(program, false)
+        )
+    );
+    load_native_func(program, "time", native_time, no_optionals(0));
+    GC_POP_PROTECTION(&program->gc);
 }

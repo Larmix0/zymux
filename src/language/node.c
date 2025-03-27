@@ -90,15 +90,6 @@ Node *new_range_node(
     return AS_NODE(node);
 }
 
-/** Allocates a call node, which simply wraps around a callee expression with some optional args. */
-Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args) {
-    CallNode *node = NEW_NODE(program, AST_CALL, CallNode);
-    node->callee = callee;
-    node->args = args;
-    return AS_NODE(node);
-}
-
-
 /** Allocates a subscript assignment, which assigns to some subscripted thing. */
 Node *new_assign_subscr_node(ZmxProgram *program, Node *callee, Node *subscript, Node *value) {
     AssignSubscrNode *node = NEW_NODE(program, AST_ASSIGN_SUBSCR, AssignSubscrNode);
@@ -143,6 +134,17 @@ Node *new_map_node(
     node->keys = keys;
     node->values = values;
     node->pos = pos;
+    return AS_NODE(node);
+}
+
+/** Allocates a call node, which calls a callee with some positional, then keyword args. */
+Node *new_call_node(
+    ZmxProgram *program, Node *callee, const NodeArray positionalArgs, MapNode *keywordArgs
+) {
+    CallNode *node = NEW_NODE(program, AST_CALL, CallNode);
+    node->callee = callee;
+    node->positionalArgs = positionalArgs;
+    node->keywordArgs = keywordArgs;
     return AS_NODE(node);
 }
 
@@ -348,11 +350,13 @@ Node *new_return_node(ZmxProgram *program, Node *value, const SourcePosition pos
 
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(
-    ZmxProgram *program, DeclareVarNode *nameDecl, const NodeArray params, BlockNode *body
+    ZmxProgram *program, DeclareVarNode *nameDecl, const NodeArray mandatoryParams,
+    const NodeArray optionalParams, BlockNode *body
 ) {
     FuncNode *node = NEW_NODE(program, AST_FUNC, FuncNode);
     node->nameDecl = nameDecl;
-    node->params = params;
+    node->mandatoryParams = mandatoryParams;
+    node->optionalParams = optionalParams;
     node->body = body;
 
     node->defaultReturn = AS_PTR(
@@ -402,12 +406,12 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_STRING: return AS_PTR(StringNode, node)->pos;
     case AST_PARENTHESES: return get_node_pos(AS_PTR(ParenthesesNode, node)->expr);
     case AST_RANGE: return AS_PTR(RangeNode, node)->pos;
-    case AST_CALL: return get_node_pos(AS_PTR(CallNode, node)->callee);
     case AST_ASSIGN_SUBSCR: return get_node_pos(AS_PTR(AssignSubscrNode, node)->callee);
     case AST_GET_SUBSCR: return get_node_pos(AS_PTR(GetSubscrNode, node)->callee);
     case AST_TERNARY: return get_node_pos(AS_PTR(TernaryNode, node)->condition);
     case AST_LIST: return AS_PTR(ListNode, node)->pos;
     case AST_MAP: return AS_PTR(MapNode, node)->pos;
+    case AST_CALL: return get_node_pos(AS_PTR(CallNode, node)->callee);
     case AST_EXPR_STMT: return get_node_pos(AS_PTR(ExprStmtNode, node)->expr);
     case AST_BLOCK: return AS_PTR(BlockNode, node)->pos;
     case AST_DECLARE_VAR: return AS_PTR(DeclareVarNode, node)->name.pos;
@@ -448,6 +452,9 @@ static void free_node(Node *node) {
         FREE_DA(&AS_PTR(MapNode, node)->keys);
         FREE_DA(&AS_PTR(MapNode, node)->values);
         break;
+    case AST_CALL:
+        FREE_DA(&AS_PTR(CallNode, node)->positionalArgs);
+        break;
     case AST_BLOCK:
         FREE_DA(&AS_PTR(BlockNode, node)->stmts);
         break;
@@ -463,14 +470,12 @@ static void free_node(Node *node) {
     case AST_MATCH:
         FREE_DA(&AS_PTR(MatchNode, node)->cases);
         break;
-    case AST_CALL:
-        FREE_DA(&AS_PTR(CallNode, node)->args);
-        break;
     case AST_ENUM:
         FREE_DA(&AS_PTR(EnumNode, node)->members);
         break;
     case AST_FUNC:
-        FREE_DA(&AS_PTR(FuncNode, node)->params);
+        FREE_DA(&AS_PTR(FuncNode, node)->mandatoryParams);
+        FREE_DA(&AS_PTR(FuncNode, node)->optionalParams);
         FREE_DA(&AS_PTR(FuncNode, node)->capturedParams);
         break;
     case AST_CLASS:

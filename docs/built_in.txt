@@ -1,19 +1,26 @@
 This file documents the names, arguments, behavior, and return value of built-in names in Zymux.
 
 The style of built-in function documentation is the following:
-    return_type {name}(arg1, arg2, arg3...):
+    {return type} name(arg1, arg2... optional1={value}, optional2={value}...):
         {documentation}.
 
 ----------------------------------------------------------------------------------------------------
 
-null print(value):
+null print(value, newline=true, destructure=false):
     Prints the passed value to the output.
 
-null assert(condition, message):
+    newline: whether or not to print an extra newline at the end of the print. It's there
+    to allow manually setting it off to print inline.
+
+    destructure: whether or not it should treat the print value as an iterable and print
+    each of its elements as an independant print, for convenience. If this is enabled alongside
+    the newlines boolean, then it prints a newline after every object of the iterable value.
+
+null assert(condition, message="Assert failure."):
     Raises an error if condition is false, then prints message.
     Does nothing if the condition evaluates to true.
 
-    the parameter message is expected to be a string, otherwise that'll be an error itself.
+    message: The message which gets printed on error. Expected to be a string.
 
 float time():
     Returns the time which has passed since the beginning of the program.

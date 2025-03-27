@@ -27,12 +27,12 @@ typedef enum {
     AST_BINARY,
     AST_PARENTHESES,
     AST_RANGE,
-    AST_CALL,
     AST_ASSIGN_SUBSCR,
     AST_GET_SUBSCR,
     AST_TERNARY,
     AST_LIST,
     AST_MAP,
+    AST_CALL,
     AST_EXPR_STMT,
     AST_BLOCK,
     AST_DECLARE_VAR,
@@ -152,13 +152,6 @@ typedef struct {
     SourcePosition pos; /** The location of the range in source code. */
 } RangeNode;
 
-/** Wraps something in a call to it. */
-typedef struct {
-    Node node;
-    Node *callee;
-    NodeArray args;
-} CallNode;
-
 /** Sets a value assignment on something that's getting subscripted. */
 typedef struct {
     Node node;
@@ -196,6 +189,14 @@ typedef struct {
     NodeArray values;
     SourcePosition pos;
 } MapNode;
+
+/** Wraps something in a call which has some positional args followed by a map of keyword args. */
+typedef struct {
+    Node node;
+    Node *callee; /** Whatever thing at runtime which is gonna get called. */
+    NodeArray positionalArgs; /** Arguments that are supplied in order with no naming. */
+    MapNode *keywordArgs; /** Arguments that are tied to an optional argument. After positionals. */
+} CallNode;
 
 /**
  * An expression statement is a statement that just holds an expression followed by a semicolon.
@@ -386,12 +387,13 @@ typedef struct {
 /** Holds some form of a function (normal function, method, initializer, etc.). */
 typedef struct {
     Node node;
-    DeclareVarNode *nameDecl;
-    NodeArray params;
-    BlockNode *body;
+    DeclareVarNode *nameDecl; /** The variable declaration of the function name itself. */
+    NodeArray mandatoryParams; /** Parameters that don't have a default value. Must be provided. */
+    NodeArray optionalParams; /** Parameters that have a default value when not provided. */
+    BlockNode *body; /** Block that holds the statements of the function. */
     ReturnNode *defaultReturn; /** The return which is auto emitted at the end of this func. */
 
-    bool isClosure;
+    bool isClosure; /** Whether or not this'll need to be treated as a closure at runtime. */
     U32Array capturedParams; /** An array of each index into the params array that is captured. */
 } FuncNode;
 
@@ -438,9 +440,6 @@ Node *new_range_node(
     ZmxProgram *program, Node *start, Node *end, Node *step, const SourcePosition pos
 );
 
-/** Allocates a call node, which simply wraps around a callee expression with some optional args. */
-Node *new_call_node(ZmxProgram *program, Node *callee, const NodeArray args);
-
 /** Allocates a subscript assignment, which assigns to some subscripted thing. */
 Node *new_assign_subscr_node(ZmxProgram *program, Node *callee, Node *subscript, Node *value);
 
@@ -456,6 +455,11 @@ Node *new_list_node(ZmxProgram *program, const NodeArray items, const SourcePosi
 /** Allocates a map of key-value pairs represented in 2 equally long arrays. */
 Node *new_map_node(
     ZmxProgram *program, const NodeArray keys, const NodeArray values, const SourcePosition pos
+);
+
+/** Allocates a call node, which calls a callee with some positional, then keyword args. */
+Node *new_call_node(
+    ZmxProgram *program, Node *callee, const NodeArray positionalArgs, MapNode *keywordArgs
 );
 
 /** Allocates an expression statement node, which just holds an expression. */
@@ -536,7 +540,8 @@ Node *new_return_node(ZmxProgram *program, Node *value, const SourcePosition pos
 
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(
-    ZmxProgram *program, DeclareVarNode *nameDecl, const NodeArray params, BlockNode *body
+    ZmxProgram *program, DeclareVarNode *nameDecl, const NodeArray mandatoryParams,
+    const NodeArray optionalParams, BlockNode *body
 );
 
 /** 

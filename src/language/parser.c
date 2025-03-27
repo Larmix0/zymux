@@ -42,7 +42,7 @@ void free_parser(Parser *parser) {
     free_all_nodes(parser->program);
 }
 
-/** Reports a parsing error on a specific, erroneous token, then starts panicking. */
+/** Reports a parsing error on a specific, erroneous token, then panics if that is set to true. */
 static void parser_error_at(
     Parser *parser, Token *erroredToken, const bool shouldPanic, const char *format, ...
 ) {
@@ -209,19 +209,58 @@ static Node *map(Parser *parser) {
     return new_map_node(parser->program, keys, values, leftCurly->pos);
 }
 
-/** Returns an array of parsed argument expressions that should end in a closing parenthesis. */
-static NodeArray parse_args(Parser *parser) {
-    NodeArray args = CREATE_DA();
-    if (!MATCH(parser, TOKEN_RPAR)) {
-        APPEND_DA(&args, expression(parser));
-        while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser) && !parser->isPanicking) {
-            CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after argument.");
-            APPEND_DA(&args, expression(parser));
+// TODO: refactor this when erroring using lexer index is implemented.
+/** Errors out if the passed token (presumably a keyword argument name) is already in kwargs. */
+static void check_keyword_arg_repeated(
+    Parser *parser, const Token name, Token *nameInTokens, MapNode *kwargs
+) {
+    for (u32 i = 0; i < kwargs->keys.length; i++) {
+        if (equal_token(name, AS_PTR(LiteralNode, kwargs->keys.data[i])->value)) {
+            parser_error_at(parser, nameInTokens, false, "Repeated keyword argument.");
+            return;
         }
     }
-    return args;
 }
 
+/** 
+ * Parses one argument in a function call, and appends it to its appropriate array/map of args.
+ * 
+ * Returns a boolean of whether or not keyword args have started so that boolean can be passed
+ * to the next call to this function. This is because when keyword arguments start
+ * we only allow parsing them after, as positionals are done.
+ */
+static bool one_arg(
+    Parser *parser, NodeArray *positionals, MapNode *kwargs, const bool keywordsStarted
+) {
+    if (keywordsStarted || CHECK(parser, TOKEN_DOT)) {
+        CONSUME(parser, TOKEN_DOT, "Expected '.' and then a name for a keyword argument.");
+        Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected keyword argument name.");
+        name = create_string_token(name.lexeme, name.pos.length); // Treat keyword name as a string.
+        check_keyword_arg_repeated(parser, name, &PEEK_PREVIOUS(parser), kwargs);
+        CONSUME(parser, TOKEN_EQ, "Expected '=' after keyword argument name.");
+
+        APPEND_DA(&kwargs->keys, new_literal_node(parser->program, name));
+        APPEND_DA(&kwargs->values, expression(parser));
+        return true;
+    } else {
+        APPEND_DA(positionals, expression(parser));
+        return false;
+    }
+}
+
+/** Returns an array of parsed argument expressions that should end in a closing parenthesis. */
+static void parse_args(Parser *parser, NodeArray *positionals, MapNode *kwargs) {
+    bool keywordsStarted = false;
+    if (!MATCH(parser, TOKEN_RPAR)) {
+        keywordsStarted = one_arg(parser, positionals, kwargs, keywordsStarted);
+        while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser) && !parser->isPanicking) {
+            CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after argument.");
+            keywordsStarted = one_arg(parser, positionals, kwargs, keywordsStarted);
+        }
+    }
+}
+
+/** Returns a parsed subscript expression. Either a get or an assign on some subscript. */
 static Node *parse_subscr(Parser *parser, Node *expr) {
     Node *subscript = expression(parser);
     CONSUME(parser, TOKEN_RSQUARE, "Expected ']' after subscript.");
@@ -233,17 +272,23 @@ static Node *parse_subscr(Parser *parser, Node *expr) {
 }
 
 /** 
- * Handles parsing calls, which are an expression followed by a pair of parentheses.
+ * Handles and returns call precedence, which are expressions tied to a tight thing on their right.
  * 
- * Calls can be recursive, like calling a function which is returned by a called function
+ * Calls can be recursive, like calling a function which is returned by a called function,
+ * or subscripting a 2d list.
+ * 
  * Example: someFunc()();
  */
 static Node *call(Parser *parser) {
     Node *expr = map(parser);
     while (true) {
         if (MATCH(parser, TOKEN_LPAR)) {
-            NodeArray args = parse_args(parser);
-            expr = new_call_node(parser->program, expr, args);
+            NodeArray positionalArgs = CREATE_DA(), kwNames = CREATE_DA(), kwValues = CREATE_DA();
+            MapNode *kwArgs = AS_PTR(
+                MapNode, new_map_node(parser->program, kwNames, kwValues, get_node_pos(expr))
+            );
+            parse_args(parser, &positionalArgs, kwArgs);
+            expr = new_call_node(parser->program, expr, positionalArgs, kwArgs);
         } else if (MATCH(parser, TOKEN_DOT)) {
             const Token property = CONSUME(
                 parser, TOKEN_IDENTIFIER, "Expected a field or a method name after '.'."
@@ -526,7 +571,7 @@ static Node *ternary(Parser *parser) {
     return expr;
 }
 
-/** Parses and returns an expression. */
+/** Parses and returns an expression. General function that starts with the lowest precedence. */
 static Node *expression(Parser *parser) {
     return ternary(parser);
 }
@@ -819,34 +864,60 @@ static Node *parse_enum(Parser *parser) {
     return new_enum_node(parser->program, declaration, members);
 }
 
-/** Returns a parsed parameter for a function. */
-static Node *one_param(Parser *parser) {
-    const Token paramName = CONSUME(parser, TOKEN_IDENTIFIER, "Expected parameter name");
-    return new_literal_node(parser->program, paramName);
+/** 
+ * Parses one parameter of a function and appends it to its appropriate parameter array.
+ * 
+ * Returns a boolean of whether or not optional parameters have started so that boolean
+ * can be passed to the next call to this function. This is because when optional parameters start
+ * we only allow parsing them after, as mandatories are done.
+ */
+static bool one_param(
+    Parser *parser, NodeArray *mandatories, NodeArray *optionals, bool optionalsStarted
+) {
+    const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected parameter name.");
+    Node *value = NULL;
+    if (optionalsStarted) {
+        CONSUME(parser, TOKEN_EQ, "Expected default values for the rest of the parameters.");
+        value = expression(parser);
+    } else if (MATCH(parser, TOKEN_EQ)) {
+        optionalsStarted = true;
+        value = expression(parser);
+    }
+
+    Node *parameter = new_declare_var_node(parser->program, name, value, false);
+    if (optionalsStarted) {
+        APPEND_DA(optionals, parameter);
+    } else {
+        APPEND_DA(mandatories, parameter);
+    }
+    return optionalsStarted;
 }
 
-/** Handles parsing and returning the array of parameters for any form of function. */
-static NodeArray parse_params(Parser *parser) {
-    NodeArray params = CREATE_DA();
+/** Handles parsing the arrays of mandatory and optional parameters for a function. */
+static void parse_params(Parser *parser, NodeArray *mandatories, NodeArray *optionals) {
     CONSUME(parser, TOKEN_LPAR, "Expected '(' before parameters.");
+
+    bool optionalsStarted = false;
     if (!MATCH(parser, TOKEN_RPAR)) {
-        APPEND_DA(&params, one_param(parser));
+        optionalsStarted = one_param(parser, mandatories, optionals, optionalsStarted);
         while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser) && !parser->isPanicking) {
             CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after parameter.");
-            APPEND_DA(&params, one_param(parser));
+            optionalsStarted = one_param(parser, mandatories, optionals, optionalsStarted);
         }
     }
-    return params;
 }
 
 /** Parses any type of function whose name was already parsed and passed to this. */
 static Node *named_func(Parser *parser, const Token name) {
     DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser->program, name);
-    NodeArray params = parse_params(parser);
+    NodeArray mandatoryParams = CREATE_DA(), optionalParams = CREATE_DA();
+    parse_params(parser, &mandatoryParams, &optionalParams);
 
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after function parameters.");
     Node *body = finish_block(parser);
-    return new_func_node(parser->program, declaration, params, AS_PTR(BlockNode, body));
+    return new_func_node(
+        parser->program, declaration, mandatoryParams, optionalParams, AS_PTR(BlockNode, body)
+    );
 }
 
 /** Parses a function and its name before the function itself for convenience. */

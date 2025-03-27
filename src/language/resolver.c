@@ -272,12 +272,6 @@ static void resolve_range(Resolver *resolver, RangeNode *node) {
     resolve_node(resolver, node->step);
 }
 
-/** Resolves a call expression's callee and arguments. */
-static void resolve_call(Resolver *resolver, CallNode *node) {
-    resolve_node(resolver, node->callee);
-    resolve_node_array(resolver, &node->args);
-}
-
 /** Resolves the condition, and the two expressions of a ternary expression. */
 static void resolve_ternary(Resolver *resolver, TernaryNode *node) {
     resolve_node(resolver, node->condition);
@@ -307,6 +301,13 @@ static void resolve_list(Resolver *resolver, ListNode *node) {
 static void resolve_map(Resolver *resolver, MapNode *node) {
     resolve_node_array(resolver, &node->keys);
     resolve_node_array(resolver, &node->values);
+}
+
+/** Resolves a call expression's callee, positional arguments, and keyword arguments. */
+static void resolve_call(Resolver *resolver, CallNode *node) {
+    resolve_node(resolver, node->callee);
+    resolve_node_array(resolver, &node->positionalArgs);
+    resolve_node(resolver, AS_NODE(node->keywordArgs));
 }
 
 /** Resolves the expression wrapped in an expression-statement. */
@@ -893,25 +894,13 @@ static void resolve_return(Resolver *resolver, ReturnNode *node) {
     node->capturedPops = get_local_captures(CURRENT_CLOSURE(resolver));
 }
 
-/** Handles the resolutions of a function's parameters and body. */
+/** Handles the resolutions of a function's mandatory and optional parameteres, and body. */
 static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
-    for (u32 i = 0; i < node->params.length; i++) {
-        ASSERT(node->params.data[i]->type == AST_LITERAL, "Parameter is not a variable literal.");
-        const Token name = AS_PTR(LiteralNode, node->params.data[i])->value;
-        if (find_top_scope_var(*CURRENT_LOCALS(resolver), name, resolver->scopeDepth)) {
-            resolution_error(
-                resolver, name.pos, "Repeated parameter '%.*s'.", name.pos.length, name.lexeme
-            );
-        }
-
-        // +1 on the variable resolution because the 0th spot is occupied by the function iteslf.
-        Variable parameter = create_variable(
-            false, false, false,
-            name, resolver->scopeDepth, create_var_resolution(i + 1, VAR_LOCAL), node
-        );
-        // Synthetic declaration to be used in place of a normal declaration for the parameter.
-        APPEND_DA(&parameter.resolutions, &parameter.resolution);
-        APPEND_DA(CURRENT_LOCALS(resolver), parameter);
+    for (u32 i = 0; i < node->mandatoryParams.length; i++) {
+        resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node->mandatoryParams.data[i]));
+    }
+    for (u32 i = 0; i < node->optionalParams.length; i++) {
+        resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node->optionalParams.data[i]));
     }
     unscoped_block(resolver, node->body);
     resolve_return(resolver, node->defaultReturn); // Automatically exit the function.
@@ -981,12 +970,12 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_BINARY: resolve_binary(resolver, AS_PTR(BinaryNode, node)); break;
     case AST_PARENTHESES: resolve_parentheses(resolver, AS_PTR(ParenthesesNode, node)); break;
     case AST_RANGE: resolve_range(resolver, AS_PTR(RangeNode, node)); break;
-    case AST_CALL: resolve_call(resolver, AS_PTR(CallNode, node)); break;
     case AST_ASSIGN_SUBSCR: resolve_assign_subscr(resolver, AS_PTR(AssignSubscrNode, node)); break;
     case AST_GET_SUBSCR: resolve_get_subscr(resolver, AS_PTR(GetSubscrNode, node)); break;
     case AST_TERNARY: resolve_ternary(resolver, AS_PTR(TernaryNode, node)); break;
     case AST_LIST: resolve_list(resolver, AS_PTR(ListNode, node)); break;
     case AST_MAP: resolve_map(resolver, AS_PTR(MapNode, node)); break;
+    case AST_CALL: resolve_call(resolver, AS_PTR(CallNode, node)); break;
     case AST_EXPR_STMT: resolve_expr_stmt(resolver, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: block(resolver, AS_PTR(BlockNode, node), SCOPE_NORMAL); break;
     case AST_DECLARE_VAR: resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node)); break;

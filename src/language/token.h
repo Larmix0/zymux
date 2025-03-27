@@ -127,17 +127,14 @@ Token create_token(char *lexeme, const TokenType type);
  */
 Token create_int_token(char *lexeme, const int base);
 
-/** Creates a synthetic float literal token. */
-Token create_float_token(char *lexeme);
-
 /** 
- * Creates a synthetic string literal token.
+ * Creates a synthetic string literal token with a string and its length passed.
  * 
  * The lexeme and text of the stringVal are both set to point directly to
  * the passed string's address. This means that if the string passed is heap allocated,
  * it shouldn't be freed until the created token itself is no longer needed.
  */
-Token create_string_token(char *string);
+Token create_string_token(char *string, const u32 length);
 
 /** Returns whether or not 2 tokens are considered equal. */
 bool equal_token(const Token left, const Token right);

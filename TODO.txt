@@ -44,3 +44,11 @@ only when fields and methods are added to built-in objects.
 ----------------------------------------------------------------------------------------------------
 
 Improve the positioning of some bytecode for error handling.
+
+Add some errors after parser while loops with "!IS_EOF()" to error out if the loop stopped
+at an EOF while it was expecting to stop at something else.
+
+Use indices into token arrays instead of token addresses for erroring out in the parser.
+
+refactor array slilcing to use one array for slicing, appending a string slice as single character
+string objects, then concatenating all of them to produce the sliced string.

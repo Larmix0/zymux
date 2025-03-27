@@ -110,34 +110,27 @@ Token create_token(char *lexeme, const TokenType type) {
 /** 
  * Creates a synthetic integer literal token.
  * 
- * The lexeme holds the number we want to convert into intVal. We use base to know
+ * The lexeme holds the number we want to convert into the int value. We use base to know
  * what base we'll parse.
  */
 Token create_int_token(char *lexeme, const int base) {
-    Token token = create_token(lexeme, TOKEN_INT_LIT);
-    token.intVal = strtoll(lexeme, NULL, base);
-    return token;
-}
-
-/** Creates a synthetic float literal token. */
-Token create_float_token(char *lexeme) {
-    Token token = create_token(lexeme, TOKEN_FLOAT_LIT);
-    token.floatVal = strtod(lexeme, NULL);
+    Token token = {
+        .lexeme = lexeme, .pos = create_src_pos(0, 0, strlen(lexeme)),
+        .type = TOKEN_INT_LIT, .intVal = strtoll(lexeme, NULL, base)
+    };
     return token;
 }
 
 /** 
- * Creates a synthetic string literal token.
+ * Creates a synthetic string literal token using string and length.
  * 
- * The lexeme and text of the stringVal are both set to point directly to
- * the passed string's address. This means that if the string passed is heap allocated,
- * it shouldn't be freed until the created token itself is no longer needed.
+ * Uses the passed string to set as both the lexeme and string value of the token.
  */
-Token create_string_token(char *string) {
-    Token token = create_token(string, TOKEN_STRING_LIT);
-    const size_t length = strlen(string);
-    token.stringVal.length = length;
-    token.stringVal.text = string;
+Token create_string_token(char *string, const u32 length) {
+    Token token = {
+        .lexeme = string, .pos = create_src_pos(0, 0, length),
+        .type = TOKEN_STRING_LIT, .stringVal = {.text = string, .length = length}
+    };
     return token;
 }
 

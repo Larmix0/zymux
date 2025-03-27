@@ -10,7 +10,7 @@ PRIVATE_TEST_CASE(test_runtime_stack) {
 
     ZmxProgram program = create_zmx_program("test", false);
     GC_PUSH_PROTECTION(&program.gc);
-    Vm vm = create_vm(&program, new_func_obj(&program, program.currentFile, 0, -1));
+    Vm vm = create_vm(&program, new_func_obj(&program, program.currentFile, 0, 0));
 
     PUSH(&vm, AS_OBJ(new_int_obj(&program, 32)));
     PUSH(&vm, AS_OBJ(new_float_obj(&program, 53.1)));

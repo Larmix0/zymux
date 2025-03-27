@@ -86,6 +86,7 @@ typedef enum {
     OP_CALL,
     OP_ASSIGN_SUBSCR,
     OP_GET_SUBSCR,
+    OP_FUNC_OPTIONALS,
     OP_CLOSURE,
     OP_CREATE_CLASS,
     OP_ADD_METHODS,

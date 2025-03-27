@@ -35,6 +35,12 @@ void free_gc(Gc *gc) {
     FREE_DA(&gc->protected);
 }
 
+/** Marks all objects inside a function params struct. */
+static void mark_func_params(FuncParams params) {
+    mark_obj_array(params.optionalNames);
+    mark_obj_array(params.optionalValues);
+}
+
 /** Marks the passed object and the objects it has inside it recursively. */
 static void mark_obj(Obj *object) {
     if (object == NULL || object->isReachable) {
@@ -67,6 +73,7 @@ static void mark_obj(Obj *object) {
         FuncObj *func = AS_PTR(FuncObj, object);
         mark_obj(AS_OBJ(func->name));
         mark_obj_array(func->constPool);
+        mark_func_params(func->params);
         if (func->isClosure) {
             // Mark the closure context of a function with a closure extension.
             ClosureObj *closure = AS_PTR(ClosureObj, object);
@@ -94,6 +101,7 @@ static void mark_obj(Obj *object) {
         break;
     case OBJ_NATIVE_FUNC:
         mark_obj(AS_OBJ(AS_PTR(NativeFuncObj, object)->name));
+        mark_func_params(AS_PTR(NativeFuncObj, object)->params);
         break;
     case OBJ_ITERATOR:
         mark_obj(AS_OBJ(AS_PTR(IteratorObj, object)->iterable));

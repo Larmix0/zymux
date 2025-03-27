@@ -308,6 +308,12 @@ OP_GET_SUBSCR:
     object and filter out the objects that won't be a part of the slice. The iterator gets popped
     alongside the subscript and the subscripted before pushing the slice in that case.
 
+OP_FUNC_OPTIONALS:
+    Expects the third element to the top of the stack to be a function whose optionals
+    are being assigned, the second to top as being a list of the optional's string names in order,
+    and finally the topmost element to be a list of the optional parameters' values in order.
+    Appends those 2 lists to the function and pops them off of the stack, but not the function.
+
 OP_CLOSURE:
     Copies over all captured variables of the current frame over to the function in the stack,
     loads it after wrapping it over a closure object.

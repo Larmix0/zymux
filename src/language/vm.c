@@ -398,18 +398,16 @@ static bool slice_iteration(
  * Creates a subarray from the subscripted using the subscript range as a filter for which
  * elements of the array are included in the sliced array.
  * 
- * Because we're creating the subarray from a range, we have to iterate with an iterator,
- * which is pushed onto the stack so it doesn't get GCed.
- * 
+ * Because we're creating the subarray from a range, we have to iterate with an iterator.
  * After exhausting the iterator, we push the created subarray after
- * popping the original subscript, subscripted object, and the temporary iterator from the stack.
+ * popping the original subscript and subscripted object from the stack.
  */
 static bool array_slice(Vm *vm, Obj *callee, Obj *subscript, const ZmxInt length) {
     ObjArray listSlice = CREATE_DA();
     CharBuffer strSlice = create_char_buffer();
 
+    GC_PUSH_PROTECTION(&vm->program->gc);
     IteratorObj *iterator = new_iterator_obj(vm->program, subscript);
-    PUSH(vm, AS_OBJ(iterator)); // So iterator doesn't get GCed.
     Obj *current;
     while ((current = iterate(vm->program, iterator))) {
         const ZmxInt index = AS_PTR(IntObj, current)->number;
@@ -419,10 +417,11 @@ static bool array_slice(Vm *vm, Obj *callee, Obj *subscript, const ZmxInt length
     }
     Obj *result = callee->type == OBJ_LIST ? AS_OBJ(new_list_obj(vm->program, listSlice))
         : AS_OBJ(new_string_obj(vm->program, strSlice.text, strSlice.length));
-    DROP_AMOUNT(vm, 3); // Subscript, subscripted, and iterator.
+    DROP_AMOUNT(vm, 2);
     PUSH(vm, result);
     
-    free_char_buffer(&strSlice); // Free here since new string copies the buffer, unlike new list.
+    GC_POP_PROTECTION(&vm->program->gc);
+    free_char_buffer(&strSlice); // Free buffer since new string copies the buffer, unlike new list.
     return true;
 }
 
@@ -596,17 +595,96 @@ static Obj *for_iter_or_jump(Vm *vm) {
     return element;
 }
 
+/** 
+ * Checks that the pass passed arity is valid with the argument amount + keyword arguments.
+ * 
+ * Errors and returns false if the arity check fails, otherwise returns true.
+ */
+static bool check_arity(
+    Vm *vm, const u32 minArity, const u32 maxArity, const u32 positionalAmount
+) {
+    MapObj *keywordArgs = AS_PTR(MapObj, PEEK(vm));
+    char *argString = minArity == 1 ? "argument" : "arguments";
+    const u32 allAmount = positionalAmount + keywordArgs->table.count;
+    const bool tooFewArgs = positionalAmount < minArity;
+    const bool tooManyArgs = allAmount > maxArity ;
+    const bool noOptionals = minArity == maxArity;
+    if (tooFewArgs && noOptionals) {
+        RUNTIME_ERROR(
+            vm, "Expected %"PRIu32" positional %s, got %"PRIu32" instead.",
+            minArity, argString, positionalAmount
+        );
+        return false;
+    } else if (tooManyArgs && noOptionals) {
+        RUNTIME_ERROR(
+            vm, "Expected %"PRIu32" %s, got %"PRIu32" instead.", minArity, argString, allAmount
+        );
+        return false;
+    } else if (tooFewArgs) {
+        RUNTIME_ERROR(
+            vm, "Expected at least %"PRIu32" positional %s, but only got %"PRIu32".",
+            minArity, argString, positionalAmount  
+        );
+        return false;
+    } else if (tooManyArgs) {
+        RUNTIME_ERROR(
+            vm, "Expected %"PRIu32" to %"PRIu32" arguments, got %"PRIu32" instead.",
+            minArity, maxArity, allAmount
+        );
+        return false;
+    }
+    return true;
+}
+
+/** 
+ * Flattens all keyword arguments on the stack to prepare for a call.
+ * 
+ * First iterates through all positionally provided optional arguments and checks if they're
+ * mentioned explicitly again in kwargs (repeated),
+ * then iterates through the ones which weren't positionally
+ * provided and tries to push an element from the kwargs map then pop it.
+ * Otherwise uses the default value of that parameter.
+ * Also performs a check that all kwargs have been used at the end to see if some kwarg names were
+ * invalid.
+ * 
+ * Returns whether or not an error occurred while flattening the keyword arguments.
+ */
+static bool flatten_kwargs(Vm *vm, const FuncParams params, const u32 argAmount) {
+    MapObj *keywordArgs = AS_PTR(MapObj, POP(vm));
+    const u32 positionalOptionals = argAmount - params.minArity;
+    for (u32 i = 0; i < positionalOptionals; i++) {
+        if (table_get(&keywordArgs->table, params.optionalNames.data[i])) {
+            // Argument was already provided positionally, but exists again in keyword args.
+            RUNTIME_ERROR(vm, "Positional argument repeated as keyword argument.");
+            return false;
+        }
+    }
+    for (u32 i = positionalOptionals; i < params.optionalNames.length; i++) {
+        Obj *argValue = table_get(&keywordArgs->table, params.optionalNames.data[i]);
+        if (argValue) {
+            PUSH(vm, argValue);
+            table_delete(&keywordArgs->table, params.optionalNames.data[i]);
+        } else {
+            PUSH(vm, params.optionalValues.data[i]);
+        }
+    }
+    if (keywordArgs->table.count > 0) {
+        // Not exhausted, which means some keyword arguments had names not in the parameters.
+        RUNTIME_ERROR(vm, "Keyword arguments must only have optional parameter names.");
+        return false;
+    }
+    return true;
+}
+
 /** Attempts to call the passed object. Returns whether or not it managed to call it. */
 static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     switch (callee->type) {
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, callee);
-        if (func->arity != argAmount) {
-            RUNTIME_ERROR(
-                vm, "%s() expected %"PRIu32" %s, but got %"PRIu32" instead.",
-                func->name->string, func->arity,
-                func->arity == 1 ? "argument" : "arguments", argAmount
-            );
+        if (
+            !check_arity(vm, func->params.minArity, func->params.maxArity, argAmount)
+            || !flatten_kwargs(vm, func->params, argAmount)
+        ) {
             return false;
         }
         push_stack_frame(vm, func, args - 1, vm->frame->sp);
@@ -629,12 +707,20 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
         return call(vm, AS_OBJ(method->func), args, argAmount);
     }
     case OBJ_NATIVE_FUNC: {
-        Obj *nativeReturn = AS_PTR(NativeFuncObj, callee)->func(vm, args, argAmount);
+        NativeFuncObj *native = AS_PTR(NativeFuncObj, callee);
+        if (
+            !check_arity(vm, native->params.minArity, native->params.maxArity, argAmount)
+            || !flatten_kwargs(vm, native->params, argAmount)
+        ) {
+            return false;
+        }
+        Obj *nativeReturn = native->func(vm, args);
         if (nativeReturn == NULL) {
             return false;
         }
-        PEEK_DEPTH(vm, argAmount) = nativeReturn;
-        DROP_AMOUNT(vm, argAmount);
+        const u32 arity = native->params.maxArity;
+        PEEK_DEPTH(vm, arity) = nativeReturn;
+        DROP_AMOUNT(vm, arity);
         return true;
     }
     default:
@@ -675,7 +761,7 @@ static void close_captures(Vm *vm, const u32 pops) {
  * Also, closes all alive variables that are gonna be deleted from the stack after the return.
  */
 static void call_return(Vm *vm) {
-    const u32 arity = vm->frame->func->arity;
+    const u32 arity = vm->frame->func->params.maxArity;
     Obj *returned = PEEK(vm);
     if (vm->openCaptures.length > 0) {
         close_captures(vm, vm->frame->sp - vm->frame->bp);
@@ -1041,8 +1127,8 @@ static bool execute_vm(Vm *vm) {
             break;
         }
         case OP_CALL: {
-            const u32 argAmount = READ_NUMBER(vm);
-            if (!call(vm, PEEK_DEPTH(vm, argAmount), vm->frame->sp - argAmount, argAmount)) {
+            const u32 argAmount = READ_NUMBER(vm) + 1; // +1 to account for keyword args.
+            if (!call(vm, PEEK_DEPTH(vm, argAmount), vm->frame->sp - argAmount, argAmount - 1)) {
                 VM_LOOP_FINISH_ERROR(vm);
             }
             break;
@@ -1082,6 +1168,17 @@ static bool execute_vm(Vm *vm) {
             } else {
                 VM_LOOP_RUNTIME_ERROR(vm, "Can't subscript object of type %s.", callee->type);
             }
+            break;
+        }
+        case OP_FUNC_OPTIONALS: {
+            ObjArray optionalValues = AS_PTR(ListObj, PEEK(vm))->items;
+            ObjArray optionalNames = AS_PTR(ListObj, PEEK_DEPTH(vm, 1))->items;
+            FuncObj *func = AS_PTR(FuncObj, PEEK_DEPTH(vm, 2));
+            for (u32 i = 0; i < optionalNames.length; i++) {
+                APPEND_DA(&func->params.optionalNames, optionalNames.data[i]);
+                APPEND_DA(&func->params.optionalValues, optionalValues.data[i]);
+            }
+            DROP_AMOUNT(vm, 2);
             break;
         }
         case OP_CLOSURE: {

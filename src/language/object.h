@@ -133,8 +133,7 @@ typedef struct {
     Table lookupTable; /** Multiple strings of name keys and integer values to index members. */
 } EnumObj;
 
-/** 
- * Represents one enum value in an enum. */
+/** Represents one enum value in an enum. */
 typedef struct {
     Obj obj;
     EnumObj *enumObj; /** The enum which holds this member. */
@@ -142,12 +141,26 @@ typedef struct {
     ZmxInt index; /** The index on the array of members it's on. */
 } EnumMemberObj;
 
+/** Parameters for any kind of function object (user, native, etc.). Not an object. */
+typedef struct {
+    /** The minimum amount of arguments to provide this function (excludes optional arguments). */
+    u32 minArity;
+
+    /** The maximum amount of arguments that this function takes (includes optional arguments). */
+    u32 maxArity;
+
+    /** An ordered array of the names of the function's optional parameters. */
+    ObjArray optionalNames;
+
+    /** An ordered array of the default value for each one of the function's optional parameters. */
+    ObjArray optionalValues;
+} FuncParams;
+
 /**
  * Represents an object that holds some bytecode, its positions and a constant pool for them.
  * 
  * It's a function object because it's a function/method most of the time.
- * However, this is also used for the top-level bytecode and constant pool
- * to achieve uniformity across the VM.
+ * However, this is also used for the top-level's bytecode to achieve uniformity across the VM.
  */
 typedef struct {
     Obj obj;
@@ -164,14 +177,8 @@ typedef struct {
     /** The pool which we store constant objects inside of (objects created at compile time). */
     ObjArray constPool;
 
-    /** How many arguments the function takes when being called. */
-    u32 arity;
-
-    /**
-     * The index in the const pool which the function is located at. Used for runtime errors,
-     * since we don't track bytecode by default unless we error, and then recompile to track it.
-     */
-    int constIdx;
+    /** Information about the parameters of the function. */
+    FuncParams params;
 
     /** Whether this function can have closure objects inheriting it with a closure context. */
     bool isClosure;
@@ -238,8 +245,9 @@ typedef struct {
 /** A built-in Zymux function whose implementation is written in C. */
 typedef struct {
     Obj obj;
-    NativeFunc func;
-    StringObj *name;
+    StringObj *name; /** Its name in the Zymux program. */
+    NativeFunc func; /** The C-callable function pointer with the native function signature. */
+    FuncParams params; /** Parameters of the native function. */
 } NativeFuncObj;
 
 /** An iterator, which holds an iterable object which it iterates over its elements 1 by 1. */
@@ -289,7 +297,7 @@ EnumMemberObj *new_enum_member_obj(
 EnumObj *new_enum_obj(ZmxProgram *program, StringObj *name);
 
 /** Returns a new allocated function object. */
-FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 arity, const int constIdx);
+FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 minArity, const u32 maxArity);
 
 /** Returns a newely created indirect reference to the passed object (capturing the object). */
 CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackLocation);
@@ -312,7 +320,9 @@ InstanceObj *new_instance_obj(ZmxProgram *program, ClassObj *cls);
 MethodObj *new_method_obj(ZmxProgram *program, InstanceObj *instance, FuncObj *func);
 
 /** Returns a new allocated native function object. */
-NativeFuncObj *new_native_func_obj(ZmxProgram *program, NativeFunc func, StringObj *name);
+NativeFuncObj *new_native_func_obj(
+    ZmxProgram *program, StringObj *name, NativeFunc func, const FuncParams params
+);
 
 /** Returns an iterator which wraps around an iterable object being iterated on. */
 IteratorObj *new_iterator_obj(ZmxProgram *program, Obj *iterable);
