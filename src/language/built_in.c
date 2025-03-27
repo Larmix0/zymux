@@ -25,12 +25,12 @@
     } while (false)
 
 /** 
- * Checks and returns an error with a message if one of the parameters wasn't of an expected type.
+ * Checks and returns an error with a message if the parameter at index wasn't of an expected type.
  * 
  * The index is for the argument in parameters which was of an unexpected type.
  * The expected type is an obj type enum of what type the built-in expected that argument to be.
  */
-#define TYPE_CHECK(index, expectedType) \
+#define PARAM_TYPE_CHECK(vm, args, index, expectedType) \
     do { \
         if (args[(index)]->type != (expectedType)) { \
             RETURN_ERROR( \
@@ -62,8 +62,8 @@ static void print_destructure(Vm *vm, Obj *toPrint, const bool addNewline) {
 
 /** Built-in printing function with some boolean flag settings. */
 NATIVE_FUNC(print) {
-    TYPE_CHECK(1, OBJ_BOOL);
-    TYPE_CHECK(2, OBJ_BOOL);
+    PARAM_TYPE_CHECK(vm, args, 1, OBJ_BOOL);
+    PARAM_TYPE_CHECK(vm, args, 2, OBJ_BOOL);
 
     Obj *toPrint = args[0];
     const bool addNewline = AS_PTR(BoolObj, args[1])->boolean;
@@ -87,7 +87,7 @@ NATIVE_FUNC(print) {
 
 /** Takes a condition and a string message to print if the assertion failed. */
 NATIVE_FUNC(assert) {
-    TYPE_CHECK(1, OBJ_STRING);
+    PARAM_TYPE_CHECK(vm, args, 1, OBJ_STRING);
     if (!as_bool(vm->program, args[0])->boolean) {
         // Store the message in a buffer since the string gets freed when doing a runtime error.
         CharBuffer assertMessage = create_char_buffer();
