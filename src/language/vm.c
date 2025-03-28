@@ -371,25 +371,75 @@ static bool array_get_item(Vm *vm, Obj *callee, Obj *subscript, const ZmxInt len
 /** 
  * Covers one iteration of creating an array slice.
  * 
- * Errors if the slice is out of bounds, and otherwise appends the element iterated on its
- * correct array depending on the type of object being sliced.
+ * Errors if the slice is out of bounds, and otherwise appends the element iterated.
  */
 static bool slice_iteration(
-    Vm *vm, Obj *callee, const ZmxInt index, const ZmxInt length,
-    ObjArray *listSlice, CharBuffer *strSlice
+    Vm *vm, Obj *callee, const ZmxInt index, const ZmxInt length, ObjArray *slice
 ) {
     if (!IS_WITHIN_LENGTH(length, index)) {
-        FREE_DA(listSlice);
-        free_char_buffer(strSlice);
+        FREE_DA(slice);
         RUNTIME_ERROR(vm, "Slice goes out of range.");
         return false;
     }
-    if (callee->type == OBJ_LIST) {
-        APPEND_DA(listSlice, AS_PTR(ListObj, callee)->items.data[index]);
-    } else if (callee->type == OBJ_STRING) {
-        buffer_append_char(strSlice, AS_PTR(StringObj, callee)->string[index]);
+    Obj *slicedItem;
+    switch (callee->type) {
+    case OBJ_LIST:
+        slicedItem = AS_PTR(ListObj, callee)->items.data[index];
+        break;
+    case OBJ_STRING:
+        slicedItem = AS_OBJ(new_string_obj(
+            vm->program, AS_PTR(StringObj, callee)->string + index, 1)
+        );
+        break;
+    case OBJ_ENUM: {
+        EnumObj *enumObj = AS_PTR(EnumObj, callee);
+        EnumMemberObj *member = AS_PTR(EnumMemberObj, enumObj->members.data[index]);
+        slicedItem = AS_OBJ(new_enum_member_obj(vm->program, enumObj, member->name, slice->length));
+        break;
     }
+    default: UNREACHABLE_ERROR();
+    }
+    APPEND_DA(slice, slicedItem);
     return true;
+}
+
+/** Returns a created object from the slice that was made on the callee depending on its type. */
+static Obj *obj_from_slice(Vm *vm, Obj *callee, const ObjArray slice) {
+    Obj *sliceResult;
+    switch (callee->type) {
+    case OBJ_LIST: {
+        ObjArray list = CREATE_DA();
+        for (u32 i = 0; i < slice.length; i++) {
+            APPEND_DA(&list, slice.data[i]);
+        }
+        sliceResult = AS_OBJ(new_list_obj(vm->program, list));
+        break;
+    }
+    case OBJ_STRING: {
+        StringObj *string = new_string_obj(vm->program, "", 0);
+        for (u32 i = 0; i < slice.length; i++) {
+            string = concatenate(vm->program, string, AS_PTR(StringObj, slice.data[i]));
+        }
+        sliceResult = AS_OBJ(string);
+        break;
+    }
+    case OBJ_ENUM: {
+        EnumObj *enumObj = new_enum_obj(vm->program, AS_PTR(EnumObj, callee)->name);
+        for (u32 i = 0; i < slice.length; i++) {
+            EnumMemberObj *member = AS_PTR(EnumMemberObj, slice.data[i]);
+            APPEND_DA(&enumObj->members, AS_OBJ(member));
+            table_set(
+                &enumObj->lookupTable,
+                AS_OBJ(member->name), AS_OBJ(new_int_obj(vm->program, (ZmxInt)i))
+            );
+        }
+        sliceResult = AS_OBJ(enumObj);
+        break;
+    }
+    default:
+        UNREACHABLE_ERROR(); // Shouldn't have been called.
+    }
+    return sliceResult;
 }
 
 /** 
@@ -402,26 +452,24 @@ static bool slice_iteration(
  * After exhausting the iterator, we push the created subarray after
  * popping the original subscript and subscripted object from the stack.
  */
-static bool array_slice(Vm *vm, Obj *callee, Obj *subscript, const ZmxInt length) {
-    ObjArray listSlice = CREATE_DA();
-    CharBuffer strSlice = create_char_buffer();
+static bool slice(Vm *vm, Obj *callee, Obj *subscript, const ZmxInt length) {
+    ObjArray slice = CREATE_DA();
 
     GC_PUSH_PROTECTION(&vm->program->gc);
     IteratorObj *iterator = new_iterator_obj(vm->program, subscript);
     Obj *current;
     while ((current = iterate(vm->program, iterator))) {
         const ZmxInt index = AS_PTR(IntObj, current)->number;
-        if (!slice_iteration(vm, callee, index, length, &listSlice, &strSlice)) {
+        if (!slice_iteration(vm, callee, index, length, &slice)) {
             return false;
         }
     }
-    Obj *result = callee->type == OBJ_LIST ? AS_OBJ(new_list_obj(vm->program, listSlice))
-        : AS_OBJ(new_string_obj(vm->program, strSlice.text, strSlice.length));
+    Obj *result = obj_from_slice(vm, callee, slice);
     DROP_AMOUNT(vm, 2);
     PUSH(vm, result);
-    
+
+    FREE_DA(&slice);
     GC_POP_PROTECTION(&vm->program->gc);
-    free_char_buffer(&strSlice); // Free buffer since new string copies the buffer, unlike new list.
     return true;
 }
 
@@ -449,11 +497,7 @@ static bool array_get_subscr(Vm *vm, Obj *callee, Obj *subscript) {
     if (subscript->type == OBJ_INT) {
         return array_get_item(vm, callee, subscript, length);
     } else if (subscript->type == OBJ_RANGE) {
-        if (callee->type == OBJ_ENUM) {
-            RUNTIME_ERROR(vm, "Can't slice enum."); // No enum slicing. It's useless.
-            return false;
-        }
-        return array_slice(vm, callee, subscript, length);
+        return slice(vm, callee, subscript, length);
     }
     RUNTIME_ERROR(
         vm, "Can't subscript %s with %s.", obj_type_str(callee->type), obj_type_str(subscript->type)
@@ -1166,7 +1210,9 @@ static bool execute_vm(Vm *vm) {
                     VM_LOOP_FINISH_ERROR(vm);
                 }
             } else {
-                VM_LOOP_RUNTIME_ERROR(vm, "Can't subscript object of type %s.", callee->type);
+                VM_LOOP_RUNTIME_ERROR(
+                    vm, "Can't subscript object of type %s.", obj_type_str(callee->type)
+                );
             }
             break;
         }
