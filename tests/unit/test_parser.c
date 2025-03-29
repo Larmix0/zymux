@@ -58,9 +58,9 @@ PRIVATE_TEST_CASE(test_parser_macros) {
     ASSERT_TRUE(lex(&lexer));
     Parser parser = create_parser(&program, lexer.tokens);
 
-    const Token one = create_int_token("1", 10);
+    const Token one = create_int_token("1", 10, -1);
     const Token plus = create_token("+", TOKEN_PLUS);
-    const Token three = create_int_token("3", 10);
+    const Token three = create_int_token("3", 10, -1);
     ASSERT_FALSE(IS_EOF(&parser));
     ASSERT_TRUE(equal_token(PEEK(&parser), one));
     ASSERT_TRUE(equal_token(ADVANCE_PEEK(&parser), one));

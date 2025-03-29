@@ -101,7 +101,8 @@ static char *alloc_current_lexeme(Lexer *lexer) {
  */
 static void append_implicit(Lexer *lexer, const TokenType type) {
     Token implicit = {
-        .lexeme = "", .pos = create_src_pos(lexer->line, lexer->column, 0), .type = type
+        .lexeme = "", .lexedIdx = lexer->tokens.length,
+        .pos = create_src_pos(lexer->line, lexer->column, 0), .type = type
     };
     APPEND_DA(&lexer->tokens, implicit);
 }
@@ -109,7 +110,7 @@ static void append_implicit(Lexer *lexer, const TokenType type) {
 /** Appends the token we've been lexing as an error with the passed message. */
 static void append_lexed_error(Lexer *lexer, const char *format, ...) {
     Token error = {
-        .lexeme = lexer->tokenStart,
+        .lexeme = lexer->tokenStart, .lexedIdx = lexer->tokens.length,
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .type = TOKEN_ERROR,
     };
@@ -125,7 +126,9 @@ static void append_lexed_error(Lexer *lexer, const char *format, ...) {
 static void append_error_at(
     Lexer *lexer, char *errorStart, const SourcePosition pos, const char *format, ...
 ) {
-    Token error = {.lexeme = errorStart, .pos = pos, .type = TOKEN_ERROR};
+    Token error = {
+        .lexeme = errorStart, .lexedIdx = lexer->tokens.length, .pos = pos, .type = TOKEN_ERROR
+    };
     APPEND_DA(&lexer->tokens, error);
 
     va_list args;
@@ -137,7 +140,7 @@ static void append_error_at(
 /** Appends a token that was lexed (advanced over) of the passed type. */
 static void append_lexed(Lexer *lexer, const TokenType type) {
     Token token = {
-        .lexeme = lexer->tokenStart,
+        .lexeme = lexer->tokenStart, .lexedIdx = lexer->tokens.length,
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .type = type
     };
@@ -147,7 +150,7 @@ static void append_lexed(Lexer *lexer, const TokenType type) {
 /** Appends an integer that was lexed and sets its integer union to the passed literal value. */
 static void append_lexed_int(Lexer *lexer, const ZmxInt integer) {
     Token token = {
-        .lexeme = lexer->tokenStart,
+        .lexeme = lexer->tokenStart, .lexedIdx = lexer->tokens.length,
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .type = TOKEN_INT_LIT, .intVal = integer
     };
@@ -157,7 +160,7 @@ static void append_lexed_int(Lexer *lexer, const ZmxInt integer) {
 /** Appends a float that was lexed and sets its float union to the passed literal value. */
 static void append_lexed_float(Lexer *lexer, const ZmxFloat floatVal) {
     Token token = {
-        .lexeme = lexer->tokenStart,
+        .lexeme = lexer->tokenStart, .lexedIdx = lexer->tokens.length,
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .type = TOKEN_FLOAT_LIT, .floatVal = floatVal
     };
@@ -171,7 +174,7 @@ static void append_lexed_string(
     const u32 textLength = buffer.length - 1; // -1 because CharBuffer counts NUL.
     const u32 quotesLength = textLength + includedQuotes; // So the lexeme includes any side quotes.
     Token token = {
-        .lexeme = lexer->tokenStart, 
+        .lexeme = lexer->tokenStart, .lexedIdx = lexer->tokens.length,
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, quotesLength + string->escapes),
         .type = TOKEN_STRING_LIT, .stringVal = {.length = textLength, .text = buffer.text}
     };
@@ -329,10 +332,10 @@ static TokenType get_name_type(Lexer *lexer) {
         if (is_keyword(lexer, "enum")) return TOKEN_ENUM_KW;
         break;
     case 'f':
-        if (is_keyword(lexer, "float")) return TOKEN_FLOAT_KW;
         if (is_keyword(lexer, "false")) return TOKEN_FALSE_KW;
         if (is_keyword(lexer, "for")) return TOKEN_FOR_KW;
         if (is_keyword(lexer, "func")) return TOKEN_FUNC_KW;
+        if (is_keyword(lexer, "float")) return TOKEN_FLOAT_KW;
         if (is_keyword(lexer, "from")) return TOKEN_FROM_KW;
         break;
     case 'i':

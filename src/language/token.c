@@ -101,9 +101,24 @@ char *token_type_string(const TokenType type) {
     UNREACHABLE_ERROR();
 }
 
-/** Creates a "normal" token, which is a token that doesn't have any union values. */
+/** Creates a token without union values, but does have a position in some lexing array. */
+Token create_token_at(char *lexeme, const TokenType type, const i64 lexedIdx) {
+    Token token = {
+        .lexeme = lexeme, .lexedIdx = lexedIdx, .pos = create_src_pos(0, 0, strlen(lexeme)),
+        .type = type
+    };
+    return token;
+}
+
+/**
+ * Creates a "normal" token, which is a token that doesn't have any union values or lexed index.
+ * 
+ * Mostly just convenience to allow omitting the manual "-1" argument.
+ */
 Token create_token(char *lexeme, const TokenType type) {
-    Token token = {.lexeme = lexeme, .pos = create_src_pos(0, 0, strlen(lexeme)), .type = type};
+    Token token = {
+        .lexeme = lexeme, .lexedIdx = -1, .pos = create_src_pos(0, 0, strlen(lexeme)), .type = type
+    };
     return token;
 }
 
@@ -113,9 +128,9 @@ Token create_token(char *lexeme, const TokenType type) {
  * The lexeme holds the number we want to convert into the int value. We use base to know
  * what base we'll parse.
  */
-Token create_int_token(char *lexeme, const int base) {
+Token create_int_token(char *lexeme, const int base, const i64 lexedIdx) {
     Token token = {
-        .lexeme = lexeme, .pos = create_src_pos(0, 0, strlen(lexeme)),
+        .lexeme = lexeme, .lexedIdx = lexedIdx, .pos = create_src_pos(0, 0, strlen(lexeme)),
         .type = TOKEN_INT_LIT, .intVal = strtoll(lexeme, NULL, base)
     };
     return token;
@@ -126,12 +141,21 @@ Token create_int_token(char *lexeme, const int base) {
  * 
  * Uses the passed string to set as both the lexeme and string value of the token.
  */
-Token create_string_token(char *string, const u32 length) {
+Token create_string_token(char *string, const u32 length, const i64 lexedIdx) {
     Token token = {
-        .lexeme = string, .pos = create_src_pos(0, 0, length),
+        .lexeme = string, .lexedIdx = lexedIdx, .pos = create_src_pos(0, 0, length),
         .type = TOKEN_STRING_LIT, .stringVal = {.text = string, .length = length}
     };
     return token;
+}
+
+/** Returns a version of the passed token that converts it into a string literal token. */
+Token as_string_token(const Token token) {
+    Token asString = {
+        .lexeme = token.lexeme, .lexedIdx = token.lexedIdx, .pos = token.pos,
+        .type = TOKEN_STRING_LIT, .stringVal = {.text = token.lexeme, .length = token.pos.length}
+    };
+    return asString;
 }
 
 /** 

@@ -18,7 +18,7 @@
 #define CONSUME(parser, expected, ...) \
     (CHECK(parser, expected) \
         ? ADVANCE_PEEK(parser) \
-        : (parser_error_missing(parser, &PEEK_PREVIOUS(parser), true, __VA_ARGS__), PEEK(parser)))
+        : (parser_error_missing(parser, PEEK_PREVIOUS(parser), true, __VA_ARGS__), PEEK(parser)))
             
 #define IS_EOF(parser) (CHECK(parser, TOKEN_EOF))
 
@@ -44,19 +44,20 @@ void free_parser(Parser *parser) {
 
 /** Reports a parsing error on a specific, erroneous token, then panics if that is set to true. */
 static void parser_error_at(
-    Parser *parser, Token *erroredToken, const bool shouldPanic, const char *format, ...
+    Parser *parser, Token erroredToken, const bool shouldPanic, const char *format, ...
 ) {
     if (parser->isPanicking) {
         return;
     }
 
     if (shouldPanic) {
+        ASSERT(erroredToken.lexedIdx >= 0, "Expected positive number for parser error index.");
+        parser->syncSpot = &parser->tokens.data[erroredToken.lexedIdx];
         parser->isPanicking = true;
-        parser->syncSpot = erroredToken;
     }
     va_list args;
     va_start(args, format);
-    zmx_user_error(parser->program, erroredToken->pos, "Syntax error", format, &args);
+    zmx_user_error(parser->program, erroredToken.pos, "Syntax error", format, &args);
     va_end(args);
 }
 
@@ -70,19 +71,20 @@ static void parser_error_at(
  * the character after the token located before the missing one (which is what beforeMissing is).
  */
 static void parser_error_missing(
-    Parser *parser, Token *beforeMissing, const bool shouldPanic, const char *format, ...
+    Parser *parser, Token beforeMissing, const bool shouldPanic, const char *format, ...
 ) {
     if (parser->isPanicking) {
         return;
     }
 
     if (shouldPanic) {
+        ASSERT(beforeMissing.lexedIdx >= 0, "Expected positive number for parser error index.");
+        parser->syncSpot = &parser->tokens.data[beforeMissing.lexedIdx + 1];
         parser->isPanicking = true;
-        parser->syncSpot = beforeMissing + 1;
     }
     // Errors out the character after the token located before the missing one.
     const SourcePosition errorPos = create_src_pos(
-        beforeMissing->pos.line, beforeMissing->pos.column + beforeMissing->pos.length, 1
+        beforeMissing.pos.line, beforeMissing.pos.column + beforeMissing.pos.length, 1
     );
     va_list args;
     va_start(args, format);
@@ -154,7 +156,7 @@ static Node *primary(Parser *parser) {
         return new_parentheses_node(parser->program, parenthesized);
     }
     default:
-        parser_error_at(parser, &PEEK_PREVIOUS(parser), true, "Invalid expression.");
+        parser_error_at(parser, PEEK_PREVIOUS(parser), true, "Invalid expression.");
         return new_error_node(parser->program);
     }
 }
@@ -165,7 +167,7 @@ static Node *list(Parser *parser) {
         return primary(parser);
     }
     NodeArray items = CREATE_DA();
-    Token *leftBracket = &ADVANCE_PEEK(parser);
+    Token leftBracket = ADVANCE_PEEK(parser);
     if (!CHECK(parser, TOKEN_RSQUARE) && !CHECK(parser, TOKEN_EOF)) {
         APPEND_DA(&items, expression(parser));
     }
@@ -177,7 +179,7 @@ static Node *list(Parser *parser) {
         CONSUME(parser, TOKEN_COMMA, "Expected ',' or ']' after list element.");
         APPEND_DA(&items, expression(parser));
     }
-    return new_list_node(parser->program, items, leftBracket->pos);
+    return new_list_node(parser->program, items, leftBracket.pos);
 }
 
 /** Parses one map entry into the key and value arrays. */
@@ -193,10 +195,9 @@ static Node *map(Parser *parser) {
     }
     NodeArray keys = CREATE_DA();
     NodeArray values = CREATE_DA();
-    Token *leftCurly = &ADVANCE_PEEK(parser);
+    Token leftCurly = ADVANCE_PEEK(parser);
     if (!CHECK(parser, TOKEN_RCURLY) && !CHECK(parser, TOKEN_EOF)) {
-        map_entry(parser, &keys, &values);
-        
+        map_entry(parser, &keys, &values);   
     }
     while (!MATCH(parser, TOKEN_RCURLY) && !parser->isPanicking) {
         if (IS_EOF(parser)) {
@@ -206,17 +207,14 @@ static Node *map(Parser *parser) {
         CONSUME(parser, TOKEN_COMMA, "Expected ',' or '}' after map entry.");
         map_entry(parser, &keys, &values);
     }
-    return new_map_node(parser->program, keys, values, leftCurly->pos);
+    return new_map_node(parser->program, keys, values, leftCurly.pos);
 }
 
-// TODO: refactor this when erroring using lexer index is implemented.
 /** Errors out if the passed token (presumably a keyword argument name) is already in kwargs. */
-static void check_keyword_arg_repeated(
-    Parser *parser, const Token name, Token *nameInTokens, MapNode *kwargs
-) {
+static void check_keyword_arg_repeated(Parser *parser, const Token name, MapNode *kwargs) {
     for (u32 i = 0; i < kwargs->keys.length; i++) {
         if (equal_token(name, AS_PTR(LiteralNode, kwargs->keys.data[i])->value)) {
-            parser_error_at(parser, nameInTokens, false, "Repeated keyword argument.");
+            parser_error_at(parser, name, false, "Repeated keyword argument.");
             return;
         }
     }
@@ -234,9 +232,10 @@ static bool one_arg(
 ) {
     if (keywordsStarted || CHECK(parser, TOKEN_DOT)) {
         CONSUME(parser, TOKEN_DOT, "Expected '.' and then a name for a keyword argument.");
-        Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected keyword argument name.");
-        name = create_string_token(name.lexeme, name.pos.length); // Treat keyword name as a string.
-        check_keyword_arg_repeated(parser, name, &PEEK_PREVIOUS(parser), kwargs);
+        Token name = as_string_token(
+            CONSUME(parser, TOKEN_IDENTIFIER, "Expected keyword argument name.")
+        );
+        check_keyword_arg_repeated(parser, name, kwargs);
         CONSUME(parser, TOKEN_EQ, "Expected '=' after keyword argument name.");
 
         APPEND_DA(&kwargs->keys, new_literal_node(parser->program, name));
@@ -329,7 +328,7 @@ static Node *binary_data_type(Parser *parser) {
             && AS_PTR(KeywordNode, dataType)->keyword != TOKEN_STRING_KW)
         ) {
             parser_error_at(
-                parser, &PEEK_PREVIOUS(parser), false, "Expected data type after '%s'.",
+                parser, PEEK_PREVIOUS(parser), false, "Expected data type after '%s'.",
                 operation.type == TOKEN_IS_KW ? "is" : "as"
             );
             return new_error_node(parser->program);
@@ -448,7 +447,8 @@ static Node *range(Parser *parser) {
             step = equality(parser);
             rangePos = extended_position(rangePos, PEEK_PREVIOUS(parser));
         } else {
-            step = new_literal_node(parser->program, create_int_token("1", 10)); // Default 1 step.            
+            // Default step of 1.
+            step = new_literal_node(parser->program, create_int_token("1", 10, -1));            
         }
         expr = new_range_node(parser->program, expr, end, step, rangePos);
     }
@@ -474,7 +474,7 @@ static Node *binary_logical(Parser *parser) {
  * but otherwise doesn't affect the flow of the program.
  */
 static Node *multi_assignment(Parser *parser, ListNode *list) {
-    Token *leftBracket = &PEEK_PREVIOUS(parser);
+    Token leftBracket = PEEK_PREVIOUS(parser);
     if (list->items.length == 0) {
         parser_error_at(parser, leftBracket, false, "Assignment list can't be empty.");
     }
@@ -505,10 +505,11 @@ static Node *multi_assignment(Parser *parser, ListNode *list) {
  * on a normal assignment node.
  */
 static Node *augmented_assignment(Parser *parser, Node *expr) {
-    if (expr->type != AST_GET_VAR) {
-        parser_error_at(parser, &PEEK(parser), false, "Invalid assignment name.");
-    }
+    const Token assignName = PEEK_PREVIOUS(parser);
     Token augAssign = ADVANCE_PEEK(parser);
+    if (expr->type != AST_GET_VAR) {
+        parser_error_at(parser, assignName, false, "Invalid assignment name.");
+    }
     switch (augAssign.type) {
     case TOKEN_PLUS_EQ: augAssign.type = TOKEN_PLUS; break;
     case TOKEN_MINUS_EQ: augAssign.type = TOKEN_MINUS; break;
@@ -532,6 +533,7 @@ static Node *augmented_assignment(Parser *parser, Node *expr) {
 static Node *assignment(Parser *parser) {
     Node *expr = binary_logical(parser);
     if (CHECK(parser, TOKEN_EQ)) {
+        const Token assignName = PEEK_PREVIOUS(parser);
         if (expr->type == AST_LIST) {
             return multi_assignment(parser, AS_PTR(ListNode, expr));
         }
@@ -543,7 +545,7 @@ static Node *assignment(Parser *parser) {
         } else if (expr->type == AST_GET_PROPERTY) {
             return new_set_property_node(parser->program, AS_PTR(GetPropertyNode, expr), value);
         } else {
-            parser_error_at(parser, &PEEK(parser), false, "Invalid assignment name.");
+            parser_error_at(parser, assignName, false, "Invalid assignment name.");
         }
     } else if (
         CHECK(parser, TOKEN_PLUS_EQ) || CHECK(parser, TOKEN_MINUS_EQ)
@@ -615,7 +617,7 @@ static Node *parse_if_else(Parser *parser) {
         } else if (MATCH(parser, TOKEN_IF_KW)) {
             elseBlock = parse_if_else(parser);
         } else {
-            parser_error_at(parser, &PEEK(parser), true, "Expected 'if' or '{' after else.");
+            parser_error_at(parser, PEEK(parser), true, "Expected 'if' or '{' after else.");
         }
     }
     return new_if_else_node(parser->program, condition, AS_PTR(BlockNode, ifBlock), elseBlock);
@@ -718,7 +720,7 @@ static Node *parse_for(Parser *parser) {
     } else if (MATCH(parser, TOKEN_LSQUARE)) {
         loopVar = multi_declaration(parser, false, false);
     } else {
-        parser_error_at(parser, &PEEK(parser), true, "Expected for loop variable.");
+        parser_error_at(parser, PEEK(parser), true, "Expected for loop variable.");
         return new_error_node(parser->program);
     }
     
@@ -786,7 +788,7 @@ static Node *declaration_value(Parser *parser) {
         CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after declaration's value.");
     } else {
         parser_error_missing(
-            parser, &PEEK(parser), true, "Expected ';' or '=' after declaration."
+            parser, PEEK(parser), true, "Expected ';' or '=' after declaration."
         );
     }
     return value;
@@ -806,7 +808,7 @@ static Node *multi_declaration(Parser *parser, const bool isConst, const bool sc
     const SourcePosition pos = PEEK_PREVIOUS(parser).pos; // Left bracket.
     if (MATCH(parser, TOKEN_RSQUARE)) {
         parser_error_at(
-            parser, &PEEK_PREVIOUS(parser), false,
+            parser, PEEK_PREVIOUS(parser), false,
             "Expected at least one variable in multi-variable declaration."
         );
         return new_error_node(parser->program);
@@ -820,7 +822,7 @@ static Node *multi_declaration(Parser *parser, const bool isConst, const bool sc
     }
     if (IS_EOF(parser)) {
         parser_error_at(
-            parser, &PEEK(parser), true, "Multi-variable declaration never closed with ']'."
+            parser, PEEK(parser), true, "Multi-variable declaration never closed with ']'."
         );
         return new_error_node(parser->program); // Can't parse a value if EOF.
     }
@@ -931,7 +933,7 @@ static void class_method(Parser *parser, ClassNode *classNode) {
     if (CHECK(parser, TOKEN_INIT_KW)) {
         if (classNode->init) {
             parser_error_at(
-                parser, &PEEK(parser), false, "Can't have multiple intializers in class."
+                parser, PEEK(parser), false, "Can't have multiple intializers in class."
             );
         }
         classNode->init = AS_PTR(FuncNode, named_func(parser, ADVANCE_PEEK(parser)));

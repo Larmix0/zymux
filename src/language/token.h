@@ -77,6 +77,7 @@ typedef enum {
 /** A series of characters from the source code stored as a single unit. */
 typedef struct {
     char *lexeme; /** Points somewhere in the source at the beginning of the token. */
+    i64 lexedIdx; /** This token's index into a lexed tokens array. -1 if it's not in an array. */
     SourcePosition pos; /** Position in the source code. */
     TokenType type; /** What type of token it is. */
 
@@ -116,7 +117,10 @@ DECLARE_DA_STRUCT(TokenArray, Token);
 /** Returns the passed token type as a string literal in all uppercase. */
 char *token_type_string(const TokenType type);
 
-/** Creates a "normal" token, which is a token that doesn't have any union values. */
+/** Creates a token without union values, but does have a position in some lexing array. */
+Token create_token_at(char *lexeme, const TokenType type, const i64 lexedIdx);
+
+/** Creates a "normal" token, which is a token that doesn't have any union values or lexed index. */
 Token create_token(char *lexeme, const TokenType type);
 
 /** 
@@ -125,7 +129,7 @@ Token create_token(char *lexeme, const TokenType type);
  * The lexeme holds the number we want to convert into intVal. We use base to know
  * what base we'll parse.
  */
-Token create_int_token(char *lexeme, const int base);
+Token create_int_token(char *lexeme, const int base, const i64 lexedIdx);
 
 /** 
  * Creates a synthetic string literal token with a string and its length passed.
@@ -134,7 +138,10 @@ Token create_int_token(char *lexeme, const int base);
  * the passed string's address. This means that if the string passed is heap allocated,
  * it shouldn't be freed until the created token itself is no longer needed.
  */
-Token create_string_token(char *string, const u32 length);
+Token create_string_token(char *string, const u32 length, const i64 lexedIdx);
+
+/** Returns a version of the passed token that converts it into a string literal token. */
+Token as_string_token(const Token token);
 
 /** Returns whether or not 2 tokens are considered equal. */
 bool equal_token(const Token left, const Token right);

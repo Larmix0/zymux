@@ -17,15 +17,15 @@ PRIVATE_TEST_CASE(test_token_creators) {
     ASSERT_STRING_EQUAL(leftShift.lexeme, "<<");
     ASSERT_TRUE(leftShift.type == TOKEN_LSHIFT);
 
-    const Token decimalInt = create_int_token("23", 10);
+    const Token decimalInt = create_int_token("23", 10, -1);
     ASSERT_STRING_EQUAL(decimalInt.lexeme, "23");
     ASSERT_INT_EQUAL(decimalInt.intVal, 23);
 
-    const Token hexInt = create_int_token("E2D", 16);
+    const Token hexInt = create_int_token("E2D", 16, -1);
     ASSERT_STRING_EQUAL(hexInt.lexeme, "E2D");
     ASSERT_INT_EQUAL(hexInt.intVal, 3629);
 
-    const Token string = create_string_token("String.", strlen("String."));
+    const Token string = create_string_token("String.", strlen("String."), -1);
     ASSERT_STRING_EQUAL(string.lexeme, "String.");
     ASSERT_STRING_EQUAL(string.stringVal.text, "String.");
 }
