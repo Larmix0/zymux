@@ -35,7 +35,8 @@
         "initializer_list": "c",
         "debug_bytecode.h": "c",
         "debug_ast.h": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "compiler.h": "c"
     },
     "cSpell.words": [
         "Zymux"

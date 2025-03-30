@@ -340,9 +340,7 @@ static CharBuffer object_cstring(const Obj *object) {
         break;
     case OBJ_ENUM_MEMBER: {
         EnumMemberObj *member = AS_PTR(EnumMemberObj, object);
-        buffer_append_format(
-            &string, "%s.%s", member->enumObj->name->string, member->name->string
-        );
+        buffer_append_format(&string, "%s.%s", member->enumObj->name->string, member->name->string);
         break;
     }
     case OBJ_FUNC:

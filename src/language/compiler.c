@@ -857,8 +857,8 @@ static void compile_enum(Compiler *compiler, const EnumNode *node) {
         );
         APPEND_DA(&enumObj->members, AS_OBJ(memberVal));
         table_set(
-            &enumObj->lookupTable, AS_OBJ(memberText),
-            AS_OBJ(new_int_obj(compiler->program, (ZmxInt)i))
+            &enumObj->lookupTable,
+            AS_OBJ(memberText), AS_OBJ(new_int_obj(compiler->program, (ZmxInt)i))
         );
     }
 

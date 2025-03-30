@@ -226,7 +226,7 @@ static bool one_arg(
 ) {
     if (keywordsStarted || CHECK(parser, TOKEN_DOT)) {
         CONSUME(parser, TOKEN_DOT, "Expected '.' and then a name for a keyword argument.");
-        Token name = as_string_token(
+        const Token name = as_string_token(
             CONSUME(parser, TOKEN_IDENTIFIER, "Expected keyword argument name.")
         );
         check_keyword_arg_repeated(parser, name, kwargs);
@@ -687,9 +687,8 @@ static Node *parse_match(Parser *parser) {
     char *messageOnError = defaultCase == NULL ? "Expected '}' or 'case' or 'default' in match."
         : "Expected '}' after match's default.";
     CONSUME(parser, TOKEN_RCURLY, messageOnError);
-    return new_match_node(
-        parser->program, matchedExpr, cases, AS_PTR(BlockNode, defaultCase)
-    );
+    
+    return new_match_node(parser->program, matchedExpr, cases, AS_PTR(BlockNode, defaultCase));
 }
 
 /** A while loop executes its block statement as long as the loop's condition evalutes to true. */
@@ -787,9 +786,7 @@ static Node *declaration_value(Parser *parser) {
         value = expression(parser);
         CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after declaration's value.");
     } else {
-        parser_error_at(
-            parser, PEEK(parser), true, "Expected ';' or '=' after declaration."
-        );
+        parser_error_at(parser, PEEK(parser), true, "Expected ';' or '=' after declaration.");
     }
     return value;
 }
@@ -854,9 +851,7 @@ static Node *parse_enum(Parser *parser) {
     APPEND_DA(&members, firstMember);
     while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
         CONSUME(parser, TOKEN_COMMA, "Expected ',' or '}' after enum member.");
-        const Token member = CONSUME(
-            parser, TOKEN_IDENTIFIER, "Expected enum member after ','."
-        );
+        const Token member = CONSUME(parser, TOKEN_IDENTIFIER, "Expected enum member after ','.");
         APPEND_DA(&members, member);
     }
     CONSUME(parser, TOKEN_RCURLY, "Expected ',' or '}' in enum.");

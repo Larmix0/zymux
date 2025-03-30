@@ -166,9 +166,7 @@
 static void reallocate_stack(Vm *vm) {
     INCREASE_CAPACITY(vm->stack.capacity);
     Obj **originalStack = vm->stack.objects;
-    vm->stack.objects = REALLOC(
-        vm->stack.objects, vm->stack.capacity * sizeof(*vm->stack.objects)
-    );
+    vm->stack.objects = REALLOC(vm->stack.objects, vm->stack.capacity * sizeof(*vm->stack.objects));
     if (vm->stack.objects == originalStack) {
         // Stack address didn't change, no need to move pointers in the stack to the new location.
         return;
@@ -397,7 +395,8 @@ static bool slice_iteration(
         slicedItem = AS_OBJ(new_enum_member_obj(vm->program, enumObj, member->name, slice->length));
         break;
     }
-    default: UNREACHABLE_ERROR();
+    default:
+        UNREACHABLE_ERROR();
     }
     APPEND_DA(slice, slicedItem);
     return true;
@@ -519,7 +518,7 @@ static bool map_get_subscr(Vm *vm, MapObj *callee, Obj *subscript) {
     Obj *result = table_get(&callee->table, subscript);
     if (result == NULL) {
         RUNTIME_ERROR(
-            vm, "Key '%s' does not exist in map.", as_string(vm->program, subscript)->string
+            vm, "Key '%s' doesn't exist in map.", as_string(vm->program, subscript)->string
         );
         return false;
     }

@@ -247,9 +247,7 @@ void emit_captured_pops(Compiler *compiler, const u32 poppedAmount, const Source
  * This is because we want to know the size of the jump to be read before reading it, so if there's
  * a size byte, we read it before the jump itself.
  */
-static void fix_size(
-    Jump *toFix, const Jump *jump, const int addedBefore, const int addedAfter
-) {
+static void fix_size(Jump *toFix, const Jump *jump, const int addedBefore, const int addedAfter) {
 // +2 offset on the index after reading the default 1 byte jump instruction and 1 byte jump size.
 #define FORWARD_JUMP_DEST(jump) ((jump)->index + 2 + (jump)->size)
 #define BACKWARD_JUMP_DEST(jump) ((jump)->index + 2 - (jump)->size)

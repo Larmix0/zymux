@@ -363,8 +363,7 @@ static void declare_global(Resolver *resolver, DeclareVarNode *node) {
     const Token name = node->name;
     if (find_closure_var(&resolver->globals, name)) {
         resolution_error(
-            resolver, name.pos, "Can't redeclare global name '%.*s'.",
-            name.pos.length, name.lexeme
+            resolver, name.pos, "Can't redeclare global name '%.*s'.", name.pos.length, name.lexeme
         );
     }
 
@@ -882,9 +881,7 @@ static void resolve_return(Resolver *resolver, ReturnNode *node) {
             );
         }
         // Return the instance in initializers.
-        node->defaultVal = new_get_var_node(
-            resolver->program, create_token("this", TOKEN_THIS_KW)
-        );
+        node->defaultVal = new_get_var_node(resolver->program, create_token("this", TOKEN_THIS_KW));
     } else {
         node->defaultVal = NULL_NODE(resolver->program);
     }

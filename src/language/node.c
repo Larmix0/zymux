@@ -242,9 +242,7 @@ Node *new_multi_assign_node(
 }
 
 /** Allocates an if-else statement with their condition. The else branch can optionally be NULL. */
-Node *new_if_else_node(
-    ZmxProgram *program, Node *condition, BlockNode *ifBlock, Node *elseBlock
-) {
+Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBlock, Node *elseBlock) {
     IfElseNode *node = NEW_NODE(program, AST_IF_ELSE, IfElseNode);
     node->condition = condition;
     node->ifBlock = ifBlock;

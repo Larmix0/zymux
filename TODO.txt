@@ -41,6 +41,7 @@ make maps uniterable and instead call a method that retrives the map as a 2d lis
 which is a list of 2 element lists that represent the key and value. This will be done
 only when fields and methods are added to built-in objects.
 
+Improve the positioning of some bytecode for error handling.
+
 ----------------------------------------------------------------------------------------------------
 
-Improve the positioning of some bytecode for error handling.
