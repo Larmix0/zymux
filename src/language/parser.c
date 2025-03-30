@@ -163,22 +163,19 @@ static Node *primary(Parser *parser) {
 
 /** A list expression, which holds multiple values/expressions. */
 static Node *list(Parser *parser) {
-    if (!CHECK(parser, TOKEN_LSQUARE)) {
+    if (!MATCH(parser, TOKEN_LSQUARE)) {
         return primary(parser);
     }
     NodeArray items = CREATE_DA();
-    Token leftBracket = ADVANCE_PEEK(parser);
+    Token leftBracket = PEEK_PREVIOUS(parser);
     if (!CHECK(parser, TOKEN_RSQUARE) && !CHECK(parser, TOKEN_EOF)) {
         APPEND_DA(&items, expression(parser));
     }
-    while (!MATCH(parser, TOKEN_RSQUARE) && !parser->isPanicking) {
-        if (IS_EOF(parser)) {
-            parser_error_at(parser, leftBracket, true, "List was never closed.");
-            return new_error_node(parser->program);
-        }
+    while (!CHECK(parser, TOKEN_RSQUARE) && !IS_EOF(parser) && !parser->isPanicking) {
         CONSUME(parser, TOKEN_COMMA, "Expected ',' or ']' after list element.");
         APPEND_DA(&items, expression(parser));
     }
+    CONSUME(parser, TOKEN_RSQUARE, "Expected ',' or ']' in list.");
     return new_list_node(parser->program, items, leftBracket.pos);
 }
 
@@ -199,14 +196,11 @@ static Node *map(Parser *parser) {
     if (!CHECK(parser, TOKEN_RCURLY) && !CHECK(parser, TOKEN_EOF)) {
         map_entry(parser, &keys, &values);   
     }
-    while (!MATCH(parser, TOKEN_RCURLY) && !parser->isPanicking) {
-        if (IS_EOF(parser)) {
-            parser_error_at(parser, leftCurly, true, "Map was never closed.");
-            return new_error_node(parser->program);
-        }
+    while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
         CONSUME(parser, TOKEN_COMMA, "Expected ',' or '}' after map entry.");
         map_entry(parser, &keys, &values);
     }
+    CONSUME(parser, TOKEN_RCURLY, "Expected ',' or '}' in map.");
     return new_map_node(parser->program, keys, values, leftCurly.pos);
 }
 
@@ -249,14 +243,15 @@ static bool one_arg(
 
 /** Returns an array of parsed argument expressions that should end in a closing parenthesis. */
 static void parse_args(Parser *parser, NodeArray *positionals, MapNode *kwargs) {
-    bool keywordsStarted = false;
-    if (!MATCH(parser, TOKEN_RPAR)) {
-        keywordsStarted = one_arg(parser, positionals, kwargs, keywordsStarted);
-        while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser) && !parser->isPanicking) {
-            CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after argument.");
-            keywordsStarted = one_arg(parser, positionals, kwargs, keywordsStarted);
-        }
+    if (MATCH(parser, TOKEN_RPAR)) {
+        return; // No args to append.
     }
+    bool keywordsStarted = one_arg(parser, positionals, kwargs, false);
+    while (!CHECK(parser, TOKEN_RPAR) && !IS_EOF(parser) && !parser->isPanicking) {
+        CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after argument.");
+        keywordsStarted = one_arg(parser, positionals, kwargs, keywordsStarted);
+    }
+    CONSUME(parser, TOKEN_RPAR, "Expected ',' or ')' in call arguments.");
 }
 
 /** Returns a parsed subscript expression. Either a get or an assign on some subscript. */
@@ -575,6 +570,10 @@ static Node *ternary(Parser *parser) {
 
 /** Parses and returns an expression. General function that starts with the lowest precedence. */
 static Node *expression(Parser *parser) {
+    if (IS_EOF(parser)) {
+        parser_error_missing(parser, PEEK_PREVIOUS(parser), true, "Expected expression.");
+        return new_error_node(parser->program);
+    }
     return ternary(parser);
 }
 
@@ -593,7 +592,7 @@ static Node *expression_stmt(Parser *parser) {
 static Node *finish_block(Parser *parser) {
     SourcePosition pos = PEEK_PREVIOUS(parser).pos;
     NodeArray stmts = CREATE_DA();
-    while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser)) {
+    while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
         APPEND_DA(&stmts, declaration(parser));
     }
     CONSUME(parser, TOKEN_RCURLY, "Expected closing '}'.");
@@ -661,10 +660,11 @@ static Node *parse_case(Parser *parser) {
     APPEND_DA(&labelVals, expression(parser));
     const SourcePosition pos = get_node_pos(labelVals.data[0]); // First label value we just parsed.
 
-    while (!MATCH(parser, TOKEN_LCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
+    while (!CHECK(parser, TOKEN_LCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
         CONSUME(parser, TOKEN_COMMA, "Expected '{' or ',' after case label value.");
         APPEND_DA(&labelVals, expression(parser));
     }
+    CONSUME(parser, TOKEN_LCURLY, "Expected block after case label.");
     Node *caseBlock = finish_block(parser);
     return new_case_node(parser->program, labelVals, AS_PTR(BlockNode, caseBlock), pos);
 }
@@ -787,7 +787,7 @@ static Node *declaration_value(Parser *parser) {
         value = expression(parser);
         CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after declaration's value.");
     } else {
-        parser_error_missing(
+        parser_error_at(
             parser, PEEK(parser), true, "Expected ';' or '=' after declaration."
         );
     }
@@ -816,16 +816,11 @@ static Node *multi_declaration(Parser *parser, const bool isConst, const bool sc
 
     NodeArray declarations = CREATE_DA();
     APPEND_DA(&declarations, one_declaration(parser));
-    while (!MATCH(parser, TOKEN_RSQUARE) && !IS_EOF(parser) && !parser->isPanicking) {
+    while (!CHECK(parser, TOKEN_RSQUARE) && !IS_EOF(parser) && !parser->isPanicking) {
         CONSUME(parser, TOKEN_COMMA, "Expected ',' or ']' after declared variable's name.");
         APPEND_DA(&declarations, one_declaration(parser));
     }
-    if (IS_EOF(parser)) {
-        parser_error_at(
-            parser, PEEK(parser), true, "Multi-variable declaration never closed with ']'."
-        );
-        return new_error_node(parser->program); // Can't parse a value if EOF.
-    }
+    CONSUME(parser, TOKEN_RSQUARE, "Expected closing ']' in multi-variable declaration.");
 
     Node *value = !scanValue || MATCH(parser, TOKEN_SEMICOLON) ? NULL : declaration_value(parser);
     return new_multi_declare_node(parser->program, declarations, value, isConst, pos);
@@ -848,21 +843,23 @@ static Node *parse_var_declaration(Parser *parser, const bool isConst) {
 static Node *parse_enum(Parser *parser) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected enum name.");
     DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser->program, name);
+
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after enum name.");
-
     TokenArray members = CREATE_DA();
-    if (!MATCH(parser, TOKEN_RCURLY)) {
-        const Token firstMember = CONSUME(parser, TOKEN_IDENTIFIER, "Expected enum member or '}'.");
-        APPEND_DA(&members, firstMember);
-
-        while (!MATCH(parser, TOKEN_RCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
-            CONSUME(parser, TOKEN_COMMA, "Expected ',' or '}' after enum member.");
-            const Token member = CONSUME(
-                parser, TOKEN_IDENTIFIER, "Expected enum member after ','."
-            );
-            APPEND_DA(&members, member);
-        }
+    if (MATCH(parser, TOKEN_RCURLY)) {
+        return new_enum_node(parser->program, declaration, members);
     }
+
+    const Token firstMember = CONSUME(parser, TOKEN_IDENTIFIER, "Expected enum member or '}'.");
+    APPEND_DA(&members, firstMember);
+    while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
+        CONSUME(parser, TOKEN_COMMA, "Expected ',' or '}' after enum member.");
+        const Token member = CONSUME(
+            parser, TOKEN_IDENTIFIER, "Expected enum member after ','."
+        );
+        APPEND_DA(&members, member);
+    }
+    CONSUME(parser, TOKEN_RCURLY, "Expected ',' or '}' in enum.");
     return new_enum_node(parser->program, declaration, members);
 }
 
@@ -898,15 +895,16 @@ static bool one_param(
 /** Handles parsing the arrays of mandatory and optional parameters for a function. */
 static void parse_params(Parser *parser, NodeArray *mandatories, NodeArray *optionals) {
     CONSUME(parser, TOKEN_LPAR, "Expected '(' before parameters.");
-
-    bool optionalsStarted = false;
-    if (!MATCH(parser, TOKEN_RPAR)) {
-        optionalsStarted = one_param(parser, mandatories, optionals, optionalsStarted);
-        while (!MATCH(parser, TOKEN_RPAR) && !IS_EOF(parser) && !parser->isPanicking) {
-            CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after parameter.");
-            optionalsStarted = one_param(parser, mandatories, optionals, optionalsStarted);
-        }
+    if (MATCH(parser, TOKEN_RPAR)) {
+        return; // No parameters.
     }
+
+    bool optionalsStarted = one_param(parser, mandatories, optionals, false);
+    while (!CHECK(parser, TOKEN_RPAR) && !IS_EOF(parser) && !parser->isPanicking) {
+        CONSUME(parser, TOKEN_COMMA, "Expected ',' or ')' after parameter.");
+        optionalsStarted = one_param(parser, mandatories, optionals, optionalsStarted);
+    }
+    CONSUME(parser, TOKEN_RPAR, "Expected ',' or ')' in parameters.");
 }
 
 /** Parses any type of function whose name was already parsed and passed to this. */
@@ -945,7 +943,7 @@ static void class_method(Parser *parser, ClassNode *classNode) {
 /** Handles parsing a class's body, and adds its information to the class node. */
 static void class_body(Parser *parser, ClassNode *classNode) {
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' for the class body.");
-    while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser)) {
+    while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
         class_method(parser, classNode);
     }
     CONSUME(parser, TOKEN_RCURLY, "Expected '}' at the end of class.");
