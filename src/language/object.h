@@ -150,10 +150,10 @@ typedef struct {
     u32 maxArity;
 
     /** An ordered array of the names of the function's optional parameters. */
-    ObjArray optionalNames;
+    ObjArray names;
 
     /** An ordered array of the default value for each one of the function's optional parameters. */
-    ObjArray optionalValues;
+    ObjArray values;
 } FuncParams;
 
 /**

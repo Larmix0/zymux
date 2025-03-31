@@ -37,8 +37,8 @@ void free_gc(Gc *gc) {
 
 /** Marks all objects inside a function params struct. */
 static void mark_func_params(FuncParams params) {
-    mark_obj_array(params.optionalNames);
-    mark_obj_array(params.optionalValues);
+    mark_obj_array(params.names);
+    mark_obj_array(params.values);
 }
 
 /** Marks the passed object and the objects it has inside it recursively. */

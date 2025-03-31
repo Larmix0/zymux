@@ -649,13 +649,13 @@ static bool check_arity(
     MapObj *keywordArgs = AS_PTR(MapObj, PEEK(vm));
     char *argString = minArity == 1 ? "argument" : "arguments";
     const u32 allAmount = positionalAmount + keywordArgs->table.count;
-    const bool tooFewArgs = positionalAmount < minArity;
-    const bool tooManyArgs = allAmount > maxArity ;
+
     const bool noOptionals = minArity == maxArity;
+    const bool tooFewArgs = allAmount < minArity;
+    const bool tooManyArgs = allAmount > maxArity;
     if (tooFewArgs && noOptionals) {
         RUNTIME_ERROR(
-            vm, "Expected %"PRIu32" positional %s, got %"PRIu32" instead.",
-            minArity, argString, positionalAmount
+            vm, "Expected %"PRIu32" %s, got %"PRIu32" instead.", minArity, argString, allAmount
         );
         return false;
     } else if (tooManyArgs && noOptionals) {
@@ -665,8 +665,8 @@ static bool check_arity(
         return false;
     } else if (tooFewArgs) {
         RUNTIME_ERROR(
-            vm, "Expected at least %"PRIu32" positional %s, but only got %"PRIu32".",
-            minArity, argString, positionalAmount  
+            vm, "Expected at least %"PRIu32" %s, but only got %"PRIu32".",
+            minArity, argString, allAmount
         );
         return false;
     } else if (tooManyArgs) {
@@ -694,21 +694,29 @@ static bool check_arity(
  */
 static bool flatten_kwargs(Vm *vm, const FuncParams params, const u32 argAmount) {
     MapObj *keywordArgs = AS_PTR(MapObj, POP(vm));
-    const u32 positionalOptionals = argAmount - params.minArity;
-    for (u32 i = 0; i < positionalOptionals; i++) {
-        if (table_get(&keywordArgs->table, params.optionalNames.data[i])) {
+    for (u32 i = 0; i < argAmount; i++) {
+        if (table_get(&keywordArgs->table, params.names.data[i])) {
             // Argument was already provided positionally, but exists again in keyword args.
-            RUNTIME_ERROR(vm, "Positional argument repeated as keyword argument.");
+            RUNTIME_ERROR(
+                vm, "Keyword argument '%s' was already provided positionally.",
+                AS_PTR(StringObj, params.names.data[i])->string
+            );
             return false;
         }
     }
-    for (u32 i = positionalOptionals; i < params.optionalNames.length; i++) {
-        Obj *argValue = table_get(&keywordArgs->table, params.optionalNames.data[i]);
+    for (u32 i = argAmount; i < params.names.length; i++) {
+        Obj *argValue = table_get(&keywordArgs->table, params.names.data[i]);
         if (argValue) {
             PUSH(vm, argValue);
-            table_delete(&keywordArgs->table, params.optionalNames.data[i]);
+            table_delete(&keywordArgs->table, params.names.data[i]);
+        } else if (params.values.data[i] != NULL) {
+            PUSH(vm, params.values.data[i]);
         } else {
-            PUSH(vm, params.optionalValues.data[i]);
+            RUNTIME_ERROR(
+                vm, "Expected value for parameter '%s'.",
+                AS_PTR(StringObj, params.names.data[i])->string
+            );
+            return false;
         }
     }
     if (keywordArgs->table.count > 0) {
@@ -1216,14 +1224,12 @@ static bool execute_vm(Vm *vm) {
             break;
         }
         case OP_FUNC_OPTIONALS: {
-            ObjArray optionalValues = AS_PTR(ListObj, PEEK(vm))->items;
-            ObjArray optionalNames = AS_PTR(ListObj, PEEK_DEPTH(vm, 1))->items;
-            FuncObj *func = AS_PTR(FuncObj, PEEK_DEPTH(vm, 2));
-            for (u32 i = 0; i < optionalNames.length; i++) {
-                APPEND_DA(&func->params.optionalNames, optionalNames.data[i]);
-                APPEND_DA(&func->params.optionalValues, optionalValues.data[i]);
+            ObjArray values = AS_PTR(ListObj, PEEK(vm))->items;
+            FuncObj *func = AS_PTR(FuncObj, PEEK_DEPTH(vm, 1));
+            for (u32 i = 0; i < values.length; i++) {
+                func->params.values.data[func->params.minArity + i] = values.data[i];
             }
-            DROP_AMOUNT(vm, 2);
+            DROP(vm);
             break;
         }
         case OP_CLOSURE: {

@@ -107,31 +107,37 @@ NATIVE_FUNC(time) {
     RETURN_OBJ(new_float_obj(vm->program, currentTime));
 }
 
-/** Returns func parameters which have no optionals (only arity). */
-static FuncParams no_optionals(const u32 arity) {
+/** Returns func parameters which have no optionals, only named mandatory parameters. */
+static FuncParams no_optionals(ZmxProgram *program, const u32 arity, ...) {
     FuncParams params = {
         .minArity = arity, .maxArity = arity,
-        .optionalNames = CREATE_DA(), .optionalValues = CREATE_DA()
+        .names = CREATE_DA(), .values = CREATE_DA()
     };
+    
+    va_list args;
+    va_start(args, arity);
+    for (u32 i = 0; i < arity; i++) {
+        char *name = va_arg(args, char *);
+        APPEND_DA(&params.names, AS_OBJ(new_string_obj(program, name, strlen(name))));
+        APPEND_DA(&params.values, NULL);
+    }
+    va_end(args);
     return params;
 }
 
 /** Returns a native function's parameters with some optionals. */
-static FuncParams native_params(
-    ZmxProgram *program, const u32 minArity, const u32 optionalsAmount, ...
-) {
-    const u32 maxArity = minArity + optionalsAmount;
+static FuncParams with_optionals(ZmxProgram *program, const u32 minArity, const u32 maxArity, ...) {
     FuncParams params = {
         .minArity = minArity, .maxArity = maxArity,
-        .optionalNames = CREATE_DA(), .optionalValues = CREATE_DA()
+        .names = CREATE_DA(), .values = CREATE_DA()
     };
 
     va_list args;
-    va_start(args, optionalsAmount);
-    for (u32 i = 0; i < optionalsAmount; i++) {
+    va_start(args, maxArity);
+    for (u32 i = 0; i < maxArity; i++) {
         char *name = va_arg(args, char *);
-        APPEND_DA(&params.optionalNames, AS_OBJ(new_string_obj(program, name, strlen(name))));
-        APPEND_DA(&params.optionalValues, va_arg(args, Obj *));
+        APPEND_DA(&params.names, AS_OBJ(new_string_obj(program, name, strlen(name))));
+        APPEND_DA(&params.values, va_arg(args, Obj *));
     }
     va_end(args);
     return params;
@@ -152,20 +158,22 @@ static void load_native_func(
 /** Loads all built-in objects into the program. */
 void load_built_ins(ZmxProgram *program) {
     GC_PUSH_PROTECTION(&program->gc);
-    char *assertMessage = "Assert failed.";
+    char *assertMsg = "Assert failed.";
     load_native_func(
         program, "assert", native_assert,
-        native_params(
-            program, 1, 1, "message", new_string_obj(program, assertMessage, strlen(assertMessage))
+        with_optionals(
+            program, 1, 2,
+            "condition", NULL, "message", new_string_obj(program, assertMsg, strlen(assertMsg))
         )
     );
     load_native_func(
         program, "print", native_print,
-        native_params(
-            program, 1, 2,
+        with_optionals(
+            program, 1, 3,
+            "value", NULL,
             "newline", new_bool_obj(program, true), "destructure", new_bool_obj(program, false)
         )
     );
-    load_native_func(program, "time", native_time, no_optionals(0));
+    load_native_func(program, "time", native_time, no_optionals(program, 0));
     GC_POP_PROTECTION(&program->gc);
 }

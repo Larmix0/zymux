@@ -45,3 +45,11 @@ Improve the positioning of some bytecode for error handling.
 
 ----------------------------------------------------------------------------------------------------
 
+Rename DEBUG_GC_ALWAYS to DEBUG_ALWAYS_GC as that name makes what the flag does more obvious
+(which is GCing after every object creation), while "debug gc always" sounds like it simply says
+to "always" print out the GC.
+
+Don't make as_cstring recurse on other objects, an object should exclusively and only print its
+own stored information, as recursing on other objects may make a call on some deleted object.
+Or, at least in free_all_objs, separate printing the deleted objects from actually deleting them,
+as that's one guaranteed place where that type of error occurs.

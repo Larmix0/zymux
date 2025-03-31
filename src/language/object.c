@@ -170,8 +170,8 @@ FuncObj *new_func_obj(
 
     object->params.minArity = minArity;
     object->params.maxArity = maxArity;
-    INIT_DA(&object->params.optionalNames);
-    INIT_DA(&object->params.optionalValues);
+    INIT_DA(&object->params.names);
+    INIT_DA(&object->params.values);
 
     INIT_DA(&object->bytecode);
     INIT_DA(&object->positions);
@@ -772,8 +772,8 @@ char *obj_type_str(ObjType type) {
 
 /** Frees memory allocated by a function parameters struct. */
 static void free_func_params(FuncParams *params) {
-    FREE_DA(&params->optionalNames);
-    FREE_DA(&params->optionalValues);
+    FREE_DA(&params->names);
+    FREE_DA(&params->values);
 }
 
 /** Frees the allocated content/arrays of a function. */

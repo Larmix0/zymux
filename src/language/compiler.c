@@ -887,8 +887,9 @@ static void compile_return(Compiler *compiler, const ReturnNode *node) {
 /** 
  * Finishes compiling the current function on the compiler.
  * 
- * First emits the appropriate instructions for handling the parameters declaration/capturement,
- * then compiles the loop body, after that it writes a default return statement in case the function
+ * First gives the function its parameter names, then emits the appropriate instructions
+ * for handling the parameters declarations/capturement,
+ * then compiles the loop body. After that, writes a default return statement in case the function
  * didn't have any, and finally finishes up the function by writing all statement jumps it had.
  */
 static void finish_func(Compiler *compiler, const FuncNode *node) {
@@ -901,38 +902,62 @@ static void finish_func(Compiler *compiler, const FuncNode *node) {
     INIT_DA(&compiler->jumps);
     compile_node_array(compiler, &node->body->stmts);
     compile_return(compiler, node->defaultReturn);
+
     write_jumps(compiler);
     FREE_DA(&compiler->jumps);
     compiler->jumps = previousJumps;
 }
 
-/** 
- * Compiles an array of optional parameters that a function might have.
- * 
- * First compiles a list of the optional parameters names in order, then does the same
- * for the values of each one of the parameters. After that, emits an instruction which puts
- * those lists inside the function on top of them which is expected to be at the top of the stack.
- * 
- * This means that the stack will first have the list of optional values at top, then the optional's
- * string names as the second to top element, and finally the function as the third to top.
- */
-static void compile_optionals(Compiler *compiler, const NodeArray optionals) {
-    for (u32 i = 0; i < optionals.length; i++) {
-        DeclareVarNode *param = AS_PTR(DeclareVarNode, optionals.data[i]);
-        StringObj *name = new_string_obj(
-            compiler->program, param->name.lexeme, param->name.pos.length
-        );
-        emit_const(compiler, OP_LOAD_CONST, AS_OBJ(name), get_node_pos(AS_NODE(param)));
+/** Appends an array of parameter declarations to the passed function object's param names. */
+static void param_names(ZmxProgram *program, FuncObj *func, const NodeArray params) {
+    for (u32 i = 0; i < params.length; i++) {
+        DeclareVarNode *param = AS_PTR(DeclareVarNode, params.data[i]);
+        StringObj *name = new_string_obj(program, param->name.lexeme, param->name.pos.length);
+        APPEND_DA(&func->params.names, AS_OBJ(name));
     }
-    make_list(compiler, optionals.length, PREVIOUS_OPCODE_POS(compiler));
-    
-    for (u32 i = 0; i < optionals.length; i++) {
-        DeclareVarNode *param = AS_PTR(DeclareVarNode, optionals.data[i]);
+}
+
+/** 
+ * Compiles an array of optional values.
+ * 
+ * The default expression values of the optional parameters get loaded at runtime
+ * in the outer function after the compiled function was loaded on the stack.
+ * 
+ * This makes it so the func optionals instruction will see the topmost element of the stack
+ * as a list of optional values to append to the function which is the second
+ * topmost element on the stack
+ */
+static void optional_param_values(Compiler *compiler, const FuncNode *node) {
+    for (u32 i = 0; i < node->optionalParams.length; i++) {
+        DeclareVarNode *param = AS_PTR(DeclareVarNode, node->optionalParams.data[i]);
         compile_node(compiler, param->value);
     }
-    make_list(compiler, optionals.length, PREVIOUS_OPCODE_POS(compiler));
-
+    make_list(compiler, node->optionalParams.length, PREVIOUS_OPCODE_POS(compiler));
     emit_instr(compiler, OP_FUNC_OPTIONALS, PREVIOUS_OPCODE_POS(compiler));
+}
+
+/** 
+ * Compiles the params of the passed func assuming it's on the stack of the compiler's current func.
+ * 
+ * The passed function is the one whose parameters get compiled, while the compiler is expected
+ * to hold the function at which func is compiled in its bytecode
+ * (like <main> when compiling a function created at top-level for example).
+ * 
+ * First compiles all the names of the parameters statically, and then also compiles default
+ * C-NULL values for each parameter such that it can be modified at runtime when optionals
+ * are loaded, if there are any.
+ * Mandatory params will always stay as C-NULLs, even at runtime.
+ */
+static void compile_params(Compiler *compiler, FuncObj *compiledFunc, const FuncNode *node) {
+    param_names(compiler->program, compiledFunc, node->mandatoryParams);
+    param_names(compiler->program, compiledFunc, node->optionalParams);
+
+    for (u32 i = 0; i < node->mandatoryParams.length + node->optionalParams.length; i++) {
+        APPEND_DA(&compiledFunc->params.values, NULL); // A C-NULL value for each param.
+    }
+    if (node->optionalParams.length > 0) {
+        optional_param_values(compiler, node);
+    }
 }
 
 /** 
@@ -958,20 +983,19 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
     finish_func(compiler, node);
 
     const SourcePosition previousPos = PREVIOUS_OPCODE_POS(compiler);
-    FuncObj *finished = compiler->func;
+    FuncObj *compiledFunc = compiler->func;
     compiler->func = previous;
-#if DEBUG_BYTECODE
-    print_bytecode(finished);
-#endif
     emit_const(
-        compiler, node->isClosure ? OP_CLOSURE : OP_LOAD_CONST, AS_OBJ(finished), previousPos
+        compiler, node->isClosure ? OP_CLOSURE : OP_LOAD_CONST, AS_OBJ(compiledFunc), previousPos
     );
+    // Compile params here since optionals require the compiled func to be loaded on the stack.
+    compile_params(compiler, compiledFunc, node);
+    compile_declare_var(compiler, node->nameDecl);
     GC_POP_PROTECTION(&compiler->program->gc);
 
-    if (node->optionalParams.length > 0) {
-        compile_optionals(compiler, node->optionalParams);
-    }
-    compile_declare_var(compiler, node->nameDecl);
+#if DEBUG_BYTECODE
+    print_bytecode(compiledFunc);
+#endif
 }
 
 /** 
