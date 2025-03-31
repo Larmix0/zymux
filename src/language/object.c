@@ -347,9 +347,7 @@ static CharBuffer object_cstring(const Obj *object) {
         buffer_append_format(&string, "<function %s>", AS_PTR(FuncObj, object)->name->string);
         break;
     case OBJ_CAPTURED: {
-        CharBuffer capturedBuf = object_cstring(AS_PTR(CapturedObj, object)->captured);
-        buffer_append_format(&string, "<captured %s>", capturedBuf.text);
-        free_char_buffer(&capturedBuf);
+        buffer_append_format(&string, "<captured>");
         break;
     }
     case OBJ_CLASS:
@@ -374,9 +372,7 @@ static CharBuffer object_cstring(const Obj *object) {
         );
         break;
     case OBJ_ITERATOR: {
-        CharBuffer iterableBuf = object_cstring(AS_PTR(IteratorObj, object)->iterable);
-        buffer_append_format(&string, "<iterator %s>", iterableBuf.text);
-        free_char_buffer(&iterableBuf);
+        buffer_append_format(&string, "<iterator>");
         break;
     }
     TOGGLEABLE_DEFAULT_UNREACHABLE();

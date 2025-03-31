@@ -982,7 +982,7 @@ static void synchronize(Parser *parser) {
         case TOKEN_INIT_KW:
         case TOKEN_ABSTRACT_KW:
         case TOKEN_MATCH_KW:
-        case TOKEN_FROM_KW:
+        case TOKEN_FROM_KW: // TODO: does "from" start an import statement, or is it in the middle?
         case TOKEN_IMPORT_KW:
             parser->isPanicking = false;
             return;
