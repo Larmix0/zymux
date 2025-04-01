@@ -74,11 +74,12 @@ static void mark_obj(Obj *object) {
         mark_obj(AS_OBJ(func->name));
         mark_obj_array(func->constPool);
         mark_func_params(func->params);
-        if (func->isClosure) {
+        if (func->hasOptionals || func->isClosure) {
             // Mark the closure context of a function with a closure extension.
-            ClosureObj *closure = AS_PTR(ClosureObj, object);
-            for (u32 i = 0; i < closure->captures.length; i++) {
-                mark_obj(AS_OBJ(closure->captures.data[i]));
+            RuntimeFuncObj *runtimeFunc = AS_PTR(RuntimeFuncObj, object);
+            mark_obj_array(runtimeFunc->paramVals);
+            for (u32 i = 0; i < runtimeFunc->captures.length; i++) {
+                mark_obj(AS_OBJ(runtimeFunc->captures.data[i]));
             }
         }
         break;

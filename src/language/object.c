@@ -165,6 +165,7 @@ FuncObj *new_func_obj(
     ZmxProgram *program, StringObj *name, const u32 minArity, const u32 maxArity
 ) {
     FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);
+    object->hasOptionals = false;
     object->isClosure = false;
     object->name = name;
 
@@ -189,24 +190,31 @@ CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stac
 }
 
 /** 
- * Returns a new closure, which is merely an extended function that has a closure context in it.
+ * Returns a func which has some runtime values that might be independant from the static func.
  * 
- * This is because closures aren't "objects" but instead a function which has a closure context
- * extension allocated, and that extension can be revealed by converting to the closure type.
+ * This is because runtime functions aren't "objects", but instead a function
+ * which has an extra runtime context extension allocated,
+ * and that extension can be revealed by converting to the runtime func type.
  * 
- * We make the closure by setting its func to a copy of the passed function that is to be closed,
- * except not changing the base object the closure originally allocated, as it has pointers
- * that should never change.
+ * We make the runtime function by setting its static func to a copy of the passed static func.
+ * This indirect copy (because we use func obj directly instead func obj pointer) means that
+ * booleans (like is closure and has optionals) will actually be independant from the original
+ * func that still has them set as false, although arrays and pointers will still be shared.
  */
-ClosureObj *new_closure_obj(ZmxProgram *program, FuncObj *closedFunc, const bool isToplevel) {
-    ClosureObj *object = NEW_OBJ(program, OBJ_FUNC, ClosureObj);
-    Obj base = object->func.obj;
-    object->func = *closedFunc;
-    object->func.obj = base; // Change the obj back to the closure's one after copying the func.
+RuntimeFuncObj *new_runtime_func_obj(
+    ZmxProgram *program, FuncObj *func, const bool isToplevel, const bool hasOptionals,
+    const bool isClosure
+) {
+    RuntimeFuncObj *object = NEW_OBJ(program, OBJ_FUNC, RuntimeFuncObj);
+    Obj base = object->func.obj; // Runtime function's base obj.
+    object->func = *func; // Copy.
+    object->func.obj = base; // Change the base obj back to the runtime func's base after copying.
 
-    object->func.isClosure = true;
     object->isToplevel = isToplevel;
-    INIT_DA(&AS_PTR(ClosureObj, object)->captures);
+    object->func.hasOptionals = hasOptionals;
+    object->func.isClosure = isClosure;
+    INIT_DA(&AS_PTR(RuntimeFuncObj, object)->paramVals);
+    INIT_DA(&AS_PTR(RuntimeFuncObj, object)->captures);
     return object;
 }
 
@@ -784,7 +792,7 @@ static void free_func_obj(FuncObj *func) {
  * Frees the contents of the passed object.
  * 
  * Note that any objects which have other objects inside them (like a function with a string name)
- * shouldn't free that object, as it was already stored in a Zymux program struct,
+ * shouldn't free that object, as it was already stored in the Zymux program struct,
  * which will free it later anyways.
  */
 void free_obj(Obj *object) {
@@ -810,10 +818,11 @@ void free_obj(Obj *object) {
         break;
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);
-        if (func->isClosure) {
-            ClosureObj *closure = AS_PTR(ClosureObj, func);
-            FREE_DA(&closure->captures);
-            if (closure->isToplevel) {
+        if (func->hasOptionals || func->isClosure) {
+            RuntimeFuncObj *runtimeFunc = AS_PTR(RuntimeFuncObj, func);
+            FREE_DA(&runtimeFunc->captures);
+            FREE_DA(&runtimeFunc->paramVals);
+            if (runtimeFunc->isToplevel) {
                 free_func_obj(func); // Top-level gets one func that is also a closure, so free it.
             }
         } else {

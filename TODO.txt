@@ -49,7 +49,7 @@ Rename DEBUG_GC_ALWAYS to DEBUG_ALWAYS_GC as that name makes what the flag does 
 (which is GCing after every object creation), while "debug gc always" sounds like it simply says
 to "always" print out the GC.
 
-Don't make as_cstring recurse on other objects, an object should exclusively and only print its
-own stored information, as recursing on other objects may make a call on some deleted object.
-Or, at least in free_all_objs, separate printing the deleted objects from actually deleting them,
-as that's one guaranteed place where that type of error occurs.
+Use a normal obj array struct for captured objects to potentially achieve uniformity,
+like using mark_obj_array() in the GC instead of manually iterating through the obj array.
+Or do the opposite and potentially even create other useful specific object arrays
+like string arrays.

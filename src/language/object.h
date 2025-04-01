@@ -161,6 +161,10 @@ typedef struct {
  * 
  * It's a function object because it's a function/method most of the time.
  * However, this is also used for the top-level's bytecode to achieve uniformity across the VM.
+ * 
+ * This only stored static information, whereas runtime-only information that is specific to each
+ * function creation (like optional values and captured variables) should be handled in a different,
+ * runtime function object struct.
  */
 typedef struct {
     Obj obj;
@@ -177,8 +181,17 @@ typedef struct {
     /** The pool which we store constant objects inside of (objects created at compile time). */
     ObjArray constPool;
 
-    /** Information about the parameters of the function. */
+    /** 
+     * Static information about the parameters of the function.
+     * 
+     * All values in these parameters are C-NULLs, even the optional values,
+     * as those should be created separately in a runtime func object, since each object
+     * keeps track of its own runtime optional values whenever one is created.
+     */
     FuncParams params;
+
+    /** Whether or not this has runtime optional values. */
+    bool hasOptionals;
 
     /** Whether this function can have closure objects inheriting it with a closure context. */
     bool isClosure;
@@ -196,29 +209,33 @@ typedef struct {
 DECLARE_DA_STRUCT(CapturedObjArray, CapturedObj *);
 
 /** 
- * A closure which wraps over a function with a context of some captured variables. Not an object
+ * A runtime-created function which wraps over a function with static info. Not an object by itself.
  * 
- * Each function that has captured variables will need to create its own "closure" context
- * each time its creation is encountered in the VM,
- * whereas at compilation we just compile things like its params and bytecode once.
+ * Each function that has captured variables or optional values will need to create
+ * its own context of closed variables or optional values each time its creation is encountered
+ * in the VM, whereas at compilation we just compile things like its bytecode and const pool once.
  * 
- * This allows us to create different closure each time we re-visit the code which creates
- * the closure function. This essentially simulates creating a new function at runtime
- * every time we encounter, instead of the one function created at compilation time.
+ * This allows us to create a different set of closed variables or default param values each time
+ * we re-visit the code which creates the function.
  * 
- * This is not a real object itself, but merely an extension of the function object which is made
- * when necessary. We just call it object for uniformity and treat it similiarly in some places,
- * but it doesn't have its own type in the object type enum.
+ * This is not a real object by itself, but merely an extension of the function object which is made
+ * when necessary. We just call it object for uniformity,
+ * but it doesn't have its own type in the object type enum, and doesn't store its
+ * own base Obj struct, but uses the static func's instead, which allows us to convert and use this
+ * and normal/static functions in the same places.
  */
 typedef struct {
     FuncObj func;
 
-    /** Whether this closure represents the top-level code, or any other closure. */
+    /** Whether this represents the top-level code, or any other function. */
     bool isToplevel;
+
+    /** The runtime value of each optional param of the function. NULL for each mandatory param. */
+    ObjArray paramVals;
 
     /** An array of captured objects that store indirect references to variables closed over. */
     CapturedObjArray captures;
-} ClosureObj;
+} RuntimeFuncObj;
 
 /** Represents a class, which has a name, initializer, and methods. */
 typedef struct {
@@ -302,13 +319,11 @@ FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 minArity, 
 /** Returns a newely created indirect reference to the passed object (capturing the object). */
 CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackLocation);
 
-/** 
- * Returns a new closure, which is merely an extended function that has a closure context in it.
- * 
- * This is because closures aren't "objects" but instead a function which has a closure context
- * extension allocated, and that extension can be revealed by converting to the closure type.
- */
-ClosureObj *new_closure_obj(ZmxProgram *program, FuncObj *closedFunc, const bool isToplevel);
+/** Returns a func which has some runtime values that might be independant from the static func. */
+RuntimeFuncObj *new_runtime_func_obj(
+    ZmxProgram *program, FuncObj *func, const bool isToplevel, const bool hasOptionals,
+    const bool isClosure
+);
 
 /** Returns a bare-bones class with only a name. Other information is added later. */
 ClassObj *new_class_obj(ZmxProgram *program, StringObj *name);

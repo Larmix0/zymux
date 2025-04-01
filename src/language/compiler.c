@@ -24,7 +24,9 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast) {
     GC_PUSH_PROTECTION(&program->gc);
 
     StringObj *name = new_string_obj(program, MAIN_NAME, strlen(MAIN_NAME));
-    ClosureObj *mainClosure = new_closure_obj(program, new_func_obj(program, name, 0, 0), true);
+    RuntimeFuncObj *mainClosure = new_runtime_func_obj(
+        program, new_func_obj(program, name, 0, 0), true, false, true
+    );
     Compiler compiler = {
         .program = program, .ast = ast, .func = AS_PTR(FuncObj, mainClosure),
         .jumps = CREATE_DA(), .breaks = CREATE_DA(), .continues = CREATE_DA(),
@@ -933,7 +935,7 @@ static void optional_param_values(Compiler *compiler, const FuncNode *node) {
         compile_node(compiler, param->value);
     }
     make_list(compiler, node->optionalParams.length, PREVIOUS_OPCODE_POS(compiler));
-    emit_instr(compiler, OP_FUNC_OPTIONALS, PREVIOUS_OPCODE_POS(compiler));
+    emit_instr(compiler, OP_OPTIONALS_FUNC, PREVIOUS_OPCODE_POS(compiler));
 }
 
 /** 

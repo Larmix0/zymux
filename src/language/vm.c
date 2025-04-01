@@ -180,11 +180,11 @@ static void reallocate_stack(Vm *vm) {
 
 /** Creates and returns a new catch state in the current VM and its stack frame. */
 static CatchState create_catch_state(Vm *vm, u8 *ip, const bool saveError) {
-    const bool isClosure = vm->frame->func->isClosure;
-    const u32 capturesAmount = isClosure ? AS_PTR(ClosureObj, vm->frame->func)->captures.length : 0;
+    FuncObj *func = vm->frame->func;
+    const u32 capturesAmount = func->isClosure ? AS_PTR(RuntimeFuncObj, func)->captures.length : 0;
 
     CatchState catchState = {
-        .func = vm->frame->func, .ip = ip,
+        .func = func, .ip = ip,
         .localsAmount = STACK_LENGTH(vm), .capturesAmount = capturesAmount,
         .openCapturesAmount = vm->openCaptures.length, .saveError = saveError
     };
@@ -230,7 +230,7 @@ static void catch_error(Vm *vm, StringObj *errorMessage) {
 
     u32 capturePops = 0;
     if (catch.func->isClosure) {
-        CapturedObjArray *captures = &AS_PTR(ClosureObj, catch.func)->captures;
+        CapturedObjArray *captures = &AS_PTR(RuntimeFuncObj, catch.func)->captures;
         capturePops = captures->length - catch.capturesAmount;
         DROP_AMOUNT_DA(captures, capturePops);
     }
@@ -732,9 +732,16 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     switch (callee->type) {
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, callee);
+        // Use the set of runtime values, or the static func's C-NULLs if they don't exist.
+        ObjArray paramVals = func->hasOptionals ?
+            AS_PTR(RuntimeFuncObj, func)->paramVals : func->params.values;
+        FuncParams params = {
+            .minArity = func->params.minArity, .maxArity = func->params.maxArity,
+            .names = func->params.names, .values = paramVals
+        };
         if (
-            !check_arity(vm, func->params.minArity, func->params.maxArity, argAmount)
-            || !flatten_kwargs(vm, func->params, argAmount)
+            !check_arity(vm, params.minArity, params.maxArity, argAmount)
+            || !flatten_kwargs(vm, params, argAmount)
         ) {
             return false;
         }
@@ -825,7 +832,7 @@ static void call_return(Vm *vm) {
 
 /** Captures a variable by creating a capture object and placing it in the appropriate places. */
 static void capture_variable(Vm *vm, Obj *capturedObj, const u32 stackLocation) {
-    ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
+    RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, vm->frame->func);
     CapturedObj *capture = new_captured_obj(vm->program, capturedObj, stackLocation);
     APPEND_DA(&closure->captures, capture);
     APPEND_DA(&vm->openCaptures, capture);
@@ -1095,7 +1102,7 @@ static bool execute_vm(Vm *vm) {
         }
         case OP_ASSIGN_CAPTURED: {
             ASSERT(vm->frame->func->isClosure, "Tried to assign captured inside non-closure.");
-            ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
+            RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, vm->frame->func);
             CapturedObj *capture = closure->captures.data[READ_NUMBER(vm)];
 
             if (capture->isOpen) {
@@ -1107,7 +1114,7 @@ static bool execute_vm(Vm *vm) {
         }
         case OP_GET_CAPTURED: {
             ASSERT(vm->frame->func->isClosure, "Tried to get captured inside non-closure.");
-            ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
+            RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, vm->frame->func);
             CapturedObj *capture = closure->captures.data[READ_NUMBER(vm)];
 
             if (capture->isOpen) {
@@ -1223,21 +1230,29 @@ static bool execute_vm(Vm *vm) {
             }
             break;
         }
-        case OP_FUNC_OPTIONALS: {
+        case OP_OPTIONALS_FUNC: {
             ObjArray values = AS_PTR(ListObj, PEEK(vm))->items;
             FuncObj *func = AS_PTR(FuncObj, PEEK_DEPTH(vm, 1));
+            RuntimeFuncObj *withOptionals = new_runtime_func_obj(
+                vm->program, func, false, true, func->isClosure
+            );
+            for (u32 i = 0; i < withOptionals->func.params.minArity; i++) {
+                APPEND_DA(&withOptionals->paramVals, NULL); // C-NULL values for mandatories.
+            }
             for (u32 i = 0; i < values.length; i++) {
-                func->params.values.data[func->params.minArity + i] = values.data[i];
+                APPEND_DA(&withOptionals->paramVals, values.data[i]);
             }
             DROP(vm);
+            PEEK(vm) = AS_OBJ(withOptionals);
             break;
         }
         case OP_CLOSURE: {
-            ClosureObj *closure = new_closure_obj(
-                vm->program, AS_PTR(FuncObj, READ_CONST(vm)), false
+            FuncObj *func = AS_PTR(FuncObj, READ_CONST(vm));
+            RuntimeFuncObj *closure = new_runtime_func_obj(
+                vm->program, func, false, func->hasOptionals, true
             );
             if (vm->frame->func->isClosure) {
-                ClosureObj *frameClosure = AS_PTR(ClosureObj, vm->frame->func);
+                RuntimeFuncObj *frameClosure = AS_PTR(RuntimeFuncObj, vm->frame->func);
                 for (u32 i = 0; i < frameClosure->captures.length; i++) {
                     APPEND_DA(&closure->captures, frameClosure->captures.data[i]);
                 }
@@ -1330,7 +1345,7 @@ static bool execute_vm(Vm *vm) {
         }
         case OP_POP_CAPTURES:
             ASSERT(vm->frame->func->isClosure, "Tried to pop captured inside non-closure.");
-            DROP_AMOUNT_DA(&AS_PTR(ClosureObj, vm->frame->func)->captures, READ_NUMBER(vm));
+            DROP_AMOUNT_DA(&AS_PTR(RuntimeFuncObj, vm->frame->func)->captures, READ_NUMBER(vm));
             break;
         case OP_RETURN:
             ASSERT(vm->callStack.length > 1, "Tried to return top-level or a nonexistent level.");
@@ -1338,7 +1353,7 @@ static bool execute_vm(Vm *vm) {
             break;
         case OP_CLOSURE_RETURN:
             ASSERT(vm->frame->func->isClosure, "Tried to closure return from non-closure.");
-            ClosureObj *closure = AS_PTR(ClosureObj, vm->frame->func);
+            RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, vm->frame->func);
             DROP_AMOUNT_DA(&closure->captures, READ_NUMBER(vm));
             call_return(vm);
             break;

@@ -308,11 +308,16 @@ OP_GET_SUBSCR:
     object and filter out the objects that won't be a part of the slice. The iterator gets popped
     alongside the subscript and the subscripted before pushing the slice in that case.
 
-OP_FUNC_OPTIONALS:
-    Expects the third element to the top of the stack to be a function whose optionals
-    are being assigned, the second to top as being a list of the optional's string names in order,
-    and finally the topmost element to be a list of the optional parameters' values in order.
-    Appends those 2 lists to the function and pops them off of the stack, but not the function.
+OP_OPTIONALS_FUNC:
+    Expects the top element of the stack to be some a list of loaded, runtime values for
+    the optional values of the function, which is expected to be the second to top element.
+
+    It does so by first appending a C-NULL for each mandatory parameter which doesn't have a default
+    value, then it starts appending the default values and places them in a new runtime function
+    object so that each time the function is encountered (like in a loop) it creates its own
+    list of optional values.
+    Finally, pops the optional values at the top of the stack and replaces the original
+    static function on the stack with the runtime one.
 
 OP_CLOSURE:
     Copies over all captured variables of the current frame over to the function in the stack,
