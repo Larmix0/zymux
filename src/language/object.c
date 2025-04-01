@@ -599,7 +599,7 @@ StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringO
 }
 
 /** Verifies that a string can be converted to an integer or float. */
-static bool verify_string_is_num(char *string) {
+static bool string_is_num(char *string) {
     if (string[0] == '\0') {
         return false; // Empty string, not a number.
     }
@@ -631,7 +631,7 @@ IntObj *as_int(ZmxProgram *program, const Obj *object) {
     case OBJ_BOOL: result = (ZmxInt)(AS_PTR(BoolObj, object)->boolean); break;
     case OBJ_STRING: {
         StringObj *str = AS_PTR(StringObj, object);
-        if (!verify_string_is_num(str->string)) {
+        if (!string_is_num(str->string)) {
             return NULL;
         }
         result = strtoll(str->string, NULL, 10);
@@ -667,7 +667,7 @@ FloatObj *as_float(ZmxProgram *program, const Obj *object) {
     case OBJ_BOOL: result = (ZmxFloat)(AS_PTR(BoolObj, object)->boolean); break;
     case OBJ_STRING: {
         StringObj *str = AS_PTR(StringObj, object);
-        if (!verify_string_is_num(str->string)) {
+        if (!string_is_num(str->string)) {
             return NULL;
         }
         result = strtod(str->string, NULL);
