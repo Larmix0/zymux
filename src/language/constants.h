@@ -28,8 +28,8 @@
 #define DEBUG_AST 1
 #define DEBUG_BYTECODE 1
 #define DEBUG_RUNTIME 1
-#define DEBUG_GC_PRINT 0
-#define DEBUG_GC_ALWAYS 1
+#define DEBUG_LOG_GC 0 /** Logs GC actions during a garbage collection. */
+#define DEBUG_ALWAYS_GC 1 /** Performs a garbage collection after every object allocation. */
 
 /** Allows assertions or disables them from the code for performance. */
 #define ASSERTS_ENABLED 1

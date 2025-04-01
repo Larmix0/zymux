@@ -47,7 +47,7 @@ static void mark_obj(Obj *object) {
         return; // Already marked or doesn't exist.
     }
 
-#if DEBUG_GC_PRINT
+#if DEBUG_LOG_GC
     printf("Mark %p | %s (", (void*)object, obj_type_str(object->type));
     print_obj(object, true);
     printf(")\n");
@@ -209,7 +209,7 @@ static void table_delete_weak_references(Table *table, ZmxProgram *program) {
 
 /** Deletes all non-reachable objects, and resets reachable ones to prepare for the next GC. */
 static void gc_sweep(ZmxProgram *program) {
-#if DEBUG_GC_PRINT
+#if DEBUG_LOG_GC
     printf("========================== GC sweep. ==========================\n");
 #endif
     if (program->allObjs == NULL) {
@@ -237,7 +237,7 @@ static void gc_sweep(ZmxProgram *program) {
 
 /** Goes through the garbage collection phase by seeing reachable objects in the program's GC. */
 void gc_collect(ZmxProgram *program) {
-#if DEBUG_GC_PRINT
+#if DEBUG_LOG_GC
     printf("========================== GC start. ==========================\n");
 #endif
 
@@ -245,7 +245,7 @@ void gc_collect(ZmxProgram *program) {
     table_delete_weak_references(&program->internedStrings, program);
     gc_sweep(program);
 
-#if DEBUG_GC_PRINT
+#if DEBUG_LOG_GC
     printf("========================== GC end. ==========================\n");
 #endif
 }

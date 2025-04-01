@@ -24,7 +24,7 @@ static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) 
         gc_collect(program);
         object = ALLOC(size);
     }
-#if DEBUG_GC_PRINT
+#if DEBUG_LOG_GC
     printf("Allocate %p | %s (%zu bytes)\n", (void*)object, obj_type_str(type), size);
 #endif
 
@@ -33,7 +33,7 @@ static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) 
         program->gc.nextCollection *= COLLECTION_GROWTH;
         gc_collect(program);
     }
-#if DEBUG_GC_ALWAYS
+#if DEBUG_ALWAYS_GC
     gc_collect(program);
 #endif
 
@@ -796,7 +796,7 @@ static void free_func_obj(FuncObj *func) {
  * which will free it later anyways.
  */
 void free_obj(Obj *object) {
-#if DEBUG_GC_PRINT
+#if DEBUG_LOG_GC
     printf("Free %p | %s (", (void*)object, obj_type_str(object->type));
     print_obj(object, true);
     printf(")\n");
