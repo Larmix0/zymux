@@ -24,10 +24,10 @@
 #define RED "\033[31m"
 #define YELLOW "\033[33m"
 
-#define DEBUG_TOKENS 1
-#define DEBUG_AST 1
-#define DEBUG_BYTECODE 1
-#define DEBUG_RUNTIME 1
+#define DEBUG_TOKENS 0
+#define DEBUG_AST 0
+#define DEBUG_BYTECODE 0
+#define DEBUG_RUNTIME 0
 #define DEBUG_LOG_GC 0 /** Logs GC actions during a garbage collection. */
 #define DEBUG_ALWAYS_GC 1 /** Performs a garbage collection after every object allocation. */
 

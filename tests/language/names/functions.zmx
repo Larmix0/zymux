@@ -1,4 +1,4 @@
-let closureVar;
+let [varsClosure, returnClosure];
 let global = 10;
 const [outerA, outerB, outerC] = [2, 4, 6];
 let [outerOptionalC, outerOptionalD] = [55, 77];
@@ -38,7 +38,18 @@ func providedOptionals(mandatoryA, mandatoryB, optionalC=outerC, optionalD=10) {
         assert(variable == 11);
     }
 
-    closureVar = closure;
+    varsClosure = closure;
+}
+
+{
+    let i = 0;
+
+    func closure() {
+        i += 1;
+        return i;
+    }
+
+    returnClosure = closure;
 }
 
 noParams();
@@ -51,4 +62,8 @@ noProvidedOptionals(.mandatoryB=outerB, .mandatoryA=outerA); // Reverse order wi
 providedOptionals(outerA, outerB, outerOptionalC, outerOptionalD);
 providedOptionals(outerA, .optionalC=outerOptionalC, .mandatoryB=outerB, .optionalD=outerOptionalD);
 
-closureVar();
+varsClosure();
+
+assert(returnClosure() == 1);
+assert(returnClosure() == 2);
+assert(returnClosure() == 3);
