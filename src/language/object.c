@@ -200,6 +200,10 @@ CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stac
  * This indirect copy (because we use func obj directly instead func obj pointer) means that
  * booleans (like is closure and has optionals) will actually be independant from the original
  * func that still has them set as false, although arrays and pointers will still be shared.
+ * 
+ * Worth mentioning that if the function we're wrapping is also a runtime function itself,
+ * then we need to manually copy its runtime contexts to the new returned function, as copying
+ * the static function alone truncates that extra information off.
  */
 RuntimeFuncObj *new_runtime_func_obj(
     ZmxProgram *program, FuncObj *func, const bool isToplevel, const bool hasOptionals,
@@ -215,6 +219,14 @@ RuntimeFuncObj *new_runtime_func_obj(
     object->func.isClosure = isClosure;
     INIT_DA(&AS_PTR(RuntimeFuncObj, object)->paramVals);
     INIT_DA(&AS_PTR(RuntimeFuncObj, object)->captures);
+
+    if (func->isClosure) {
+        // Copy its closure context if we're wrapping a closure. No need to copy optionals though.
+        RuntimeFuncObj *wrappedClosure = AS_PTR(RuntimeFuncObj, func);
+        for (u32 i = 0; i < wrappedClosure->captures.length; i++) {
+            APPEND_DA(&object->captures, wrappedClosure->captures.data[i]);
+        }
+    }
     return object;
 }
 

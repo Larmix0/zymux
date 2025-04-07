@@ -45,12 +45,13 @@ Resolver create_resolver(ZmxProgram *program, NodeArray ast) {
 /** Returns a variable, which has its name in a token along some extra resolution information. */
 static Variable create_variable(
     const bool isPrivate, const bool isConst, const bool isLocalCapture,
-    const Token name, const u32 scope, const VarResolution resolution, FuncNode *paramFunc
+    const Token name, const u32 scope, const u32 index,
+    const VarResolution resolution, FuncNode *paramFunc
 ) {
     Variable var = {
         .isPrivate = isPrivate, .isConst = isConst, .isLocalCapture = isLocalCapture,
-        .name = name, .scope = scope, .resolution = resolution, .resolutions = CREATE_DA(),
-        .paramFunc = paramFunc
+        .name = name, .scope = scope, .index = index,
+        .resolution = resolution, .resolutions = CREATE_DA(), .paramFunc = paramFunc
     };
     return var;
 }
@@ -151,7 +152,7 @@ static Variable *find_top_scope_var(VariableArray variables, const Token name, c
 static Variable copy_variable(const Variable original) {
     Variable copied = create_variable(
         original.isPrivate, original.isConst, original.isLocalCapture,
-        original.name, original.scope, original.resolution, original.paramFunc
+        original.name, original.scope, original.index, original.resolution, original.paramFunc
     );
     for (u32 i = 0; i < original.resolutions.length; i++) {
         APPEND_DA(&copied.resolutions, original.resolutions.data[i]);
@@ -349,7 +350,8 @@ static void declare_local(Resolver *resolver, DeclareVarNode *node) {
     node->resolution.scope = VAR_LOCAL;
 
     Variable declared = create_variable(
-        false, node->isConst, false, name, resolver->scopeDepth, node->resolution, NULL
+        false, node->isConst, false, name, resolver->scopeDepth,
+        CURRENT_LOCALS(resolver)->length, node->resolution, NULL
     );
     APPEND_DA(&declared.resolutions, &node->resolution);
     APPEND_DA(CURRENT_LOCALS(resolver), declared);
@@ -371,7 +373,8 @@ static void declare_global(Resolver *resolver, DeclareVarNode *node) {
     node->resolution.scope = VAR_GLOBAL;
 
     Variable declared = create_variable(
-        false, node->isConst, false, name, resolver->scopeDepth, node->resolution, NULL
+        false, node->isConst, false, name, resolver->scopeDepth,
+        resolver->globals.vars.length, node->resolution, NULL
     );
     APPEND_DA(&declared.resolutions, &node->resolution);
     APPEND_DA(&resolver->globals.vars, declared);
@@ -439,6 +442,38 @@ static void mark_param_captured(ClosedVariables *closure, Variable *parameter) {
     UNREACHABLE_ERROR(); // The parameter we're capturing should always be findable.
 }
 
+/** Fixes a captures resolutions/references to a corrected index. */
+static void fix_capture_resolution(Variable *toFix, const u32 correctIdx) {
+    for (u32 i = 0; i < toFix->resolutions.length; i++) {
+        toFix->resolutions.data[i]->index = correctIdx;
+    }
+    toFix->resolution.index = correctIdx;
+}
+
+/** 
+ * Appends a capture to a captures array and fixes some indices if needed.
+ * 
+ * It'll automatically start by assuming the inserted variable is at the end of the list,
+ * and if there are any captured variables already in the array with a local index that's
+ * after the inserted variable, we subtract the index because it means the variable we're inserting
+ * comes before that found variable with a higher index.
+ * 
+ * We also increment that higher index variable's resolution indices by 1 as it now has another
+ * capture behind it at runtime.
+ */
+static void append_capture(VariableArray *captures, Variable *capturedVar) {
+    u32 captureIdx = captures->length;
+    for (u32 i = 0; i < captures->length; i++) {
+        Variable *current = &captures->data[i];
+        if (current->index > capturedVar->index) {
+            captureIdx--; // One less variable behind it.
+            fix_capture_resolution(current, current->resolution.index + 1);
+        }
+    }
+    fix_capture_resolution(capturedVar, captureIdx);
+    APPEND_DA(captures, *capturedVar);
+}
+
 /**
  * Captures the local variable toCapture by putting it in all appropriate closure contexts.
  * 
@@ -458,11 +493,11 @@ static void capture_local(Resolver *resolver, Variable *toCapture, const u32 clo
         const bool isLocalCapture = i == closureIdx ? true : false;
         Variable closureCapture = create_variable(
             toCapture->isPrivate, toCapture->isConst, isLocalCapture,
-            toCapture->name, toCapture->scope,
+            toCapture->name, toCapture->scope, toCapture->index,
             create_var_resolution(resolver->locals.data[i].captured.length, VAR_CAPTURED),
             NULL
         );
-        APPEND_DA(&resolver->locals.data[i].captured, closureCapture);
+        append_capture(&resolver->locals.data[i].captured, &closureCapture);
         resolver->locals.data[i].isClosure = true;
     }
     toCapture->resolutions.data[0]->scope = VAR_CAPTURED;
@@ -752,15 +787,15 @@ static void resolve_case(Resolver *resolver, CaseNode *node) {
 static void resolve_match(Resolver *resolver, MatchNode *node) {
     push_scope(resolver, SCOPE_NORMAL);
     resolve_node(resolver, node->matchedExpr);
-    const u32 implicitMatchVar = CURRENT_LOCALS(resolver)->length;
+
+    const u32 matchIdx = CURRENT_LOCALS(resolver)->length;
     APPEND_DA(
         CURRENT_LOCALS(resolver),
         create_variable(
             false, false, false, create_token("<matched expr>", 0), resolver->scopeDepth,
-            create_var_resolution(implicitMatchVar, VAR_LOCAL), NULL
+            matchIdx, create_var_resolution(matchIdx, VAR_LOCAL), NULL
         )
     );
-
     resolve_node_array(resolver, &node->cases);
     if (node->defaultBlock) {
         resolve_node(resolver, AS_NODE(node->defaultBlock));
@@ -796,13 +831,14 @@ static void resolve_do_while(Resolver *resolver, DoWhileNode *node) {
 static void resolve_for(Resolver *resolver, ForNode *node) {
     push_scope(resolver, SCOPE_NORMAL);
 
+    // TODO: is this ok with multi-declarations? Or just move it down one and don't +1 loopVarSpot.
     const u32 loopVarSpot = CURRENT_LOCALS(resolver)->length;
     resolve_node(resolver, node->loopVar);
     APPEND_DA(
         CURRENT_LOCALS(resolver),
         create_variable(
             false, false, false, create_token("<iter>", 0), resolver->scopeDepth,
-            create_var_resolution(loopVarSpot + 1, VAR_LOCAL), NULL
+            loopVarSpot + 1, create_var_resolution(loopVarSpot + 1, VAR_LOCAL), NULL
         )
     );
     resolve_node(resolver, node->iterable);
@@ -924,12 +960,13 @@ static void resolve_func(Resolver *resolver, FuncNode *node, const FuncType type
         create_token("this", TOKEN_THIS_KW) : node->nameDecl->name;
     Variable declared = create_variable(
         false, node->nameDecl->isConst, false,
-        usedName, resolver->scopeDepth, node->nameDecl->resolution, NULL
+        usedName, resolver->scopeDepth, CURRENT_LOCALS(resolver)->length,
+        node->nameDecl->resolution, NULL
     );
     APPEND_DA(CURRENT_LOCALS(resolver), declared);
-
     finish_func_resolution(resolver, node);
     node->isClosure = CURRENT_CLOSURE(resolver)->isClosure;
+
     pop_block_scope(resolver, node->body, SCOPE_FUNC);
     resolver->currentFunc = previous;
 }
@@ -937,20 +974,25 @@ static void resolve_func(Resolver *resolver, FuncNode *node, const FuncType type
 /** 
  * Resolves a class's variable declaration, initializer (if there's one), and all methods.
  * 
- * While resolving the methods, it pushes a temporary scope which forces the function to be treated
- * as a local variable when created, and not a global (which is the case for classes).
- * Not to mention that it does make sense to go into a new scope considering the body braces
- * of the class itself.
+ * First pushes the class scope so that everything inside it is automatically treated
+ * as a local/capture (except the name of the class itself).
+ * Then, for each method pushes another temporary scope which ensures the method name is deleted
+ * after its compilation as its no longer needed, and would only interfere with the resolution of
+ * the other methods.
  */
 static void resolve_class(Resolver *resolver, ClassNode *node) {
     resolve_declare_var(resolver, node->nameDecl);
 
     push_scope(resolver, SCOPE_NORMAL);
     if (node->init) {
+        push_scope(resolver, SCOPE_NORMAL);
         resolve_func(resolver, node->init, FUNC_INIT);
+        pop_scope(resolver, SCOPE_NORMAL);
     }
     for (u32 i = 0; i < node->methods.length; i++) {
+        push_scope(resolver, SCOPE_NORMAL);
         resolve_func(resolver, AS_PTR(FuncNode, node->methods.data[i]), FUNC_METHOD);
+        pop_scope(resolver, SCOPE_NORMAL);
     }
     pop_scope(resolver, SCOPE_NORMAL);
 }

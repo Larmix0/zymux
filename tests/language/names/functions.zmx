@@ -1,0 +1,54 @@
+let closureVar;
+let global = 10;
+const [outerA, outerB, outerC] = [2, 4, 6];
+let [outerOptionalC, outerOptionalD] = [55, 77];
+
+func noParams() {
+    global += 2;
+    assert(global == 12);
+}
+
+func mandatoryParamsOnly(innerA, innerB, innerC) {
+    assert(outerA == innerA);
+    assert(outerB == innerB);
+    assert(outerC == innerC);
+}
+
+func noProvidedOptionals(mandatoryA, mandatoryB, optionalC=outerC, optionalD=10) {
+    assert(mandatoryA == outerA);
+    assert(mandatoryB == outerB);
+    assert(optionalC == outerC);
+    assert(optionalD == 10);
+}
+
+func providedOptionals(mandatoryA, mandatoryB, optionalC=outerC, optionalD=10) {
+    assert(mandatoryA == outerA);
+    assert(mandatoryB == outerB);
+    assert(optionalC == outerOptionalC);
+    assert(optionalD == outerOptionalD);
+}
+
+{
+    let [i, j] = [11, 22];
+    let k = 66;
+
+    func closure(variable=i) {
+        k = k - 33;
+        assert(j + 11 == k);
+        assert(variable == 11);
+    }
+
+    closureVar = closure;
+}
+
+noParams();
+
+mandatoryParamsOnly(outerA, outerB, outerC);
+
+noProvidedOptionals(outerA, outerB);
+noProvidedOptionals(.mandatoryB=outerB, .mandatoryA=outerA); // Reverse order with kwargs.
+
+providedOptionals(outerA, outerB, outerOptionalC, outerOptionalD);
+providedOptionals(outerA, .optionalC=outerOptionalC, .mandatoryB=outerB, .optionalD=outerOptionalD);
+
+closureVar();

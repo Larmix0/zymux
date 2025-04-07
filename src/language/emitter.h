@@ -27,11 +27,7 @@ typedef enum {
     TYPE_STRING
 } DataType;
 
-/** 
- * Represents each opcode in Zymux's bytecode.
- * 
- * Read the opcodes text file in docs for more information about each opcode.
- */
+/** Represents each opcode in Zymux's bytecode. */
 typedef enum {
     OP_LOAD_CONST,
     OP_ARG_16,
@@ -77,7 +73,7 @@ typedef enum {
     OP_GET_GLOBAL,
     OP_ASSIGN_LOCAL,
     OP_GET_LOCAL,
-    OP_CAPTURE,
+    OP_CAPTURE_DEPTH,
     OP_CAPTURE_AT,
     OP_ASSIGN_CAPTURED,
     OP_GET_CAPTURED,

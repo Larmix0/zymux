@@ -9,6 +9,12 @@
 #define NEW_NODE(program, astType, cType) \
     ((cType *)new_node(program, astType, sizeof(cType)))
 
+/** Returns a default empty variable resolution struct. */
+static VarResolution unresolved_resolution() {
+    VarResolution resolution = {.index = UNRESOLVED_NUMBER, .scope = UNRESOLVED_NAME_SCOPE};
+    return resolution;
+}
+
 /** Allocates a new node of the passed type. */
 static Node *new_node(ZmxProgram *program, const AstType type, const size_t size) {
     Node *node = ALLOC(size);
@@ -176,8 +182,8 @@ Node *new_declare_var_node(ZmxProgram *program, const Token name, Node *value, c
     node->name = name;
     node->value = value;
     node->isConst = isConst;
-    node->resolution.index = UNRESOLVED_NUMBER;
-    node->resolution.scope = UNRESOLVED_NAME_SCOPE;
+
+    node->resolution = unresolved_resolution();
     return AS_NODE(node);
 }
 
@@ -187,8 +193,7 @@ Node *new_assign_var_node(ZmxProgram *program, const Token name, Node *value) {
     node->name = name;
     node->value = value;
 
-    node->resolution.index = UNRESOLVED_NUMBER;
-    node->resolution.scope = UNRESOLVED_NAME_SCOPE;
+    node->resolution = unresolved_resolution();
     return AS_NODE(node);
 }
 
@@ -196,8 +201,8 @@ Node *new_assign_var_node(ZmxProgram *program, const Token name, Node *value) {
 Node *new_get_var_node(ZmxProgram *program, const Token name) {
     GetVarNode *node = NEW_NODE(program, AST_GET_VAR, GetVarNode);
     node->name = name;
-    node->resolution.index = UNRESOLVED_NUMBER;
-    node->resolution.scope = UNRESOLVED_NAME_SCOPE;
+
+    node->resolution = unresolved_resolution();
     return AS_NODE(node);
 }
 

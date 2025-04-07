@@ -69,8 +69,8 @@ typedef enum {
 
 /** Resolution information for any type of name node (assignment, declaration, etc.). */
 typedef struct {
-    VarType scope;
     i64 index;
+    VarType scope;
 } VarResolution;
 
 /** Generic AST node struct for type punning. */

@@ -1,0 +1,13 @@
+enum week {SUN, MON, TUE, WED, THU, FRI, SAT}
+enum otherWeek {SUN, MON, TUE, WED, THU, FRI, SAT}
+
+let slicedWeek = week[1..5..2];
+
+assert(week.SUN != otherWeek.SUN);
+assert(week.SAT != otherWeek.SAT);
+
+assert(week[2] == week.TUE);
+assert(week[4] == week.THU);
+
+assert(week[0] != slicedWeek[0]);
+assert(slicedWeek.MON != week.MON);

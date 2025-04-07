@@ -8,6 +8,7 @@ Basic information:
         It could be one byte, 2 bytes (short), and even 4 bytes (integer).
         It's primarily used for reading/emitting numbers for instructions, so that the VM
         wouldn't be limited to 255 to represent numbers after instruction.
+
         Example:
             having more than 256 constants in one chunk.
 
@@ -15,6 +16,7 @@ Basic information:
         An enum that represents all the different data types in Zymux as a language.
         It's used as an enum for certain instructions to pass a number that represents which
         data type is being used.
+
         Example:
             Emitting a DataType string enum after an "is" opcode to know what type to check
             at the top of the stack.
@@ -237,15 +239,17 @@ OP_GET_LOCAL:
     (which is the index in the stack of the variable whose value is to be extracted),
     then uses it to index into the stack and push that object to the top again.
 
-OP_CAPTURE:
-    Adds the topmost object in the stack into the current closure's captured variables,
-    and the VM's open captures. It'll be removed from the VM's open captures once it's popped
+OP_CAPTURE_DEPTH:
+    Adds the object located in the stack at a depth equivalent to a read number
+    after the instruction into the current closure's captured variables, and the VM's open captures.
+    It'll be removed from the VM's open captures once it's popped
     off of the stack and needs to live exclusively on the heap.
 
 OP_CAPTURE_AT:
     Adds the object at the read index (relative to the base pointer) into the current closure's
-    captured variables, and the VM's open captures. It'll be removed from the VM's open captures
-    once it's popped off of the stack and needs to live exclusively on the heap.
+    captured variables, and the VM's open captures.
+    It'll be removed from the open captures once it's popped off of the stack and needs to live
+    exclusively on the heap.
 
 OP_ASSIGN_CAPTURED:
     Reads an index number that is used on the current closure's array of captured variables,
@@ -279,15 +283,16 @@ OP_GET_PROPERTY:
     Replaces the object on the top of the stack with the resulting object from the property access.
 
 OP_CALL:
-    Reads a number, which is the number of arguments on the stack for the calle. The topmost object
-    in the stack is the rightmost argument in code, and the deeper on the stack the more to the left
-    an argument is.
+    Reads a number, which is the number of arguments on the stack for the callee
+    (excluding the map of kwargs at the very top of the stack). The second to top object
+    in the stack is the rightmost positional argument in code,
+    and the deeper on the stack the more to the left an argument is.
     The callee is expected to be immediately before the first argument on the stack, and it gets
-    called with the read amount of arguments so it knows how to deal with those arguments
-    that are ordered on the stack.
+    called with the read amount of arguments (excluding the 1 kwargs map)
+    so it knows how to deal with those arguments that are ordered on the stack.
 
-    Pops the read amount of arguments and replaces the callee with the returned value
-    (or null by default) after the call has finished.
+    Pops the read amount of arguments + kwargs map and replaces the callee with the returned value
+    (or some determined default value) after the call has finished.
 
 OP_ASSIGN_SUBSCR:
     Expects 3 stack elements: Top is the subscript, second to top is the element being subscripted,
@@ -310,18 +315,21 @@ OP_GET_SUBSCR:
 
 OP_OPTIONALS_FUNC:
     Expects the top element of the stack to be some a list of loaded, runtime values for
-    the optional values of the function, which is expected to be the second to top element.
+    the optional values of a function, which is the second to top element in the stack.
 
     It does so by first appending a C-NULL for each mandatory parameter which doesn't have a default
     value, then it starts appending the default values and places them in a new runtime function
-    object so that each time the function is encountered (like in a loop) it creates its own
-    list of optional values.
+    object so that each time the function is encountered (like a loop for example) it creates
+    its own list of optional values.
     Finally, pops the optional values at the top of the stack and replaces the original
     static function on the stack with the runtime one.
 
 OP_CLOSURE:
     Copies over all captured variables of the current frame over to the function in the stack,
-    loads it after wrapping it over a closure object.
+    loads it after wrapping it over a runtiem function object with a closure context set.
+
+    Also, if the function wrapping this closure is a closure itself, then it copies that closure's
+    context to the new created closure too.
 
 OP_CREATE_CLASS:
     Creates a bare-bones class with no init and no methods using a read constant for its name.
@@ -333,7 +341,8 @@ OP_ADD_METHODS:
 
 OP_ADD_INIT:
     Grabs the topmost element (expected to be a function) and adds it as an initializer for
-    the class that will be sitting one slot behind it in the stack. Pops the init function after.
+    the class that will be sitting one slot behind it in the stack.
+    Pops the init function at the top of the stack after.
 
 OP_MAKE_ITER:
     Grabs the topmost object in the stack and wraps it inside a new iterator object.

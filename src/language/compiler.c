@@ -338,28 +338,30 @@ static void compile_block(Compiler *compiler, const BlockNode *node) {
     emit_captured_pops(compiler, node->capturedAmount, node->pos);
 }
 
-/**
- * Compiles a normal variable's declaration statement.
+/** 
+ * Declares the node's name, with a depth on how deep the declaration's value is on the stack.
  * 
- * Begins by compiling the variable's declared initial value.
- * 
- * Then, for globals, we put them in a hash table at runtime.
- * So, we emit their their name to be used for the hash table after the declaration instruction.
+ * for globals, we put them in a hash table at runtime.
+ * So, we emit their their name to be used for the hash table and assume the value is at the top.
  * 
  * For locals, we just let the compiled value sit on the stack to be accessed/indexed later.
- * For captured locals, we do the same as locals, but emit a capture instruction so the VM
- * knows to capture the variable.
+ * 
+ * For captured locals, we do the same as locals, but emit a capture depth instruction so the VM
+ * knows to capture the variable and where its corresponding value is at.
+ * The depth thing is especially important for multi-variable declaration where we first compile
+ * all values and only after start capturing them.
  */
-static void compile_declare_var(Compiler *compiler, const DeclareVarNode *node) {
-    compile_node(compiler, node->value);
-
+static void declare_variable_depth(
+    Compiler *compiler, const DeclareVarNode *node, const u32 valueDepth
+) {
     const Token name = node->name;
     switch (node->resolution.scope) {
     case VAR_LOCAL:
         break;
-    case VAR_CAPTURED:
-        emit_instr(compiler, OP_CAPTURE, name.pos);
+    case VAR_CAPTURED: {
+        emit_number(compiler, OP_CAPTURE_DEPTH, valueDepth, name.pos);
         break;
+    }
     case VAR_GLOBAL: {
         StringObj *nameAsObj = new_string_obj(compiler->program, name.lexeme, name.pos.length);
         emit_const(compiler, OP_DECLARE_GLOBAL, AS_OBJ(nameAsObj), name.pos);
@@ -370,6 +372,16 @@ static void compile_declare_var(Compiler *compiler, const DeclareVarNode *node) 
         UNREACHABLE_ERROR();
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
+}
+
+/**
+ * Compiles a normal variable's declaration statement.
+ * 
+ * First, compiles the variable's declared initial value, then declares the variable name.
+ */
+static void compile_declare_var(Compiler *compiler, const DeclareVarNode *node) {
+    compile_node(compiler, node->value);
+    declare_variable_depth(compiler, node, 0);
 }
 
 /** 
@@ -478,12 +490,16 @@ static void compile_get_property(Compiler *compiler, const GetPropertyNode *node
 /** 
  * Compiles multiple declarations on the stack in a row.
  * 
- * First either loads an amount of nullss equal to the variables declared if it's an implicit
+ * First either loads an amount of nulls equal to the variables declared if it's an implicit
  * declaration, or loads an iterable and destructures it on the stack.
  * 
  * After that, it starts declaring the variables in reverse, as the destructure instruction
  * will load the iterable in order, placing the last element on the top of the stack,
  * so we need to start by also declaring the last variable first.
+ * 
+ * Because declaring a capture doesnt pop its value off of the stack instantly, we need to emit
+ * differing depths for the capture instructions so they know which index out of the destructured
+ * elements on the stack their value is at.
  */
 static void compile_multi_declare(Compiler *compiler, const MultiDeclareNode *node) {
     if (node->value) {
@@ -497,7 +513,8 @@ static void compile_multi_declare(Compiler *compiler, const MultiDeclareNode *no
     }
 
     for (i64 i = (i64)node->declarations.length - 1; i >= 0; i--) {
-        compile_node(compiler, node->declarations.data[i]);
+        DeclareVarNode *variable = AS_PTR(DeclareVarNode, node->declarations.data[i]);
+        declare_variable_depth(compiler, variable, i); // "i" is the depth where the value is at. 
     }
 }
 
@@ -948,7 +965,7 @@ static void optional_param_values(Compiler *compiler, const FuncNode *node) {
  * First compiles all the names of the parameters statically, and then also compiles default
  * C-NULL values for each parameter such that it can be modified at runtime when optionals
  * are loaded, if there are any.
- * Mandatory params will always stay as C-NULLs, even at runtime.
+ * Mandatory params will always stay as C-NULLs for the compiled static func, even at runtime.
  */
 static void compile_params(Compiler *compiler, FuncObj *compiledFunc, const FuncNode *node) {
     param_names(compiler->program, compiledFunc, node->mandatoryParams);

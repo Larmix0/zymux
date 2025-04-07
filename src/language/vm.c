@@ -390,9 +390,9 @@ static bool slice_iteration(
         );
         break;
     case OBJ_ENUM: {
-        EnumObj *enumObj = AS_PTR(EnumObj, callee);
-        EnumMemberObj *member = AS_PTR(EnumMemberObj, enumObj->members.data[index]);
-        slicedItem = AS_OBJ(new_enum_member_obj(vm->program, enumObj, member->name, slice->length));
+        // Use NULL as the enum member's enum struct. Will correct it when sliced enum's created.
+        EnumMemberObj *member = AS_PTR(EnumMemberObj, AS_PTR(EnumObj, callee)->members.data[index]);
+        slicedItem = AS_OBJ(new_enum_member_obj(vm->program, NULL, member->name, slice->length));
         break;
     }
     default:
@@ -426,6 +426,7 @@ static Obj *obj_from_slice(Vm *vm, Obj *callee, const ObjArray slice) {
         EnumObj *enumObj = new_enum_obj(vm->program, AS_PTR(EnumObj, callee)->name);
         for (u32 i = 0; i < slice.length; i++) {
             EnumMemberObj *member = AS_PTR(EnumMemberObj, slice.data[i]);
+            member->enumObj = enumObj; // Set the enum holding them to the sliced one.
             APPEND_DA(&enumObj->members, AS_OBJ(member));
             table_set(
                 &enumObj->lookupTable,
@@ -750,10 +751,12 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     }
     case OBJ_CLASS: {
         ClassObj *cls = AS_PTR(ClassObj, callee);
-        PEEK_DEPTH(vm, argAmount) = AS_OBJ(new_instance_obj(vm->program, cls));
+        PEEK_DEPTH(vm, argAmount + 1) = AS_OBJ(new_instance_obj(vm->program, cls)); // +1 (kwargs).
         if (cls->init) {
             return call(vm, AS_OBJ(cls->init), args, argAmount);
-        } else if (argAmount != 0) {
+        } else if (argAmount == 0) {
+            DROP(vm); // Pop the kwargs map manually since we didn't actually call anything.
+        } else {
             RUNTIME_ERROR(vm, "Expected 0 arguments, got %"PRIu32" instead.", argAmount);
             return false;
         }
@@ -761,7 +764,7 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     }
     case OBJ_METHOD: {
         MethodObj *method = AS_PTR(MethodObj, callee);
-        PEEK_DEPTH(vm, argAmount) = AS_OBJ(method->instance);
+        PEEK_DEPTH(vm, argAmount + 1) = AS_OBJ(method->instance); // +1 to go over kwargs map too.
         return call(vm, AS_OBJ(method->func), args, argAmount);
     }
     case OBJ_NATIVE_FUNC: {
@@ -1090,10 +1093,12 @@ static bool execute_vm(Vm *vm) {
             PUSH(vm, value);
             break;
         }
-        case OP_CAPTURE:
+        case OP_CAPTURE_DEPTH: {
             ASSERT(vm->frame->func->isClosure, "Tried to capture inside non-closure.");
-            capture_variable(vm, PEEK(vm), STACK_LENGTH(vm) - 1);
+            const u32 depth = READ_NUMBER(vm);
+            capture_variable(vm, PEEK_DEPTH(vm, depth), STACK_LENGTH(vm) - depth - 1);
             break;
+        }
         case OP_CAPTURE_AT: {
             ASSERT(vm->frame->func->isClosure, "Tried to capture inside non-closure.");
             const u32 at = READ_NUMBER(vm);

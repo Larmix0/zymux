@@ -1,0 +1,36 @@
+const [outerA, outerB, outerC] = [11, 22, 33];
+
+class Empty {}
+
+class NoInit {
+    methodA(a, b) {
+        assert(a == outerA);
+        assert(b == outerB);
+        assert(this.a == outerA ** 2);
+    }
+}
+
+class WithInit {
+    init(a, b, c) {
+        this.a = a;
+        this.b = b;
+        this.cSquared = c ** 2;
+    }
+
+    methodA() {
+        assert(this.a == outerA);
+        assert(this.b == outerB);
+        assert(this.cSquared == outerC ** 2);
+    }
+}
+
+let empty = Empty();
+empty.a = 10;
+assert(empty.a == 10);
+
+let noInit = NoInit();
+noInit.a = outerA ** 2;
+noInit.methodA(outerA, outerB);
+
+let withInit = WithInit(outerA, outerB, outerC);
+withInit.methodA();

@@ -23,7 +23,9 @@ typedef struct {
     bool isPrivate; /** Whether it's private or publicly accessible from the outside. */
     bool isConst; /** Whether it's changeable. */
     bool isLocalCapture; /** True for closures if captured and declared in that same function. */
+
     u32 scope; /** How deep is the variable's scope relative to the closure it's on. */
+    u32 index; /** The index it exists on inside the variable array its placed on. */
     Token name; /** Name of the variable. */
 
     /** The current variable's resolution, which all referenced resolutions should be set to. */
