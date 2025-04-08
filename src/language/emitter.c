@@ -181,17 +181,6 @@ void patch_jump(Compiler *compiler, const u32 start, const u32 end, const bool i
     APPEND_DA(&compiler->jumps, create_jump(start, jumpSize, isForward));
 }
 
-/** Patches a jump that goes to some absolute point in the bytecode. */
-void patch_absolute_jump(
-    Compiler *compiler, const u32 start, const u32 location, const bool isForward
-) {
-    Jump jump = {
-        .index = start, .size = location, .isForward = isForward, .isResolved = false,
-        .instrSize = get_number_size(location), .indexOffset = 0, .sizeOffset = 0
-    };
-    APPEND_DA(&compiler->jumps, jump);
-}
-
 /** Patches a u32 array of different opcode locations that all resolve to one place. */
 void patch_all_jumps(
     Compiler *compiler, const U32Array starts, const u32 end, const bool isForward

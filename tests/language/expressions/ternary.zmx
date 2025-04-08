@@ -1,0 +1,5 @@
+// Ternary with a condition that evaluates to true.
+assert(200 == 100 * 2 ? 1 > 0 : 0 > 1, "Expected to land on the left (truthy) expression.");
+
+// Ternary with a condition that evalutes to false.
+assert(2 ** 2 == 4 + 2 ? false : true == true, "Expected to land on the left (truthy) expression.");

@@ -511,7 +511,7 @@ static Node *augmented_assignment(Parser *parser, Node *expr) {
     case TOKEN_STAR_EQ: augAssign.type = TOKEN_STAR; break;
     case TOKEN_SLASH_EQ: augAssign.type = TOKEN_SLASH; break;
     case TOKEN_PERCENT_EQ: augAssign.type = TOKEN_PERCENT; break;
-    case TOKEN_EXPO: augAssign.type = TOKEN_EXPO_EQ; break;
+    case TOKEN_EXPO_EQ: augAssign.type = TOKEN_EXPO; break;
     case TOKEN_LSHIFT_EQ: augAssign.type = TOKEN_LSHIFT; break;
     case TOKEN_RSHIFT_EQ: augAssign.type = TOKEN_RSHIFT; break;
     case TOKEN_BAR_EQ: augAssign.type = TOKEN_BAR; break;
@@ -548,6 +548,7 @@ static Node *assignment(Parser *parser) {
         || CHECK(parser, TOKEN_PERCENT_EQ) || CHECK(parser, TOKEN_EXPO_EQ)
         || CHECK(parser, TOKEN_LSHIFT_EQ) || CHECK(parser, TOKEN_RSHIFT_EQ)
         || CHECK(parser, TOKEN_BAR_EQ) || CHECK(parser, TOKEN_AMPER_EQ)
+        || CHECK(parser, TOKEN_CARET_EQ)
     ) {
         expr = augmented_assignment(parser, expr);
     }

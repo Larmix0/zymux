@@ -1,0 +1,109 @@
+// Math.
+assert(3 + 4 == 7);
+assert("he" + "llo" == "hello");
+
+assert(2 - 8 == -6);
+assert(2 - -2 == 4);
+assert(-5 - -3 == -2);
+
+assert(3 * 4 == 12);
+assert(1 * 200 == 200);
+assert(20 * 0 == 0);
+
+assert(100 / 4 == 25);
+assert(5 / 5 == 1);
+assert(0 / 44 == 0);
+
+assert(18 % 7 == 4);
+assert(4 % 2 == 0);
+
+assert(5 ** 4 == 625);
+
+// Ensures PEMDAS precedence is handled correctly.
+assert(2 * 3 - 2 * (7 + 2) + 5 ** 4 * 3 + 9 == 1872);
+
+// Bitwise.
+assert((13 >> 0) == 13);
+assert((89 >> 3) == 11);
+assert((100 >> 10) == 0);
+
+assert((44 >> 0) == 44);
+assert((15 << 2) == 60);
+
+assert((9 & 5) == 1);
+assert((16 & 1) == 0);
+
+assert((33 | 17) == 49);
+assert((1 | 9) == 9);
+
+// Logical operator.
+assert((4 || 5) == 4);
+assert((0 || 10) == 10);
+assert((3.0 || 0) == 3.0);
+assert((0 || false || "") == "");
+assert((false || true || false) == true);
+
+assert((3 && 7) == 7);
+assert((8 && 0 + 1 && 9) == 9);
+assert((0 && false) == 0);
+assert((false && 11) == false);
+assert((10 && "string" && 0 && true) == 0);
+
+// Data type operator.
+assert(10 as string == "10");
+assert(12.0 is float);
+assert(!(30 is string));
+
+// Ensure that we runtime error if types of math operations don't match.
+let caughtError = false;
+try {
+    let a = 10 + "10"; // Nope, Zymux is strongly typed.
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// Ensure that we can't just do an operation on any 2 equivalent types.
+caughtError = false;
+try {
+    let a = "str" - "ing";
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// Ensure that division by 0 raises an error.
+caughtError = false;
+try {
+    let a = 10 / 0;
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// Ensure that modulo by 0 raises an error.
+caughtError = false;
+try {
+    let a = 200 % 0;
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// Ensure that we error when bitwising an invalid type.
+caughtError = false;
+try {
+    let a = 10 ^ 3.4;
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// Ensure that we error when bitwising using 2 of the same type, which aren't integers.
+caughtError = false;
+try {
+    let a = "string" << "otherString";
+} catch {
+    caughtError = true;
+}
+assert(caughtError);

@@ -1,0 +1,71 @@
+// Subscript getting elements.
+assert("tree"[0] == "t");
+assert([100, 200, 300][2] == 300);
+assert({true: false, "hi": "bye", 2: 3}["hi"] == "bye");
+
+// Subscript slice iterable to filter out elements with a range.
+assert("string"[0..2] == "str");
+
+// Subscript on a variable which holds a subscriptable object.
+let a = [3, 4, 5, 6];
+assert(a[1..3] == [4, 5, 6]);
+
+// Subscript assign to element.
+let b = [4, 6, 8, 10];
+b[0] = 100;
+assert(b == [100, 6, 8, 10]);
+
+// Nonexistent map key should simply assign without an error.
+let caughtError = false;
+try {
+    let a = {"key": "value", 11: 22};
+    a["nonexistent"] = "valid";
+} catch {
+    caughtError = true;
+}
+assert(!caughtError); // Make sure we didn't error out.
+
+// Strings are immutable due to interning, therefore subscript assigning them should raise an error.
+caughtError = false;
+try {
+    "str"[1] = "i";
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// Error when the index is higher than the size of the thing being indexed.
+caughtError = false;
+try {
+    [4, 3, 2, 1][1000] = 100;
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// Error on negative indexing.
+caughtError = false;
+try {
+    [2, 3, 4][-2] = 1;
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// Error when slice goes further than subscriptable allows in the positive direction.
+caughtError = false;
+try {
+    let a = [2, 3, 4][1..22];
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// Slice eventually goes negative, erroring out.
+caughtError = false;
+try {
+    let a = [2, 3, 4][5..-5];
+} catch {
+    caughtError = true;
+}
+assert(caughtError);

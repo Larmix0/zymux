@@ -585,10 +585,8 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
  * 
  * The start try instruction has a boolean before it of whether or not the catch state wants to save
  * an error message to a variable, and emits a number after the instruction, which is where to go
- * to land in the catch statement. The number is the absolute index in bytecode where
- * the catch starts, and not a relative number like most other jumps. This is because we might
- * error and use the catch at any arbitrary point in the try block,
- * so we can't use relative numbers.
+ * to land in the catch statement. The number is the index in bytecode where
+ * the catch starts relative to the try start instruction.
  */
 static void compile_try_catch(Compiler *compiler, const TryCatchNode *node) {
     emit_instr(compiler, node->catchVar ? OP_TRUE : OP_FALSE, get_node_pos(AS_NODE(node)));
@@ -599,7 +597,7 @@ static void compile_try_catch(Compiler *compiler, const TryCatchNode *node) {
 
     emit_instr(compiler, OP_FINISH_TRY, PREVIOUS_OPCODE_POS(compiler));
     const u32 catchLocation = compiler->func->bytecode.length;
-    patch_absolute_jump(compiler, trySpot, catchLocation, true);
+    patch_jump(compiler, trySpot, catchLocation, true);
 
     if (node->catchVar) {
         compile_declare_var(compiler, node->catchVar);

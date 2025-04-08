@@ -932,7 +932,7 @@ static bool execute_vm(Vm *vm) {
             NUM_BOOL_BIN_OP(vm, "<", NUM_VAL(BIN_LEFT(vm)) < NUM_VAL(BIN_RIGHT(vm)));
             break;
         case OP_LESS_EQ:
-            NUM_BOOL_BIN_OP(vm, "<=", NUM_VAL(BIN_LEFT(vm)) >= NUM_VAL(BIN_RIGHT(vm)));
+            NUM_BOOL_BIN_OP(vm, "<=", NUM_VAL(BIN_LEFT(vm)) <= NUM_VAL(BIN_RIGHT(vm)));
             break;
         case OP_MINUS:
             if (PEEK(vm)->type == OBJ_INT) {
@@ -1369,7 +1369,8 @@ static bool execute_vm(Vm *vm) {
         }
         case OP_START_TRY: {
             const bool saveErrorMessage = AS_PTR(BoolObj, POP(vm))->boolean;
-            u8 *catchIp = vm->frame->func->bytecode.data + READ_NUMBER(vm);
+            const u32 relativeCatchSpot = READ_NUMBER(vm);
+            u8 *catchIp = vm->frame->ip + relativeCatchSpot;
             APPEND_DA(&vm->catches, create_catch_state(vm, catchIp, saveErrorMessage));
             break;
         }

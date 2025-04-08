@@ -142,11 +142,6 @@ u32 emit_unpatched_jump(Compiler *compiler, u8 instr, const SourcePosition pos);
 /** Patches a jump in the compiler from the passed jump information. */
 void patch_jump(Compiler *compiler, const u32 start, const u32 end, const bool isForward);
 
-/** Patches a jump that goes to some absolute point in the bytecode. */
-void patch_absolute_jump(
-    Compiler *compiler, const u32 start, const u32 location, const bool isForward
-);
-
 /** Patches a u32 array of different opcode locations that all resolve to one place. */
 void patch_all_jumps(
     Compiler *compiler, const U32Array starts, const u32 end, const bool isForward
