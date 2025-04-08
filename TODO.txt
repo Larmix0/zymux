@@ -45,10 +45,6 @@ Improve the positioning of some bytecode for error handling.
 
 ----------------------------------------------------------------------------------------------------
 
-Rename DEBUG_GC_ALWAYS to DEBUG_ALWAYS_GC as that name makes what the flag does more obvious
-(which is GCing after every object creation), while "debug gc always" sounds like it simply says
-to "always" print out the GC.
-
 Use a normal obj array struct for captured objects to potentially achieve uniformity,
 like using mark_obj_array() in the GC instead of manually iterating through the obj array.
 Or do the opposite and potentially even create other useful specific object arrays

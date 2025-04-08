@@ -1,0 +1,72 @@
+let [ifOnlyExecuted, ifFullExecuted, elseIfExecuted, elseExecuted] = [false, false, false, false];
+
+const ifMsg = "Unexpectedly executed if branch.";
+const elseIfMsg = "Unexpectedly executed else-if branch.";
+const elseMsg = "Unexpectedly executed else branch.";
+
+// If branch getting executed in an if-statement with no else branch.
+if true {
+    ifOnlyExecuted = true;
+}
+assert(ifOnlyExecuted);
+
+// If branch getting executed in a statement that has the optional else.
+if 1 == 1 {
+    ifFullExecuted = true;
+} else {
+    assert(false, elseMsg);
+}
+assert(ifFullExecuted);
+
+// Else branch getting executed.
+if 1 == 2 {
+    assert(false, ifMsg);
+} else {
+    elseExecuted = true;
+}
+assert(elseExecuted);
+
+// An else-if branch getting executed.
+if 1 == "incorrect" {
+    assert(false, ifMsg);
+} else if "a" == "b" {
+    assert(false, elseIfMsg);
+} else if "a" == "a" {
+    elseIfExecuted = true;
+} else {
+    assert(false, elseMsg);
+}
+assert(elseIfExecuted);
+
+// Nested if-else.
+let correctBranchReached = false;
+if 1 == "z" {
+    assert(false, ifMsg);
+} else {
+    if 3 == 1 {
+        assert(false, ifMsg);
+    } else if 10 == 10 {
+        if 111 == 1 {
+            assert(false, ifMsg);
+        } else if 0.0 == 100 {
+            assert(false, elseIfMsg);
+        } else {
+            if 0 == 0 {
+                if false == true {
+                    assert(false, ifMsg);
+                } else if false {
+                    assert(false, elseIfMsg);
+                } else if 9 == 9 {
+                    if true {
+                        correctBranchReached = true;
+                    }
+                }
+            } else {
+                assert(false, elseMsg);
+            }
+        }
+    } else {
+        assert(false, elseMsg);
+    }
+}
+assert(correctBranchReached);

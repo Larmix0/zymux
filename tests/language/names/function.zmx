@@ -1,7 +1,8 @@
-let [varsClosure, returnClosure];
 let global = 10;
+
 const [outerA, outerB, outerC] = [2, 4, 6];
 let [outerOptionalC, outerOptionalD] = [55, 77];
+let [varsClosure, returnClosure];
 
 func noParams() {
     global += 2;

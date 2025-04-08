@@ -1,0 +1,112 @@
+let a; // Default declaration.
+
+let b = 20; // Declaration with initial value.
+
+let [c, d, e, f] = [4, 3, 2, 1]; // Multi-variable declaration.
+
+assert(a == null);
+assert(b == 20);
+assert(c == 4);
+assert(d == 3);
+assert(e == 2);
+assert(f == 1);
+
+// One assignment.
+a = 33;
+assert(a == 33);
+
+// Nested assignments.
+a = b = c = 44;
+assert(a == 44);
+assert(a == b);
+assert(a == c);
+
+// Multi-variable assignment.
+[a, b, c] = [11, 22, 33];
+assert(a == 11);
+assert(b == 22);
+assert(c == 33);
+
+// Never changed.
+assert(d == 3);
+
+const combined = 11 + 22 + 33 + 3 + 2 + 1;
+assert(a + b + c + d + e + f == combined);
+
+{
+    // Local single variable declaration and assignment.
+    let x = 8;
+    assert(x == 8);
+
+    x = x + 2;
+    assert(x == 10);
+    {
+        let x = x + 2; // Independent declaration. Shadows outside x and doesn't modify it.
+        assert(x == 12);
+    }
+    assert(x == 10); // Only the one created in the inner block is changed.
+
+    {
+        x = x + 20; // Assignment, not declaration. Changes the outside x.
+        assert(x == 30);
+    }
+    assert(x == 30);
+}
+
+{
+    // Local multi-variable declaration and assignment.
+    let [x, y, z] = [77, 88, 99];
+    assert(x == 77);
+    assert(y == 88);
+    assert(z == 99);
+
+    [x, y, z] = [10, 20, 30];
+    assert(x == 10);
+    assert(y == 20);
+    assert(z == 30);
+    {
+        let [x, y, z] = [383, 494, 505];
+        assert(x == 383);
+        assert(y == 494);
+        assert(z == 505);
+    }
+    assert(x == 10);
+    assert(y == 20);
+    assert(z == 30);
+    {
+        [x, y, z] = [12, 23, 34];
+        assert(x == 12);
+        assert(y == 23);
+        assert(z == 34);
+    }
+    assert(x == 12);
+    assert(y == 23);
+    assert(z == 34);
+}
+
+{
+    // Local implicit null declarations.
+    let x;
+    let [y, z];
+    assert(x == null);
+    assert(y == null);
+    assert(z == null);
+    {
+        let [x, y, z] = [1, 2, 3];
+        assert(x == 1);
+        assert(y == 2);
+        assert(z == 3);
+    }
+    assert(x == null);
+    assert(y == null);
+    assert(z == null);
+    {
+        [x, y, z] = [1, 2, 3];
+        assert(x == 1);
+        assert(y == 2);
+        assert(z == 3);
+    }
+    assert(x == 1);
+    assert(y == 2);
+    assert(z == 3);
+}

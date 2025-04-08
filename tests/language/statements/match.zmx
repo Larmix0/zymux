@@ -1,0 +1,79 @@
+const unexpectedCaseMsg = "Case unexpectedly executed.";
+const unexpectedDefaultMsg = "Default unexpectdly executed.";
+
+// Empty match.
+match 1 {}
+
+// Match with only cases that don't match.
+match 1 {
+    case 0 {
+        assert(false, unexpectedCaseMsg);
+    }
+    case 10, 2, 3, 4 {
+        assert(false, unexpectedCaseMsg);
+    }
+    case -1 {
+        assert(false, unexpectedCaseMsg);
+    }
+}
+
+// Match with a matched case that has a single value label.
+let caseFound = false;
+match 10 {
+    case 10 {
+        caseFound = true;
+    }
+    case 1, 2, 3, 11, -1, "a" {
+        assert(false, unexpectedCaseMsg);
+    }
+    default {
+        assert(false, unexpectedDefaultMsg);
+    }
+}
+assert(caseFound);
+
+// Match that goes to default.
+let defaultMatched = false;
+match 1 {
+    case 10 {
+        assert(false, "Match should've gone to default.");
+    }
+    default {
+        defaultMatched = true;
+    }
+}
+assert(defaultMatched);
+
+// Match with only default.
+
+{
+    // Matched multiple different label values.
+    let matchesAmount = 0;
+    match 1 {
+        case 0 {
+            assert(false, unexpectedCaseMsg);
+        }
+        case 1, 2, 3 {
+            matchesAmount += 1;
+        }
+    }
+
+    match 3 {
+        case 0 {
+            assert(false, unexpectedCaseMsg);
+        }
+        case 1, 2, 3 {
+            matchesAmount += 1;
+        }
+    }
+
+    match 2 {
+        case 0 {
+            assert(false, unexpectedCaseMsg);
+        }
+        case 1, 2, 3 {
+            matchesAmount += 1;
+        }
+    }
+    assert(matchesAmount == 3);
+}

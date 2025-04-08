@@ -1,0 +1,15 @@
+let global = 20;
+{
+    global = 30;
+    assert(global == 30);
+    {
+        global += 10;
+        assert(global == 40);
+    }
+}
+assert(global == 40); // Changes in block remain.
+
+// Empty blocks.
+{{}}
+{}
+assert(global == 40); // Empty blocks didn't change anything.

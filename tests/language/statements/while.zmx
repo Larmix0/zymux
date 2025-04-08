@@ -1,0 +1,84 @@
+// Doesn't execute while.
+while false {
+    assert(false, "Shouldn't have iterated in while loop.");
+}
+
+{
+    // Normal while loop without any breaks, continues, or nested looping.
+    let i = 0;
+    let [zero, one, two] = [false, false, false];
+    while i < 3 {
+        if i == 0 {
+            zero = true;
+        } else if i == 1 {
+            one = true;
+        } else if i == 2 {
+            two = true;
+        } else {
+            assert(false, $"Expected loop indices to be 0-2, got {i} instead.");
+        }
+        i += 1;
+    }
+    assert(zero == true);
+    assert(one == true);
+    assert(two == true);
+}
+
+{
+    // Nested while loops.
+    let i = 0;
+    let [outerZero, outerOne, outerTwo] = [false, false, false];
+    while i < 3 {
+        if i == 0 {
+            outerZero = true;
+        } else if i == 1 {
+            outerOne = true;
+        } else if i == 2 {
+            outerTwo = true;
+        } else {
+            assert(false, $"Expected loop indices to be 0-2, got {i} instead.");
+        }
+        i += 1;
+
+        // Inner loop.
+        let j= 0;
+        let [innerZero, innerOne, innerTwo] = [false, false, false];
+        while j < 3 {
+            if j == 0 {
+                innerZero = true;
+            } else if j == 1 {
+                innerOne = true;
+            } else if j == 2 {
+                innerTwo = true;
+            } else {
+                assert(false, $"Expected loop indices to be 0-2, got {j} instead.");
+            }
+            j += 1;
+        }
+        assert(innerZero == true);
+        assert(innerOne == true);
+        assert(innerTwo == true);
+    }
+    assert(outerZero == true);
+    assert(outerOne == true);
+    assert(outerTwo == true);
+}
+
+{
+    // breaks/continues on while loops.
+    let notContinued = 0;
+    let i = 0;
+    while i < 100 {
+        i += 1;
+        if i == 5 {
+            break;
+        }
+
+        if i < 2 {
+            continue;
+        }
+        notContinued += 1;
+    }
+    assert(i == 5);
+    assert(notContinued == 3);
+}

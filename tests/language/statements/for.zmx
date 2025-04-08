@@ -1,0 +1,78 @@
+// Doesn't execute anything.
+for i in [] {
+    assert(false, "Shouldn't have iterated in for loop.");
+}
+
+{
+    // Normal for loop without any breaks, continues, or nested looping.
+    let [zero, one, two] = [false, false, false];
+    for i in 0..2 {
+        if i == 0 {
+            zero = true;
+        } else if i == 1 {
+            one = true;
+        } else if i == 2 {
+            two = true;
+        } else {
+            assert(false, $"Expected loop indices to be 0-2, got {i} instead.");
+        }
+    }
+    assert(zero == true);
+    assert(one == true);
+    assert(two == true);
+}
+
+{
+    // Nested for loops.
+    let [outerZero, outerOne, outerTwo] = [false, false, false];
+    for i in 0..2 {
+        if i == 0 {
+            outerZero = true;
+        } else if i == 1 {
+            outerOne = true;
+        } else if i == 2 {
+            outerTwo = true;
+        } else {
+            assert(false, $"Expected loop indices to be 0-2, got {i} instead.");
+        }
+
+        // Inner loop.
+        let [innerZero, innerOne, innerTwo] = [false, false, false];
+        for j in 0..2 {
+            if j == 0 {
+                innerZero = true;
+            } else if j == 1 {
+                innerOne = true;
+            } else if j == 2 {
+                innerTwo = true;
+            } else {
+                assert(false, $"Expected loop indices to be 0-2, got {j} instead.");
+            }
+        }
+        assert(innerZero == true);
+        assert(innerOne == true);
+        assert(innerTwo == true);
+    }
+    assert(outerZero == true);
+    assert(outerOne == true);
+    assert(outerTwo == true);
+}
+
+{
+    // breaks/continues on for loops.
+    let notContinued = 0;
+    let brokeOut = false;
+    for i in 0..100 {
+        if i == 5 {
+            brokeOut = true;
+            break;
+        }
+
+        if i < 2 {
+            continue;
+        }
+        notContinued += 1;
+    }
+    assert(brokeOut);
+    assert(notContinued == 3);
+}

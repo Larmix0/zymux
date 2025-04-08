@@ -1,0 +1,53 @@
+const raiseMsg = "Raised error which should be caught.";
+const unexpectedCatchMsg = "Unexpectedly caught an error, while one shouldn't have ocurred.";
+
+// Nothing caught.
+try {
+    1 + 1;
+} catch {
+    assert(false, unexpectedCatchMsg);
+}
+
+// Caught an error (raised).
+let successful = true;
+try {
+    raise raiseMsg;
+} catch {
+    successful = false;
+}
+assert(successful == false);
+
+// Caught an error and modified something.
+successful = true;
+try {
+    assert(1 == 1);
+} catch {
+    successful = false;
+}
+assert(successful);
+
+// Nested try-catch.
+let correctCatchReached = false;
+try {
+    try {
+        try {
+            raise raiseMsg;
+        } catch {
+            try {
+                raise raiseMsg;
+            } catch {
+                try {
+                    "No error.";
+                } catch {
+                    assert(false, unexpectedCatchMsg);
+                }
+                raise raiseMsg;
+            }
+        }
+    } catch {
+        correctCatchReached = true;
+    }
+} catch {
+    assert(false, "Shouldn't have caught an error here.");
+}
+assert(correctCatchReached);
