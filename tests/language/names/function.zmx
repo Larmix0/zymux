@@ -29,6 +29,18 @@ func providedOptionals(mandatoryA, mandatoryB, optionalC=outerC, optionalD=10) {
     assert(optionalD == outerOptionalD);
 }
 
+func multiplyReturnFunc(left, optionalSub=0) {
+    func middle(center, optionalAdd=0) {
+        func inner(right, finalDiv=1) {
+            return ((left * center * right) + optionalAdd - optionalSub) / finalDiv;
+        }
+        
+        return inner;
+    }
+
+    return middle;
+}
+
 {
     let [i, j] = [11, 22];
     let k = 66;
@@ -68,3 +80,7 @@ varsClosure();
 assert(returnClosure() == 1);
 assert(returnClosure() == 2);
 assert(returnClosure() == 3);
+
+assert(multiplyReturnFunc(2)(3)(5) == 30);
+assert(multiplyReturnFunc(2)(.optionalAdd=8, .center=4)(4, 2) == 20);
+assert(multiplyReturnFunc(.left=2, .optionalSub=1)(3, 4)(1) == 9);

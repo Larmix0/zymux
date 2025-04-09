@@ -51,6 +51,3 @@ Or do the opposite and potentially even create other useful specific object arra
 like string arrays.
 
 Add some tests for indirect boolean evaluations (like an if-statement with an int condition).
-
-Potentially remove augmented assignment on nonexistent variable reporting twice.
-Once is for the name, and the other is the implicit mention on the augmented assign.

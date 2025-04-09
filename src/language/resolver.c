@@ -45,12 +45,12 @@ Resolver create_resolver(ZmxProgram *program, NodeArray ast) {
 /** Returns a variable, which has its name in a token along some extra resolution information. */
 static Variable create_variable(
     const bool isPrivate, const bool isConst, const bool isLocalCapture,
-    const Token name, const u32 scope, const u32 index,
+    const Token name, const u32 scope, const u32 index, const u32 closureIdx,
     const VarResolution resolution, FuncNode *paramFunc
 ) {
     Variable var = {
         .isPrivate = isPrivate, .isConst = isConst, .isLocalCapture = isLocalCapture,
-        .name = name, .scope = scope, .index = index,
+        .name = name, .scope = scope, .index = index, .closureIdx = closureIdx,
         .resolution = resolution, .resolutions = CREATE_DA(), .paramFunc = paramFunc
     };
     return var;
@@ -152,7 +152,8 @@ static Variable *find_top_scope_var(VariableArray variables, const Token name, c
 static Variable copy_variable(const Variable original) {
     Variable copied = create_variable(
         original.isPrivate, original.isConst, original.isLocalCapture,
-        original.name, original.scope, original.index, original.resolution, original.paramFunc
+        original.name, original.scope, original.index, original.closureIdx,
+        original.resolution, original.paramFunc
     );
     for (u32 i = 0; i < original.resolutions.length; i++) {
         APPEND_DA(&copied.resolutions, original.resolutions.data[i]);
@@ -332,7 +333,7 @@ static void block(Resolver *resolver, BlockNode *node, const ScopeType type) {
  * Declares a local variable, errors if it's already declared or is const
  * Simply puts a flag on the node which indicates that it's a local declaration.
  */
-static void declare_local(Resolver *resolver, DeclareVarNode *node) {
+static void declare_local(Resolver *resolver, DeclareVarNode *node, FuncNode *paramFunc) {
     const Token name = node->name;
     if (find_top_scope_var(*CURRENT_LOCALS(resolver), name, resolver->scopeDepth)) {
         resolution_error(
@@ -351,7 +352,7 @@ static void declare_local(Resolver *resolver, DeclareVarNode *node) {
 
     Variable declared = create_variable(
         false, node->isConst, false, name, resolver->scopeDepth,
-        CURRENT_LOCALS(resolver)->length, node->resolution, NULL
+        CURRENT_LOCALS(resolver)->length, resolver->locals.length - 1, node->resolution, paramFunc
     );
     APPEND_DA(&declared.resolutions, &node->resolution);
     APPEND_DA(CURRENT_LOCALS(resolver), declared);
@@ -361,7 +362,7 @@ static void declare_local(Resolver *resolver, DeclareVarNode *node) {
  * Declares a global variable, errors if already declared or is const.
  * Does so by appending the declared variable to the globals closure after setting its resolution.
  */
-static void declare_global(Resolver *resolver, DeclareVarNode *node) {
+static void declare_global(Resolver *resolver, DeclareVarNode *node, FuncNode *paramFunc) {
     const Token name = node->name;
     if (find_closure_var(&resolver->globals, name)) {
         resolution_error(
@@ -374,7 +375,7 @@ static void declare_global(Resolver *resolver, DeclareVarNode *node) {
 
     Variable declared = create_variable(
         false, node->isConst, false, name, resolver->scopeDepth,
-        resolver->globals.vars.length, node->resolution, NULL
+        resolver->globals.vars.length, 0, node->resolution, paramFunc
     );
     APPEND_DA(&declared.resolutions, &node->resolution);
     APPEND_DA(&resolver->globals.vars, declared);
@@ -385,8 +386,11 @@ static void declare_global(Resolver *resolver, DeclareVarNode *node) {
  * 
  * We use "name" when erroring out instead of "variable" because variable declaration nodes
  * can include other, non-variable names like declaring the names of functions.
+ * 
+ * paramFunc is expected to be the function that a parameter belongs to if the variable declared
+ * is a parameter of the function, otherwise NULL should be supplied.
  */
-static void resolve_declare_var(Resolver *resolver, DeclareVarNode *node) {
+static void resolve_declare_var(Resolver *resolver, DeclareVarNode *node, FuncNode *paramFunc) {
     resolve_node(resolver, node->value);
     
     const Token name = node->name;
@@ -397,9 +401,9 @@ static void resolve_declare_var(Resolver *resolver, DeclareVarNode *node) {
             name.pos.length, name.lexeme
         );
     } else if (resolver->scopeDepth == 0) {
-        declare_global(resolver, node);
+        declare_global(resolver, node, paramFunc);
     } else {
-        declare_local(resolver, node);
+        declare_local(resolver, node, paramFunc);
     }
 }
 
@@ -465,7 +469,10 @@ static void append_capture(VariableArray *captures, Variable *capturedVar) {
     u32 captureIdx = captures->length;
     for (u32 i = 0; i < captures->length; i++) {
         Variable *current = &captures->data[i];
-        if (current->index > capturedVar->index) {
+        if (
+            (current->closureIdx == capturedVar->closureIdx && current->index > capturedVar->index)
+            || capturedVar->closureIdx < current->closureIdx
+        ) {
             captureIdx--; // One less variable behind it.
             fix_capture_resolution(current, current->resolution.index + 1);
         }
@@ -493,7 +500,7 @@ static void capture_local(Resolver *resolver, Variable *toCapture, const u32 clo
         const bool isLocalCapture = i == closureIdx ? true : false;
         Variable closureCapture = create_variable(
             toCapture->isPrivate, toCapture->isConst, isLocalCapture,
-            toCapture->name, toCapture->scope, toCapture->index,
+            toCapture->name, toCapture->scope, toCapture->index, toCapture->closureIdx,
             create_var_resolution(resolver->locals.data[i].captured.length, VAR_CAPTURED),
             NULL
         );
@@ -758,7 +765,7 @@ static void resolve_try_catch(Resolver *resolver, TryCatchNode *node) {
 
     push_scope(resolver, SCOPE_NORMAL);
     if (node->catchVar) {
-        resolve_declare_var(resolver, node->catchVar);
+        resolve_declare_var(resolver, node->catchVar, NULL);
     }
     unscoped_block(resolver, node->catchBlock);
     pop_block_scope(resolver, node->catchBlock, SCOPE_NORMAL);
@@ -793,7 +800,7 @@ static void resolve_match(Resolver *resolver, MatchNode *node) {
         CURRENT_LOCALS(resolver),
         create_variable(
             false, false, false, create_token("<matched expr>", 0), resolver->scopeDepth,
-            matchIdx, create_var_resolution(matchIdx, VAR_LOCAL), NULL
+            matchIdx, resolver->locals.length - 1, create_var_resolution(matchIdx, VAR_LOCAL), NULL
         )
     );
     resolve_node_array(resolver, &node->cases);
@@ -838,7 +845,8 @@ static void resolve_for(Resolver *resolver, ForNode *node) {
         CURRENT_LOCALS(resolver),
         create_variable(
             false, false, false, create_token("<iter>", 0), resolver->scopeDepth,
-            loopVarSpot + 1, create_var_resolution(loopVarSpot + 1, VAR_LOCAL), NULL
+            loopVarSpot + 1, resolver->locals.length - 1,
+            create_var_resolution(loopVarSpot + 1, VAR_LOCAL), NULL
         )
     );
     resolve_node(resolver, node->iterable);
@@ -930,10 +938,10 @@ static void resolve_return(Resolver *resolver, ReturnNode *node) {
 /** Handles the resolutions of a function's mandatory and optional parameteres, and body. */
 static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
     for (u32 i = 0; i < node->mandatoryParams.length; i++) {
-        resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node->mandatoryParams.data[i]));
+        resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node->mandatoryParams.data[i]), node);
     }
     for (u32 i = 0; i < node->optionalParams.length; i++) {
-        resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node->optionalParams.data[i]));
+        resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node->optionalParams.data[i]), node);
     }
     unscoped_block(resolver, node->body);
     resolve_return(resolver, node->defaultReturn); // Automatically exit the function.
@@ -953,14 +961,14 @@ static void resolve_func(Resolver *resolver, FuncNode *node, const FuncType type
     const FuncType previous = resolver->currentFunc;
     resolver->currentFunc = type;
 
-    resolve_declare_var(resolver, node->nameDecl);
+    resolve_declare_var(resolver, node->nameDecl, NULL);
     push_scope(resolver, SCOPE_FUNC);
 
     const Token usedName = type == FUNC_INIT || type == FUNC_METHOD ?
         create_token("this", TOKEN_THIS_KW) : node->nameDecl->name;
     Variable declared = create_variable(
-        false, node->nameDecl->isConst, false,
-        usedName, resolver->scopeDepth, CURRENT_LOCALS(resolver)->length,
+        false, node->nameDecl->isConst, false, usedName, resolver->scopeDepth,
+        CURRENT_LOCALS(resolver)->length, resolver->locals.length - 1,
         node->nameDecl->resolution, NULL
     );
     APPEND_DA(CURRENT_LOCALS(resolver), declared);
@@ -981,7 +989,7 @@ static void resolve_func(Resolver *resolver, FuncNode *node, const FuncType type
  * the other methods.
  */
 static void resolve_class(Resolver *resolver, ClassNode *node) {
-    resolve_declare_var(resolver, node->nameDecl);
+    resolve_declare_var(resolver, node->nameDecl, NULL);
 
     push_scope(resolver, SCOPE_NORMAL);
     if (node->init) {
@@ -1017,7 +1025,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_CALL: resolve_call(resolver, AS_PTR(CallNode, node)); break;
     case AST_EXPR_STMT: resolve_expr_stmt(resolver, AS_PTR(ExprStmtNode, node)); break;
     case AST_BLOCK: block(resolver, AS_PTR(BlockNode, node), SCOPE_NORMAL); break;
-    case AST_DECLARE_VAR: resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node)); break;
+    case AST_DECLARE_VAR: resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node), NULL); break;
     case AST_ASSIGN_VAR: resolve_assign_var(resolver, AS_PTR(AssignVarNode, node)); break;
     case AST_GET_VAR: resolve_get_var(resolver, AS_PTR(GetVarNode, node)); break;
     case AST_SET_PROPERTY: resolve_set_property(resolver, AS_PTR(SetPropertyNode, node)); break;

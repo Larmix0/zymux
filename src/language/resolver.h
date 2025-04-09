@@ -26,6 +26,7 @@ typedef struct {
 
     u32 scope; /** How deep is the variable's scope relative to the closure it's on. */
     u32 index; /** The index it exists on inside the variable array its placed on. */
+    u32 closureIdx; /** The index of the closure its on relative to the locals closure array. */
     Token name; /** Name of the variable. */
 
     /** The current variable's resolution, which all referenced resolutions should be set to. */
