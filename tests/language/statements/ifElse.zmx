@@ -10,8 +10,8 @@ if true {
 }
 assert(ifOnlyExecuted);
 
-// If branch getting executed in a statement that has the optional else.
-if 1 == 1 {
+// If branch getting executed in a statement that has the optional else (using implicit bool value).
+if 7 {
     ifFullExecuted = true;
 } else {
     assert(false, elseMsg);
@@ -45,7 +45,7 @@ if 1 == "z" {
 } else {
     if 3 == 1 {
         assert(false, ifMsg);
-    } else if 10 == 10 {
+    } else if "truthy string" {
         if 111 == 1 {
             assert(false, ifMsg);
         } else if 0.0 == 100 {

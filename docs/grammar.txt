@@ -68,7 +68,7 @@ raiseStmt {
 }
 
 matchStmt {
-    // TODO: might change match syntax, so write this later.
+    "match" "{" ("case" expressionList block)* ("default" block)? "}"
 }
 
 whileStmt {

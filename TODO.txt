@@ -50,6 +50,4 @@ like using mark_obj_array() in the GC instead of manually iterating through the 
 Or do the opposite and potentially even create other useful specific object arrays
 like string arrays.
 
-Add some tests for indirect boolean evaluations (like an if-statement with an int condition).
-
 Allow the null keyword to also act as a data type keyword in "is"/"as" expressions.

@@ -59,6 +59,29 @@ for i in [] {
 }
 
 {
+    // Multiple loop variables.
+    let iteration = 0;
+    for [a, b, c] in [[11, 22, 33], [44, 55, 66], [77, 88, 99]] {
+        if (iteration == 0) {
+            assert(a == 11);
+            assert(b == 22);
+            assert(c == 33);
+        } else if (iteration == 1) {
+            assert(a == 44);
+            assert(b == 55);
+            assert(c == 66);
+        } else if (iteration == 2) {
+            assert(a == 77);
+            assert(b == 88);
+            assert(c == 99);
+        } else {
+            assert(false, $"Unexpected iteration value: {iteration}.");
+        }
+        iteration += 1;
+    }
+}
+
+{
     // breaks/continues on for loops.
     let notContinued = 0;
     let brokeOut = false;
