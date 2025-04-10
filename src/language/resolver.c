@@ -837,16 +837,15 @@ static void resolve_do_while(Resolver *resolver, DoWhileNode *node) {
  */
 static void resolve_for(Resolver *resolver, ForNode *node) {
     push_scope(resolver, SCOPE_NORMAL);
-
-    // TODO: is this ok with multi-declarations? Or just move it down one and don't +1 loopVarSpot.
-    const u32 loopVarSpot = CURRENT_LOCALS(resolver)->length;
     resolve_node(resolver, node->loopVar);
+
+    const u32 loopVarSpot = CURRENT_LOCALS(resolver)->length;
     APPEND_DA(
         CURRENT_LOCALS(resolver),
         create_variable(
             false, false, false, create_token("<iter>", 0), resolver->scopeDepth,
-            loopVarSpot + 1, resolver->locals.length - 1,
-            create_var_resolution(loopVarSpot + 1, VAR_LOCAL), NULL
+            loopVarSpot, resolver->locals.length - 1,
+            create_var_resolution(loopVarSpot, VAR_LOCAL), NULL
         )
     );
     resolve_node(resolver, node->iterable);

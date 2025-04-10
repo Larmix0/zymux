@@ -1,7 +1,6 @@
 CC = gcc
 
-# TODO: add -Werror to CFLAGS later.
-CFLAGS = -Wall -Wextra -Wpedantic -g
+CFLAGS = -Werror -Wall -Wextra -Wpedantic -g
 LDFLAGS = -lm
 
 LIB_DIR = lib
