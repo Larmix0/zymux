@@ -59,11 +59,13 @@ all: $(ZYMUX_EXE)
 tests: unittest langtest
 
 langtest: $(BIN_DIR) $(ZYMUX_EXE)
+	@echo Language tests started.
 ifeq ($(OS), Windows_NT)
-	$(foreach file, $(LANG_SRCS), .\$<\$(ZYMUX_EXE) $(file) || exit 0$(newline)) 
+	@$(foreach file, $(LANG_SRCS), .\$<\$(ZYMUX_EXE) $(file) || exit 0$(newline)) 
 else
-	$(foreach file, $(LANG_SRCS), ./$</$(ZYMUX_EXE) $(file) || true$(newline))
+	@$(foreach file, $(LANG_SRCS), ./$</$(ZYMUX_EXE) $(file) || true$(newline))
 endif
+	@echo Language tests finished.
 
 unittest: $(BIN_DIR) $(SRC_OBJS) $(UNIT_OBJS) $(LUKIP_LIB)
 ifeq ($(OS), Windows_NT)
