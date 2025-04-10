@@ -30,7 +30,7 @@ funcDecl {
 }
 
 classDecl {
-    class name "{" ("init" unnamedFunc | name unnamedFunc)* "}"
+    "class" name "{" ("init" unnamedFunc | name unnamedFunc)* "}"
 }
 
 unnamedFunc {
@@ -109,7 +109,7 @@ expression {
 }
 
 ternary {
-    assignment ("?" expression : expression)?
+    assignment ("?" expression ":" expression)?
 }
 
 assignment {
@@ -172,10 +172,6 @@ binaryDataType {
     unary (("is" | "as") dataTypeKeyword)*
 }
 
-dataTypeKeyword {
-    "int" | "float" | "bool" | "string"
-}
-
 unary {
     ("-" | "!" | "~") unary | call
 }
@@ -210,7 +206,7 @@ list {
 
 primary {
     null | bool | int | float | string | name
-    "bool" | "int" | "float" | "string" | "this" | "(" expression ")"
+    | dataTypeKeyword | "this" | "(" expression ")"
 }
 
 string {
@@ -254,6 +250,10 @@ expressionList {
 
 nameList {
     name ("," name)?
+}
+
+dataTypeKeyword {
+    "int" | "float" | "bool" | "string"
 }
 
 name {
