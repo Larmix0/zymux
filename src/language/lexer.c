@@ -672,6 +672,7 @@ static void escape_character(Lexer *lexer, StringLexer *string, CharBuffer *buff
     case 't': buffer_append_char(buffer, '\t'); break;
     case 'r': buffer_append_char(buffer, '\r'); break;
     case 'b': buffer_append_char(buffer, '\b'); break;
+    case '\\': buffer_append_char(buffer, '\\'); break;
     default: buffer_append_char(buffer, PEEK_NEXT(lexer)); break;
     }
     string->escapes++;

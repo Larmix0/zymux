@@ -22,7 +22,6 @@
             
 #define IS_EOF(parser) (CHECK(parser, TOKEN_EOF))
 
-static Node *assignment(Parser *parser);
 static Node *expression(Parser *parser);
 static Node *declaration(Parser *parser);
 static Node *multi_declaration(Parser *parser, const bool isConst, const bool scanValue);
@@ -312,7 +311,7 @@ static Node *unary(Parser *parser) {
 /** Binary operations relating to data types, like "is" checks and "as" conversions. */
 static Node *binary_data_type(Parser *parser) {
     Node *expr = unary(parser);
-    if (CHECK(parser, TOKEN_IS_KW) || CHECK(parser, TOKEN_AS_KW)) {
+    while (CHECK(parser, TOKEN_IS_KW) || CHECK(parser, TOKEN_AS_KW)) {
         const Token operation = ADVANCE_PEEK(parser);
         Node *dataType = unary(parser);
         if (
@@ -371,13 +370,13 @@ static Node *term(Parser *parser) {
 /** 
  * Includes all binary bitwise operators in one precedence.
  * 
- * so all binary bitwise operationss execute left to right. This does not include the tilde (~),
- * as it's considered a unary operator instead.
+ * so all binary bitwise operationss execute left to right.
+ * This does not include the tilde (~), as it's considered a unary operator instead.
  */
 static Node *binary_bitwise(Parser *parser) {
     Node *expr = term(parser);
     while (
-        CHECK(parser, TOKEN_LSHIFT) || CHECK(parser, TOKEN_RSHIFT) || CHECK(parser, TOKEN_TILDE)
+        CHECK(parser, TOKEN_LSHIFT) || CHECK(parser, TOKEN_RSHIFT)
         || CHECK(parser, TOKEN_BAR) || CHECK(parser, TOKEN_AMPER) || CHECK(parser, TOKEN_CARET)
     ) {
         const Token operation = ADVANCE_PEEK(parser);
@@ -455,7 +454,7 @@ static Node *binary_logical(Parser *parser) {
     Node *expr = range(parser);
     if (CHECK(parser, TOKEN_BAR_BAR) || CHECK(parser, TOKEN_AMPER_AMPER)) {
         const Token operation = ADVANCE_PEEK(parser);
-        Node *rhs = binary_logical(parser);
+        Node *rhs = expression(parser);
         expr = new_binary_node(parser->program, expr, operation, rhs);
     }
     return expr;
@@ -474,7 +473,7 @@ static Node *multi_assignment(Parser *parser, ListNode *list) {
         parser_error_at(parser, leftBracket, false, "Assignment list can't be empty.");
     }
     ADVANCE(parser); // Equal token.
-    Node *value = assignment(parser);
+    Node *value = expression(parser);
 
     NodeArray assigns = CREATE_DA();
     for (u32 i = 0; i < list->items.length; i++) {
@@ -519,7 +518,7 @@ static Node *augmented_assignment(Parser *parser, Node *expr) {
     case TOKEN_CARET_EQ: augAssign.type = TOKEN_CARET; break;
     default: UNREACHABLE_ERROR();
     }
-    Node *value = assignment(parser);
+    Node *value = expression(parser);
     value = new_binary_node(parser->program, expr, augAssign, value);
     return new_assign_var_node(parser->program, AS_PTR(GetVarNode, expr)->name, value);
 }
@@ -533,7 +532,7 @@ static Node *assignment(Parser *parser) {
             return multi_assignment(parser, AS_PTR(ListNode, expr));
         }
         ADVANCE(parser); // Equal token.
-        Node *value = assignment(parser);
+        Node *value = expression(parser);
 
         if (expr->type == AST_GET_VAR) {
             return new_assign_var_node(parser->program, AS_PTR(GetVarNode, expr)->name, value);
@@ -559,11 +558,11 @@ static Node *assignment(Parser *parser) {
 static Node *ternary(Parser *parser) {
     Node *expr = assignment(parser);
     if (MATCH(parser, TOKEN_QUESTION_MARK)) {
-        Node *trueExpr = assignment(parser);
+        Node *trueExpr = expression(parser);
         CONSUME(
             parser, TOKEN_COLON, "Expected ':' after ternary condtion and true case expression."
         );
-        Node *falseExpr = assignment(parser);
+        Node *falseExpr = expression(parser);
         expr = new_ternary_node(parser->program, expr, trueExpr, falseExpr);
     }
     return expr;
@@ -704,7 +703,7 @@ static Node *parse_while(Parser *parser) {
 static Node *parse_do_while(Parser *parser) {
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after 'do'.");
     Node *body = finish_block(parser);
-    CONSUME(parser, TOKEN_WHILE_KW, "Expected 'while' after do while loop's body");
+    CONSUME(parser, TOKEN_WHILE_KW, "Expected 'while' after do while loop's body.");
     Node *condition = expression(parser);
     CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after do while loop's condition.");
     return new_do_while_node(parser->program, condition, AS_PTR(BlockNode, body));
@@ -746,7 +745,7 @@ static Node *parse_loop_control(Parser *parser) {
 static Node *parse_return(Parser *parser) {
     const SourcePosition pos = PEEK_PREVIOUS(parser).pos;
     Node *value = CHECK(parser, TOKEN_SEMICOLON) ? NULL : expression(parser);
-    CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after return statement.");
+    CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after return.");
     return new_return_node(parser->program, value, pos);
 }
 

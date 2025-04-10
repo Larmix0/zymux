@@ -1,0 +1,273 @@
+
+the zymuxProgram rule is the one that gets automatically executed to run a zymux program.
+
+zymuxProgram {
+    declaration*
+}
+
+----------------------------------------------------------------------------------------------------
+DECLARATION:
+    Either declares a name that holds some kind of structured data
+    or acts as a statement if there isn't any name being declared.
+
+declaration {
+    variableDecl
+    | enumDecl
+    | funcDecl
+    | classDecl
+}
+
+variableDecl {
+    ("let" | "const") (name | "[" nameList "]") ("=" expression)? ";"
+}
+
+enumDecl {
+    "enum" name "{" nameList? "}"
+}
+
+funcDecl {
+    "func" name unnamedFunc
+}
+
+classDecl {
+    class name "{" ("init" unnamedFunc | name unnamedFunc)* "}"
+}
+
+unnamedFunc {
+    "(" parameters ")" block
+}
+
+----------------------------------------------------------------------------------------------------
+STATEMENTS:
+    A whole statement which modifies something in the program, but does not declare any new names.
+
+statement {
+    ifElseStmt
+    | tryCatchStmt
+    | raiseStmt
+    | matchStmt
+    | whileStmt
+    | doWhileStmt
+    | forStmt
+    | loopControlStmt
+    | returnStmt
+    | expressionStmt
+    | block
+}
+
+ifElseStmt {
+    "if" expression block ("else" (block | ifElseStmt))?
+}
+
+tryCatchStmt {
+    "try" block "catch" ("as" name)? block
+}
+
+raiseStmt {
+    "raise" expression ";"
+}
+
+matchStmt {
+    // TODO: might change match syntax, so write this later.
+}
+
+whileStmt {
+    "while" expression block
+}
+
+doWhileStmt {
+    "do" block "while" expression ";"
+}
+
+forStmt {
+   "for" (name | "[" nameList "]") "in" expression block
+}
+
+loopControlStmt {
+    "break" | "continue"
+}
+
+returnStmt {
+    "return" (expression)? ";"
+}
+
+expressionStmt {
+    expression ";"
+}
+
+block {
+    "{" declaration* "}"
+}
+
+----------------------------------------------------------------------------------------------------
+EXPRESSIONS:
+    expressions are constructs which resolve into some kind of value, and may or may not
+    change the state of the program. They're typically used inside statements and declarations.
+
+expression {
+    ternary
+}
+
+ternary {
+    assignment ("?" expression : expression)?
+}
+
+assignment {
+    singleAssignment
+    | augmentedAssignment
+    | multiAssignment
+    | binaryLogical
+}
+
+multiAssignment {
+    "[" assignmentName ("," assignmentName)* "]" "=" expression
+}
+
+singleAssignment {
+    assignmentName "=" expression
+}
+
+augmentedAssignment {
+    assignmentName \
+        ("+=" | "-=" | "*=" | "/=" | "%=" | "**=" | "<<=" | ">>=" | "|=" | "&=" | "^=") expression
+}
+
+assignmentName {
+    (call ".")? name
+}
+
+binaryLogical {
+    range ("||" | "&&" expression)
+}
+
+range {
+    equality (".." equality (".." equality)?)?
+}
+
+equality {
+    comparison (("==" | "!=") comparison)*
+}
+
+comparison {
+    binaryBitwise ((">" | ">=" | "<" | "<=") binaryBitwise)
+}
+
+binaryBitwise {
+    term (("<<" | ">>" | "|" | "&" | "^") term)*
+}
+
+term {
+    factor (("+" | "-") factor)*
+}
+
+factor {
+    exponent (("*" | "/" | "%") exponent)*
+}
+
+exponent {
+    binaryDataType ("**" binaryDataType)*
+}
+
+binaryDataType {
+    unary (("is" | "as") dataTypeKeyword)*
+}
+
+dataTypeKeyword {
+    "int" | "float" | "bool" | "string"
+}
+
+unary {
+    ("-" | "!" | "~") unary | call
+}
+
+call {
+    map ("(" arguments? ")" | "." name | subscript)*
+}
+
+arguments {
+    oneArgument ("," oneArgument)
+}
+
+oneArgument {
+    expression | "." name "=" expression
+}
+
+subscript {
+    "[" expression "]" ("=" expression)?
+}
+
+map {
+    "{" (mapEntry ("," mapEntry)*)? "}" | list
+}
+
+mapEntry {
+    expression ":" expression
+}
+
+list {
+    "[" expressionList? "]" | primary
+}
+
+primary {
+    null | bool | int | float | string | name
+    "bool" | "int" | "float" | "string" | "this" | "(" expression ")"
+}
+
+string {
+    "\"" (anyChar | escape)* "\""
+    | "#" "\"" anyChar* "\""
+    | "$" "\"" (anyChar | interpolation | escape)* "\""
+    | ("#$" | "$#") "\"" (anyChar | interpolation)* "\""
+}
+
+interpolation {
+    "{" expression "}"
+}
+
+escape {
+    "\" | "n" | "t" | "r" | "b" | "\"
+}
+
+int {
+    digit+
+}
+
+float {
+    digit+ "." digit+
+}
+
+bool {
+    "true" | "false"
+}
+
+null {
+    "null"
+}
+
+----------------------------------------------------------------------------------------------------
+HELPERS:
+    Frequently repeated patterns.
+
+expressionList {
+    expression ("," expression)*
+}
+
+nameList {
+    name ("," name)?
+}
+
+name {
+    nameChar (nameChar | digit)*
+}
+
+nameChar {
+    "a".."z" | "A".."Z" | "_"
+}
+
+digit {
+    "0".."9"
+}
+
+anyChar {
+    <Any valid character>
+}
