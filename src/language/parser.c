@@ -386,31 +386,6 @@ static Node *binary_bitwise(Parser *parser) {
     return expr;
 }
 
-/** Comparisons handle any comparison operations other than equal and unequal. */
-static Node *comparison(Parser *parser) {
-    Node *expr = binary_bitwise(parser);
-    while (
-        CHECK(parser, TOKEN_GREATER) || CHECK(parser, TOKEN_GREATER_EQ)
-        || CHECK(parser, TOKEN_LESS) || CHECK(parser, TOKEN_LESS_EQ)
-    ) {
-        const Token operation = ADVANCE_PEEK(parser);
-        Node *rhs = binary_bitwise(parser);
-        expr = new_binary_node(parser->program, expr, operation, rhs);
-    }
-    return expr;
-}
-
-/** Precedence of checking equality or inequality. */
-static Node *equality(Parser *parser) {
-    Node *expr = comparison(parser);
-    while (CHECK(parser, TOKEN_EQ_EQ) || CHECK(parser, TOKEN_BANG_EQ)) {
-        const Token operation = ADVANCE_PEEK(parser);
-        Node *rhs = comparison(parser);
-        expr = new_binary_node(parser->program, expr, operation, rhs);
-    }
-    return expr;
-}
-
 /** 
  * Return a potentially extended version of pos using the passed extension position if appropriate.
  * Otherwise (like them not being on the same line), it will just return back pos as is. 
@@ -431,14 +406,14 @@ static SourcePosition extended_position(SourcePosition pos, const Token extensio
  */
 static Node *range(Parser *parser) {
     SourcePosition rangePos = PEEK(parser).pos;
-    Node *expr = equality(parser);
+    Node *expr = binary_bitwise(parser);
     if (MATCH(parser, TOKEN_DOT_DOT)) {
-        Node *end = equality(parser);
+        Node *end = binary_bitwise(parser);
         rangePos = extended_position(rangePos, PEEK_PREVIOUS(parser));
 
         Node *step;
         if (MATCH(parser, TOKEN_DOT_DOT)) {
-            step = equality(parser);
+            step = binary_bitwise(parser);
             rangePos = extended_position(rangePos, PEEK_PREVIOUS(parser));
         } else {
             // Default step of 1.
@@ -449,9 +424,34 @@ static Node *range(Parser *parser) {
     return expr;
 }
 
+/** Comparisons handle any comparison operations other than equal and unequal. */
+static Node *comparison(Parser *parser) {
+    Node *expr = range(parser);
+    while (
+        CHECK(parser, TOKEN_GREATER) || CHECK(parser, TOKEN_GREATER_EQ)
+        || CHECK(parser, TOKEN_LESS) || CHECK(parser, TOKEN_LESS_EQ)
+    ) {
+        const Token operation = ADVANCE_PEEK(parser);
+        Node *rhs = range(parser);
+        expr = new_binary_node(parser->program, expr, operation, rhs);
+    }
+    return expr;
+}
+
+/** Precedence of checking equality or inequality. */
+static Node *equality(Parser *parser) {
+    Node *expr = comparison(parser);
+    while (CHECK(parser, TOKEN_EQ_EQ) || CHECK(parser, TOKEN_BANG_EQ)) {
+        const Token operation = ADVANCE_PEEK(parser);
+        Node *rhs = comparison(parser);
+        expr = new_binary_node(parser->program, expr, operation, rhs);
+    }
+    return expr;
+}
+
 /** Handles binary logical operators (like "||" and "&&"). */
 static Node *binary_logical(Parser *parser) {
-    Node *expr = range(parser);
+    Node *expr = equality(parser);
     if (CHECK(parser, TOKEN_BAR_BAR) || CHECK(parser, TOKEN_AMPER_AMPER)) {
         const Token operation = ADVANCE_PEEK(parser);
         Node *rhs = expression(parser);

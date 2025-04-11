@@ -1,0 +1,35 @@
+"";
+'';
+"Bare string.";
+"Bare string with escapes: \n\n";
+
+// Ensure that making raw/interpolated strings don't cause unexpected crashes.
+$"";
+#'';
+#$"";
+#"Raw \n\n only.";
+$"Interpolated but not using interpolation.";
+$"Interpolation with 1 + 1 = {1 + 1}";
+#$"Raw and {'inter' + 'polated'} \n\n";
+$#"Interpolated and {'raw' + ' so order doesn\'t matter (and escaped quote too).'}";
+"Escaped \"double\" quotes.";
+
+// Different interpolation edge cases.
+$"start {'Interpolation end'}";
+$"{'Interpolation start'} end.";
+$"{'Interpolated only'}";
+
+// Type of quote/type of string doesn't matter if content stays identical.
+assert("hi" == "hi");
+assert('hi' == "hi");
+assert($"hi" == 'hi');
+assert(#"hi" == $"hi");
+
+// Raw does change escapes.
+assert(#"hi \t" == #"hi \t");
+assert(#"hi \t" != "hi \t");
+
+// Interpolation does use the braces.
+assert($"start {'interpolation'}" == $"start {'inter' + 'polation'}");
+assert($"start {'interpolation'}" != "start {'inter' + 'polation'}");
+assert($"1 + 1 = {1 + 1}" == "1 + 1 = 2");

@@ -533,7 +533,8 @@ static bool equal_maps(MapObj *left, MapObj *right) {
         Entry *leftEntry = &left->table.entries[i];
         Entry *rightEntry = table_key_entry(&right->table, left->table.entries[i].key);
         if (
-            !equal_obj(leftEntry->key, rightEntry->key)
+            EMPTY_ENTRY(rightEntry)
+            || !equal_obj(leftEntry->key, rightEntry->key)
             || !equal_obj(leftEntry->value, rightEntry->value)
         ) {
             return false;

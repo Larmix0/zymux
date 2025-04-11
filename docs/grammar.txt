@@ -137,11 +137,7 @@ assignmentName {
 }
 
 binaryLogical {
-    range ("||" | "&&" expression)
-}
-
-range {
-    equality (".." equality (".." equality)?)?
+    equality ("||" | "&&" expression)
 }
 
 equality {
@@ -149,7 +145,11 @@ equality {
 }
 
 comparison {
-    binaryBitwise ((">" | ">=" | "<" | "<=") binaryBitwise)
+    range ((">" | ">=" | "<" | "<=") range)
+}
+
+range {
+    binaryBitwise (".." binaryBitwise (".." binaryBitwise)?)?
 }
 
 binaryBitwise {

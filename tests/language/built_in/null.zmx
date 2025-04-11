@@ -1,0 +1,3 @@
+// This thing is just to make sure that mentioning null works and doesn't just crash.
+null;
+assert(null == null);
