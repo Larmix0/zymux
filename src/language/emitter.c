@@ -129,7 +129,7 @@ void emit_number(Compiler *compiler, const u8 instr, const u32 number, const Sou
 
     if (numSize == INSTR_ONE_BYTE) {
         emit_instr(compiler, instr, pos);
-    } else if (numSize == INSTR_ONE_BYTE) {
+    } else if (numSize == INSTR_TWO_BYTES) {
         emit_instr(compiler, OP_ARG_16, pos);
         emit_instr(compiler, instr, pos);
         numIdx++;

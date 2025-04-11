@@ -49,5 +49,3 @@ Use a normal obj array struct for captured objects to potentially achieve unifor
 like using mark_obj_array() in the GC instead of manually iterating through the obj array.
 Or do the opposite and potentially even create other useful specific object arrays
 like string arrays.
-
-Allow the null keyword to also act as a data type keyword in "is"/"as" expressions.
