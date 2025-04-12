@@ -62,7 +62,7 @@ typedef struct Vm {
     InstrSize instrSize; /** The size of the number instruction to be read after the opcode. */
     CallStack callStack; /** Holds the entire call stack of stack frames. */
     StackFrame *frame; /** The current frame which holds the bytecode we're executing. */
-    CapturedObjArray openCaptures; /** Captures whose locals are still alive on the stack. */
+    ObjArray openCaptures; /** Captures whose locals are still alive on the stack. */
     Table globals; /** A table of global variable key names and values. */
     CatchStateArray catches; /** Saved states for caught errors where last item is closest catch. */
 

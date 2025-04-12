@@ -230,7 +230,7 @@ static void catch_error(Vm *vm, StringObj *errorMessage) {
 
     u32 capturePops = 0;
     if (catch.func->isClosure) {
-        CapturedObjArray *captures = &AS_PTR(RuntimeFuncObj, catch.func)->captures;
+        ObjArray *captures = &AS_PTR(RuntimeFuncObj, catch.func)->captures;
         capturePops = captures->length - catch.capturesAmount;
         DROP_AMOUNT_DA(captures, capturePops);
     }
@@ -804,7 +804,7 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
  */
 static void close_captures(Vm *vm, const u32 pops) {
     for (i64 i = (i64)vm->openCaptures.length - 1; i >= 0; i--) {
-        CapturedObj *toClose = vm->openCaptures.data[i];
+        CapturedObj *toClose = AS_PTR(CapturedObj, vm->openCaptures.data[i]);
         if (toClose->stackLocation >= STACK_LENGTH(vm) - pops) {
             toClose->isOpen = false;
             toClose->captured = vm->stack.objects[toClose->stackLocation];
@@ -836,7 +836,7 @@ static void call_return(Vm *vm) {
 /** Captures a variable by creating a capture object and placing it in the appropriate places. */
 static void capture_variable(Vm *vm, Obj *capturedObj, const u32 stackLocation) {
     RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, vm->frame->func);
-    CapturedObj *capture = new_captured_obj(vm->program, capturedObj, stackLocation);
+    Obj *capture = AS_OBJ(new_captured_obj(vm->program, capturedObj, stackLocation));
     APPEND_DA(&closure->captures, capture);
     APPEND_DA(&vm->openCaptures, capture);
 }
@@ -1108,7 +1108,7 @@ static bool execute_vm(Vm *vm) {
         case OP_ASSIGN_CAPTURED: {
             ASSERT(vm->frame->func->isClosure, "Tried to assign captured inside non-closure.");
             RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, vm->frame->func);
-            CapturedObj *capture = closure->captures.data[READ_NUMBER(vm)];
+            CapturedObj *capture = AS_PTR(CapturedObj, closure->captures.data[READ_NUMBER(vm)]);
 
             if (capture->isOpen) {
                 vm->stack.objects[capture->stackLocation] = PEEK(vm);
@@ -1120,7 +1120,7 @@ static bool execute_vm(Vm *vm) {
         case OP_GET_CAPTURED: {
             ASSERT(vm->frame->func->isClosure, "Tried to get captured inside non-closure.");
             RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, vm->frame->func);
-            CapturedObj *capture = closure->captures.data[READ_NUMBER(vm)];
+            CapturedObj *capture = AS_PTR(CapturedObj, closure->captures.data[READ_NUMBER(vm)]);
 
             if (capture->isOpen) {
                 PUSH(vm, vm->stack.objects[capture->stackLocation]);

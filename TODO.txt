@@ -44,8 +44,3 @@ only when fields and methods are added to built-in objects.
 Improve the positioning of some bytecode for error handling.
 
 ----------------------------------------------------------------------------------------------------
-
-Use a normal obj array struct for captured objects to potentially achieve uniformity,
-like using mark_obj_array() in the GC instead of manually iterating through the obj array.
-Or do the opposite and potentially even create other useful specific object arrays
-like string arrays.

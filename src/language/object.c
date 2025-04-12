@@ -833,8 +833,8 @@ void free_obj(Obj *object) {
         FuncObj *func = AS_PTR(FuncObj, object);
         if (func->hasOptionals || func->isClosure) {
             RuntimeFuncObj *runtimeFunc = AS_PTR(RuntimeFuncObj, func);
-            FREE_DA(&runtimeFunc->captures);
             FREE_DA(&runtimeFunc->paramVals);
+            FREE_DA(&runtimeFunc->captures);
             if (runtimeFunc->isToplevel) {
                 free_func_obj(func); // Top-level gets one func that is also a closure, so free it.
             }

@@ -149,7 +149,7 @@ typedef struct {
     /** The maximum amount of arguments that this function takes (includes optional arguments). */
     u32 maxArity;
 
-    /** An ordered array of the names of the function's optional parameters. */
+    /** An ordered array of the string names of the function's optional parameters. */
     ObjArray names;
 
     /** An ordered array of the default value for each one of the function's optional parameters. */
@@ -205,9 +205,6 @@ typedef struct {
     Obj *captured; /** The final object of the local variable which was captured. */
 } CapturedObj;
 
-/** An array of captured objects. */
-DECLARE_DA_STRUCT(CapturedObjArray, CapturedObj *);
-
 /** 
  * A runtime-created function which wraps over a function with static info. Not an object by itself.
  * 
@@ -230,11 +227,11 @@ typedef struct {
     /** Whether this represents the top-level code, or any other function. */
     bool isToplevel;
 
-    /** The runtime value of each optional param of the function. NULL for each mandatory param. */
+    /** The runtime value of each parameter of the function. NULL for each mandatory param first. */
     ObjArray paramVals;
 
     /** An array of captured objects that store indirect references to variables closed over. */
-    CapturedObjArray captures;
+    ObjArray captures;
 } RuntimeFuncObj;
 
 /** Represents a class, which has a name, initializer, and methods. */

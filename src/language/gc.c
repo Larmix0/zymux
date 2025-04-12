@@ -78,9 +78,7 @@ static void mark_obj(Obj *object) {
             // Mark the closure context of a function with a closure extension.
             RuntimeFuncObj *runtimeFunc = AS_PTR(RuntimeFuncObj, object);
             mark_obj_array(runtimeFunc->paramVals);
-            for (u32 i = 0; i < runtimeFunc->captures.length; i++) {
-                mark_obj(AS_OBJ(runtimeFunc->captures.data[i]));
-            }
+            mark_obj_array(runtimeFunc->captures);
         }
         break;
     }
@@ -146,6 +144,10 @@ static void mark_vm(Vm *vm) {
     for (u32 i = 0; i < vm->callStack.length; i++) {
         mark_obj(AS_OBJ(vm->callStack.data[i].func));
     }
+    for (u32 i = 0; i < vm->catches.length; i++) {
+        mark_obj(AS_OBJ(vm->catches.data[i].func));
+    }
+    mark_obj_array(vm->openCaptures);
     mark_table(vm->globals);
 }
 
