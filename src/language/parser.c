@@ -124,6 +124,18 @@ static Node *parse_string(Parser *parser) {
     return new_string_node(parser->program, exprs, pos);
 }
 
+/** Parser a "super" keyword and its property access. */
+static Node *parse_super(Parser *parser) {
+    const SourcePosition pos = PEEK_PREVIOUS(parser).pos;
+    Node *instanceGet = new_get_var_node(parser->program, create_token("this", TOKEN_THIS_KW));
+
+    CONSUME(parser, TOKEN_DOT, "Expected '.' after 'super'.");
+    const Token property = CONSUME(
+        parser, TOKEN_IDENTIFIER, "Expected super class property after '.'."
+    );
+    return new_get_super_node(parser->program, property, AS_PTR(GetVarNode, instanceGet), pos);
+}
+
 /** 
  * Parses and returns a primary.
  * 
@@ -139,14 +151,19 @@ static Node *primary(Parser *parser) {
     case TOKEN_BOOL_KW:
     case TOKEN_STRING_KW:
         return new_keyword_node(parser->program, PEEK_PREVIOUS(parser));
+        
     case TOKEN_THIS_KW:
         return new_get_var_node(parser->program, PEEK_PREVIOUS(parser));
+    case TOKEN_SUPER_KW:
+        return parse_super(parser);
+
     case TOKEN_INT_LIT:
     case TOKEN_FLOAT_LIT:
         return new_literal_node(parser->program, PEEK_PREVIOUS(parser));
     case TOKEN_STRING_LIT:
-        RETREAT(parser); // Leave parsing the whole string to the string parser.
+        RETREAT(parser); // Leave parsing the whole string to the string parsing function.
         return parse_string(parser);
+
     case TOKEN_IDENTIFIER:
         return new_get_var_node(parser->program, PEEK_PREVIOUS(parser));
     case TOKEN_LPAR: {
@@ -922,24 +939,24 @@ static Node *parse_func(Parser *parser) {
 }
 
 /** Handles parsing one method (or initializers) and putting it inside the class node. */
-static void class_method(Parser *parser, ClassNode *classNode) {
+static void class_method(Parser *parser, ClassNode *cls) {
     if (CHECK(parser, TOKEN_INIT_KW)) {
-        if (classNode->init) {
+        if (cls->init) {
             parser_error_at(
                 parser, PEEK(parser), false, "Can't have multiple intializers in class."
             );
         }
-        classNode->init = AS_PTR(FuncNode, named_func(parser, ADVANCE_PEEK(parser)));
+        cls->init = AS_PTR(FuncNode, named_func(parser, ADVANCE_PEEK(parser)));
     } else {
-        APPEND_DA(&classNode->methods, parse_func(parser));
+        APPEND_DA(&cls->methods, parse_func(parser));
     }
 }
 
 /** Handles parsing a class's body, and adds its information to the class node. */
-static void class_body(Parser *parser, ClassNode *classNode) {
+static void class_body(Parser *parser, ClassNode *cls) {
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' for the class body.");
     while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
-        class_method(parser, classNode);
+        class_method(parser, cls);
     }
     CONSUME(parser, TOKEN_RCURLY, "Expected '}' at the end of class.");
 }
@@ -948,10 +965,16 @@ static void class_body(Parser *parser, ClassNode *classNode) {
 static Node *parse_class(Parser *parser) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected class name.");
     DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser->program, name);
-    ClassNode *classNode = AS_PTR(ClassNode, new_class_node(parser->program, declaration));
+    ClassNode *cls = AS_PTR(ClassNode, new_class_node(parser->program, declaration));
 
-    class_body(parser, classNode);
-    return AS_NODE(classNode);
+    if MATCH(parser, TOKEN_INHERITS_KW) {
+        cls->superclass = AS_PTR(GetVarNode, new_get_var_node(
+            parser->program,
+            CONSUME(parser, TOKEN_IDENTIFIER, "Expected superclass name after 'inherits'.")
+        ));
+    }
+    class_body(parser, cls);
+    return AS_NODE(cls);
 }
 
 /** 

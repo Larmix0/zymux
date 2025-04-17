@@ -231,6 +231,12 @@ static void append_get_property(AstBuilder *ast, const GetPropertyNode *node) {
     buffer_append_token(&ast->string, node->property);
 }
 
+/** Appends a get "super" keyword node, with the property that's accessed. */
+static void append_get_super(AstBuilder *ast, const GetSuperNode *node) {
+    buffer_append_string(&ast->string, "super.");
+    buffer_append_token(&ast->string, node->property);
+}
+
 /** Appends a multi-declaration statement's declared names and the value they're set to. */
 static void append_multi_declare(AstBuilder *ast, const MultiDeclareNode *node) {
     buffer_append_string(&ast->string, "<multi declare> ");
@@ -374,6 +380,10 @@ static void append_func(AstBuilder *ast, const FuncNode *node) {
 static void append_class(AstBuilder *ast, const ClassNode *node) {
     buffer_append_string(&ast->string, "<class> ");
     buffer_append_token(&ast->string, node->nameDecl->name);
+    if (node->superclass) {
+        buffer_append_string(&ast->string, "<inherits> ");
+        append_node(ast, AS_NODE(node->superclass));
+    }
 
     append_node(ast, AS_NODE(node->init));
     append_node_array(ast, &node->methods);
@@ -418,6 +428,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_GET_VAR: append_get_var(ast, AS_PTR(GetVarNode, node)); break;
     case AST_SET_PROPERTY: append_set_property(ast, AS_PTR(SetPropertyNode, node)); break;
     case AST_GET_PROPERTY: append_get_property(ast, AS_PTR(GetPropertyNode, node)); break;
+    case AST_GET_SUPER: append_get_super(ast, AS_PTR(GetSuperNode, node)); break;
     case AST_MULTI_DECLARE: append_multi_declare(ast, AS_PTR(MultiDeclareNode, node)); break;
     case AST_MULTI_ASSIGN: append_multi_assign(ast, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: append_if_else(ast, AS_PTR(IfElseNode, node)); break;

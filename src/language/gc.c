@@ -72,6 +72,7 @@ static void mark_obj(Obj *object) {
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);
         mark_obj(AS_OBJ(func->name));
+        mark_obj(AS_OBJ(func->cls));
         mark_obj_array(func->constPool);
         mark_func_params(func->params);
         if (func->hasOptionals || func->isClosure) {
@@ -87,6 +88,7 @@ static void mark_obj(Obj *object) {
         break;
     case OBJ_CLASS:
         mark_obj(AS_OBJ(AS_PTR(ClassObj, object)->name));
+        mark_obj(AS_OBJ(AS_PTR(ClassObj, object)->superclass));
         mark_obj(AS_OBJ(AS_PTR(ClassObj, object)->init));
         mark_table(AS_PTR(ClassObj, object)->methods);
         break;

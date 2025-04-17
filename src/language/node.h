@@ -40,6 +40,7 @@ typedef enum {
     AST_GET_VAR,
     AST_SET_PROPERTY,
     AST_GET_PROPERTY,
+    AST_GET_SUPER,
     AST_MULTI_DECLARE,
     AST_MULTI_ASSIGN,
     AST_IF_ELSE,
@@ -260,6 +261,20 @@ typedef struct {
 } SetPropertyNode;
 
 /** 
+ * Represents a "super" keyword with a mandatory "." and property after it.
+ * 
+ * The reason a property is mandatory after usage of super is that if the keyword simply resolved
+ * to the superclass, then it would be calling methods with a class (not an instance),
+ * which is invalid.
+ */
+typedef struct {
+    Node node;
+    Token property; /** The token name of the property that comes after the mandatory ".". */
+    GetVarNode *instanceGet; /** The implicit instance variable get to find the superclass. */
+    SourcePosition pos; /** The actual position of the "super" keyword token. */
+} GetSuperNode;
+
+/** 
  * Declares multiple variables at once (which are supposed to have not been declared beforehand).
  * 
  * They're set to elements in an iterable value, and if the value is a C NULL,
@@ -401,6 +416,7 @@ typedef struct {
 typedef struct {
     Node node;
     DeclareVarNode *nameDecl;
+    GetVarNode *superclass; /** NULL if the class doesn't inherit anything. */
     FuncNode *init; /** NULL if there isn't an initializer. */
     NodeArray methods;
 } ClassNode;
@@ -484,6 +500,11 @@ Node *new_get_var_node(ZmxProgram *program, const Token name);
 
 /** Allocates a node which declares/assigns a property in some object. */
 Node *new_set_property_node(ZmxProgram *program, GetPropertyNode *get, Node *value);
+
+/** Returns a "super" keyword usage with a property that's gotten from the superclass. */
+Node *new_get_super_node(
+    ZmxProgram *program, const Token property, GetVarNode *instanceGet, const SourcePosition pos
+);
 
 /** Allocates a node which holds a property access into some object. */
 Node *new_get_property_node(ZmxProgram *program, const Token property, Node *originalObj);

@@ -27,6 +27,7 @@
 
 typedef struct ZmxProgram ZmxProgram;
 typedef struct Obj Obj;
+typedef struct ClassObj ClassObj;
 
 /** Represents all the different types of objects in Zymux in an enum. */
 typedef enum {
@@ -181,6 +182,9 @@ typedef struct {
     /** The pool which we store constant objects inside of (objects created at compile time). */
     ObjArray constPool;
 
+    /** The class this function is tied to if it's a method. NULL if it's not a method. */
+    ClassObj *cls;
+
     /** 
      * Static information about the parameters of the function.
      * 
@@ -235,9 +239,10 @@ typedef struct {
 } RuntimeFuncObj;
 
 /** Represents a class, which has a name, initializer, and methods. */
-typedef struct {
+typedef struct ClassObj {
     Obj obj;
     StringObj *name;
+    ClassObj *superclass;
     FuncObj *init;
     Table methods;
 } ClassObj;

@@ -165,9 +165,10 @@ FuncObj *new_func_obj(
     ZmxProgram *program, StringObj *name, const u32 minArity, const u32 maxArity
 ) {
     FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);
+    object->name = name;
     object->hasOptionals = false;
     object->isClosure = false;
-    object->name = name;
+    object->cls = NULL;
 
     object->params.minArity = minArity;
     object->params.maxArity = maxArity;
@@ -234,6 +235,8 @@ RuntimeFuncObj *new_runtime_func_obj(
 ClassObj *new_class_obj(ZmxProgram *program, StringObj *name) {
     ClassObj *object = NEW_OBJ(program, OBJ_CLASS, ClassObj);
     object->name = name;
+    
+    object->superclass = NULL;
     object->init = NULL;
     object->methods = create_table();
     return object;

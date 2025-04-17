@@ -35,7 +35,8 @@ Resolver create_resolver(ZmxProgram *program, NodeArray ast) {
     Resolver resolver = {
         .program = program, .ast = ast,
         .globals = empty_closure(), .locals = CREATE_DA(),
-        .loopScopes = CREATE_DA(), .scopeDepth = 0, .currentFunc = FUNC_NONE
+        .loopScopes = CREATE_DA(), .scopeDepth = 0,
+        .currentFunc = FUNC_NONE, .currentCls = CLS_NONE
     };
     // Add the permanent closure for locals not covered by functions (like vars in global loops).
     APPEND_DA(&resolver.locals, empty_closure());
@@ -740,6 +741,18 @@ static void resolve_get_property(Resolver *resolver, GetPropertyNode *node) {
     resolve_node(resolver, node->originalObj);
 }
 
+/** Resolves accessing a property inside a "super" keyword. */
+static void resolve_super(Resolver *resolver, GetSuperNode *node) {
+    if (resolver->currentCls != CLS_SUBCLASS) {
+        resolution_error(
+            resolver, get_node_pos(AS_NODE(node)), "Can only use 'super' inside a subclass."
+        );
+        return;
+    }
+    // Resolves the instance variable, which'll be used to find the superclass later.
+    resolve_get_var(resolver, node->instanceGet);
+}
+
 /** Resolves all variables of a multi-variable declaration and the value they're destructuring. */
 static void resolve_multi_declare(Resolver *resolver, MultiDeclareNode *node) {
     resolve_node_array(resolver, &node->declarations);
@@ -978,6 +991,17 @@ static void resolve_func(Resolver *resolver, FuncNode *node, const FuncType type
     resolver->currentFunc = previous;
 }
 
+/** Checks if a class's inheritance name is itself. Errors out if so. */
+static void check_inherits_self(Resolver *resolver, ClassNode *node) {
+    const Token clsName = node->nameDecl->name;
+    const Token superclassName = node->superclass->name;
+    if (equal_token(clsName, superclassName)) {
+        resolution_error(
+            resolver, get_node_pos(AS_NODE(node->superclass)), "Class can't inherit itself."
+        );
+    }
+}
+
 /** 
  * Resolves a class's variable declaration, initializer (if there's one), and all methods.
  * 
@@ -990,6 +1014,14 @@ static void resolve_func(Resolver *resolver, FuncNode *node, const FuncType type
 static void resolve_class(Resolver *resolver, ClassNode *node) {
     resolve_declare_var(resolver, node->nameDecl, NULL);
 
+    const ClsType previous = resolver->currentCls;
+    resolver->currentCls = CLS_CLASS;
+    if (node->superclass) {
+        resolver->currentCls = CLS_SUBCLASS;
+        check_inherits_self(resolver, node);
+        resolve_get_var(resolver, node->superclass);
+    }
+    
     push_scope(resolver, SCOPE_NORMAL);
     if (node->init) {
         push_scope(resolver, SCOPE_NORMAL);
@@ -1002,6 +1034,7 @@ static void resolve_class(Resolver *resolver, ClassNode *node) {
         pop_scope(resolver, SCOPE_NORMAL);
     }
     pop_scope(resolver, SCOPE_NORMAL);
+    resolver->currentCls = previous;
 }
 
 /** Resolves the passed nodes and anything inside it that requires resolution. */
@@ -1029,6 +1062,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_GET_VAR: resolve_get_var(resolver, AS_PTR(GetVarNode, node)); break;
     case AST_SET_PROPERTY: resolve_set_property(resolver, AS_PTR(SetPropertyNode, node)); break;
     case AST_GET_PROPERTY: resolve_get_property(resolver, AS_PTR(GetPropertyNode, node)); break;
+    case AST_GET_SUPER: resolve_super(resolver, AS_PTR(GetSuperNode, node)); break;
     case AST_MULTI_DECLARE: resolve_multi_declare(resolver, AS_PTR(MultiDeclareNode, node)); break;
     case AST_MULTI_ASSIGN: resolve_multi_assign(resolver, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: resolve_if_else(resolver, AS_PTR(IfElseNode, node)); break;

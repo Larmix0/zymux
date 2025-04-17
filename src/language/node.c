@@ -222,6 +222,17 @@ Node *new_get_property_node(ZmxProgram *program, const Token property, Node *ori
     return AS_NODE(node);
 }
 
+/** Returns a "super" keyword get with a property that's gotten from the superclass. */
+Node *new_get_super_node(
+    ZmxProgram *program, const Token property, GetVarNode *instanceGet, const SourcePosition pos
+) {
+    GetSuperNode *node = NEW_NODE(program, AST_GET_SUPER, GetSuperNode);
+    node->property = property;
+    node->instanceGet = instanceGet;
+    node->pos = pos;
+    return AS_NODE(node);
+}
+
 /** Allocates a node for declaring multiple variables in one declarative statement. */
 Node *new_multi_declare_node(
     ZmxProgram *program, const NodeArray declarations, Node *value,
@@ -381,6 +392,7 @@ Node *new_class_node(ZmxProgram *program, DeclareVarNode *nameDecl) {
     ClassNode *node = NEW_NODE(program, AST_CLASS, ClassNode);
     node->nameDecl = nameDecl;
 
+    node->superclass = NULL;
     node->init = NULL;
     INIT_DA(&node->methods);
     return AS_NODE(node);
@@ -422,6 +434,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_GET_VAR: return AS_PTR(GetVarNode, node)->name.pos;
     case AST_SET_PROPERTY: return get_node_pos(AS_NODE(AS_PTR(SetPropertyNode, node)->get));
     case AST_GET_PROPERTY: return AS_PTR(GetPropertyNode, node)->property.pos;
+    case AST_GET_SUPER: return AS_PTR(GetSuperNode, node)->pos;
     case AST_MULTI_DECLARE: return AS_PTR(MultiDeclareNode, node)->pos;
     case AST_MULTI_ASSIGN: return AS_PTR(MultiAssignNode, node)->pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
@@ -500,6 +513,7 @@ static void free_node(Node *node) {
     case AST_GET_VAR:
     case AST_SET_PROPERTY:
     case AST_GET_PROPERTY:
+    case AST_GET_SUPER:
     case AST_IF_ELSE:
     case AST_TRY_CATCH:
     case AST_RAISE:

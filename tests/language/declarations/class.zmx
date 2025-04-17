@@ -34,3 +34,56 @@ noInit.methodA(outerA, outerB);
 
 let withInit = WithInit(outerA, outerB, outerC);
 withInit.methodA();
+
+// Basic inheritance.
+class Superclass {
+    getName() {
+        return "inherited";
+    }
+}
+
+class Subclass inherits Superclass {
+    getName() {
+        return super.getName();
+    }
+}
+assert(Subclass().getName() == "inherited");
+
+// More complicated inheritance where "super" is used to access an overridden method.
+class Top {
+    getName() {
+        return "top";
+    }
+}
+
+class Middle inherits Top {
+    getName() {
+        return "middle";
+    }
+
+    getSuper() {
+        return super.getName();
+    }
+}
+
+class OverridingBottom inherits Middle {
+    getName() {
+        return "bottom";
+    }
+
+    getMiddleName() {
+        return super.getName();
+    }
+
+    getSuper() {
+        return super.getSuper();
+    }
+}
+
+class EmptyBottom inherits Middle {}
+
+assert(EmptyBottom().getSuper() == "top");
+assert(Middle().getSuper() == "top");
+assert(OverridingBottom().getSuper() == "top");
+assert(OverridingBottom().getMiddleName() == "middle");
+assert(OverridingBottom().getName() == "bottom");

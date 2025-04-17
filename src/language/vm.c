@@ -544,6 +544,24 @@ static bool set_property(Vm *vm, Obj *originalObj, StringObj *name, Obj *value) 
     return true;
 }
 
+/** 
+ * Tries to return a method if the passed class or its superclasses have it. Returns NULL if not.
+ * 
+ * First looks to see if the class has that method directly implemented, if not it recursively
+ * calls to see if the superclass has it, which will check its own methods and its superclass
+ * if it also has own. This goes on until a method is found or NULL is returned.
+ */
+static Obj *find_method(ClassObj *cls, StringObj *name) {
+    Obj *method = table_get(&cls->methods, AS_OBJ(name));
+    if (method) {
+        return method;
+    } else if (cls->superclass) {
+        return find_method(cls->superclass, name);
+    } else {
+        return NULL; // Couldn't find the method and don't have a superclass to look into.
+    }
+}
+
 /** Access a property inside some object that might have multiple properties inside it. */
 static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
     switch (originalObj->type) {
@@ -554,7 +572,7 @@ static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
             PEEK(vm) = field;
             return true;
         }
-        Obj *method = table_get(&instance->cls->methods, AS_OBJ(name));
+        Obj *method = find_method(instance->cls, name);
         if (method) {
             PEEK(vm) = AS_OBJ(new_method_obj(vm->program, instance, AS_PTR(FuncObj, method)));
             return true;
@@ -569,7 +587,7 @@ static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
             RUNTIME_ERROR(vm, "No enum member called '%s'.", name->string);
             return false;
         }
-        ASSERT(propertyIdx->type == OBJ_INT, "Expected enum lookup table value to be int.");
+        ASSERT(propertyIdx->type == OBJ_INT, "Enum lookup table value wasn't an integer.");
         PEEK(vm) = enumObj->members.data[AS_PTR(IntObj, propertyIdx)->number];
         break;
     }
@@ -1146,6 +1164,24 @@ static bool execute_vm(Vm *vm) {
             }
             break;
         }
+        case OP_GET_SUPER: {
+            ASSERT(PEEK(vm)->type == OBJ_INSTANCE, "Expected stack top to be instance for super.");
+            ASSERT(vm->frame->func->cls != NULL, "Tried to get super outside a class method.");
+            InstanceObj *instance = AS_PTR(InstanceObj, PEEK(vm));
+            StringObj *name = AS_PTR(StringObj, READ_CONST(vm));
+            ClassObj *superclass = vm->frame->func->cls->superclass;
+
+            if (superclass == NULL) {
+                VM_LOOP_RUNTIME_ERROR(vm, "Can't use superclass on class without inheritance.");
+            }
+            Obj *method = find_method(superclass, name);
+            if (method) {
+                PEEK(vm) = AS_OBJ(new_method_obj(vm->program, instance, AS_PTR(FuncObj, method)));
+            } else {
+                VM_LOOP_RUNTIME_ERROR(vm, "Couldn't find method '%s' in superclass.", name->string);
+            }
+            break;
+        }
         case OP_DESTRUCTURE: {
             const u32 amount = READ_NUMBER(vm);
             if (!destructure(vm, amount)) {
@@ -1270,20 +1306,33 @@ static bool execute_vm(Vm *vm) {
             PUSH(vm, AS_OBJ(cls));
             break;
         }
+        case OP_INHERIT: {
+            if (PEEK(vm)->type != OBJ_CLASS) {
+                VM_LOOP_RUNTIME_ERROR(
+                    vm, "Inherited name must be class, but got %s.", obj_type_str(PEEK(vm)->type)
+                );
+            }
+            ClassObj *superclass = AS_PTR(ClassObj, PEEK(vm));
+            ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(vm, 1));
+            cls->superclass = superclass;
+            DROP(vm);
+            break;
+        }
+        case OP_ADD_INIT: {
+            ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(vm, 1));
+            cls->init = AS_PTR(FuncObj, POP(vm));
+            break;
+        }
         case OP_ADD_METHODS: {
             const u32 amount = READ_NUMBER(vm);
             ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(vm, amount));
             for (u32 i = 0; i < amount; i++) {
                 // Order of appending doesn't matter since we're using a hash table.
                 FuncObj *method = AS_PTR(FuncObj, PEEK_DEPTH(vm, i));
+                method->cls = cls; // Sets the class of the function that is now a method.
                 table_set(&cls->methods, AS_OBJ(method->name), AS_OBJ(method));
             }
             DROP_AMOUNT(vm, amount);
-            break;
-        }
-        case OP_ADD_INIT: {
-            ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(vm, 1));
-            cls->init = AS_PTR(FuncObj, POP(vm));
             break;
         }
         case OP_JUMP: {

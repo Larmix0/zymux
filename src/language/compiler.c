@@ -488,6 +488,21 @@ static void compile_get_property(Compiler *compiler, const GetPropertyNode *node
 }
 
 /** 
+ * Compiles getting the property of a "super" keyword, which access a superclass.
+ * 
+ * First compiles getting the instance so it's at the top of the stack, then emits a "super" get
+ * instruction that gets a specific method name const from the superclass, which is found
+ * inside the loaded instance's class at runtime.
+ */
+static void compile_get_super(Compiler *compiler, const GetSuperNode *node) {
+    compile_get_var(compiler, node->instanceGet);
+    Obj *property = AS_OBJ(new_string_obj(
+        compiler->program, node->property.lexeme, node->property.pos.length
+    ));
+    emit_const(compiler, OP_GET_SUPER, property, get_node_pos(AS_NODE(node)));   
+}
+
+/** 
  * Compiles multiple declarations on the stack in a row.
  * 
  * First either loads an amount of nulls equal to the variables declared if it's an implicit
@@ -1029,17 +1044,21 @@ static void compile_class(Compiler *compiler, const ClassNode *node) {
     );
     emit_const(compiler, OP_CREATE_CLASS, AS_OBJ(nameAsObj), get_node_pos(AS_NODE(node)));
 
+    if (node->superclass) {
+        compile_get_var(compiler, node->superclass);
+        emit_instr(compiler, OP_INHERIT, get_node_pos(AS_NODE(node->superclass)));
+    }
+    if (node->init) {
+        compile_func(compiler, node->init);
+        emit_instr(compiler, OP_ADD_INIT, get_node_pos(AS_NODE(node->init)));
+    }
+
     for (u32 i = 0; i < node->methods.length; i++) {
         compile_node(compiler, node->methods.data[i]);
     }
     // Only emit the add methods instruction if there are any methods to begin with (optimization).
     if (node->methods.length > 0) {
         emit_number(compiler, OP_ADD_METHODS, node->methods.length, get_node_pos(AS_NODE(node)));
-    }
-
-    if (node->init) {
-        compile_func(compiler, node->init);
-        emit_instr(compiler, OP_ADD_INIT, get_node_pos(AS_NODE(node)));
     }
     compile_declare_var(compiler, node->nameDecl);
 }
@@ -1076,6 +1095,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_GET_VAR: compile_get_var(compiler, AS_PTR(GetVarNode, node)); break;
     case AST_SET_PROPERTY: compile_set_property(compiler, AS_PTR(SetPropertyNode, node)); break;
     case AST_GET_PROPERTY: compile_get_property(compiler, AS_PTR(GetPropertyNode, node)); break;
+    case AST_GET_SUPER: compile_get_super(compiler, AS_PTR(GetSuperNode, node)); break;
     case AST_MULTI_DECLARE: compile_multi_declare(compiler, AS_PTR(MultiDeclareNode, node)); break;
     case AST_MULTI_ASSIGN: compile_multi_assign(compiler, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;

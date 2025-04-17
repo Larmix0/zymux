@@ -30,7 +30,7 @@ funcDecl {
 }
 
 classDecl {
-    "class" name "{" ("init" unnamedFunc | name unnamedFunc)* "}"
+    "class" name ("inherits" name)? "{" ("init" unnamedFunc | name unnamedFunc)* "}"
 }
 
 unnamedFunc {
@@ -205,8 +205,8 @@ list {
 }
 
 primary {
-    null | bool | int | float | string | name
-    | dataTypeKeyword | "this" | "(" expression ")"
+    null | bool | int | float | string | name | dataTypeKeyword
+    | "this" | "super" "." name | "(" expression ")"
 }
 
 string {
