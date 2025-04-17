@@ -1166,14 +1166,15 @@ static bool execute_vm(Vm *vm) {
         }
         case OP_GET_SUPER: {
             ASSERT(PEEK(vm)->type == OBJ_INSTANCE, "Expected stack top to be instance for super.");
-            ASSERT(vm->frame->func->cls != NULL, "Tried to get super outside a class method.");
+            ASSERT(vm->frame->func->cls != NULL, "Super outside class not caught by resolver.");
+            ASSERT(
+                vm->frame->func->cls->superclass != NULL,
+                "Super in non-inheriting class not caught by resolver."
+            );
             InstanceObj *instance = AS_PTR(InstanceObj, PEEK(vm));
             StringObj *name = AS_PTR(StringObj, READ_CONST(vm));
             ClassObj *superclass = vm->frame->func->cls->superclass;
 
-            if (superclass == NULL) {
-                VM_LOOP_RUNTIME_ERROR(vm, "Can't use superclass on class without inheritance.");
-            }
             Obj *method = find_method(superclass, name);
             if (method) {
                 PEEK(vm) = AS_OBJ(new_method_obj(vm->program, instance, AS_PTR(FuncObj, method)));
