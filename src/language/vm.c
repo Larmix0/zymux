@@ -545,6 +545,35 @@ static bool set_property(Vm *vm, Obj *originalObj, StringObj *name, Obj *value) 
 }
 
 /** 
+ * Handles a class which inherits an abstract class.
+ * 
+ * If the inheriting class is also abstract, then it just inherits the abstract methods
+ * of the superclass.
+ * However, if the inheriting class isn't abstract, then it checks the methods added on that class
+ * (assuming that methods get added before inheriting), and errors out if any abstract method
+ * wasn't made/overridden in the inheriting class.
+ */
+static bool inherit_abstract(Vm *vm, ClassObj *cls, ClassObj *superclass) {
+    if (cls->isAbstract) {
+        // Abstract inheriting abstract adds the super's abstract names to the subclass's abstracts.
+        for (u32 i = 0; i < superclass->abstractMethods.length; i++) {
+            APPEND_DA(&cls->abstractMethods, superclass->abstractMethods.data[i]);
+        }
+        return true;
+    }
+
+    // Non-abstract inherits abstract, must have already overridden all abstracts with methods.
+    for (u32 i = 0; i < superclass->abstractMethods.length; i++) {
+        StringObj *abstractName = AS_PTR(StringObj, superclass->abstractMethods.data[i]);
+        if (!table_get(&cls->methods, AS_OBJ(abstractName))) {
+            RUNTIME_ERROR(vm, "Abstract method '%s' not implemented.", abstractName->string);
+            return false;
+        }
+    }
+    return true;
+}
+
+/** 
  * Tries to return a method if the passed class or its superclasses have it. Returns NULL if not.
  * 
  * First looks to see if the class has that method directly implemented, if not it recursively
@@ -1302,8 +1331,11 @@ static bool execute_vm(Vm *vm) {
             PUSH(vm, AS_OBJ(closure));
             break;
         }
-        case OP_CREATE_CLASS: {
-            ClassObj *cls = new_class_obj(vm->program, AS_PTR(StringObj, READ_CONST(vm)));
+        case OP_CLASS: {
+            const bool isAbstract = AS_PTR(BoolObj, POP(vm))->boolean;
+            ClassObj *cls = new_class_obj(
+                vm->program, AS_PTR(StringObj, READ_CONST(vm)), isAbstract
+            );
             PUSH(vm, AS_OBJ(cls));
             break;
         }
@@ -1315,6 +1347,9 @@ static bool execute_vm(Vm *vm) {
             }
             ClassObj *superclass = AS_PTR(ClassObj, PEEK(vm));
             ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(vm, 1));
+            if (superclass->isAbstract && !inherit_abstract(vm, cls, superclass)) {
+                VM_LOOP_FINISH_ERROR(vm);
+            }
             cls->superclass = superclass;
             DROP(vm);
             break;
@@ -1324,7 +1359,7 @@ static bool execute_vm(Vm *vm) {
             cls->init = AS_PTR(FuncObj, POP(vm));
             break;
         }
-        case OP_ADD_METHODS: {
+        case OP_METHODS: {
             const u32 amount = READ_NUMBER(vm);
             ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(vm, amount));
             for (u32 i = 0; i < amount; i++) {
@@ -1332,6 +1367,17 @@ static bool execute_vm(Vm *vm) {
                 FuncObj *method = AS_PTR(FuncObj, PEEK_DEPTH(vm, i));
                 method->cls = cls; // Sets the class of the function that is now a method.
                 table_set(&cls->methods, AS_OBJ(method->name), AS_OBJ(method));
+            }
+            DROP_AMOUNT(vm, amount);
+            break;
+        }
+        case OP_ABSTRACT_METHODS: {
+            const u32 amount = READ_NUMBER(vm);
+            ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(vm, amount));
+            ASSERT(cls->isAbstract, "Tried to add abstract methods to non-abstract class.");
+
+            for (u32 i = 0; i < amount; i++) {
+                APPEND_DA(&cls->abstractMethods, PEEK_DEPTH(vm, i));
             }
             DROP_AMOUNT(vm, amount);
             break;

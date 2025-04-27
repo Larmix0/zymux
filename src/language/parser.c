@@ -938,15 +938,37 @@ static Node *parse_func(Parser *parser) {
     return named_func(parser, name);
 }
 
+/** Finishes parsing an init method assuming the "init" keyword was already consumed. */
+static Node *init_method(Parser *parser, ClassNode *cls) {
+    if (cls->init) {
+        parser_error_at(
+            parser, PEEK_PREVIOUS(parser), false, "Can't have multiple intializers in class."
+        );
+    }
+    return named_func(parser, PEEK_PREVIOUS(parser));
+}
+
+/** Finishes parsing an abstract method, assuming the abstract keywoard was already consumed. */
+static Node *abstract_method(Parser *parser, ClassNode *cls) {
+    if (!cls->isAbstract) {
+        parser_error_at(
+            parser, PEEK_PREVIOUS(parser), false,
+            "Can't have abstract method in non-abstract class."
+        );
+    }
+    const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected abstract method name.");
+    CONSUME(parser, TOKEN_LPAR, "Expected '(' after abstract method name.");
+    CONSUME(parser, TOKEN_RPAR, "Expected ')' (no parameters allowed in abstract method).");
+    CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after ')' in abstract class method.");
+    return AS_NODE(NO_VALUE_DECLARATION(parser->program, name));
+}
+
 /** Handles parsing one method (or initializers) and putting it inside the class node. */
 static void class_method(Parser *parser, ClassNode *cls) {
-    if (CHECK(parser, TOKEN_INIT_KW)) {
-        if (cls->init) {
-            parser_error_at(
-                parser, PEEK(parser), false, "Can't have multiple intializers in class."
-            );
-        }
-        cls->init = AS_PTR(FuncNode, named_func(parser, ADVANCE_PEEK(parser)));
+    if (MATCH(parser, TOKEN_INIT_KW)) {
+        cls->init = AS_PTR(FuncNode, init_method(parser, cls));
+    } else if (MATCH(parser, TOKEN_ABSTRACT_KW)) {
+        APPEND_DA(&cls->abstractMethods, abstract_method(parser, cls));
     } else {
         APPEND_DA(&cls->methods, parse_func(parser));
     }
@@ -963,10 +985,14 @@ static void class_body(Parser *parser, ClassNode *cls) {
 
 /** Parses and returns an entire class with all of its information. */
 static Node *parse_class(Parser *parser) {
+    bool isAbstract = false;
+    if (PEEK_PREVIOUS(parser).type == TOKEN_ABSTRACT_KW) {
+        isAbstract = true;
+        CONSUME(parser, TOKEN_CLASS_KW, "Expected 'class' after 'abstract'.");
+    }
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected class name.");
     DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser->program, name);
-    ClassNode *cls = AS_PTR(ClassNode, new_class_node(parser->program, declaration));
-
+    ClassNode *cls = AS_PTR(ClassNode, new_class_node(parser->program, declaration, isAbstract));
     if MATCH(parser, TOKEN_INHERITS_KW) {
         cls->superclass = AS_PTR(GetVarNode, new_get_var_node(
             parser->program,
@@ -1025,7 +1051,11 @@ static Node *declaration(Parser *parser) {
     case TOKEN_CONST_KW: node = parse_var_declaration(parser, true); break;
     case TOKEN_ENUM_KW: node = parse_enum(parser); break;
     case TOKEN_FUNC_KW: node = parse_func(parser); break;
-    case TOKEN_CLASS_KW: node = parse_class(parser); break;
+
+    case TOKEN_CLASS_KW:
+    case TOKEN_ABSTRACT_KW:
+        node = parse_class(parser);
+        break;
     default:
         RETREAT(parser);
         node = statement(parser);

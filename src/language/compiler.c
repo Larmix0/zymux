@@ -1031,6 +1031,31 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
 }
 
 /** 
+ * Copmiles the abstract methods of a class.
+ * 
+ * Does so by loading each abstract method name into the stack as a string, then emitting
+ * the abstract methods instruction that treats those strings as names of abstract methods.
+ */
+static void compile_abstract_methods(Compiler *compiler, const ClassNode *node) {
+    if (!node->isAbstract) {
+        return;
+    }
+    
+    for (u32 i = 0; i < node->abstractMethods.length; i++) {
+        Token *name = &AS_PTR(DeclareVarNode, node->abstractMethods.data[i])->name;
+        Obj *methodString = AS_OBJ(
+            new_string_obj(compiler->program, name->lexeme, name->pos.length)
+        );
+        emit_const(
+            compiler, OP_LOAD_CONST, methodString, get_node_pos(node->abstractMethods.data[i])
+        );
+    }
+    emit_number(
+        compiler, OP_ABSTRACT_METHODS, node->abstractMethods.length, PREVIOUS_OPCODE_POS(compiler)
+    );
+}
+
+/** 
  * Compile a class declaration and all others things relating to that declaration.
  * 
  * First, create a barebones version of the class with only the name, then emit all methods
@@ -1042,24 +1067,25 @@ static void compile_class(Compiler *compiler, const ClassNode *node) {
     StringObj *nameAsObj = new_string_obj(
         compiler->program, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
     );
-    emit_const(compiler, OP_CREATE_CLASS, AS_OBJ(nameAsObj), get_node_pos(AS_NODE(node)));
+    emit_instr(compiler, node->isAbstract ? OP_TRUE : OP_FALSE, get_node_pos(AS_NODE(node)));
+    emit_const(compiler, OP_CLASS, AS_OBJ(nameAsObj), get_node_pos(AS_NODE(node)));
 
-    if (node->superclass) {
-        compile_get_var(compiler, node->superclass);
-        emit_instr(compiler, OP_INHERIT, get_node_pos(AS_NODE(node->superclass)));
-    }
     if (node->init) {
         compile_func(compiler, node->init);
         emit_instr(compiler, OP_ADD_INIT, get_node_pos(AS_NODE(node->init)));
     }
 
-    for (u32 i = 0; i < node->methods.length; i++) {
-        compile_node(compiler, node->methods.data[i]);
-    }
-    // Only emit the add methods instruction if there are any methods to begin with (optimization).
+    compile_node_array(compiler, &node->methods);
     if (node->methods.length > 0) {
-        emit_number(compiler, OP_ADD_METHODS, node->methods.length, get_node_pos(AS_NODE(node)));
+        // Only emit the methods instruction if there's some methods to begin with (optimization).
+        emit_number(compiler, OP_METHODS, node->methods.length, get_node_pos(AS_NODE(node)));
     }
+    if (node->superclass) {
+        // Inherit after methods, so when inheriting abstracts we check if method's were overridden.
+        compile_get_var(compiler, node->superclass);
+        emit_instr(compiler, OP_INHERIT, get_node_pos(AS_NODE(node->superclass)));
+    }
+    compile_abstract_methods(compiler, node);
     compile_declare_var(compiler, node->nameDecl);
 }
 

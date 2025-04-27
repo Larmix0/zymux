@@ -388,13 +388,16 @@ Node *new_func_node(
  * while the information inside the body should be added to the node whilst parsing for convenience
  * (and not having to create too many variables).
  */
-Node *new_class_node(ZmxProgram *program, DeclareVarNode *nameDecl) {
+Node *new_class_node(ZmxProgram *program, DeclareVarNode *nameDecl, const bool isAbstract) {
     ClassNode *node = NEW_NODE(program, AST_CLASS, ClassNode);
     node->nameDecl = nameDecl;
+    node->isAbstract = isAbstract;
 
     node->superclass = NULL;
     node->init = NULL;
+
     INIT_DA(&node->methods);
+    INIT_DA(&node->abstractMethods);
     return AS_NODE(node);
 }
 
@@ -496,6 +499,7 @@ static void free_node(Node *node) {
         break;
     case AST_CLASS:
         FREE_DA(&AS_PTR(ClassNode, node)->methods);
+        FREE_DA(&AS_PTR(ClassNode, node)->abstractMethods);
         break;
     case AST_ERROR:
     case AST_LITERAL:

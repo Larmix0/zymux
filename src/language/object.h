@@ -245,6 +245,9 @@ typedef struct ClassObj {
     ClassObj *superclass;
     FuncObj *init;
     Table methods;
+
+    bool isAbstract; /** Affects whether or not this is treated as a normal or abstract class. */
+    ObjArray abstractMethods; /** An array of abstract method names (string objects). */
 } ClassObj;
 
 /** Holds the original class, and its own fields which can change at runtime. */
@@ -327,8 +330,8 @@ RuntimeFuncObj *new_runtime_func_obj(
     const bool isClosure
 );
 
-/** Returns a bare-bones class with only a name. Other information is added later. */
-ClassObj *new_class_obj(ZmxProgram *program, StringObj *name);
+/** Returns a bare-bones class with a name. Other information is added later. */
+ClassObj *new_class_obj(ZmxProgram *program, StringObj *name, const bool isAbstract);
 
 /** Returns a separate instance of the class, which has its own fields. */
 InstanceObj *new_instance_obj(ZmxProgram *program, ClassObj *cls);

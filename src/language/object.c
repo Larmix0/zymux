@@ -231,14 +231,16 @@ RuntimeFuncObj *new_runtime_func_obj(
     return object;
 }
 
-/** Creates a bare-bones class with only a name. Other information is added later. */
-ClassObj *new_class_obj(ZmxProgram *program, StringObj *name) {
+/** Creates a bare-bones class with a name. Other information is added later. */
+ClassObj *new_class_obj(ZmxProgram *program, StringObj *name, const bool isAbstract) {
     ClassObj *object = NEW_OBJ(program, OBJ_CLASS, ClassObj);
     object->name = name;
-    
+    object->isAbstract = isAbstract;
+
     object->superclass = NULL;
     object->init = NULL;
     object->methods = create_table();
+    INIT_DA(&object->abstractMethods);
     return object;
 }
 
@@ -848,6 +850,7 @@ void free_obj(Obj *object) {
     }
     case OBJ_CLASS:
         free_table(&AS_PTR(ClassObj, object)->methods);
+        FREE_DA(&AS_PTR(ClassObj, object)->abstractMethods);
         break;
     case OBJ_INSTANCE:
         free_table(&AS_PTR(InstanceObj, object)->fields);

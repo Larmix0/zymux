@@ -87,3 +87,43 @@ assert(Middle().getSuper() == "top");
 assert(OverridingBottom().getSuper() == "top");
 assert(OverridingBottom().getMiddleName() == "middle");
 assert(OverridingBottom().getName() == "bottom");
+
+abstract class AbstractTop {
+    abstract abstractName();
+
+    name() {
+        return "top"; 
+    }
+}
+
+// Should error because of attempting to instantiate an abstract class.
+let caughtError = false;
+try {
+    abstract class IsAbstract {}
+    let x = IsAbstract();
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// Doesn't override abstractName, so it should error.
+caughtError = false;
+try {
+    class NotAbstract inherits AbstractTop {
+        name() {
+            return "Only overriding the non-abstract method, which is not enough.";
+        }
+    }
+    let x = NotAbstract();
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// This time, the non-abstract class does override the abstract method.
+class NotAbstract inherits AbstractTop {
+    abstractName() {
+        return "overridden";
+    }
+}
+assert(NotAbstract().abstractName() == "overridden");

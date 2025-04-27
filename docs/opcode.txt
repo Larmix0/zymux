@@ -331,18 +331,33 @@ OP_CLOSURE:
     Also, if the function wrapping this closure is a closure itself, then it copies that closure's
     context to the new created closure too.
 
-OP_CREATE_CLASS:
+OP_CLASS:
     Creates a bare-bones class with no init and no methods using a read constant for its name.
-
-OP_ADD_METHODS:
-    Reads a number, which is how many functions on the stack are as methods for the class
-    that is one slot behind them. Adds all of those functions as table entries of name keys
-    and function (method) values to the class, then pops all of them off of the stack after.
+    Reads a boolean that was placed on the stack indicated whether or not this is an abstract
+    class.
 
 OP_ADD_INIT:
     Grabs the topmost element (expected to be a function) and adds it as an initializer for
     the class that will be sitting one slot behind it in the stack.
     Pops the init function at the top of the stack after.
+
+OP_METHODS:
+    Reads a number, which is how many functions on the stack are as methods for the class
+    that is one slot behind them. Adds all of those functions as table entries of name keys
+    and function (method) values to the class, then pops all of them off of the stack after.
+
+OP_ABSTRACT_METHODS:
+    Reads a number, which is how many string names on the stack there are which represent
+    abstract methods for the abstract class that is one slot behind them.
+    Pops all of those string names off of the stack after.
+
+OP_INHERIT:
+    Assuming the top of the stack is the superclass, and second to last element is the class
+    that is inheriting the superclass, it adds the superclass as the class's super.
+
+    Also, if the superclass is an abstract class, this performs the check that all methods
+    were overridden, or if both the subclass and superclass are abstract, then it inherits
+    the abstract methods by copying them over too.
 
 OP_MAKE_ITER:
     Grabs the topmost object in the stack and wraps it inside a new iterator object.

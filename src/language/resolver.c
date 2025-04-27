@@ -1028,9 +1028,15 @@ static void resolve_class(Resolver *resolver, ClassNode *node) {
         resolve_func(resolver, node->init, FUNC_INIT);
         pop_scope(resolver, SCOPE_NORMAL);
     }
+    // TODO: doesn't this prevent catching an error where 2 methods have the same name?
     for (u32 i = 0; i < node->methods.length; i++) {
         push_scope(resolver, SCOPE_NORMAL);
         resolve_func(resolver, AS_PTR(FuncNode, node->methods.data[i]), FUNC_METHOD);
+        pop_scope(resolver, SCOPE_NORMAL);
+    }
+    for (u32 i = 0; i < node->abstractMethods.length; i++) {
+        push_scope(resolver, SCOPE_NORMAL);
+        resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node->abstractMethods.data[i]), NULL);
         pop_scope(resolver, SCOPE_NORMAL);
     }
     pop_scope(resolver, SCOPE_NORMAL);

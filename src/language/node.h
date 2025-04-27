@@ -415,6 +415,9 @@ typedef struct {
 /** Holds a Zymux class with all of its information. */
 typedef struct {
     Node node;
+    bool isAbstract;
+    NodeArray abstractMethods; /** Filled in abstract classes. Name decls (must be overridden). */
+    
     DeclareVarNode *nameDecl;
     GetVarNode *superclass; /** NULL if the class doesn't inherit anything. */
     FuncNode *init; /** NULL if there isn't an initializer. */
@@ -572,7 +575,7 @@ Node *new_func_node(
  * while the information inside the body should be added to the node whilst parsing for convenience
  * (and not having to create too many variables).
  */
-Node *new_class_node(ZmxProgram *program, DeclareVarNode *nameDecl);
+Node *new_class_node(ZmxProgram *program, DeclareVarNode *nameDecl, const bool isAbstract);
 
 /** Allocates a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos);

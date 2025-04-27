@@ -26,7 +26,7 @@ static void free_ast_builder(AstBuilder *ast) {
     free_char_buffer(&ast->string);
 }
 
-/** Abstraction for appending a token to the passed ast. */
+/** Abstraction for appending a token to the passed AST string buffer. */
 static void buffer_append_token(CharBuffer *astString, const Token token) {
     if (token.type == TOKEN_STRING_LIT) {
         buffer_append_char(astString, '\''); // Append starting quote of string literal.
@@ -385,8 +385,13 @@ static void append_class(AstBuilder *ast, const ClassNode *node) {
         append_node(ast, AS_NODE(node->superclass));
     }
 
+    buffer_append_string(&ast->string, "<methods> ");
     append_node(ast, AS_NODE(node->init));
     append_node_array(ast, &node->methods);
+    if (node->isAbstract) {
+        buffer_append_string(&ast->string, "<abstract methods> ");
+        append_node_array(ast, &node->abstractMethods);
+    }
 }
 
 /** Appends an EOF string to the AST string. */

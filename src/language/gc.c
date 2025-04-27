@@ -91,6 +91,7 @@ static void mark_obj(Obj *object) {
         mark_obj(AS_OBJ(AS_PTR(ClassObj, object)->superclass));
         mark_obj(AS_OBJ(AS_PTR(ClassObj, object)->init));
         mark_table(AS_PTR(ClassObj, object)->methods);
+        mark_obj_array(AS_PTR(ClassObj, object)->abstractMethods);
         break;
     case OBJ_INSTANCE: 
         mark_obj(AS_OBJ(AS_PTR(InstanceObj, object)->cls));
