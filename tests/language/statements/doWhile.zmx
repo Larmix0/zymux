@@ -24,9 +24,9 @@
         }
         i += 1;
     } while i < 3;
-    assert(zero == true);
-    assert(one == true);
-    assert(two == true);
+    assert(zero);
+    assert(one);
+    assert(two);
 }
 
 {
@@ -59,14 +59,14 @@
             }
             j += 1;
         } while j < 3;
-        assert(innerZero == true);
-        assert(innerOne == true);
-        assert(innerTwo == true);
+        assert(innerZero);
+        assert(innerOne);
+        assert(innerTwo);
         i += 1;
     } while i < 3;
-    assert(outerZero == true);
-    assert(outerOne == true);
-    assert(outerTwo == true);
+    assert(outerZero);
+    assert(outerOne);
+    assert(outerTwo);
 }
 
 {

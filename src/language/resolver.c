@@ -350,7 +350,6 @@ static void declare_local(Resolver *resolver, DeclareVarNode *node, FuncNode *pa
 
     node->resolution.index = CURRENT_LOCALS(resolver)->length;
     node->resolution.scope = VAR_LOCAL;
-
     Variable declared = create_variable(
         false, node->isConst, false, name, resolver->scopeDepth,
         CURRENT_LOCALS(resolver)->length, resolver->locals.length - 1, node->resolution, paramFunc
@@ -936,8 +935,8 @@ static void resolve_return(Resolver *resolver, ReturnNode *node) {
                 resolver, get_node_pos(AS_NODE(node)), "Can't return a value inside an initializer."
             );
         }
-        // Return the instance in initializers.
-        node->defaultVal = new_get_var_node(resolver->program, create_token("this", TOKEN_THIS_KW));
+        // Makes it return the instance in initializers.
+        node->defaultVal = new_get_var_node(resolver->program, THIS_TOKEN());
     } else {
         node->defaultVal = NULL_NODE(resolver->program);
     }
@@ -962,28 +961,23 @@ static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
 /**
  * Resolves a function, which includes its parameters and its body inside a function-type scope.
  * 
- * Manually appends the function's name a second time to the recently created locals of itself
- * in order to allow recursion by accessinig index 0 inside BP at runtime
- * (as BP starts on the callee).
+ * Appends the function's name outside its scope a first time if it's not a method.
+ * This represents the declaration that binds the function to its name as a variable,
+ * outside the function itself, and only occurs after the function's been loaded/compiled later.
  * 
- * If the function is some class's method, then the keyword name "this" is added instead of
- * the function itself a second time, so that the instance can be accessed instead.
+ * After that, it declares itself inside its own self to allow recursion by accessing index 0
+ * inside BP at runtime (as BP starts on the callee). This happens for every function.
  */
 static void resolve_func(Resolver *resolver, FuncNode *node, const FuncType type) {
     const FuncType previous = resolver->currentFunc;
     resolver->currentFunc = type;
 
-    resolve_declare_var(resolver, node->nameDecl, NULL);
+    if (!node->isMethod) {
+        // Only declare as a variable outside of the func's scope if it's not a method.
+        resolve_declare_var(resolver, node->outerDecl, NULL);
+    }
     push_scope(resolver, SCOPE_FUNC);
-
-    const Token usedName = type == FUNC_INIT || type == FUNC_METHOD ?
-        create_token("this", TOKEN_THIS_KW) : node->nameDecl->name;
-    Variable declared = create_variable(
-        false, node->nameDecl->isConst, false, usedName, resolver->scopeDepth,
-        CURRENT_LOCALS(resolver)->length, resolver->locals.length - 1,
-        node->nameDecl->resolution, NULL
-    );
-    APPEND_DA(CURRENT_LOCALS(resolver), declared);
+    resolve_declare_var(resolver, node->innerDecl, NULL);
     finish_func_resolution(resolver, node);
     node->isClosure = CURRENT_CLOSURE(resolver)->isClosure;
 
@@ -1006,10 +1000,8 @@ static void check_inherits_self(Resolver *resolver, ClassNode *node) {
  * Resolves a class's variable declaration, initializer (if there's one), and all methods.
  * 
  * First pushes the class scope so that everything inside it is automatically treated
- * as a local/capture (except the name of the class itself).
- * Then, for each method pushes another temporary scope which ensures the method name is deleted
- * after its compilation as its no longer needed, and would only interfere with the resolution of
- * the other methods.
+ * as a local/capture (except the name of the class itself which'll get binded to a variable later),
+ * then resolve all methods, including the initializer and the abstract methods.
  */
 static void resolve_class(Resolver *resolver, ClassNode *node) {
     resolve_declare_var(resolver, node->nameDecl, NULL);
@@ -1024,20 +1016,13 @@ static void resolve_class(Resolver *resolver, ClassNode *node) {
     
     push_scope(resolver, SCOPE_NORMAL);
     if (node->init) {
-        push_scope(resolver, SCOPE_NORMAL);
         resolve_func(resolver, node->init, FUNC_INIT);
-        pop_scope(resolver, SCOPE_NORMAL);
     }
-    // TODO: doesn't this prevent catching an error where 2 methods have the same name?
     for (u32 i = 0; i < node->methods.length; i++) {
-        push_scope(resolver, SCOPE_NORMAL);
         resolve_func(resolver, AS_PTR(FuncNode, node->methods.data[i]), FUNC_METHOD);
-        pop_scope(resolver, SCOPE_NORMAL);
     }
     for (u32 i = 0; i < node->abstractMethods.length; i++) {
-        push_scope(resolver, SCOPE_NORMAL);
         resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node->abstractMethods.data[i]), NULL);
-        pop_scope(resolver, SCOPE_NORMAL);
     }
     pop_scope(resolver, SCOPE_NORMAL);
     resolver->currentCls = previous;

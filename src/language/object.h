@@ -205,7 +205,7 @@ typedef struct {
 typedef struct {
     Obj obj;
     bool isOpen; /** Whether or not the original variable is still alive on the stack. */
-    u32 stackLocation; /** Index of the original object getting captured on the VM's stack. */
+    u32 stackIdx; /** Index of the original object getting captured on the VM's stack. */
     Obj *captured; /** The final object of the local variable which was captured. */
 } CapturedObj;
 
@@ -322,7 +322,7 @@ EnumObj *new_enum_obj(ZmxProgram *program, StringObj *name);
 FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 minArity, const u32 maxArity);
 
 /** Returns a newely created indirect reference to the passed object (capturing the object). */
-CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackLocation);
+CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackIdx);
 
 /** Returns a func which has some runtime values that might be independant from the static func. */
 RuntimeFuncObj *new_runtime_func_obj(

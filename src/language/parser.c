@@ -127,7 +127,7 @@ static Node *parse_string(Parser *parser) {
 /** Parser a "super" keyword and its property access. */
 static Node *parse_super(Parser *parser) {
     const SourcePosition pos = PEEK_PREVIOUS(parser).pos;
-    Node *instanceGet = new_get_var_node(parser->program, create_token("this", TOKEN_THIS_KW));
+    Node *instanceGet = new_get_var_node(parser->program, THIS_TOKEN());
 
     CONSUME(parser, TOKEN_DOT, "Expected '.' after 'super'.");
     const Token property = CONSUME(
@@ -653,7 +653,7 @@ static Node *parse_try_catch(Parser *parser) {
         const Token name = CONSUME(
             parser, TOKEN_IDENTIFIER, "Expected error message variable name after 'as'."
         );
-        catchVar = NO_VALUE_DECLARATION(parser->program, name);
+        catchVar = NO_VALUE_DECL_NODE(parser->program, name);
     }
     
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after 'catch'.");
@@ -811,7 +811,7 @@ static Node *declaration_value(Parser *parser) {
 /** Returns a node of one name declaration that is a part of a multi-variable declaration. */
 static Node *one_declaration(Parser *parser) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected variable name.");
-    return AS_NODE(NO_VALUE_DECLARATION(parser->program, name));
+    return AS_NODE(NO_VALUE_DECL_NODE(parser->program, name));
 }
 
 /** 
@@ -856,7 +856,7 @@ static Node *parse_var_declaration(Parser *parser, const bool isConst) {
 /** Declares an enum with an array of enum values that are named but just represent integers. */
 static Node *parse_enum(Parser *parser) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected enum name.");
-    DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser->program, name);
+    DeclareVarNode *declaration = NO_VALUE_DECL_NODE(parser->program, name);
 
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after enum name.");
     TokenArray members = CREATE_DA();
@@ -920,22 +920,32 @@ static void parse_params(Parser *parser, NodeArray *mandatories, NodeArray *opti
 }
 
 /** Parses any type of function whose name was already parsed and passed to this. */
-static Node *named_func(Parser *parser, const Token name) {
-    DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser->program, name);
+static Node *named_func(Parser *parser, const Token name, const bool isMethod) {
+    DeclareVarNode *outerDecl = NO_VALUE_DECL_NODE(parser->program, name);
+    DeclareVarNode *innerDecl;
+    // Inner declaration is either the func name itself again or the instance variable (in methods).
+    if (isMethod) {
+        innerDecl = AS_PTR(
+            DeclareVarNode, new_declare_var_node(parser->program, THIS_TOKEN(), NULL, true)
+        );
+    } else {
+        innerDecl = NO_VALUE_DECL_NODE(parser->program, name);
+    }
     NodeArray mandatoryParams = CREATE_DA(), optionalParams = CREATE_DA();
     parse_params(parser, &mandatoryParams, &optionalParams);
 
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after function parameters.");
     Node *body = finish_block(parser);
     return new_func_node(
-        parser->program, declaration, mandatoryParams, optionalParams, AS_PTR(BlockNode, body)
+        parser->program, name, outerDecl, innerDecl, isMethod,
+        mandatoryParams, optionalParams, AS_PTR(BlockNode, body)
     );
 }
 
 /** Parses a function and its name before the function itself for convenience. */
-static Node *parse_func(Parser *parser) {
+static Node *parse_func(Parser *parser, const bool isMethod) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected function name.");
-    return named_func(parser, name);
+    return named_func(parser, name, isMethod);
 }
 
 /** Finishes parsing an init method assuming the "init" keyword was already consumed. */
@@ -945,7 +955,7 @@ static Node *init_method(Parser *parser, ClassNode *cls) {
             parser, PEEK_PREVIOUS(parser), false, "Can't have multiple intializers in class."
         );
     }
-    return named_func(parser, PEEK_PREVIOUS(parser));
+    return named_func(parser, PEEK_PREVIOUS(parser), true);
 }
 
 /** Finishes parsing an abstract method, assuming the abstract keywoard was already consumed. */
@@ -960,7 +970,7 @@ static Node *abstract_method(Parser *parser, ClassNode *cls) {
     CONSUME(parser, TOKEN_LPAR, "Expected '(' after abstract method name.");
     CONSUME(parser, TOKEN_RPAR, "Expected ')' (no parameters allowed in abstract method).");
     CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after ')' in abstract class method.");
-    return AS_NODE(NO_VALUE_DECLARATION(parser->program, name));
+    return AS_NODE(NO_VALUE_DECL_NODE(parser->program, name));
 }
 
 /** Handles parsing one method (or initializers) and putting it inside the class node. */
@@ -970,7 +980,7 @@ static void class_method(Parser *parser, ClassNode *cls) {
     } else if (MATCH(parser, TOKEN_ABSTRACT_KW)) {
         APPEND_DA(&cls->abstractMethods, abstract_method(parser, cls));
     } else {
-        APPEND_DA(&cls->methods, parse_func(parser));
+        APPEND_DA(&cls->methods, parse_func(parser, true));
     }
 }
 
@@ -991,7 +1001,7 @@ static Node *parse_class(Parser *parser) {
         CONSUME(parser, TOKEN_CLASS_KW, "Expected 'class' after 'abstract'.");
     }
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected class name.");
-    DeclareVarNode *declaration = NO_VALUE_DECLARATION(parser->program, name);
+    DeclareVarNode *declaration = NO_VALUE_DECL_NODE(parser->program, name);
     ClassNode *cls = AS_PTR(ClassNode, new_class_node(parser->program, declaration, isAbstract));
     if MATCH(parser, TOKEN_INHERITS_KW) {
         cls->superclass = AS_PTR(GetVarNode, new_get_var_node(
@@ -1050,7 +1060,7 @@ static Node *declaration(Parser *parser) {
     case TOKEN_LET_KW: node = parse_var_declaration(parser, false); break;
     case TOKEN_CONST_KW: node = parse_var_declaration(parser, true); break;
     case TOKEN_ENUM_KW: node = parse_enum(parser); break;
-    case TOKEN_FUNC_KW: node = parse_func(parser); break;
+    case TOKEN_FUNC_KW: node = parse_func(parser, false); break;
 
     case TOKEN_CLASS_KW:
     case TOKEN_ABSTRACT_KW:

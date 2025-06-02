@@ -19,9 +19,9 @@ while false {
         }
         i += 1;
     }
-    assert(zero == true);
-    assert(one == true);
-    assert(two == true);
+    assert(zero);
+    assert(one);
+    assert(two);
 }
 
 {
@@ -55,13 +55,13 @@ while false {
             }
             j += 1;
         }
-        assert(innerZero == true);
-        assert(innerOne == true);
-        assert(innerTwo == true);
+        assert(innerZero);
+        assert(innerOne);
+        assert(innerTwo);
     }
-    assert(outerZero == true);
-    assert(outerOne == true);
-    assert(outerTwo == true);
+    assert(outerZero);
+    assert(outerOne);
+    assert(outerTwo);
 }
 
 {

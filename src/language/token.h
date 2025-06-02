@@ -5,6 +5,13 @@
 #include "dynamic_array.h"
 #include "report_error.h"
 
+/** 
+ * Automatically makes a "this" token.
+ * 
+ * All "this" instance tokens are identical so this is to prevent typos and repetition.
+ */
+#define THIS_TOKEN() (create_token("this", TOKEN_THIS_KW))
+
 /** Every type of token that Zymux supports. */
 typedef enum {
     /** Data type keyword. */

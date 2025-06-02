@@ -35,6 +35,24 @@ noInit.methodA(outerA, outerB);
 let withInit = WithInit(outerA, outerB, outerC);
 withInit.methodA();
 
+class MethodCalling {
+    subtract(num) {
+        return num - 1;
+    }
+
+    recursionMethod(originalNum, num) {
+        if (num == originalNum - 4) {
+            return num; // Recurse until we subtracted 4 from the original, unchanged number.
+        }
+
+        let subtractedNum = this.subtract(num);
+        assert(subtractedNum == num - 1);
+        return this.recursionMethod(originalNum, subtractedNum);
+    }
+}
+
+assert(MethodCalling().recursionMethod(10, 10) == 6);
+
 // Basic inheritance.
 class Superclass {
     getName() {

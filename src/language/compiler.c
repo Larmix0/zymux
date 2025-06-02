@@ -919,12 +919,23 @@ static void compile_return(Compiler *compiler, const ReturnNode *node) {
 /** 
  * Finishes compiling the current function on the compiler.
  * 
- * First gives the function its parameter names, then emits the appropriate instructions
- * for handling the parameters declarations/capturement,
- * then compiles the loop body. After that, writes a default return statement in case the function
+ * First, declares the function itself a second time inside its own self,
+ * which makes it treat itself as the first variable (to allow recursion).
+ * 
+ * After that, gives the function its parameter names and emits the appropriate instructions
+ * for handling their declarations/capturement.
+ * Then compiles the loop body, writes a default return statement in case the function
  * didn't have any, and finally finishes up the function by writing all statement jumps it had.
  */
 static void finish_func(Compiler *compiler, const FuncNode *node) {
+    if (node->isMethod) {
+        compile_declare_var(compiler, node->innerDecl);
+    }
+    if (node->innerDecl->resolution.scope == VAR_CAPTURED) {
+        // Must manually capture the function underneath the parameters (arity).
+        const u32 arity = node->mandatoryParams.length + node->optionalParams.length;
+        emit_number(compiler, OP_CAPTURE_DEPTH, arity, get_node_pos(AS_NODE(node)));
+    }
     for (u32 i = 0; i < node->capturedParams.length; i++) {
         emit_number(
             compiler, OP_CAPTURE_AT, node->capturedParams.data[i], get_node_pos(AS_NODE(node))
@@ -993,41 +1004,58 @@ static void compile_params(Compiler *compiler, FuncObj *compiledFunc, const Func
 }
 
 /** 
+ * Declares the passed function onto the bytecode of the currently compiling func in the compiler.
+ * 
+ * First emits code for the compiled func's constant on the bytecode, then compiles the paramters,
+ * and performs an outside declaration so the func in the compiler can access that new func
+ * as a variable. Doesn't do it if its a class's method though.
+ * 
+ */
+static void declare_func(Compiler *compiler, FuncObj *compiledFunc, const FuncNode *node) {
+    emit_const(
+        compiler, node->isClosure ? OP_CLOSURE : OP_LOAD_CONST, AS_OBJ(compiledFunc),
+        PREVIOUS_OPCODE_POS(compiler)
+    );
+    // Outside decl and params here since they require the compiled func to be loaded on the stack.
+    compile_params(compiler, compiledFunc, node);
+    if (!node->isMethod) {
+        compile_declare_var(compiler, node->outerDecl); // Put the loaded func obj on a variable.
+    }
+
+#if DEBUG_BYTECODE
+    print_bytecode(compiledFunc);
+#endif
+}
+
+/** 
  * Compiles a generic function of any kind.
  * 
  * We compile functions by switching the compiler's current function to the new one being created,
- * then we compile the function itself. After we're done with that,
- * we emit the new compiled function as a const inside the const pool of the previous function.
- * Compiles optional parameters after the function itself if there are any.
+ * then we compile the function itself. After that, we set the current function as the original one.
+ * Finally, we declare the compiled function.
+ * 
+ * Also, it has to manually protect the original function while the new one is compiling,
+ * as the new one will be placed in the compiler's current function instead of the original,
+ * meaning it losses its GC protection.
  */
 static void compile_func(Compiler *compiler, const FuncNode *node) {
     GC_PUSH_PROTECTION(&compiler->program->gc);
     StringObj *nameAsObj = new_string_obj(
-        compiler->program, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
+        compiler->program, node->name.lexeme, node->name.pos.length
     );
-    FuncObj *previous = compiler->func;
-    GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(previous)); // Created before the protection push.
+    FuncObj *original = compiler->func;
+    GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(original)); // Created before the protection push.
 
     compiler->func = new_func_obj(
         compiler->program, nameAsObj,
         node->mandatoryParams.length, node->mandatoryParams.length + node->optionalParams.length
     );
     finish_func(compiler, node);
-
-    const SourcePosition previousPos = PREVIOUS_OPCODE_POS(compiler);
     FuncObj *compiledFunc = compiler->func;
-    compiler->func = previous;
-    emit_const(
-        compiler, node->isClosure ? OP_CLOSURE : OP_LOAD_CONST, AS_OBJ(compiledFunc), previousPos
-    );
-    // Compile params here since optionals require the compiled func to be loaded on the stack.
-    compile_params(compiler, compiledFunc, node);
-    compile_declare_var(compiler, node->nameDecl);
-    GC_POP_PROTECTION(&compiler->program->gc);
+    compiler->func = original;
+    declare_func(compiler, compiledFunc, node); // Declare the new func we just compiled.
 
-#if DEBUG_BYTECODE
-    print_bytecode(compiledFunc);
-#endif
+    GC_POP_PROTECTION(&compiler->program->gc);
 }
 
 /** 

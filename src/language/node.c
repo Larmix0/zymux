@@ -364,18 +364,23 @@ Node *new_return_node(ZmxProgram *program, Node *value, const SourcePosition pos
 
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(
-    ZmxProgram *program, DeclareVarNode *nameDecl, const NodeArray mandatoryParams,
-    const NodeArray optionalParams, BlockNode *body
+    ZmxProgram *program, const Token name, DeclareVarNode *outerDecl, DeclareVarNode *innerDecl,
+    const bool isMethod, const NodeArray mandatoryParams, const NodeArray optionalParams,
+    BlockNode *body
 ) {
     FuncNode *node = NEW_NODE(program, AST_FUNC, FuncNode);
-    node->nameDecl = nameDecl;
+    node->name = name;
+    node->outerDecl = outerDecl;
+    node->innerDecl = innerDecl;
+    node->isMethod = isMethod;
+
     node->mandatoryParams = mandatoryParams;
     node->optionalParams = optionalParams;
     node->body = body;
-
     node->defaultReturn = AS_PTR(
         ReturnNode, new_return_node(program, NULL, get_node_pos(AS_NODE(body)))
     );
+
     node->isClosure = false;
     INIT_DA(&node->capturedParams);
     return AS_NODE(node);
@@ -451,7 +456,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_LOOP_CONTROL: return AS_PTR(LoopControlNode, node)->pos;
     case AST_ENUM: return AS_PTR(EnumNode, node)->nameDecl->name.pos;
     case AST_RETURN: return AS_PTR(ReturnNode, node)->pos;
-    case AST_FUNC: return AS_PTR(FuncNode, node)->nameDecl->name.pos;
+    case AST_FUNC: return AS_PTR(FuncNode, node)->name.pos;
     case AST_CLASS: return AS_PTR(ClassNode, node)->nameDecl->name.pos;
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
     }

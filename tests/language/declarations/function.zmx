@@ -1,13 +1,11 @@
 let global = 10;
 
-const [outerA, outerB, outerC] = [2, 4, 6];
-let [outerOptionalC, outerOptionalD] = [55, 77];
-let [varsClosure, returnClosure];
-
 func noParams() {
     global += 2;
     assert(global == 12);
 }
+
+const [outerA, outerB, outerC] = [2, 4, 6];
 
 func mandatoryParamsOnly(innerA, innerB, innerC) {
     assert(outerA == innerA);
@@ -21,6 +19,8 @@ func noProvidedOptionals(mandatoryA, mandatoryB, optionalC=outerC, optionalD=10)
     assert(optionalC == outerC);
     assert(optionalD == 10);
 }
+
+let [outerOptionalC, outerOptionalD] = [55, 77];
 
 func providedOptionals(mandatoryA, mandatoryB, optionalC=outerC, optionalD=10) {
     assert(mandatoryA == outerA);
@@ -41,6 +41,7 @@ func multiplyReturnFunc(left, optionalSub=0) {
     return middle;
 }
 
+let [varsClosure, returnClosure];
 {
     let [i, j] = [11, 22];
     let k = 66;
@@ -64,6 +65,33 @@ func multiplyReturnFunc(left, optionalSub=0) {
 
     returnClosure = closure;
 }
+
+let [recursionAmount, finishedCalls] = [0, 0];
+let calledInner = false;
+let recursionVar;
+{
+    func recursionFunc(original, iteration) {
+        func inner() {
+            calledInner = true;
+            return recursionFunc(original, iteration);
+        }
+
+        recursionVar = inner;
+
+        if (iteration == original - 3) {
+            finishedCalls += 1;
+            return iteration;
+        } else {
+            recursionAmount += 1;
+            return recursionFunc(original, iteration - 1);
+        }
+    }
+    recursionFunc(10, 10);
+}
+assert(recursionVar() == 7);
+assert(recursionAmount == 6);
+assert(finishedCalls == 2);
+assert(calledInner);
 
 noParams();
 

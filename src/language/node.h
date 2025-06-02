@@ -14,7 +14,7 @@
 #define NULL_NODE(program) (new_keyword_node(program, create_token("null", TOKEN_NULL_KW)))
 
 /** A declaration with only a name, and should not load a value by itself. */
-#define NO_VALUE_DECLARATION(program, name) \
+#define NO_VALUE_DECL_NODE(program, name) \
     (AS_PTR(DeclareVarNode, new_declare_var_node(program, name, NULL, false)))
 
 /** An enum to represent different types of AST nodes. */
@@ -402,9 +402,14 @@ typedef struct {
 /** Holds some form of a function (normal function, method, initializer, etc.). */
 typedef struct {
     Node node;
-    DeclareVarNode *nameDecl; /** The variable declaration of the function name itself. */
+    bool isMethod; /** Whether or not this func belongs to a class, or is a lone function. */
+    Token name; /** Just the name of the function that the user wrote in the code. */
+    DeclareVarNode *outerDecl; /** Declaration which binds it to a variable after it's loaded. */
+    DeclareVarNode *innerDecl; /** Declaration for the func inside itself ("this" in methods). */
+
     NodeArray mandatoryParams; /** Parameters that don't have a default value. Must be provided. */
     NodeArray optionalParams; /** Parameters that have a default value when not provided. */
+
     BlockNode *body; /** Block that holds the statements of the function. */
     ReturnNode *defaultReturn; /** The return which is auto emitted at the end of this func. */
 
@@ -564,8 +569,9 @@ Node *new_return_node(ZmxProgram *program, Node *value, const SourcePosition pos
 
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(
-    ZmxProgram *program, DeclareVarNode *nameDecl, const NodeArray mandatoryParams,
-    const NodeArray optionalParams, BlockNode *body
+    ZmxProgram *program, const Token name, DeclareVarNode *outerDecl, DeclareVarNode *innerDecl,
+    const bool isMethod, const NodeArray mandatoryParams, const NodeArray optionalParams,
+    BlockNode *body
 );
 
 /** 

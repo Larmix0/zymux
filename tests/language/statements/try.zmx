@@ -15,7 +15,7 @@ try {
 } catch {
     successful = false;
 }
-assert(successful == false);
+assert(!successful);
 
 // Caught an error and modified something.
 successful = true;

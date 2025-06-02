@@ -776,7 +776,7 @@ static bool flatten_kwargs(Vm *vm, const FuncParams params, const u32 argAmount)
 }
 
 /** Attempts to call the passed object. Returns whether or not it managed to call it. */
-static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
+static bool call(Vm *vm, Obj *callee, const u32 argsIdx, const u32 argAmount) {
     switch (callee->type) {
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, callee);
@@ -793,14 +793,14 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
         ) {
             return false;
         }
-        push_stack_frame(vm, func, args - 1, vm->frame->sp);
+        push_stack_frame(vm, func, vm->stack.objects + argsIdx - 1, vm->frame->sp);
         return true;
     }
     case OBJ_CLASS: {
         ClassObj *cls = AS_PTR(ClassObj, callee);
         PEEK_DEPTH(vm, argAmount + 1) = AS_OBJ(new_instance_obj(vm->program, cls)); // +1 (kwargs).
         if (cls->init) {
-            return call(vm, AS_OBJ(cls->init), args, argAmount);
+            return call(vm, AS_OBJ(cls->init), argsIdx, argAmount);
         } else if (argAmount == 0) {
             DROP(vm); // Pop the kwargs map manually since we didn't actually call anything.
         } else {
@@ -812,7 +812,7 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
     case OBJ_METHOD: {
         MethodObj *method = AS_PTR(MethodObj, callee);
         PEEK_DEPTH(vm, argAmount + 1) = AS_OBJ(method->instance); // +1 to go over kwargs map too.
-        return call(vm, AS_OBJ(method->func), args, argAmount);
+        return call(vm, AS_OBJ(method->func), argsIdx, argAmount);
     }
     case OBJ_NATIVE_FUNC: {
         NativeFuncObj *native = AS_PTR(NativeFuncObj, callee);
@@ -822,7 +822,7 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
         ) {
             return false;
         }
-        Obj *nativeReturn = native->func(vm, args);
+        Obj *nativeReturn = native->func(vm, vm->stack.objects + argsIdx);
         if (nativeReturn == NULL) {
             return false;
         }
@@ -852,9 +852,9 @@ static bool call(Vm *vm, Obj *callee, Obj **args, const u32 argAmount) {
 static void close_captures(Vm *vm, const u32 pops) {
     for (i64 i = (i64)vm->openCaptures.length - 1; i >= 0; i--) {
         CapturedObj *toClose = AS_PTR(CapturedObj, vm->openCaptures.data[i]);
-        if (toClose->stackLocation >= STACK_LENGTH(vm) - pops) {
+        if (toClose->stackIdx >= STACK_LENGTH(vm) - pops) {
             toClose->isOpen = false;
-            toClose->captured = vm->stack.objects[toClose->stackLocation];
+            toClose->captured = vm->stack.objects[toClose->stackIdx];
             DROP_DA(&vm->openCaptures);
         }
     }
@@ -1158,7 +1158,7 @@ static bool execute_vm(Vm *vm) {
             CapturedObj *capture = AS_PTR(CapturedObj, closure->captures.data[READ_NUMBER(vm)]);
 
             if (capture->isOpen) {
-                vm->stack.objects[capture->stackLocation] = PEEK(vm);
+                vm->stack.objects[capture->stackIdx] = PEEK(vm);
             } else {
                 capture->captured = PEEK(vm);
             }
@@ -1170,7 +1170,7 @@ static bool execute_vm(Vm *vm) {
             CapturedObj *capture = AS_PTR(CapturedObj, closure->captures.data[READ_NUMBER(vm)]);
 
             if (capture->isOpen) {
-                PUSH(vm, vm->stack.objects[capture->stackLocation]);
+                PUSH(vm, vm->stack.objects[capture->stackIdx]);
             } else {
                 PUSH(vm, capture->captured);
             }
@@ -1257,7 +1257,8 @@ static bool execute_vm(Vm *vm) {
         }
         case OP_CALL: {
             const u32 argAmount = READ_NUMBER(vm) + 1; // +1 to account for keyword args.
-            if (!call(vm, PEEK_DEPTH(vm, argAmount), vm->frame->sp - argAmount, argAmount - 1)) {
+            const u32 argsIdx = vm->frame->sp - argAmount - vm->stack.objects;
+            if (!call(vm, PEEK_DEPTH(vm, argAmount), argsIdx, argAmount - 1)) {
                 VM_LOOP_FINISH_ERROR(vm);
             }
             break;

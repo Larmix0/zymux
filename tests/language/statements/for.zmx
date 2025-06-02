@@ -17,9 +17,9 @@ for i in [] {
             assert(false, $"Expected loop indices to be 0-2, got {i} instead.");
         }
     }
-    assert(zero == true);
-    assert(one == true);
-    assert(two == true);
+    assert(zero);
+    assert(one);
+    assert(two);
 }
 
 {
@@ -49,13 +49,13 @@ for i in [] {
                 assert(false, $"Expected loop indices to be 0-2, got {j} instead.");
             }
         }
-        assert(innerZero == true);
-        assert(innerOne == true);
-        assert(innerTwo == true);
+        assert(innerZero);
+        assert(innerOne);
+        assert(innerTwo);
     }
-    assert(outerZero == true);
-    assert(outerOne == true);
-    assert(outerTwo == true);
+    assert(outerZero);
+    assert(outerOne);
+    assert(outerTwo);
 }
 
 {

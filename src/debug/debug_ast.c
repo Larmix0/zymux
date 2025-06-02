@@ -365,7 +365,7 @@ static void append_return(AstBuilder *ast, const ReturnNode *node) {
 /** Appends a generic function node, which includes its name, parameters, and body. */
 static void append_func(AstBuilder *ast, const FuncNode *node) {
     buffer_append_string(&ast->string, "<func> ");
-    buffer_append_token(&ast->string, node->nameDecl->name);
+    buffer_append_token(&ast->string, node->name);
 
     buffer_append_string(&ast->string, "<mandatory arguments> ");
     append_node_array(ast, &node->mandatoryParams);

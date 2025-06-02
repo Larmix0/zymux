@@ -284,15 +284,15 @@ OP_GET_PROPERTY:
 
 OP_CALL:
     Reads a number, which is the number of arguments on the stack for the callee
-    (excluding the map of kwargs at the very top of the stack). The second to top object
-    in the stack is the rightmost positional argument in code,
+    excluding the map of kwargs, which is at the very top of the stack.
+    The second to top object in the stack is the rightmost positional argument,
     and the deeper on the stack the more to the left an argument is.
     The callee is expected to be immediately before the first argument on the stack, and it gets
-    called with the read amount of arguments (excluding the 1 kwargs map)
+    called with the read amount of arguments (again, excluding the 1 kwargs map)
     so it knows how to deal with those arguments that are ordered on the stack.
 
     Pops the read amount of arguments + kwargs map and replaces the callee with the returned value
-    (or some determined default value) after the call has finished.
+    (or some default value if nothing was returned) after the call has finished.
 
 OP_ASSIGN_SUBSCR:
     Expects 3 stack elements: Top is the subscript, second to top is the element being subscripted,
