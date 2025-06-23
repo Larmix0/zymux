@@ -39,20 +39,19 @@ typedef struct ZmxProgram ZmxProgram;
 typedef struct Gc {
     Compiler *compiler; /** The current compiler to mark its objects as reachable. */
     Vm *vm; /** The current VM to mark its objects as reachable. */
-    ObjArray protected; /** Objects temporarily protected from collection before being reachable. */
 
     /** How many "layers" of protection are on the GC. Protects all new objects if this is > 1. */
     int protectionLayers;
+
+    /** Objects temporarily protected from collection regardless of reachability. */
+    ObjArray protected;
 
     u64 allocated; /** Amount of bytes allocated so far. */
     u64 nextCollection; /** Amount of bytes that need to be allocated before collecting again. */
 } Gc;
 
-/** Creates a garbage collector. Pass NULL to any argument that hasn't been created. */
-Gc create_gc(Compiler *compiler, Vm *vm);
-
-/** Creates a garbage collector whose values are immediately set to the default NULL/0. */
-Gc create_empty_gc();
+/** Creates an empty garbage collector. */
+Gc create_gc();
 
 /** Frees the memory the garbage collector has allocated. */
 void free_gc(Gc *gc);

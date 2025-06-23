@@ -14,7 +14,7 @@ PRIVATE_DECLARE_SETUP(setup_default_compiler) {
     NodeArray defaultAst = CREATE_DA();
 
     defaultCompiler = TYPE_ALLOC(Compiler);
-    *defaultCompiler = create_compiler(program, defaultAst);
+    *defaultCompiler = create_compiler(program, defaultAst, true);
 }
 
 /** A teardown for the default compiler and other things it uses. */
@@ -33,12 +33,12 @@ PRIVATE_DECLARE_TEARDOWN(teardown_default_compiler) {
 PRIVATE_TEST_CASE(test_emit_instr) {
     emit_instr(defaultCompiler, OP_LOAD_CONST, create_src_pos(1, 12, 6));
     emit_instr(defaultCompiler, OP_ADD, create_src_pos(1, 1, 1));
-    emit_instr(defaultCompiler, OP_END, create_src_pos(99, 100, 100));
+    emit_instr(defaultCompiler, OP_END_PROGRAM, create_src_pos(99, 100, 100));
 
     ByteArray *bytecode = &defaultCompiler->func->bytecode;
     ASSERT_UINT8_EQUAL(bytecode->data[0], OP_LOAD_CONST);
     ASSERT_UINT8_EQUAL(bytecode->data[1], OP_ADD);
-    ASSERT_UINT8_EQUAL(bytecode->data[2], OP_END);
+    ASSERT_UINT8_EQUAL(bytecode->data[2], OP_END_PROGRAM);
 
     SourcePositionArray *positions = &defaultCompiler->func->positions;
     ASSERT_TRUE(equal_position(positions->data[0], create_src_pos(1, 12, 6)));
@@ -51,7 +51,7 @@ PRIVATE_TEST_CASE(test_insert_and_remove) {
     ByteArray *bytecode = &defaultCompiler->func->bytecode;
     emit_instr(defaultCompiler, OP_LOAD_CONST, create_src_pos(1, 12, 6));
     emit_instr(defaultCompiler, OP_ADD, create_src_pos(1, 1, 1));
-    emit_instr(defaultCompiler, OP_END, create_src_pos(99, 100, 100));
+    emit_instr(defaultCompiler, OP_END_PROGRAM, create_src_pos(99, 100, 100));
 
     insert_byte(defaultCompiler, OP_ARG_16, 1);
     insert_byte(defaultCompiler, OP_ARG_32, 3);
@@ -60,7 +60,7 @@ PRIVATE_TEST_CASE(test_insert_and_remove) {
     ASSERT_UINT8_EQUAL(bytecode->data[1], OP_ARG_16);
     ASSERT_UINT8_EQUAL(bytecode->data[2], OP_ADD);
     ASSERT_UINT8_EQUAL(bytecode->data[3], OP_ARG_32);
-    ASSERT_UINT8_EQUAL(bytecode->data[4], OP_END);
+    ASSERT_UINT8_EQUAL(bytecode->data[4], OP_END_PROGRAM);
 
     remove_byte(defaultCompiler, 2);
     remove_byte(defaultCompiler, 3);
@@ -144,11 +144,11 @@ PRIVATE_TEST_CASE(test_small_jumps) {
     }
     patch_jump(defaultCompiler, firstJump, bytecode->length - 1, true);
     emit_jump(defaultCompiler, OP_JUMP, 0, false, pos);
-    emit_instr(defaultCompiler, OP_END, pos);
+    emit_instr(defaultCompiler, OP_END_PROGRAM, pos);
     write_jumps(defaultCompiler);
 
     const u8 expected[] = {
-        OP_JUMP, 4, OP_TRUE, OP_TRUE, OP_TRUE, OP_TRUE, OP_TRUE, OP_JUMP, 9, OP_END
+        OP_JUMP, 4, OP_TRUE, OP_TRUE, OP_TRUE, OP_TRUE, OP_TRUE, OP_JUMP, 9, OP_END_PROGRAM
     };
     ASSERT_SIZE_T_EQUAL(bytecode->length, sizeof(expected));
     ASSERT_BYTES_EQUAL(bytecode->data, expected, bytecode->length);
@@ -197,7 +197,7 @@ PRIVATE_TEST_CASE(test_large_jumps) {
     bytecode->data[bytecode->length - (U16_MAX - 5)] = OP_FALSE;
     emit_jump(defaultCompiler, OP_JUMP, bytecode->length - (U16_MAX - 5), false, pos);
     emit_jump(defaultCompiler, OP_JUMP, 1, false, pos);
-    emit_instr(defaultCompiler, OP_END, pos);
+    emit_instr(defaultCompiler, OP_END_PROGRAM, pos);
     patch_jump(defaultCompiler, forwardToEnd, bytecode->length - 1, true);
 
     write_jumps(defaultCompiler);

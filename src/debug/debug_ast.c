@@ -269,23 +269,6 @@ static void append_if_else(AstBuilder *ast, const IfElseNode *node) {
     }
 }
 
-/** Appends a try-catch with both of its blocks and a caught message variable if there's one. */
-static void append_try_catch(AstBuilder *ast, const TryCatchNode *node) {
-    buffer_append_string(&ast->string, "<try> ");
-    append_node(ast, AS_NODE(node->tryBlock));
-    buffer_append_string(&ast->string, "<catch> ");
-    append_node(ast, AS_NODE(node->catchBlock));
-    if (node->catchVar) {
-        append_declare_var(ast, node->catchVar);
-    }
-}
-
-/** Apppends a raise statement with the message it's making an error for. */
-static void append_raise(AstBuilder *ast, const RaiseNode *node) {
-    buffer_append_string(&ast->string, "<raise> ");
-    append_node(ast, node->message);
-}
-
 /** Appends a case node's label values and its block. */
 static void append_case(AstBuilder *ast, const CaseNode *node) {
     buffer_append_string(&ast->string, "<case> ");
@@ -350,6 +333,31 @@ static void append_enum(AstBuilder *ast, const EnumNode *node) {
         }
         buffer_append_token(&ast->string, node->members.data[i]);
     }
+}
+
+/** Appends an import statements that binds a file's contents to a variable. */
+static void append_import(AstBuilder *ast, const ImportNode *node) {
+    buffer_append_string(&ast->string, "<import> ");
+    buffer_append_format(&ast->string, "%s ", node->path);
+    buffer_append_string(&ast->string, "<as> ");
+    append_declare_var(ast, node->importVar);
+}
+
+/** Appends a try-catch with both of its blocks and a caught message variable if there's one. */
+static void append_try_catch(AstBuilder *ast, const TryCatchNode *node) {
+    buffer_append_string(&ast->string, "<try> ");
+    append_node(ast, AS_NODE(node->tryBlock));
+    buffer_append_string(&ast->string, "<catch> ");
+    append_node(ast, AS_NODE(node->catchBlock));
+    if (node->catchVar) {
+        append_declare_var(ast, node->catchVar);
+    }
+}
+
+/** Apppends a raise statement with the message it's making an error for. */
+static void append_raise(AstBuilder *ast, const RaiseNode *node) {
+    buffer_append_string(&ast->string, "<raise> ");
+    append_node(ast, node->message);
 }
 
 /** Appends a return node + the returned value. */
@@ -437,8 +445,6 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_MULTI_DECLARE: append_multi_declare(ast, AS_PTR(MultiDeclareNode, node)); break;
     case AST_MULTI_ASSIGN: append_multi_assign(ast, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: append_if_else(ast, AS_PTR(IfElseNode, node)); break;
-    case AST_TRY_CATCH: append_try_catch(ast, AS_PTR(TryCatchNode, node)); break;
-    case AST_RAISE: append_raise(ast, AS_PTR(RaiseNode, node)); break;
     case AST_CASE: append_case(ast, AS_PTR(CaseNode, node)); break;
     case AST_MATCH: append_match(ast, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: append_while(ast, AS_PTR(WhileNode, node)); break;
@@ -446,6 +452,9 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_FOR: append_for(ast, AS_PTR(ForNode, node)); break;
     case AST_LOOP_CONTROL: append_loop_control(ast, AS_PTR(LoopControlNode, node)); break;
     case AST_ENUM: append_enum(ast, AS_PTR(EnumNode, node)); break;
+    case AST_IMPORT: append_import(ast, AS_PTR(ImportNode, node)); break;
+    case AST_TRY_CATCH: append_try_catch(ast, AS_PTR(TryCatchNode, node)); break;
+    case AST_RAISE: append_raise(ast, AS_PTR(RaiseNode, node)); break;
     case AST_RETURN: append_return(ast, AS_PTR(ReturnNode, node)); break;
     case AST_FUNC: append_func(ast, AS_PTR(FuncNode, node)); break;
     case AST_CLASS: append_class(ast, AS_PTR(ClassNode, node)); break;

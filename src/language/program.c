@@ -10,15 +10,14 @@
 ZmxProgram create_zmx_program(char *file, const bool showErrors) {
     ZmxProgram program = {
         .hasErrored = false, .showErrors = showErrors,
-        .allNodes = NULL, .allObjs = NULL, .mainFile = NULL, .currentFile = NULL,
+        .allNodes = NULL, .allObjs = NULL, .currentFile = NULL,
         .builtIn = create_table(), .internedStrings = create_table(),
         .internedFalse = NULL, .internedTrue = NULL, .internedNull = NULL,
-        .gc = create_empty_gc()
+        .gc = create_gc()
     };
     intern_objs(&program);
-    program.mainFile = new_string_obj(&program, file, strlen(file));
-    program.currentFile = program.mainFile;
     load_built_ins(&program);
+    program.currentFile = new_string_obj(&program, file, strlen(file));
     return program;
 }
 
@@ -32,5 +31,5 @@ void free_zmx_program(ZmxProgram *program) {
     free_all_objs(program);
     free_table(&program->builtIn);
     free_table(&program->internedStrings);
-    GC_POP_PROTECTION(&program->gc);
+    free_gc(&program->gc);
 }

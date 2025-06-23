@@ -44,8 +44,6 @@ typedef enum {
     AST_MULTI_DECLARE,
     AST_MULTI_ASSIGN,
     AST_IF_ELSE,
-    AST_TRY_CATCH,
-    AST_RAISE,
     AST_CASE,
     AST_MATCH,
     AST_WHILE,
@@ -53,6 +51,9 @@ typedef enum {
     AST_FOR,
     AST_LOOP_CONTROL,
     AST_ENUM,
+    AST_IMPORT,
+    AST_TRY_CATCH,
+    AST_RAISE,
     AST_RETURN,
     AST_FUNC,
     AST_CLASS,
@@ -307,24 +308,6 @@ typedef struct {
     Node *elseBlock; /** Could be a block or another if-else. */
 } IfElseNode;
 
-/** 
- * An error handling statement which goes to the catch block if an error occurs inside the try.
- * The always block simply executes every time, regardless of whether or not the catch was executed.
- */
-typedef struct {
-    Node node;
-    BlockNode *tryBlock;
-    BlockNode *catchBlock;
-    DeclareVarNode *catchVar; /** Optional caught message at runtime. NULL if omitted. */
-} TryCatchNode;
-
-/** Induces a runtime error with the error message it holds. */
-typedef struct {
-    Node node;
-    Node *message;
-    SourcePosition pos;
-} RaiseNode;
-
 /** Represents one case inside a match statement. */
 typedef struct {
     Node node;
@@ -388,6 +371,32 @@ typedef struct {
     DeclareVarNode *nameDecl;
     TokenArray members; /** Array of enumerated member names of the enum. */
 } EnumNode;
+
+/** Represents a statement which imports a zymux file and binds its contents to a variable name. */
+typedef struct {
+    Node node;
+    char *path;
+    u32 pathLength;
+    DeclareVarNode *importVar;
+} ImportNode;
+
+/** 
+ * An error handling statement which goes to the catch block if an error occurs inside the try.
+ * The always block simply executes every time, regardless of whether or not the catch was executed.
+ */
+typedef struct {
+    Node node;
+    BlockNode *tryBlock;
+    BlockNode *catchBlock;
+    DeclareVarNode *catchVar; /** Optional caught message at runtime. NULL if omitted. */
+} TryCatchNode;
+
+/** Induces a runtime error with the error message it holds. */
+typedef struct {
+    Node node;
+    Node *message;
+    SourcePosition pos;
+} RaiseNode;
 
 /** For exiting a function with a certain value. Empty return values get resolved later. */
 typedef struct {
@@ -531,14 +540,6 @@ Node *new_multi_assign_node(
 /** Allocates an if-else node with their condition. The else branch can optionally be NULL. */
 Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBlock, Node *elseBlock);
 
-/** Allocates a statement which doesn't immediately exit and print a message on error. */
-Node *new_try_catch_node(
-    ZmxProgram *program, BlockNode *tryBlock, BlockNode *catchBlock, DeclareVarNode *catchVar
-);
-
-/** Allocates a node which will try to raise an error at runtime. */
-Node *new_raise_node(ZmxProgram *program, Node *message, const SourcePosition pos);
-
 /** Allocates one new case for some match statement. */
 Node *new_case_node(
     ZmxProgram *program, const NodeArray labelVals, BlockNode *block, const SourcePosition pos
@@ -563,6 +564,24 @@ Node *new_loop_control_node(ZmxProgram *program, const Token keyword);
 
 /** Allocates an enum with members that represent a text/readable number. */
 Node *new_enum_node(ZmxProgram *program, DeclareVarNode *nameDecl, const TokenArray members);
+
+/** 
+ * Allocates a statement which imports some file and binds its contents to a variable.
+ * 
+ * It makes its own copy of the passed path, therefore the responsibility of that strings memory
+ * does not get passed to the node.
+ */
+Node *new_import_node(
+    ZmxProgram *program, char *path, const u32 pathLength, DeclareVarNode *importVar
+);
+
+/** Allocates a statement which doesn't immediately exit and print a message on error. */
+Node *new_try_catch_node(
+    ZmxProgram *program, BlockNode *tryBlock, BlockNode *catchBlock, DeclareVarNode *catchVar
+);
+
+/** Allocates a node which will try to raise an error at runtime. */
+Node *new_raise_node(ZmxProgram *program, Node *message, const SourcePosition pos);
 
 /** Allocates a return node, which exits a function with a specific object/value. */
 Node *new_return_node(ZmxProgram *program, Node *value, const SourcePosition pos);

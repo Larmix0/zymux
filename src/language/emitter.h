@@ -103,10 +103,12 @@ typedef enum {
     OP_RETURN,
     OP_CLOSURE_RETURN,
     OP_COPY_TOP,
+    OP_IMPORT,
     OP_START_TRY,
     OP_FINISH_TRY,
     OP_RAISE,
-    OP_END
+    OP_END_MODULE,
+    OP_END_PROGRAM
 } OpCode;
 
 /** Represents the information of a jump instruction in bytecode (which may change to patching). */

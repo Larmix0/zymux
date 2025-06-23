@@ -101,7 +101,7 @@ NATIVE_FUNC(assert) {
 
 /** Grab the current time and returns it. */
 NATIVE_FUNC(time) {
-    UNUSED_PARAMETER(args);
+    UNUSED_VARIABLE(args);
 
     const ZmxFloat currentTime = (ZmxFloat)clock() / CLOCKS_PER_SEC;
     RETURN_OBJ(new_float_obj(vm->program, currentTime));

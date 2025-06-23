@@ -36,7 +36,8 @@
         "debug_bytecode.h": "c",
         "debug_ast.h": "c",
         "typeinfo": "c",
-        "compiler.h": "c"
+        "compiler.h": "c",
+        "errno.h": "c"
     },
     "cSpell.words": [
         "Zymux"

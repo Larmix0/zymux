@@ -12,19 +12,11 @@
 static void mark_obj_array(ObjArray objects);
 static void mark_table(Table table);
 
-/** Creates a garbage collector. The parameters can be NULL if they don't exist. */
-Gc create_gc(Compiler *compiler, Vm *vm) {
+/** Creates an empty garbage collector. */
+Gc create_gc() {
     Gc gc = {
-        .compiler = compiler, .vm = vm, .allocated = 0, .nextCollection = FIRST_COLLECTION_SIZE,
-        .protected = CREATE_DA(), .protectionLayers = 0
-    };
-    return gc;
-}
-
-/** Creates a garbage collector whose values are immediately set to the default NULLs/0. */
-Gc create_empty_gc() {
-    Gc gc = {
-        .compiler = NULL, .vm = NULL, .allocated = 0, .nextCollection = FIRST_COLLECTION_SIZE,
+        .compiler = NULL, .vm = NULL,
+        .allocated = 0, .nextCollection = FIRST_COLLECTION_SIZE,
         .protected = CREATE_DA(), .protectionLayers = 0
     };
     return gc;
@@ -108,6 +100,10 @@ static void mark_obj(Obj *object) {
     case OBJ_ITERATOR:
         mark_obj(AS_OBJ(AS_PTR(IteratorObj, object)->iterable));
         break;
+    case OBJ_MODULE:
+        mark_obj(AS_OBJ(AS_PTR(ModuleObj, object)->path));
+        mark_table(AS_PTR(ModuleObj, object)->globals);
+        break;
     case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:
@@ -147,11 +143,23 @@ static void mark_vm(Vm *vm) {
     for (u32 i = 0; i < vm->callStack.length; i++) {
         mark_obj(AS_OBJ(vm->callStack.data[i].func));
     }
+
     for (u32 i = 0; i < vm->catches.length; i++) {
         mark_obj(AS_OBJ(vm->catches.data[i].func));
     }
-    mark_obj_array(vm->openCaptures);
-    mark_table(vm->globals);
+    for (u32 i = 0; i < vm->modules.length; i++) {
+        mark_obj_array(vm->modules.data[i].openCaptures);
+        mark_table(vm->modules.data[i].globals);
+    }
+}
+
+/** Marks all the objects stored in a program. */
+static void mark_program(ZmxProgram *program) {
+    mark_obj(AS_OBJ(program->currentFile));
+    mark_obj(AS_OBJ(program->internedNull));
+    mark_obj(AS_OBJ(program->internedTrue));
+    mark_obj(AS_OBJ(program->internedFalse));
+    mark_table(program->builtIn);
 }
 
 /** Marks all reachable objects in the program. */
@@ -163,15 +171,9 @@ static void gc_mark(ZmxProgram *program) {
         mark_compiler(gc->compiler);
     }
     if (gc->vm) {
-        mark_vm(gc->vm);
+        mark_vm(program->gc.vm);
     }
-    // Mark the program's stored objects.
-    mark_obj(AS_OBJ(program->currentFile));
-    mark_obj(AS_OBJ(program->mainFile));
-    mark_obj(AS_OBJ(program->internedNull));
-    mark_obj(AS_OBJ(program->internedTrue));
-    mark_obj(AS_OBJ(program->internedFalse));
-    mark_table(program->builtIn);
+    mark_program(program);
 }
 
 /**

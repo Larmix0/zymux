@@ -1,3 +1,9 @@
+#if OS == UNIX_OS
+    #include <unistd.h>
+#elif OS == WINDOWS_OS
+    #include <io.h>
+#endif
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +35,33 @@ static PathType get_path_type(const char *path) {
         return PATH_FILE;
     }
     return PATH_OTHER;
+}
+
+/** Returns a boolean of whether or not the passed file path exists. */
+bool file_exists(const char *path) {
+#if OS == UNIX_OS
+    return access(path, F_OK) == 0;
+#elif OS == WINDOWS_OS
+    return _access(path, 0) == 0;
+#endif
+}
+
+/** Returns an allocated string of the absolute path that the passed relative path refers to. */
+char *get_absolute_path(const char *relativePath) {
+    char *absolutePath = NULL;
+#if OS == UNIX_OS
+    absolutePath = realpath(relativePath, NULL);
+#elif OS == WINDOWS_OS
+    absolutePath = _fullpath(NULL, relativePath, _MAX_PATH);
+#endif
+
+    if (absolutePath == NULL) {
+        FILE_ERROR(
+            "Couldn't convert '%s' to an absolute path: %s (Errno %d).",
+            relativePath, strerror(errno), errno
+        );
+    }
+    return absolutePath;
 }
 
 /** 
@@ -63,7 +96,7 @@ static char *alloc_fixed_source(const char *source) {
  * 
  * All line breaks are written as "\n" in the returned string, no matter the system.
  */
-char *alloc_source(const char *path) {
+char *get_file_source(const char *path) {
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
         FILE_ERROR("Couldn't open file '%s': %s (Errno %d).", path, strerror(errno), errno);

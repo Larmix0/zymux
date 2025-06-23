@@ -41,13 +41,14 @@ typedef enum {
     OBJ_MAP,
     OBJ_ENUM_MEMBER,
     OBJ_ENUM,
+    OBJ_ITERATOR,
+    OBJ_MODULE,
     OBJ_FUNC,
     OBJ_CAPTURED,
     OBJ_CLASS,
     OBJ_INSTANCE,
     OBJ_METHOD,
-    OBJ_NATIVE_FUNC,
-    OBJ_ITERATOR
+    OBJ_NATIVE_FUNC
 } ObjType;
 
 /** Base object struct for all objects in Zymux (for type punning). */
@@ -134,6 +135,20 @@ typedef struct {
     Table lookupTable; /** Multiple strings of name keys and integer values to index members. */
 } EnumObj;
 
+/** An iterator, which holds an iterable object which it iterates over its elements 1 by 1. */
+typedef struct {
+    Obj obj;
+    Obj *iterable; /** Object being iterated over. Must be an object that can be iterated on.*/
+    u32 iteration; /** The n-th iteration of its elements we're on. */
+} IteratorObj;
+
+/** Represents an imported module's visible information. */
+typedef struct {
+    Obj obj;
+    StringObj *path; /** The file path of this module. */
+    Table globals; /** Globals which can be accessed by other modules (doesn't include privates). */
+} ModuleObj;
+
 /** Represents one enum value in an enum. */
 typedef struct {
     Obj obj;
@@ -185,6 +200,12 @@ typedef struct {
     /** The class this function is tied to if it's a method. NULL if it's not a method. */
     ClassObj *cls;
 
+    /** The name of the module which this function was declared inside of. */
+    StringObj *module;
+
+    /** Whether this represents top-level code of a module, or any other func inside a module. */
+    bool isToplevel;
+
     /** 
      * Static information about the parameters of the function.
      * 
@@ -228,9 +249,6 @@ typedef struct {
 typedef struct {
     FuncObj func;
 
-    /** Whether this represents the top-level code, or any other function. */
-    bool isToplevel;
-
     /** The runtime value of each parameter of the function. NULL for each mandatory param first. */
     ObjArray paramVals;
 
@@ -272,13 +290,6 @@ typedef struct {
     FuncParams params; /** Parameters of the native function. */
 } NativeFuncObj;
 
-/** An iterator, which holds an iterable object which it iterates over its elements 1 by 1. */
-typedef struct {
-    Obj obj;
-    Obj *iterable; /** Object being iterated over. Must be an object that can be iterated on.*/
-    u32 iteration; /** The n-th iteration of its elements we're on. */
-} IteratorObj;
-
 /** Returns a new allocated integer object. */
 IntObj *new_int_obj(ZmxProgram *program, const ZmxInt number);
 
@@ -318,16 +329,33 @@ EnumMemberObj *new_enum_member_obj(
 /** Returns an enum, which holds a bunch of names in order. */
 EnumObj *new_enum_obj(ZmxProgram *program, StringObj *name);
 
-/** Returns a new allocated function object. */
-FuncObj *new_func_obj(ZmxProgram *program, StringObj *name, const u32 minArity, const u32 maxArity);
+/** Returns an iterator which wraps around an iterable object being iterated on. */
+IteratorObj *new_iterator_obj(ZmxProgram *program, Obj *iterable);
+
+/** 
+ * Returns an imported module as an object.
+ * 
+ * Doesn't take responsibility of freeing the passed globals table, as it only copies them.
+ */
+ModuleObj *new_module_obj(ZmxProgram *program, StringObj *path, const Table globals);
+
+/** 
+ * Returns a new allocated function object.
+ * 
+ * The class a function should be added later while turning the function into a method in the VM,
+ * meanwhile every function must be declared inside some module, so it's mandatory to provide it.
+ */
+FuncObj *new_func_obj(
+    ZmxProgram *program, StringObj *name, const u32 minArity, const u32 maxArity,
+    StringObj *module, const bool isTopLevel
+);
 
 /** Returns a newely created indirect reference to the passed object (capturing the object). */
 CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackIdx);
 
 /** Returns a func which has some runtime values that might be independant from the static func. */
 RuntimeFuncObj *new_runtime_func_obj(
-    ZmxProgram *program, FuncObj *func, const bool isToplevel, const bool hasOptionals,
-    const bool isClosure
+    ZmxProgram *program, FuncObj *func, const bool hasOptionals, const bool isClosure
 );
 
 /** Returns a bare-bones class with a name. Other information is added later. */
@@ -343,9 +371,6 @@ MethodObj *new_method_obj(ZmxProgram *program, InstanceObj *instance, FuncObj *f
 NativeFuncObj *new_native_func_obj(
     ZmxProgram *program, StringObj *name, NativeFunc func, const FuncParams params
 );
-
-/** Returns an iterator which wraps around an iterable object being iterated on. */
-IteratorObj *new_iterator_obj(ZmxProgram *program, Obj *iterable);
 
 /** Allocates some objects for interning and puts them in the passed program. */
 void intern_objs(ZmxProgram *program);

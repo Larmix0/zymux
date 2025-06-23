@@ -76,7 +76,7 @@ static void print_error_line(char *current, const SourcePosition pos) {
 
 /** Iterates through the source of the passed file and then prints the errored line when reached. */
 static void show_zmx_error_line(const char *file, const SourcePosition pos) {
-    char *source = alloc_source(file);
+    char *source = get_file_source(file);
     const int sourceLength = strlen(source);
     int sourceLine = 1;
     for (int i = 0; i < sourceLength; i++) {
@@ -140,7 +140,7 @@ void file_error(const char *format, ...) {
 }
 
 /** 
- * Prints the error in the currentFile of program in the line and column of the passed pos.
+ * Prints the error in the fileName of program in the line and column of the passed pos.
  * 
  * This is reserved for errors that are due to the user's own mistake in a *.zmx file.
  * Like a compiler error or a runtime error.
@@ -148,7 +148,7 @@ void file_error(const char *format, ...) {
  * If the passed args list is NULL, it'll simply print the passed string with no formatting.
  */
 void zmx_user_error(
-    ZmxProgram *program, const SourcePosition pos, const char *errorName,
+    ZmxProgram *program, const char *fileName, const SourcePosition pos, const char *errorName,
     const char *format, va_list *args
 ) {
     const bool hasErrored = program->hasErrored;
@@ -160,10 +160,9 @@ void zmx_user_error(
         fputc('\n', stderr);
     }
 
-    show_zmx_error_line(program->currentFile->string, pos);
+    show_zmx_error_line(fileName, pos);
     fprintf(
-        stderr, "line %d in '%s':\n" INDENT RED "%s: " DEFAULT_COLOR,
-        pos.line, program->currentFile->string, errorName
+        stderr, "line %d in '%s':\n" INDENT RED "%s: " DEFAULT_COLOR, pos.line, fileName, errorName
     );
     if (args != NULL) {
         vfprintf(stderr, format, *args);  

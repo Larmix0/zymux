@@ -144,10 +144,12 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_RETURN: print_bare_instr("RETURN", &idx); break;
     case OP_CLOSURE_RETURN: print_number_instr("CLOSURE_RETURN", func, &idx, size); break;
     case OP_COPY_TOP: print_bare_instr("COPY_TOP", &idx); break;
+    case OP_IMPORT: print_const_instr("IMPORT", func, &idx, size); break;
     case OP_START_TRY: print_number_instr("START_TRY", func, &idx, size); break;
     case OP_FINISH_TRY: print_bare_instr("FINISH_TRY", &idx); break;
     case OP_RAISE: print_bare_instr("RAISE", &idx); break;
-    case OP_END: print_bare_instr("END", &idx); break;
+    case OP_END_MODULE: print_bare_instr("END_MODULE", &idx); break;
+    case OP_END_PROGRAM: print_bare_instr("END_PROGRAM", &idx); break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     putchar('\n');

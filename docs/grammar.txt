@@ -43,6 +43,7 @@ STATEMENTS:
 
 statement {
     ifElseStmt
+    | importStmt
     | tryCatchStmt
     | raiseStmt
     | matchStmt
@@ -57,6 +58,10 @@ statement {
 
 ifElseStmt {
     "if" expression block ("else" (block | ifElseStmt))?
+}
+
+importStmt {
+    "import" "."* (name ".")* name ("as" name)?
 }
 
 tryCatchStmt {

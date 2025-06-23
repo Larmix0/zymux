@@ -1,6 +1,10 @@
+#include "char_buffer.h"
 #include "dynamic_array.h"
+#include "file.h"
 #include "parser.h"
 #include "report_error.h"
+
+#include <string.h>
 
 #if DEBUG_AST
     #include "debug_ast.h"
@@ -56,7 +60,10 @@ static void parser_error_at(
     }
     va_list args;
     va_start(args, format);
-    zmx_user_error(parser->program, erroredToken.pos, "Syntax error", format, &args);
+    zmx_user_error(
+        parser->program, parser->program->currentFile->string, erroredToken.pos,
+        "Syntax error", format, &args
+    );
     va_end(args);
 }
 
@@ -87,7 +94,10 @@ static void parser_error_missing(
     );
     va_list args;
     va_start(args, format);
-    zmx_user_error(parser->program, errorPos, "Syntax error", format, &args);
+    zmx_user_error(
+        parser->program, parser->program->currentFile->string, errorPos,
+        "Syntax error", format, &args
+    );
     va_end(args);
 }
 
@@ -640,6 +650,68 @@ static Node *parse_if_else(Parser *parser) {
 }
 
 /** 
+ * Parses the dots of an imported folder which are used to access a specific directory first.
+ * 
+ * Writes the appropriate backing operations into the path (like "../" to go back).
+ */
+static void parse_import_dots(Parser *parser, CharBuffer *path) {
+    u32 dots = 0;
+    while (true) {
+        if (MATCH(parser, TOKEN_DOT)) {
+            dots++;
+        } else if (MATCH(parser, TOKEN_DOT_DOT)) {
+            dots += 2;
+        } else {
+            break;
+        }
+    }
+
+    if (dots == 1) {
+        buffer_append_format(path, ".%c", PATH_DELIMITER);
+    } else {
+        for (u32 i = 0; i < dots; i++) {
+            buffer_append_format(path, "..%c", PATH_DELIMITER);
+        }
+    }
+}
+
+/** Parses and returns the absolute path of a file as an allocated string. */
+static char *parse_import_path(Parser *parser) {
+    CharBuffer relativePath = create_char_buffer();
+    parse_import_dots(parser, &relativePath);
+
+    const Token pathPart = CONSUME(parser, TOKEN_IDENTIFIER, "Expected a name in import.");
+    buffer_append_string_len(&relativePath, pathPart.lexeme, pathPart.pos.length);
+    while (MATCH(parser, TOKEN_DOT)) {
+        buffer_append_char(&relativePath, PATH_DELIMITER);
+        const Token pathPart = CONSUME(parser, TOKEN_IDENTIFIER, "Expected a name in import.");
+        buffer_append_string_len(&relativePath, pathPart.lexeme, pathPart.pos.length);
+    }
+    buffer_append_string(&relativePath, EXTENSION);
+
+    char *absolutePath = get_absolute_path(relativePath.text);
+    free_char_buffer(&relativePath);
+    return absolutePath;
+}
+
+/** Returns a full parsed node of a full import (the whole module, not a few names). */
+static Node *parse_import(Parser *parser) {
+    char *path = parse_import_path(parser);
+    Token usedName = PEEK_PREVIOUS(parser); // Name of the imported file by default.
+    if (MATCH(parser, TOKEN_AS_KW)) {
+        usedName = CONSUME(parser, TOKEN_IDENTIFIER, "Expected name after 'as'.");
+    }
+    Node *importVar = new_declare_var_node(parser->program, usedName, NULL, true);
+    CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after import.");
+    
+    Node *importNode = new_import_node(
+        parser->program, path, strlen(path), AS_PTR(DeclareVarNode, importVar)
+    );
+    free(path);
+    return importNode;
+}
+
+/** 
  * Wraps a block in a try statement and when it errors, executes a catch block and continues.
  * The catch is a mandatory part after the try block.
  */
@@ -772,14 +844,15 @@ static Node *statement(Parser *parser) {
     switch (ADVANCE_PEEK(parser).type) {
     case TOKEN_LCURLY: node = finish_block(parser); break;
     case TOKEN_IF_KW: node = parse_if_else(parser); break;
-    case TOKEN_TRY_KW: node = parse_try_catch(parser); break;
-    case TOKEN_RAISE_KW: node = parse_raise(parser); break;
     case TOKEN_MATCH_KW: node = parse_match(parser); break;
     case TOKEN_WHILE_KW: node = parse_while(parser); break;
     case TOKEN_DO_KW: node = parse_do_while(parser); break;
     case TOKEN_FOR_KW: node = parse_for(parser); break;
     case TOKEN_CONTINUE_KW: node = parse_loop_control(parser); break;
     case TOKEN_BREAK_KW: node = parse_loop_control(parser); break;
+    case TOKEN_IMPORT_KW: node = parse_import(parser); break;
+    case TOKEN_TRY_KW: node = parse_try_catch(parser); break;
+    case TOKEN_RAISE_KW: node = parse_raise(parser); break;
     case TOKEN_RETURN_KW: node = parse_return(parser); break;
     default:
         RETREAT(parser);
@@ -1041,7 +1114,7 @@ static void synchronize(Parser *parser) {
         case TOKEN_INIT_KW:
         case TOKEN_ABSTRACT_KW:
         case TOKEN_MATCH_KW:
-        case TOKEN_FROM_KW: // TODO: does "from" start an import statement, or is it in the middle?
+        case TOKEN_FROM_KW:
         case TOKEN_IMPORT_KW:
             parser->isPanicking = false;
             return;

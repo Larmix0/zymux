@@ -25,13 +25,14 @@ bool is_hashable(const Obj *object) {
     case OBJ_LIST:
     case OBJ_MAP:
     case OBJ_ENUM:
+    case OBJ_ITERATOR:
+    case OBJ_MODULE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
-    case OBJ_ITERATOR:
         return false;
     }
     UNREACHABLE_ERROR();
@@ -85,13 +86,14 @@ u32 get_hash(const Obj *object) {
     case OBJ_LIST:
     case OBJ_MAP:
     case OBJ_ENUM:
+    case OBJ_ITERATOR:
+    case OBJ_MODULE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
-    case OBJ_ITERATOR:
         UNREACHABLE_ERROR();
     }
     UNREACHABLE_ERROR();
@@ -101,6 +103,16 @@ u32 get_hash(const Obj *object) {
 Table create_table() {
     Table table = {.count = 0, .capacity = 0, .entries = NULL};
     return table;
+}
+
+/** Sets each entry in the "from" table on the "to" table, essentially copying all its entries. */
+void copy_entries(const Table *from, Table *to) {
+    for (u32 i = 0; i < from->capacity; i++) {
+        Entry *entry = &from->entries[i];
+        if (entry->key) {
+            table_set(to, entry->key, entry->value);
+        }
+    }
 }
 
 /** Swaps all fields of the passed entries. */
@@ -137,13 +149,7 @@ static void expand_table(Table *oldTable) {
     for (u32 i = 0; i < newTable.capacity; i++) {
         make_entry_empty(&newTable.entries[i]);
     }
-    // Copy the key value pairs from the old to the new table.
-    for (u32 i = 0; i < oldTable->capacity; i++) {
-        Entry *entry = &oldTable->entries[i];
-        if (entry->key) {
-            table_set(&newTable, entry->key, entry->value);
-        }
-    }
+    copy_entries(oldTable, &newTable);
     free_table(oldTable);
     *oldTable = newTable;
 }

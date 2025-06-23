@@ -16,7 +16,7 @@
     #define PATH_DELIMITER '\\'
 #else
     #define OS UNKNOWN_OS
-    #define PATH_DELIMITER '\0'
+    #define PATH_DELIMITER '/'
 #endif
 
 #define DEFAULT_COLOR "\033[0m"
@@ -50,11 +50,11 @@
 #define ZMX_INT_FMT "%" PRId64
 #define ZMX_FLOAT_FMT "%lf"
 
-/** Gets rid of a compiler warning for an unused parameter. */
-#define UNUSED_PARAMETER(parameter) ((void)(parameter))
+/** Gets rid of a compiler warning for a variable which was declared but never used. */
+#define UNUSED_VARIABLE(parameter) ((void)(parameter))
 
-/** The implicitly given name to the main/first file executing and its top-level scope. */
-#define MAIN_NAME "<main>"
+/** The string of characters (file extension) which denotes a language file. */
+#define EXTENSION ".zmx"
 
 /** Converts the passed pointer to a pointer of the passed type. */
 #define AS_PTR(type, value) ((type *)value)

@@ -10,7 +10,7 @@ PRIVATE_TEST_CASE(test_compile_expr) {
     ZmxProgram program = create_zmx_program("no_file", false);
     char *source = "3 + 4 * --9 * 2 / 7 ** 6 / -2;"
         "$\"start {1 + 2} middle {'inner' + ' string'}\" + ' end.';";
-    Compiler compiled = compile_source(&program, source);
+    Compiler compiled = compile_source(&program, source, true);
     FuncObj *func = compiled.func;
     free_compiler(&compiled);
     ASSERT_NOT_NULL(func);
@@ -21,7 +21,7 @@ PRIVATE_TEST_CASE(test_compile_expr) {
         OP_LOAD_CONST, 6, OP_MINUS, OP_DIVIDE, OP_ADD, OP_POP_LOCAL,
         OP_LOAD_CONST, 7, OP_LOAD_CONST, 8, OP_LOAD_CONST, 9, OP_ADD, OP_AS, 3, OP_LOAD_CONST, 10,
         OP_LOAD_CONST, 11, OP_LOAD_CONST, 12, OP_ADD, OP_AS, 3,
-        OP_FINISH_STRING, 4, OP_LOAD_CONST, 13, OP_ADD, OP_POP_LOCAL, OP_END
+        OP_FINISH_STRING, 4, OP_LOAD_CONST, 13, OP_ADD, OP_POP_LOCAL, OP_END_PROGRAM
     };
     ASSERT_BYTES_EQUAL(func->bytecode.data, expected, func->bytecode.length);
     free_zmx_program(&program);

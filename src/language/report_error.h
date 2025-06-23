@@ -122,7 +122,7 @@ void file_error(const char *format, ...);
  * Passing NULL for the args parameter would simply print the passed bare string without formatting.
  */
 void zmx_user_error(
-    ZmxProgram *program, const SourcePosition pos, const char *errorName,
+    ZmxProgram *program, const char *fileName, const SourcePosition pos, const char *errorName,
     const char *format, va_list *args
 );
 

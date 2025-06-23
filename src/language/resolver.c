@@ -94,7 +94,10 @@ static void resolution_error(
 ) {
     va_list args;
     va_start(args, format);
-    zmx_user_error(resolver->program, pos, "Resolution error", format, &args);
+    zmx_user_error(
+        resolver->program, resolver->program->currentFile->string, pos,
+        "Resolution error", format, &args
+    );
     va_end(args);
 }
 
@@ -771,23 +774,6 @@ static void resolve_if_else(Resolver *resolver, IfElseNode *node) {
     resolve_node(resolver, node->elseBlock);
 }
 
-/** Resolves a try-catch's blocks. */
-static void resolve_try_catch(Resolver *resolver, TryCatchNode *node) {
-    resolve_node(resolver, AS_NODE(node->tryBlock));
-
-    push_scope(resolver, SCOPE_NORMAL);
-    if (node->catchVar) {
-        resolve_declare_var(resolver, node->catchVar, NULL);
-    }
-    unscoped_block(resolver, node->catchBlock);
-    pop_block_scope(resolver, node->catchBlock, SCOPE_NORMAL);
-}
-
-/** Resolves a raise statement's message. */
-static void resolve_raise(Resolver *resolver, RaiseNode *node) {
-    resolve_node(resolver, node->message);
-}
-
 /** Resolves all of a case node's label values and its block. */
 static void resolve_case(Resolver *resolver, CaseNode *node) {
     for (u32 i = 0; i < node->labelVals.length; i++) {
@@ -914,6 +900,28 @@ static void resolve_loop_control(Resolver *resolver, LoopControlNode *node) {
 /** Resolves an enum, which only has its name declaration (as the members are just ints as text). */
 static void resolve_enum(Resolver *resolver, const EnumNode *node) {
     resolve_node(resolver, AS_NODE(node->nameDecl));
+}
+
+/** Resolves the variable of an import statement which is used to access the imported file. */
+static void resolve_import(Resolver *resolver, ImportNode *node) {
+    resolve_declare_var(resolver, node->importVar, NULL);
+}
+
+/** Resolves a try-catch's blocks. */
+static void resolve_try_catch(Resolver *resolver, TryCatchNode *node) {
+    resolve_node(resolver, AS_NODE(node->tryBlock));
+
+    push_scope(resolver, SCOPE_NORMAL);
+    if (node->catchVar) {
+        resolve_declare_var(resolver, node->catchVar, NULL);
+    }
+    unscoped_block(resolver, node->catchBlock);
+    pop_block_scope(resolver, node->catchBlock, SCOPE_NORMAL);
+}
+
+/** Resolves a raise statement's message. */
+static void resolve_raise(Resolver *resolver, RaiseNode *node) {
+    resolve_node(resolver, node->message);
 }
 
 /** 
@@ -1057,8 +1065,6 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_MULTI_DECLARE: resolve_multi_declare(resolver, AS_PTR(MultiDeclareNode, node)); break;
     case AST_MULTI_ASSIGN: resolve_multi_assign(resolver, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: resolve_if_else(resolver, AS_PTR(IfElseNode, node)); break;
-    case AST_TRY_CATCH: resolve_try_catch(resolver, AS_PTR(TryCatchNode, node)); break;
-    case AST_RAISE: resolve_raise(resolver, AS_PTR(RaiseNode, node)); break;
     case AST_CASE: resolve_case(resolver, AS_PTR(CaseNode, node)); break;
     case AST_MATCH: resolve_match(resolver, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: resolve_while(resolver, AS_PTR(WhileNode, node)); break;
@@ -1066,6 +1072,9 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_FOR: resolve_for(resolver, AS_PTR(ForNode, node)); break;
     case AST_LOOP_CONTROL: resolve_loop_control(resolver, AS_PTR(LoopControlNode, node)); break;
     case AST_ENUM: resolve_enum(resolver, AS_PTR(EnumNode, node)); break;
+    case AST_IMPORT: resolve_import(resolver, AS_PTR(ImportNode, node)); break;
+    case AST_TRY_CATCH: resolve_try_catch(resolver, AS_PTR(TryCatchNode, node)); break;
+    case AST_RAISE: resolve_raise(resolver, AS_PTR(RaiseNode, node)); break;
     case AST_RETURN: resolve_return(resolver, AS_PTR(ReturnNode, node)); break;
     case AST_FUNC: resolve_func(resolver, AS_PTR(FuncNode, node), FUNC_FUNCTION); break;
     case AST_CLASS: resolve_class(resolver, AS_PTR(ClassNode, node)); break;

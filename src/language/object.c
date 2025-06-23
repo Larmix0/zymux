@@ -86,9 +86,6 @@ StringObj *new_string_obj(ZmxProgram *program, const char *string, const u32 len
     const u32 hash = hash_string(string, length);
     Obj *interned = table_get_string(&program->internedStrings, string, length, hash);
     if (interned) {
-        if (program->gc.protectionLayers > 0) {
-            GC_PROTECT_OBJ(&program->gc, interned); // Manually protect interned string from GC.
-        }
         return AS_PTR(StringObj, interned);
     }
 
@@ -154,21 +151,44 @@ EnumObj *new_enum_obj(ZmxProgram *program, StringObj *name) {
     return object;
 }
 
+/** Returns an iterator which wraps around an iterable object being iterated on. */
+IteratorObj *new_iterator_obj(ZmxProgram *program, Obj *iterable) {
+    IteratorObj *object = NEW_OBJ(program, OBJ_ITERATOR, IteratorObj);
+    object->iterable = iterable;
+    object->iteration = 0;
+    return object;
+}
+
 /** 
- * Returns a new allocated function object with a name to it and its members initialized.
+ * Returns an imported module as an object.
  * 
- * If isClosure is set to true, then it'll allocate a larger function that allows it to be
- * converted to a closure type that reveals an extra closure context that not every function may
- * have.
+ * Doesn't take responsibility of freeing the passed globals table, as it only copies them.
+ */
+ModuleObj *new_module_obj(ZmxProgram *program, StringObj *path, const Table globals) {
+    ModuleObj *object = NEW_OBJ(program, OBJ_MODULE, ModuleObj);
+    object->path = path;
+    object->globals = create_table();
+    copy_entries(&globals, &object->globals); // Copy. It's not responsible for the passed table.
+    return object;
+}
+
+/** 
+ * Returns a new allocated function object.
+ * 
+ * The class a function should be added later while turning the function into a method in the VM,
+ * meanwhile every function must be declared inside some module, so it's mandatory to provide it.
  */
 FuncObj *new_func_obj(
-    ZmxProgram *program, StringObj *name, const u32 minArity, const u32 maxArity
+    ZmxProgram *program, StringObj *name, const u32 minArity, const u32 maxArity,
+    StringObj *module, const bool isTopLevel
 ) {
     FuncObj *object = NEW_OBJ(program, OBJ_FUNC, FuncObj);
     object->name = name;
     object->hasOptionals = false;
     object->isClosure = false;
     object->cls = NULL;
+    object->module = module;
+    object->isToplevel = isTopLevel;
 
     object->params.minArity = minArity;
     object->params.maxArity = maxArity;
@@ -207,15 +227,13 @@ CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stac
  * the static function alone truncates that extra information off.
  */
 RuntimeFuncObj *new_runtime_func_obj(
-    ZmxProgram *program, FuncObj *func, const bool isToplevel, const bool hasOptionals,
-    const bool isClosure
+    ZmxProgram *program, FuncObj *func, const bool hasOptionals, const bool isClosure
 ) {
     RuntimeFuncObj *object = NEW_OBJ(program, OBJ_FUNC, RuntimeFuncObj);
     Obj base = object->func.obj; // Runtime function's base obj.
     object->func = *func; // Copy.
     object->func.obj = base; // Change the base obj back to the runtime func's base after copying.
 
-    object->isToplevel = isToplevel;
     object->func.hasOptionals = hasOptionals;
     object->func.isClosure = isClosure;
     INIT_DA(&AS_PTR(RuntimeFuncObj, object)->paramVals);
@@ -268,14 +286,6 @@ NativeFuncObj *new_native_func_obj(
     object->name = name;
     object->func = func;
     object->params = params;
-    return object;
-}
-
-/** Returns an iterator which wraps around an iterable object being iterated on. */
-IteratorObj *new_iterator_obj(ZmxProgram *program, Obj *iterable) {
-    IteratorObj *object = NEW_OBJ(program, OBJ_ITERATOR, IteratorObj);
-    object->iterable = iterable;
-    object->iteration = 0;
     return object;
 }
 
@@ -368,13 +378,20 @@ static CharBuffer object_cstring(const Obj *object) {
         buffer_append_format(&string, "%s.%s", member->enumObj->name->string, member->name->string);
         break;
     }
+    case OBJ_ITERATOR:
+        buffer_append_format(&string, "<iterator>");
+        break;
+    case OBJ_MODULE:
+        buffer_append_format(
+            &string, "<module %s>", AS_PTR(ModuleObj, object)->path->string
+        );
+        break;
     case OBJ_FUNC:
         buffer_append_format(&string, "<function %s>", AS_PTR(FuncObj, object)->name->string);
         break;
-    case OBJ_CAPTURED: {
+    case OBJ_CAPTURED:
         buffer_append_format(&string, "<captured>");
         break;
-    }
     case OBJ_CLASS:
         buffer_append_format(&string, "<class %s>", AS_PTR(ClassObj, object)->name->string);
         break;
@@ -396,10 +413,6 @@ static CharBuffer object_cstring(const Obj *object) {
             &string, "<native function %s>", AS_PTR(NativeFuncObj, object)->name->string
         );
         break;
-    case OBJ_ITERATOR: {
-        buffer_append_format(&string, "<iterator>");
-        break;
-    }
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     return string;
@@ -420,13 +433,14 @@ bool is_iterable(const Obj *object) {
     case OBJ_BOOL:
     case OBJ_NULL:
     case OBJ_ENUM_MEMBER:
+    case OBJ_ITERATOR:
+    case OBJ_MODULE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
-    case OBJ_ITERATOR:
         return false;
     }
     UNREACHABLE_ERROR();
@@ -507,6 +521,7 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
     case OBJ_ITERATOR:
+    case OBJ_MODULE:
         UNREACHABLE_ERROR();
     }
     UNREACHABLE_ERROR();
@@ -568,13 +583,14 @@ bool equal_obj(const Obj *left, const Obj *right) {
     switch (left->type) {
     case OBJ_STRING:
     case OBJ_ENUM:
+    case OBJ_ITERATOR:
+    case OBJ_MODULE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
-    case OBJ_ITERATOR:
         return left == right; // Compare addresses directly.
 
     case OBJ_BOOL:
@@ -662,13 +678,14 @@ IntObj *as_int(ZmxProgram *program, const Obj *object) {
     case OBJ_LIST:
     case OBJ_MAP:
     case OBJ_ENUM:
+    case OBJ_ITERATOR:
+    case OBJ_MODULE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
-    case OBJ_ITERATOR:
         // Can't ever convert to integer.
         return NULL;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
@@ -698,13 +715,14 @@ FloatObj *as_float(ZmxProgram *program, const Obj *object) {
     case OBJ_LIST:
     case OBJ_MAP:
     case OBJ_ENUM:
+    case OBJ_ITERATOR:
+    case OBJ_MODULE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
-    case OBJ_ITERATOR:
         // Can't ever convert to float.
         return NULL;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
@@ -718,13 +736,14 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     switch (object->type) {
     case OBJ_RANGE:
     case OBJ_ENUM:
+    case OBJ_ITERATOR:
+    case OBJ_MODULE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
-    case OBJ_ITERATOR:
         // Always considered "truthy".
         result = true;
         break;
@@ -780,6 +799,8 @@ char *obj_type_str(ObjType type) {
     case OBJ_LIST: return "list";
     case OBJ_MAP: return "map";
     case OBJ_ENUM: return "enum";
+    case OBJ_ITERATOR: return "iterator";
+    case OBJ_MODULE: return "module";
     case OBJ_ENUM_MEMBER: return "enum member";
     case OBJ_FUNC: return "function";
     case OBJ_CAPTURED: return "captured";
@@ -787,7 +808,6 @@ char *obj_type_str(ObjType type) {
     case OBJ_INSTANCE: return "instance";
     case OBJ_METHOD: return "instance method";
     case OBJ_NATIVE_FUNC: return "native function";
-    case OBJ_ITERATOR: return "iterator";
     }
     UNREACHABLE_ERROR();
 }
@@ -834,13 +854,16 @@ void free_obj(Obj *object) {
         free_table(&AS_PTR(EnumObj, object)->lookupTable);
         FREE_DA(&AS_PTR(EnumObj, object)->members);
         break;
+    case OBJ_MODULE:
+        free_table(&AS_PTR(ModuleObj, object)->globals);
+        break;
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);
         if (func->hasOptionals || func->isClosure) {
             RuntimeFuncObj *runtimeFunc = AS_PTR(RuntimeFuncObj, func);
             FREE_DA(&runtimeFunc->paramVals);
             FREE_DA(&runtimeFunc->captures);
-            if (runtimeFunc->isToplevel) {
+            if (func->isToplevel) {
                 free_func_obj(func); // Top-level gets one func that is also a closure, so free it.
             }
         } else {
@@ -864,9 +887,9 @@ void free_obj(Obj *object) {
     case OBJ_NULL:
     case OBJ_RANGE:
     case OBJ_ENUM_MEMBER:
+    case OBJ_ITERATOR:
     case OBJ_CAPTURED:
     case OBJ_METHOD:
-    case OBJ_ITERATOR:
         break; // The object itself doesn't own any memory.
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
@@ -888,4 +911,5 @@ void free_all_objs(ZmxProgram *program) {
             next = next->next;
         }
     }
+    program->allObjs = NULL; // Just in case we start allocating objects again.
 }

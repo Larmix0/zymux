@@ -16,13 +16,16 @@ static void repl() {
 }
 
 /** Reads the passed file and makes it go through all the stages of Zymux to execute it. */
-static void run_zmx_file(char *file) {
-    char *source = alloc_source(file);
-    ZmxProgram program = create_zmx_program(file, true);
-    interpret_source(&program, source);
+static void run_zmx_file(char *passedFile) {
+    char *absoluteFile = get_absolute_path(passedFile);
+    char *source = get_file_source(absoluteFile);
+    
+    ZmxProgram program = create_zmx_program(absoluteFile, true);
+    interpret_source(&program, source, true);
     
     free_zmx_program(&program);
     free(source);
+    free(absoluteFile);
 }
 
 /** 

@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "allocator.h"
 #include "constants.h"
@@ -266,25 +267,6 @@ Node *new_if_else_node(ZmxProgram *program, Node *condition, BlockNode *ifBlock,
     return AS_NODE(node);
 }
 
-/** Allocates a statement which doesn't immediately exit and print a message on error. */
-Node *new_try_catch_node(
-    ZmxProgram *program, BlockNode *tryBlock, BlockNode *catchBlock, DeclareVarNode *catchVar
-) {
-    TryCatchNode *node = NEW_NODE(program, AST_TRY_CATCH, TryCatchNode);
-    node->tryBlock = tryBlock;
-    node->catchBlock = catchBlock;
-    node->catchVar = catchVar;
-    return AS_NODE(node);
-}
-
-/** Allocates a node which will try to raise an error at runtime. */
-Node *new_raise_node(ZmxProgram *program, Node *message, const SourcePosition pos) {
-    RaiseNode *node = NEW_NODE(program, AST_RAISE, RaiseNode);
-    node->message = message;
-    node->pos = pos;
-    return AS_NODE(node);    
-}
-
 /** Allocates one new case for some match statement. */
 Node *new_case_node(
     ZmxProgram *program, const NodeArray labelVals, BlockNode *block, const SourcePosition pos
@@ -349,6 +331,44 @@ Node *new_enum_node(ZmxProgram *program, DeclareVarNode *nameDecl, const TokenAr
     node->nameDecl = nameDecl;
     node->members = members;
     return AS_NODE(node);
+}
+
+/** 
+ * Allocates a statement which imports some file and binds its contents to a variable.
+ * 
+ * It makes its own copy of the passed path, therefore the responsibility of that strings memory
+ * does not get passed to the node.
+ */
+Node *new_import_node(
+    ZmxProgram *program, char *path, const u32 pathLength, DeclareVarNode *importVar
+) {
+    ImportNode *node = NEW_NODE(program, AST_IMPORT, ImportNode);
+    node->importVar = importVar;
+    node->pathLength = pathLength;
+
+    node->path = ARRAY_ALLOC(node->pathLength + 1, char);
+    strncpy(node->path, path, node->pathLength);
+    node->path[node->pathLength] = '\0';
+    return AS_NODE(node);
+}
+
+/** Allocates a statement which doesn't immediately exit and print a message on error. */
+Node *new_try_catch_node(
+    ZmxProgram *program, BlockNode *tryBlock, BlockNode *catchBlock, DeclareVarNode *catchVar
+) {
+    TryCatchNode *node = NEW_NODE(program, AST_TRY_CATCH, TryCatchNode);
+    node->tryBlock = tryBlock;
+    node->catchBlock = catchBlock;
+    node->catchVar = catchVar;
+    return AS_NODE(node);
+}
+
+/** Allocates a node which will try to raise an error at runtime. */
+Node *new_raise_node(ZmxProgram *program, Node *message, const SourcePosition pos) {
+    RaiseNode *node = NEW_NODE(program, AST_RAISE, RaiseNode);
+    node->message = message;
+    node->pos = pos;
+    return AS_NODE(node);    
 }
 
 /** Allocates a return node, which exits a function with a specific object/value. */
@@ -446,8 +466,6 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_MULTI_DECLARE: return AS_PTR(MultiDeclareNode, node)->pos;
     case AST_MULTI_ASSIGN: return AS_PTR(MultiAssignNode, node)->pos;
     case AST_IF_ELSE: return get_node_pos(AS_PTR(IfElseNode, node)->condition);
-    case AST_TRY_CATCH: return get_node_pos(AS_NODE(AS_PTR(TryCatchNode, node)->tryBlock));
-    case AST_RAISE: return AS_PTR(RaiseNode, node)->pos;
     case AST_CASE: return AS_PTR(CaseNode, node)->pos;
     case AST_MATCH: return get_node_pos(AS_PTR(MatchNode, node)->matchedExpr);
     case AST_WHILE: return get_node_pos(AS_PTR(WhileNode, node)->condition);
@@ -455,6 +473,9 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_FOR: return get_node_pos(AS_PTR(ForNode, node)->loopVar);
     case AST_LOOP_CONTROL: return AS_PTR(LoopControlNode, node)->pos;
     case AST_ENUM: return AS_PTR(EnumNode, node)->nameDecl->name.pos;
+    case AST_IMPORT: return get_node_pos(AS_NODE(AS_PTR(ImportNode, node)->importVar));
+    case AST_TRY_CATCH: return get_node_pos(AS_NODE(AS_PTR(TryCatchNode, node)->tryBlock));
+    case AST_RAISE: return AS_PTR(RaiseNode, node)->pos;
     case AST_RETURN: return AS_PTR(ReturnNode, node)->pos;
     case AST_FUNC: return AS_PTR(FuncNode, node)->name.pos;
     case AST_CLASS: return AS_PTR(ClassNode, node)->nameDecl->name.pos;
@@ -497,6 +518,9 @@ static void free_node(Node *node) {
     case AST_ENUM:
         FREE_DA(&AS_PTR(EnumNode, node)->members);
         break;
+    case AST_IMPORT:
+        free(AS_PTR(ImportNode, node)->path);
+        break;
     case AST_FUNC:
         FREE_DA(&AS_PTR(FuncNode, node)->mandatoryParams);
         FREE_DA(&AS_PTR(FuncNode, node)->optionalParams);
@@ -524,12 +548,12 @@ static void free_node(Node *node) {
     case AST_GET_PROPERTY:
     case AST_GET_SUPER:
     case AST_IF_ELSE:
-    case AST_TRY_CATCH:
-    case AST_RAISE:
     case AST_WHILE:
     case AST_DO_WHILE:
     case AST_FOR:
     case AST_LOOP_CONTROL:
+    case AST_TRY_CATCH:
+    case AST_RAISE:
     case AST_RETURN:
     case AST_EOF:
         break; // Nothing to free.
@@ -538,7 +562,6 @@ static void free_node(Node *node) {
     free(node);
 }
 
-// TODO: change to traversing the AST so we can remove "next" pointer from nodes for optimization.
 /** Frees all nodes that were allocated and placed inside the passed program. */
 void free_all_nodes(ZmxProgram *program) {
     if (program->allNodes == NULL) {
@@ -554,4 +577,5 @@ void free_all_nodes(ZmxProgram *program) {
             next = next->next;
         }
     }
+    program->allNodes = NULL; // Back to empty for the next time we parse a module.
 }

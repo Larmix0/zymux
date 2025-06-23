@@ -20,15 +20,15 @@ static void compile_node(Compiler *compiler, const Node *node);
 static void compile_node_array(Compiler *compiler, const NodeArray *nodes);
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
-Compiler create_compiler(ZmxProgram *program, const NodeArray ast) {
+Compiler create_compiler(ZmxProgram *program, const NodeArray ast, const bool isMain) {
     GC_PUSH_PROTECTION(&program->gc);
-
-    StringObj *name = new_string_obj(program, MAIN_NAME, strlen(MAIN_NAME));
+    
+    StringObj *name = program->currentFile;
     RuntimeFuncObj *mainClosure = new_runtime_func_obj(
-        program, new_func_obj(program, name, 0, 0), true, false, true
+        program, new_func_obj(program, name, 0, 0, program->currentFile, true), false, true
     );
     Compiler compiler = {
-        .program = program, .ast = ast, .func = AS_PTR(FuncObj, mainClosure),
+        .program = program, .ast = ast, .isMain = isMain, .func = AS_PTR(FuncObj, mainClosure),
         .jumps = CREATE_DA(), .breaks = CREATE_DA(), .continues = CREATE_DA(),
     };
     return compiler;
@@ -592,46 +592,6 @@ static void compile_if_else(Compiler *compiler, const IfElseNode *node) {
 }
 
 /** 
- * Compiles a try-catch and their blocks.
- * 
- * Adds a start try instruction before the try block in order to include the block's bytecode
- * in the try-catch's protection. After that, the try ends with an automatic jump that goes
- * over the catch statement, as we only execute the catch if an error occured.
- * 
- * The start try instruction has a boolean before it of whether or not the catch state wants to save
- * an error message to a variable, and emits a number after the instruction, which is where to go
- * to land in the catch statement. The number is the index in bytecode where
- * the catch starts relative to the try start instruction.
- */
-static void compile_try_catch(Compiler *compiler, const TryCatchNode *node) {
-    emit_instr(compiler, node->catchVar ? OP_TRUE : OP_FALSE, get_node_pos(AS_NODE(node)));
-    const u32 trySpot = emit_unpatched_jump(compiler, OP_START_TRY, get_node_pos(AS_NODE(node)));
-
-    compile_block(compiler, node->tryBlock);
-    const u32 tryExit = emit_unpatched_jump(compiler, OP_JUMP, PREVIOUS_OPCODE_POS(compiler));
-
-    emit_instr(compiler, OP_FINISH_TRY, PREVIOUS_OPCODE_POS(compiler));
-    const u32 catchLocation = compiler->func->bytecode.length;
-    patch_jump(compiler, trySpot, catchLocation, true);
-
-    if (node->catchVar) {
-        compile_declare_var(compiler, node->catchVar);
-    }
-    compile_block(compiler, node->catchBlock);
-    patch_jump(compiler, tryExit, compiler->func->bytecode.length, true);
-}
-
-/** 
- * Compiles a raise statement which will artificially induce an error during the interpreter.
- * 
- * First compiles the entire message node, then emits a bare raise instruction.
- */
-static void compile_raise(Compiler *compiler, const RaiseNode *node) {
-    compile_node(compiler, node->message);
-    emit_instr(compiler, OP_RAISE, get_node_pos(AS_NODE(node)));
-}
-
-/** 
  * Compiles one case for a match-case statement.
  * 
  * Copies and compares the matched value with each one of the values in the case label
@@ -899,6 +859,53 @@ static void compile_enum(Compiler *compiler, const EnumNode *node) {
     GC_POP_PROTECTION(&compiler->program->gc);
 }
 
+/** Emits the import instruction that imports a file, then declares (binds) it to a variable. */
+static void compile_import(Compiler *compiler, const ImportNode *node) {
+    Obj *pathAsObj = AS_OBJ(new_string_obj(compiler->program, node->path, node->pathLength));
+    emit_const(compiler, OP_IMPORT, pathAsObj, get_node_pos(AS_NODE(node)));
+    compile_declare_var(compiler, node->importVar);
+}
+
+/** 
+ * Compiles a try-catch and their blocks.
+ * 
+ * Adds a start try instruction before the try block in order to include the block's bytecode
+ * in the try-catch's protection. After that, the try ends with an automatic jump that goes
+ * over the catch statement, as we only execute the catch if an error occured.
+ * 
+ * The start try instruction has a boolean before it of whether or not the catch state wants to save
+ * an error message to a variable, and emits a number after the instruction, which is where to go
+ * to land in the catch statement. The number is the index in bytecode where
+ * the catch starts relative to the try start instruction.
+ */
+static void compile_try_catch(Compiler *compiler, const TryCatchNode *node) {
+    emit_instr(compiler, node->catchVar ? OP_TRUE : OP_FALSE, get_node_pos(AS_NODE(node)));
+    const u32 trySpot = emit_unpatched_jump(compiler, OP_START_TRY, get_node_pos(AS_NODE(node)));
+
+    compile_block(compiler, node->tryBlock);
+    const u32 tryExit = emit_unpatched_jump(compiler, OP_JUMP, PREVIOUS_OPCODE_POS(compiler));
+
+    emit_instr(compiler, OP_FINISH_TRY, PREVIOUS_OPCODE_POS(compiler));
+    const u32 catchLocation = compiler->func->bytecode.length;
+    patch_jump(compiler, trySpot, catchLocation, true);
+
+    if (node->catchVar) {
+        compile_declare_var(compiler, node->catchVar);
+    }
+    compile_block(compiler, node->catchBlock);
+    patch_jump(compiler, tryExit, compiler->func->bytecode.length, true);
+}
+
+/** 
+ * Compiles a raise statement which will artificially induce an error during the interpreter.
+ * 
+ * First compiles the entire message node, then emits a bare raise instruction.
+ */
+static void compile_raise(Compiler *compiler, const RaiseNode *node) {
+    compile_node(compiler, node->message);
+    emit_instr(compiler, OP_RAISE, get_node_pos(AS_NODE(node)));
+}
+
 /** 
  * Compiles a return statement with the returned value being loaded on the stack beforehand.
  * 
@@ -1048,7 +1055,8 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
 
     compiler->func = new_func_obj(
         compiler->program, nameAsObj,
-        node->mandatoryParams.length, node->mandatoryParams.length + node->optionalParams.length
+        node->mandatoryParams.length, node->mandatoryParams.length + node->optionalParams.length,
+        compiler->program->currentFile, false
     );
     finish_func(compiler, node);
     FuncObj *compiledFunc = compiler->func;
@@ -1119,7 +1127,7 @@ static void compile_class(Compiler *compiler, const ClassNode *node) {
 
 /** Compiles an EOF node, which is placed to indicate the end of the bytecode. */
 static void compile_eof(Compiler *compiler, const EofNode *node) {
-    emit_instr(compiler, OP_END, node->pos);
+    emit_instr(compiler, compiler->isMain ? OP_END_PROGRAM : OP_END_MODULE, node->pos);
 }
 
 /** Compiles the bytecode for the passed node into the compiler's currently compiling function. */
@@ -1153,14 +1161,15 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_MULTI_DECLARE: compile_multi_declare(compiler, AS_PTR(MultiDeclareNode, node)); break;
     case AST_MULTI_ASSIGN: compile_multi_assign(compiler, AS_PTR(MultiAssignNode, node)); break;
     case AST_IF_ELSE: compile_if_else(compiler, AS_PTR(IfElseNode, node)); break;
-    case AST_TRY_CATCH: compile_try_catch(compiler, AS_PTR(TryCatchNode, node)); break;
-    case AST_RAISE: compile_raise(compiler, AS_PTR(RaiseNode, node)); break;
     case AST_MATCH: compile_match(compiler, AS_PTR(MatchNode, node)); break;
     case AST_WHILE: compile_while(compiler, AS_PTR(WhileNode, node)); break;
     case AST_DO_WHILE: compile_do_while(compiler, AS_PTR(DoWhileNode, node)); break;
     case AST_FOR: compile_for(compiler, AS_PTR(ForNode, node)); break;
     case AST_LOOP_CONTROL: compile_loop_control(compiler, AS_PTR(LoopControlNode, node)); break;
     case AST_ENUM: compile_enum(compiler, AS_PTR(EnumNode, node)); break;
+    case AST_IMPORT: compile_import(compiler, AS_PTR(ImportNode, node)); break;
+    case AST_TRY_CATCH: compile_try_catch(compiler, AS_PTR(TryCatchNode, node)); break;
+    case AST_RAISE: compile_raise(compiler, AS_PTR(RaiseNode, node)); break;
     case AST_RETURN: compile_return(compiler, AS_PTR(ReturnNode, node)); break;
     case AST_FUNC: compile_func(compiler, AS_PTR(FuncNode, node)); break;
     case AST_CLASS: compile_class(compiler, AS_PTR(ClassNode, node)); break;
@@ -1209,7 +1218,7 @@ static void free_out_of_compilation(
 }
 
 /** Returns a compiled compiler. Either it's compiled or everything is set to 0/NULL if errored. */
-Compiler compile_source(ZmxProgram *program, char *source) {
+Compiler compile_source(ZmxProgram *program, char *source, const bool isMain) {
     Compiler emptyCompiler = {.program = NULL, .func = NULL};
 
     Lexer lexer = create_lexer(program, source);
@@ -1230,8 +1239,8 @@ Compiler compile_source(ZmxProgram *program, char *source) {
         return emptyCompiler;
     }
 
-    Compiler compiler = create_compiler(program, resolver.ast);
-    // Set this compiler as the one being garbage collected. Now compiler's objects can be GC'd.
+    // Create and set the compiler as the one being GCed. Now compiler's objects can be GCed.
+    Compiler compiler = create_compiler(program, resolver.ast, isMain);
     program->gc.compiler = &compiler;
     GC_POP_PROTECTION(&program->gc);
     if (!compile(&compiler)) {

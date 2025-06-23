@@ -44,3 +44,15 @@ only when fields and methods are added to built-in objects.
 Improve the positioning of some bytecode for error handling.
 
 ----------------------------------------------------------------------------------------------------
+
+Add from imports.
+Add the "exit"/"quit" keyword.
+Add command line.
+Add the keyword "private".
+Add more built-ins.
+Add file operations (part of built-ins).
+
+Does the STACK_LENGTH() macro actually improve performance over storing the length?
+This is a serious question since push operations always ask for STACK_LENGTH(),
+which has an arithmetic, meanwhile we avoided using a normal length for the purposes of skipping
+the "length++" operation at the end of each push.

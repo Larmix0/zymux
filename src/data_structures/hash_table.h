@@ -47,6 +47,9 @@ u32 get_hash(const Obj *object);
 /** Creates an empty hash table. */
 Table create_table();
 
+/** Sets each entry in the "from" table on the "to" table, essentially copying all its entries. */
+void copy_entries(const Table *from, Table *to);
+
 /** Gets the passed key's entire respective entry in the hash table, empty or not. */
 Entry *table_key_entry(Table *table, Obj *key);
 

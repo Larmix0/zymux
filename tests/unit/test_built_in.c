@@ -8,7 +8,7 @@
 PRIVATE_TEST_CASE(test_load_built_ins) {
     ZmxProgram program = {
         .builtIn = create_table(), .internedStrings = create_table(),
-        .allObjs = NULL, .gc = create_empty_gc(),
+        .allObjs = NULL, .gc = create_gc(),
     };
     intern_objs(&program);
     load_built_ins(&program);

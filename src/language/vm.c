@@ -184,35 +184,101 @@ static CatchState create_catch_state(Vm *vm, u8 *ip, const bool saveError) {
     const u32 capturesAmount = func->isClosure ? AS_PTR(RuntimeFuncObj, func)->captures.length : 0;
 
     CatchState catchState = {
-        .func = func, .ip = ip,
-        .localsAmount = STACK_LENGTH(vm), .capturesAmount = capturesAmount,
-        .openCapturesAmount = vm->openCaptures.length, .saveError = saveError
+        .func = func, .ip = ip, .localsAmount = STACK_LENGTH(vm),
+        .capturesAmount = capturesAmount, .openCapturesAmount = vm->openCaptures->length,
+        .frameAmount = vm->callStack.length, .moduleAmount = vm->modules.length,
+        .saveError = saveError
     };
     return catchState;
+}
+
+/** Pushes a new execution stack frame onto the passed VM. */
+static void push_stack_frame(Vm *vm, FuncObj *func, Obj **bp, Obj **sp) {
+    StackFrame frame = {.func = func, .ip = func->bytecode.data, .bp = bp, .sp = sp};
+    APPEND_DA(&vm->callStack, frame);
+    vm->frame = &LAST_ITEM_DA(&vm->callStack);
+}
+
+/** Pops the top frame on the passed VM and restores the previous one or NULL if there isn't any. */
+static void pop_stack_frame(Vm *vm) {
+    DROP_DA(&vm->callStack);
+    vm->frame = vm->callStack.length == 0 ? NULL : &LAST_ITEM_DA(&vm->callStack);
+}
+
+/** 
+ * Pushes the context of a new module with its name. Occurs when an import happens.
+ * 
+ * This only pushes the module's context,
+ * therefore pushing its own stack frame has to be done after.
+ */
+static void push_module_context(Vm *vm, StringObj *name) {
+    ModuleContext module = {.globals = create_table(), .openCaptures = CREATE_DA(), .name = name};
+    APPEND_DA(&vm->modules, module);
+    vm->globals = &LAST_ITEM_DA(&vm->modules).globals;
+    vm->openCaptures = &LAST_ITEM_DA(&vm->modules).openCaptures;
+    vm->program->currentFile = name;
+}
+
+/** 
+ * Pops the current module's context which ended, and goes back to the previous one.
+ * 
+ * This only pops the module's context, therefore popping its own stack frame has to be done after.
+ */
+static void pop_module_context(Vm *vm) {
+    ModuleContext *module = &LAST_ITEM_DA(&vm->modules);
+    free_table(&module->globals);
+    FREE_DA(&module->openCaptures);
+
+    DROP_DA(&vm->modules);
+    if (vm->modules.length == 0) {
+        vm->globals = NULL;
+        vm->openCaptures = NULL;
+        vm->program->currentFile = NULL;
+    } else {
+        ModuleContext *module = &LAST_ITEM_DA(&vm->modules);
+        vm->globals = &module->globals;
+        vm->openCaptures = &module->openCaptures;
+        vm->program->currentFile = module->name;
+    }
 }
 
 /** 
  * Prints a stack trace for a runtime error.
  * 
- * Prints in an order that makes the most recently executing function appear closest to the bottom.
- * TODO: extend this by adding file information when imports are added.
+ * Prints in an order that makes the most recently executing function appear at the bottom.
  */
-static void print_stack_trace(Vm *vm, const u32 bytecodeIdx) {
-    StringObj *mainNameObj = new_string_obj(vm->program, MAIN_NAME, strlen(MAIN_NAME));
-
+static void print_stack_trace(Vm *vm) {
     fprintf(stderr, RED "Stack trace:\n" DEFAULT_COLOR);
     for (u32 i = 0; i < vm->callStack.length; i++) {
-        FuncObj *func = vm->callStack.data[i].func;
+        StackFrame *frame = &vm->callStack.data[i];
         fprintf(stderr, INDENT);
 
-        if (equal_obj(AS_OBJ(func->name), AS_OBJ(mainNameObj))) {
-            fprintf(stderr, "%s: ", func->name->string);
+        if (frame->func->isToplevel) {
+            fprintf(stderr, "%s: ", frame->func->name->string);
         } else {
-            fprintf(stderr, "%s(): ", func->name->string);
+            fprintf(stderr, "%s(): ", frame->func->name->string);
         }
-        fprintf(stderr, "line %d\n", func->positions.data[bytecodeIdx].line);
+        const u32 bytecodeIdx = frame->ip - frame->func->bytecode.data - 1;
+        fprintf(stderr, "line %d\n", frame->func->positions.data[bytecodeIdx].line);
     }
     fputc('\n', stderr);
+}
+
+/** 
+ * Restores the frame and module contexts of the VM after catching an error.
+ * 
+ * Before it pops the contexts, it stored how many need to be popped in a separate const,
+ * because the length inside the VM itself changes as the contexts get popped.
+ */
+static void restore_frame_contexts(Vm *vm, CatchState *catch) {
+    const u32 modulePops = vm->modules.length - catch->moduleAmount;
+    const u32 framePops = vm->callStack.length - catch->frameAmount;
+    for (u32 i = 0; i < modulePops; i++) {
+        pop_module_context(vm);
+    }    
+    for (u32 i = 0; i < framePops; i++) {
+        pop_stack_frame(vm);
+    }
 }
 
 /** 
@@ -223,19 +289,20 @@ static void print_stack_trace(Vm *vm, const u32 bytecodeIdx) {
  */
 static void catch_error(Vm *vm, StringObj *errorMessage) {
     CatchState catch = POP_DA(&vm->catches);
+    restore_frame_contexts(vm, &catch);
+
     const u32 localPops = STACK_LENGTH(vm) - catch.localsAmount;
     DROP_AMOUNT(vm, localPops);
-    const u32 openCapturePops = vm->openCaptures.length - catch.openCapturesAmount;
-    DROP_AMOUNT_DA(&vm->openCaptures, openCapturePops);
+    const u32 openCapturePops = vm->openCaptures->length - catch.openCapturesAmount;
+    DROP_AMOUNT_DA(vm->openCaptures, openCapturePops);
 
     u32 capturePops = 0;
-    if (catch.func->isClosure) {
-        ObjArray *captures = &AS_PTR(RuntimeFuncObj, catch.func)->captures;
+    if (vm->frame->func->isClosure) {
+        ObjArray *captures = &AS_PTR(RuntimeFuncObj, vm->frame->func)->captures;
         capturePops = captures->length - catch.capturesAmount;
         DROP_AMOUNT_DA(captures, capturePops);
     }
 
-    vm->frame->func = catch.func;
     vm->frame->ip = catch.ip;
     if (catch.saveError) {
         PUSH(vm, AS_OBJ(errorMessage));
@@ -258,45 +325,37 @@ void base_runtime_error(Vm *vm, StringObj *errorMessage) {
     if (vm->catches.length != 0) {
         catch_error(vm, errorMessage);
     } else {
+        print_stack_trace(vm);
         const u32 bytecodeIdx = vm->frame->ip - vm->frame->func->bytecode.data - 1;
-        print_stack_trace(vm, bytecodeIdx);
         zmx_user_error(
-            vm->program, vm->frame->func->positions.data[bytecodeIdx],
+            vm->program, vm->frame->func->module->string,
+            vm->frame->func->positions.data[bytecodeIdx],
             "Runtime error", errorMessage->string, NULL
         );
     }
 }
 
-/** Pushes a new execution stack frame onto the passed VM. */
-static void push_stack_frame(Vm *vm, FuncObj *func, Obj **bp, Obj **sp) {
-    StackFrame frame = {.func = func, .ip = func->bytecode.data, .bp = bp, .sp = sp};
-    APPEND_DA(&vm->callStack, frame);
-    vm->frame = &LAST_ITEM_DA(&vm->callStack);
-}
-
-/** Pops the top frame on the passed VM and restores the previous one or NULL if there isn't any. */
-static void pop_stack_frame(Vm *vm) {
-    DROP_DA(&vm->callStack);
-    vm->frame = vm->callStack.length == 0 ? NULL : &LAST_ITEM_DA(&vm->callStack);
-}
-
 /** Returns a VM initialized from the passed func. */
 Vm create_vm(ZmxProgram *program, FuncObj *func) {
     Vm vm = {
-        .program = program, .instrSize = INSTR_ONE_BYTE, .globals = create_table(),
-        .catches = CREATE_DA(), .callStack = CREATE_DA(), .openCaptures = CREATE_DA(),
-        .frame = NULL, .stack = CREATE_STACK()
+        .program = program, .instrSize = INSTR_ONE_BYTE, .catches = CREATE_DA(),
+        .callStack = CREATE_DA(), .frame = NULL,
+        .modules = CREATE_DA(), .globals = NULL, .openCaptures = NULL,
+        .stack = CREATE_STACK()
     };
-    // Push the frame which requires the stack after the VM itself and its stack were initialized.
+    push_module_context(&vm, program->currentFile);
     push_stack_frame(&vm, func, vm.stack.objects, vm.stack.objects);
     return vm;
 }
 
 /** Frees all memory that the passed VM allocated. */
 void free_vm(Vm *vm) {
-    free_table(&vm->globals);
+    for (u32 i = 0; i < vm->modules.length; i++) {
+        pop_module_context(vm); // Automatically frees any allocated context.
+    }
+    FREE_DA(&vm->modules); // The array of module contexts itself.
+
     FREE_DA(&vm->callStack);
-    FREE_DA(&vm->openCaptures);
     FREE_DA(&vm->catches);
     FREE_STACK(vm);
 }
@@ -528,20 +587,16 @@ static bool map_get_subscr(Vm *vm, MapObj *callee, Obj *subscript) {
     return true;
 }
 
-/** Set (assign or create if one doesn't exist) a value on some property inside an object. */
+/** Try to set (assign or create if one doesn't exist) a value on some property inside an object. */
 static bool set_property(Vm *vm, Obj *originalObj, StringObj *name, Obj *value) {
-    switch (originalObj->type) {
-    case OBJ_INSTANCE:
+    if (originalObj->type == OBJ_INSTANCE) {
         table_set(&AS_PTR(InstanceObj, originalObj)->fields, AS_OBJ(name), value);
         DROP(vm); // Pop the object being accessed, leaving only the value on the top of the stack.
-        break;
-    default:
-        RUNTIME_ERROR(
-            vm, "Can't set property on object of type %s.", obj_type_str(originalObj->type)
-        );
-        return false;  
+        return true;
     }
-    return true;
+
+    RUNTIME_ERROR(vm, "Can't set property on object of type %s.", obj_type_str(originalObj->type));
+    return false;
 }
 
 /** 
@@ -618,6 +673,16 @@ static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
         }
         ASSERT(propertyIdx->type == OBJ_INT, "Enum lookup table value wasn't an integer.");
         PEEK(vm) = enumObj->members.data[AS_PTR(IntObj, propertyIdx)->number];
+        break;
+    }
+    case OBJ_MODULE: {
+        ModuleObj *module = AS_PTR(ModuleObj, originalObj);
+        Obj *global = table_get(&module->globals, AS_OBJ(name));
+        if (global == NULL) {
+            RUNTIME_ERROR(vm, "Module doesn't have '%s'.", name->string);
+            return false;
+        }
+        PEEK(vm) = global;
         break;
     }
     default:
@@ -850,12 +915,12 @@ static bool call(Vm *vm, Obj *callee, const u32 argsIdx, const u32 argAmount) {
  * if they hold open captures
  */
 static void close_captures(Vm *vm, const u32 pops) {
-    for (i64 i = (i64)vm->openCaptures.length - 1; i >= 0; i--) {
-        CapturedObj *toClose = AS_PTR(CapturedObj, vm->openCaptures.data[i]);
+    for (i64 i = (i64)vm->openCaptures->length - 1; i >= 0; i--) {
+        CapturedObj *toClose = AS_PTR(CapturedObj, vm->openCaptures->data[i]);
         if (toClose->stackIdx >= STACK_LENGTH(vm) - pops) {
             toClose->isOpen = false;
             toClose->captured = vm->stack.objects[toClose->stackIdx];
-            DROP_DA(&vm->openCaptures);
+            DROP_DA(vm->openCaptures);
         }
     }
 }
@@ -871,7 +936,7 @@ static void close_captures(Vm *vm, const u32 pops) {
 static void call_return(Vm *vm) {
     const u32 arity = vm->frame->func->params.maxArity;
     Obj *returned = PEEK(vm);
-    if (vm->openCaptures.length > 0) {
+    if (vm->openCaptures->length > 0) {
         close_captures(vm, vm->frame->sp - vm->frame->bp);
     }
     
@@ -885,7 +950,51 @@ static void capture_variable(Vm *vm, Obj *capturedObj, const u32 stackLocation) 
     RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, vm->frame->func);
     Obj *capture = AS_OBJ(new_captured_obj(vm->program, capturedObj, stackLocation));
     APPEND_DA(&closure->captures, capture);
-    APPEND_DA(&vm->openCaptures, capture);
+    APPEND_DA(vm->openCaptures, capture);
+}
+
+/** 
+ * Returns whether or not importing the passed absolute path would make a circular import.
+ * 
+ * Does so by simply checking if it's already in the module contexts array, which means its
+ * already in the import chain.
+ */
+static bool is_circular_import(Vm *vm, StringObj *path) {
+    for (u32 i = 0; i < vm->modules.length; i++) {
+        if (equal_obj(AS_OBJ(vm->modules.data[i].name), AS_OBJ(path))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** 
+ * Tries to compile the passed path and sets its context as the one currently executing.
+ * 
+ * It can fail if the passed path doesn't exist, or causes a circular import. When that happens,
+ * it simply returns false, otherwise returns true.
+ */
+static bool import_module(Vm *vm, StringObj *path) {
+    if (!file_exists(path->string)) {
+        RUNTIME_ERROR(vm, "File '%s' doesn't exist.", path->string);
+        return false;
+    } else if (is_circular_import(vm, path)) {
+        RUNTIME_ERROR(vm, "Circular import of file '%s' not allowed.", path->string);
+        return false;
+    }
+    char *source = get_file_source(path->string);
+    vm->program->currentFile = path;
+    Compiler compiler = compile_source(vm->program, source, false);
+    free(source);
+    if (compiler.func == NULL) {
+        return false; // Failed to compile.
+    }
+
+    push_module_context(vm, path);
+    push_stack_frame(vm, compiler.func, vm->frame->sp, vm->frame->sp);
+    vm->program->gc.compiler = NULL;
+    free_compiler(&compiler);
+    return true;
 }
 
 /** 
@@ -893,7 +1002,7 @@ static void capture_variable(Vm *vm, Obj *capturedObj, const u32 stackLocation) 
  * 
  * Returns whether or not executing the VM was successful (no errors).
  */
-static bool execute_vm(Vm *vm) {
+static bool vm_loop(Vm *vm) {
     while (true) {
 #if DEBUG_RUNTIME
         print_runtime_state(
@@ -1121,14 +1230,14 @@ static bool execute_vm(Vm *vm) {
             break;
         }
         case OP_DECLARE_GLOBAL:
-            table_set(&vm->globals, READ_CONST(vm), PEEK(vm));
+            table_set(vm->globals, READ_CONST(vm), PEEK(vm));
             DROP(vm);
             break;
         case OP_ASSIGN_GLOBAL:
-            table_set(&vm->globals, READ_CONST(vm), PEEK(vm));
+            table_set(vm->globals, READ_CONST(vm), PEEK(vm));
             break;
         case OP_GET_GLOBAL: {
-            Obj *value = table_get(&vm->globals, READ_CONST(vm));
+            Obj *value = table_get(vm->globals, READ_CONST(vm));
             PUSH(vm, value);
             break;
         }
@@ -1306,7 +1415,7 @@ static bool execute_vm(Vm *vm) {
             ObjArray values = AS_PTR(ListObj, PEEK(vm))->items;
             FuncObj *func = AS_PTR(FuncObj, PEEK_DEPTH(vm, 1));
             RuntimeFuncObj *withOptionals = new_runtime_func_obj(
-                vm->program, func, false, true, func->isClosure
+                vm->program, func, true, func->isClosure
             );
             for (u32 i = 0; i < withOptionals->func.params.minArity; i++) {
                 APPEND_DA(&withOptionals->paramVals, NULL); // C-NULL values for mandatories.
@@ -1321,7 +1430,7 @@ static bool execute_vm(Vm *vm) {
         case OP_CLOSURE: {
             FuncObj *func = AS_PTR(FuncObj, READ_CONST(vm));
             RuntimeFuncObj *closure = new_runtime_func_obj(
-                vm->program, func, false, func->hasOptionals, true
+                vm->program, func, func->hasOptionals, true
             );
             if (vm->frame->func->isClosure) {
                 RuntimeFuncObj *frameClosure = AS_PTR(RuntimeFuncObj, vm->frame->func);
@@ -1432,14 +1541,14 @@ static bool execute_vm(Vm *vm) {
             break;
         }
         case OP_POP_LOCAL:
-            if (vm->openCaptures.length > 0) {
+            if (vm->openCaptures->length > 0) {
                 close_captures(vm, 1);
             }
             DROP(vm);
             break;
         case OP_POP_LOCALS: {
             const u32 pops = READ_NUMBER(vm);
-            if (vm->openCaptures.length > 0) {
+            if (vm->openCaptures->length > 0) {
                 close_captures(vm, pops);
             }
             DROP_AMOUNT(vm, pops);
@@ -1464,6 +1573,13 @@ static bool execute_vm(Vm *vm) {
             PUSH(vm, top);
             break;
         }
+        case OP_IMPORT: {
+            StringObj *path = AS_PTR(StringObj, READ_CONST(vm));
+            if (!import_module(vm, path)) {
+                VM_LOOP_FINISH_ERROR(vm);
+            }
+            break;
+        }
         case OP_START_TRY: {
             const bool saveErrorMessage = AS_PTR(BoolObj, POP(vm))->boolean;
             const u32 relativeCatchSpot = READ_NUMBER(vm);
@@ -1479,7 +1595,16 @@ static bool execute_vm(Vm *vm) {
             VM_LOOP_RUNTIME_ERROR(vm, message->string);
             break;
         }
-        case OP_END:
+        case OP_END_MODULE: {
+            ModuleObj *importedModule = new_module_obj(
+                vm->program, vm->program->currentFile, *vm->globals
+            );
+            pop_module_context(vm);
+            pop_stack_frame(vm); // The stack frame associated with the module's top level code.
+            PUSH(vm, AS_OBJ(importedModule));
+            break;
+        }
+        case OP_END_PROGRAM:
             return true;
         TOGGLEABLE_DEFAULT_UNREACHABLE();
         }
@@ -1489,14 +1614,14 @@ static bool execute_vm(Vm *vm) {
 /** 
  * Main function for interpreting a virtual machine.
  * 
- * Wrapper around execute_vm() for debugging and loading built-in names.
- * Returns whether or not we encountered a runtime error during execution.
+ * Wrapper around vm_loop() for debugging and loading built-in names.
+ * Returns whether we succeeded at execution, or a runtime error occurred.
  */
-bool interpret(Vm *vm) {
+static bool interpret_vm(Vm *vm) {
 #if DEBUG_RUNTIME
     printf("-------------------- VM START --------------------\n");
 #endif
-    const bool succeeded = execute_vm(vm);
+    const bool succeeded = vm_loop(vm);
 #if DEBUG_RUNTIME
     printf("-------------------- VM END --------------------\n");
 #endif
@@ -1504,8 +1629,8 @@ bool interpret(Vm *vm) {
 }
 
 /** Simply executes the passed source string and frees all used memory except the program's. */
-bool interpret_source(ZmxProgram *program, char *source) {
-    Compiler compiler = compile_source(program, source);
+bool interpret_source(ZmxProgram *program, char *source, const bool isMain) {
+    Compiler compiler = compile_source(program, source, isMain);
     if (compiler.func == NULL) {
         return false; // Failed to compile.
     }
@@ -1514,7 +1639,8 @@ bool interpret_source(ZmxProgram *program, char *source) {
     program->gc.compiler = NULL;
     free_compiler(&compiler);
 
-    interpret(&vm);
+    interpret_vm(&vm);
+
     program->gc.vm = NULL;
     free_vm(&vm);
     return !program->hasErrored;
