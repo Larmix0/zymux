@@ -7,10 +7,10 @@
 /** Tests that get_path_type() correctly determines whether something is a file/directory. */
 PRIVATE_TEST_CASE(test_get_path_type) {
     CharBuffer path = create_char_buffer();
-    buffer_append_format(&path, "tests%cunit%ctest_open_dir", PATH_DELIMITER, PATH_DELIMITER);
+    buffer_append_format(&path, "tests%cunit%ctest_open_dir", PATH_SEPARATOR, PATH_SEPARATOR);
     ASSERT_TRUE(get_path_type(path.text) == PATH_DIRECTORY);
     
-    buffer_append_format(&path, "%cfile_test.txt", PATH_DELIMITER);
+    buffer_append_format(&path, "%cfile_test.txt", PATH_SEPARATOR);
     ASSERT_TRUE(get_path_type(path.text) == PATH_FILE);
 
     free_char_buffer(&path);
@@ -37,7 +37,7 @@ PRIVATE_TEST_CASE(test_get_file_source) {
     CharBuffer sourcePath = create_char_buffer();
     buffer_append_format(
         &sourcePath, "tests%cunit%ctest_open_dir%cfile_test.txt",
-        PATH_DELIMITER, PATH_DELIMITER, PATH_DELIMITER
+        PATH_SEPARATOR, PATH_SEPARATOR, PATH_SEPARATOR
     );
     char *source = get_file_source(sourcePath.text);
     const size_t sourceLength = strlen(source);

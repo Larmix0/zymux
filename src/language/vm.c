@@ -975,13 +975,19 @@ static bool is_circular_import(Vm *vm, StringObj *path) {
  * it simply returns false, otherwise returns true.
  */
 static bool import_module(Vm *vm, StringObj *path) {
-    if (!file_exists(path->string)) {
+    char *absolutePath = get_absolute_path(path->string);
+    if (!absolutePath) {
         RUNTIME_ERROR(vm, "File '%s' doesn't exist.", path->string);
         return false;
-    } else if (is_circular_import(vm, path)) {
+    }
+    // Convert to ensure the path is absolute (important for storing and erroring circular imports).
+    path = new_string_obj(vm->program, absolutePath, strlen(absolutePath));
+    free(absolutePath);
+    if (is_circular_import(vm, path)) {
         RUNTIME_ERROR(vm, "Circular import of file '%s' not allowed.", path->string);
         return false;
     }
+
     char *source = get_file_source(path->string);
     vm->program->currentFile = path;
     Compiler compiler = compile_source(vm->program, source, false);

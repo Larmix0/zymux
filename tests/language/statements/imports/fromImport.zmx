@@ -1,0 +1,62 @@
+{
+    // Relative in directory import.
+    from .variablesFile import one, two;
+    assert(one == "one");
+    assert(two == "two");
+}
+
+{
+    // Using curely brackets.
+    from .variablesFile import {
+        one, two
+    }
+    assert(one == "one");
+    assert(two == "two");
+}
+
+{
+    // Relative directory import (+ different order).
+    from ..imports.variablesFile import two, one;
+    assert(one == "one");
+    assert(two == "two");
+}
+
+{
+    // Captured imported names.
+    let closureVar;
+    {
+        from .variablesFile import three, one, two;
+
+        func closure() {
+            assert(two == "two");
+            assert(one == "one");
+            assert(three == "three");
+        }
+        closureVar = closure;
+    }
+    closureVar();
+}
+
+// Global variable, and using aliases.
+from ..imports.variablesFile import three, two as twotwo, one;
+assert(one == "one");
+assert(twotwo == "two");
+assert(three == "three");
+
+// Errors when attempting to access a name which don't exist.
+let caughtError = false;
+try {
+    from .variablesFile import doesntExist;
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// Errors when trying to import a file which doesn't exist.
+caughtError = false;
+try {
+    from doesntExist import something;
+} catch {
+    caughtError = true;
+}
+assert(caughtError);

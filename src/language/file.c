@@ -46,22 +46,32 @@ bool file_exists(const char *path) {
 #endif
 }
 
-/** Returns an allocated string of the absolute path that the passed relative path refers to. */
+/** 
+ * Returns an allocated string of the absolute path that the passed relative path refers to.
+ * 
+ * Will return NULL if it fails (especially if the file doesn't exist as an absolute path).
+ */
 char *get_absolute_path(const char *relativePath) {
-    char *absolutePath = NULL;
 #if OS == UNIX_OS
-    absolutePath = realpath(relativePath, NULL);
+    return realpath(relativePath, NULL);
 #elif OS == WINDOWS_OS
-    absolutePath = _fullpath(NULL, relativePath, _MAX_PATH);
+    return _fullpath(NULL, relativePath, _MAX_PATH);
 #endif
+}
 
-    if (absolutePath == NULL) {
-        FILE_ERROR(
-            "Couldn't convert '%s' to an absolute path: %s (Errno %d).",
-            relativePath, strerror(errno), errno
-        );
-    }
-    return absolutePath;
+/** Returns an allocated string of the directory at the program's current file + the passed path. */
+char *get_relative_path(ZmxProgram *program, const char *path) {
+    ASSERT(program->currentFile != NULL, "A file must be set before getting a relative path.");
+
+    CharBuffer combined = create_char_buffer();
+    buffer_append_string(&combined, program->currentFile->string);
+
+    char *lastSeparator = strrchr(combined.text, PATH_SEPARATOR);
+    const u32 finalLength = lastSeparator - combined.text;
+    buffer_pop_amount(&combined, combined.length - finalLength - 1); // Pops excess.
+
+    buffer_append_format(&combined, "%c%s", PATH_SEPARATOR, path);
+    return combined.text;
 }
 
 /** 

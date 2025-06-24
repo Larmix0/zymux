@@ -1,0 +1,58 @@
+{
+    // Relative in directory import.
+    import .variablesFile;
+    assert(variablesFile.one == "one");
+    assert(variablesFile.two == "two");
+    assert(variablesFile.three == "three");
+}
+
+{
+    // Relative directory import.
+    import ..imports.variablesFile;
+    assert(variablesFile.one == "one");
+    assert(variablesFile.two == "two");
+    assert(variablesFile.three == "three");
+}
+
+// Global variable, and uses an aliase.
+import ..imports.variablesFile as imported;
+assert(imported.one == "one");
+assert(imported.two == "two");
+assert(imported.three == "three");
+
+// Errors when attempting to access a name which don't exist.
+let caughtError = false;
+try {
+    import .variablesFile;
+    variablesFile.doesntExist;
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+// Errors when trying to import a file which doesn't exist.
+caughtError = false;
+try {
+    import doesntExist;
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+caughtError = false;
+try {
+    // self import counts as circular.
+    import .fileImport as selfImport;
+} catch {
+    caughtError = true;
+}
+assert(caughtError);
+
+caughtError = false;
+try {
+    // Eventual circular import.
+    import .circular;
+} catch {
+    caughtError = true;
+}
+assert(caughtError);

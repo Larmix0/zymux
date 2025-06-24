@@ -10,13 +10,13 @@
 
 #if defined(__unix__) || defined(__unix) || defined(unix) || defined(__APPLE__)
     #define OS UNIX_OS
-    #define PATH_DELIMITER '/'
+    #define PATH_SEPARATOR '/'
 #elif defined(_WIN32) || defined(__CYGWIN__)
     #define OS WINDOWS_OS
-    #define PATH_DELIMITER '\\'
+    #define PATH_SEPARATOR '\\'
 #else
     #define OS UNKNOWN_OS
-    #define PATH_DELIMITER '/'
+    #define PATH_SEPARATOR '/'
 #endif
 
 #define DEFAULT_COLOR "\033[0m"

@@ -45,7 +45,6 @@ Improve the positioning of some bytecode for error handling.
 
 ----------------------------------------------------------------------------------------------------
 
-Add from imports.
 Add the "exit"/"quit" keyword.
 Add command line.
 Add the keyword "private".
@@ -61,5 +60,3 @@ Potentially make it so that manually protected objects also have to be manually 
 the protection array in the GC.
 
 Fix strings inside collection types not being wrapped in quotes.
-
-Add tests for normal imports and from imports.

@@ -401,9 +401,9 @@ OP_START_TRY:
     function's bytecode will the catch statement start for the created catch state.
 
 OP_IMPORT:
-    Reads a constant, which is a string that has the exact path to be imported as a file.
+    Reads a constant, which is a string that has the path to be imported as a file.
     Errors if it doesn't exist, but if it does then it creates a new context and stack frame
-    for the imported module, and continues executing from it
+    for the imported module, and continues executing from it.
 
     This is because when an import occurs it automatically executes the top-level code.
 

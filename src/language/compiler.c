@@ -884,7 +884,7 @@ static void compile_from_import(Compiler *compiler, const FromImportNode *node) 
     GC_PUSH_PROTECTION(&compiler->program->gc);
     ListObj *importedList = new_list_obj(compiler->program, (ObjArray)CREATE_DA());
     GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(importedList));
-    for (i64 i = (i64)node->importedNames.length - 1; i >= 0; i--) {
+    for (u32 i = 0; i < node->importedNames.length; i++) {
         const Token importedName = node->importedNames.data[i];
         APPEND_DA(
             &importedList->items, 
@@ -894,8 +894,11 @@ static void compile_from_import(Compiler *compiler, const FromImportNode *node) 
     emit_const(compiler, OP_IMPORT_NAMES, AS_OBJ(importedList), get_node_pos(AS_NODE(node)));
     GC_POP_PROTECTION(&compiler->program->gc);
 
-    // Declares a name for each imported variable's value left on the stack.
-    compile_node_array(compiler, &node->namesAs);
+    // Declares names in reverse, since declarations go from the top (last value) to bottom (first).
+    for (i64 i = (i64)node->namesAs.length - 1; i >= 0; i--) {
+        DeclareVarNode *variable = AS_PTR(DeclareVarNode, node->namesAs.data[i]);
+        declare_variable_depth(compiler, variable, i); // "i" is the depth where the value is at. 
+    }
 }
 
 /** 

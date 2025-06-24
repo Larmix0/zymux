@@ -1,0 +1,3 @@
+// Should cause a circular import error when this is imported.
+import .fromImport;
+import .fileImport;

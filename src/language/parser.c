@@ -650,11 +650,12 @@ static Node *parse_if_else(Parser *parser) {
 }
 
 /** 
- * Parses the dots of an imported folder which are used to access a specific directory first.
+ * Parses the dots of an imported folder which are used to access a relative directory first.
  * 
- * Writes the appropriate backing operations into the path (like "../" to go back).
+ * Writes the appropriate backing operations into the path (like "../" to go back),
+ * and returns whether or not any dots were parsed (indicating that the path is relative).
  */
-static void parse_import_dots(Parser *parser, CharBuffer *path) {
+static bool parse_import_dots(Parser *parser, CharBuffer *path) {
     u32 dots = 0;
     while (true) {
         if (MATCH(parser, TOKEN_DOT)) {
@@ -666,32 +667,37 @@ static void parse_import_dots(Parser *parser, CharBuffer *path) {
         }
     }
 
-    if (dots == 1) {
-        buffer_append_format(path, ".%c", PATH_DELIMITER);
-    } else if (dots > 1) {
+    if (dots > 1) {
         for (u32 i = 0; i < dots - 1; i++) {
-            buffer_append_format(path, "..%c", PATH_DELIMITER);
+            buffer_append_format(path, "..%c", PATH_SEPARATOR);
         }
     }
+    return dots > 0;
 }
 
-/** Parses and returns the absolute path of a file as an allocated string. */
+/** Parses and returns the path of a file as an allocated string. */
 static char *parse_import_path(Parser *parser) {
-    CharBuffer relativePath = create_char_buffer();
-    parse_import_dots(parser, &relativePath);
+    CharBuffer path = create_char_buffer();
+    const bool isRelative = parse_import_dots(parser, &path);
 
     const Token pathPart = CONSUME(parser, TOKEN_IDENTIFIER, "Expected a name in import.");
-    buffer_append_string_len(&relativePath, pathPart.lexeme, pathPart.pos.length);
+    buffer_append_string_len(&path, pathPart.lexeme, pathPart.pos.length);
     while (MATCH(parser, TOKEN_DOT)) {
-        buffer_append_char(&relativePath, PATH_DELIMITER);
+        buffer_append_char(&path, PATH_SEPARATOR);
         const Token pathPart = CONSUME(parser, TOKEN_IDENTIFIER, "Expected a name in import.");
-        buffer_append_string_len(&relativePath, pathPart.lexeme, pathPart.pos.length);
+        buffer_append_string_len(&path, pathPart.lexeme, pathPart.pos.length);
     }
-    buffer_append_string(&relativePath, EXTENSION);
+    buffer_append_string(&path, EXTENSION);
 
-    char *absolutePath = get_absolute_path(relativePath.text);
-    free_char_buffer(&relativePath);
-    return absolutePath;
+    if (isRelative) {
+        // Makes the full path relative to the current file. Will be made absolute at runtime.
+        char *relativePath = get_relative_path(parser->program, path.text);
+        free_char_buffer(&path);
+        return relativePath;
+    } else {
+        // Doesn't do anything so runtime can make it absolute/error if it doesn't exist then.
+        return path.text;
+    }
 }
 
 /** Returns a full parsed node of a full import (the whole module, not a few names). */
