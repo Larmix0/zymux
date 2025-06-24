@@ -104,6 +104,7 @@ typedef enum {
     OP_CLOSURE_RETURN,
     OP_COPY_TOP,
     OP_IMPORT,
+    OP_IMPORT_NAMES,
     OP_START_TRY,
     OP_FINISH_TRY,
     OP_RAISE,

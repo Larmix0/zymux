@@ -668,8 +668,8 @@ static void parse_import_dots(Parser *parser, CharBuffer *path) {
 
     if (dots == 1) {
         buffer_append_format(path, ".%c", PATH_DELIMITER);
-    } else {
-        for (u32 i = 0; i < dots; i++) {
+    } else if (dots > 1) {
+        for (u32 i = 0; i < dots - 1; i++) {
             buffer_append_format(path, "..%c", PATH_DELIMITER);
         }
     }
@@ -709,6 +709,59 @@ static Node *parse_import(Parser *parser) {
     );
     free(path);
     return importNode;
+}
+
+/** 
+ * Writes into the passed node arrays the parsed names of a "from import" statement.
+ * 
+ * The names are represented as 2 arrays, one where the name of the things being imported in another
+ * file is, and the other is their corresponding name in the importing file,
+ * which by default is the same name, unless aliased.
+ */
+static void parse_import_names(
+    Parser *parser, TokenArray *importedNames, NodeArray *namesAs
+) {
+    // Use a do-while, as a from-import must include at least one name.
+    do {
+        const Token importedName = CONSUME(parser, TOKEN_IDENTIFIER, "Expected imported name.");
+        APPEND_DA(importedNames, importedName);
+        if (MATCH(parser, TOKEN_AS_KW)) {
+            DeclareVarNode *nameDecl = NO_VALUE_DECL_NODE(
+                parser->program, CONSUME(parser, TOKEN_IDENTIFIER, "Expected name after 'as'.")
+            );
+            APPEND_DA(namesAs, AS_NODE(nameDecl));
+        } else {
+            APPEND_DA(namesAs, AS_NODE(NO_VALUE_DECL_NODE(parser->program, importedName)));
+        }
+    } while MATCH(parser, TOKEN_COMMA);
+}
+
+/** 
+ * Returns a parsed "from import" statement, which only imports a few specific names.
+ * 
+ * The syntax allows either for one-line from-imports with semicolon terminators,
+ * or the imported names could be wrapped in curly brackets and not ended with a semicolon.
+ */
+static Node *parse_from_import(Parser *parser) {
+    char *path = parse_import_path(parser);
+    const SourcePosition pos = PEEK_PREVIOUS(parser).pos; // Name of imported file.
+
+    CONSUME(parser, TOKEN_IMPORT_KW, "Expected 'import' after path.");
+    const bool isBracketed = MATCH(parser, TOKEN_LCURLY);
+    TokenArray importedNames = CREATE_DA();
+    NodeArray namesAs = CREATE_DA();
+    parse_import_names(parser, &importedNames, &namesAs);
+    if (isBracketed) {
+        CONSUME(parser, TOKEN_RCURLY, "Expected closing '}' after import name.");
+    } else {
+        CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after import name.");
+    }
+
+    Node *fromImportNode = new_from_import_node(
+        parser->program, path, strlen(path), importedNames, namesAs, pos
+    );
+    free(path);
+    return fromImportNode;
 }
 
 /** 
@@ -851,6 +904,7 @@ static Node *statement(Parser *parser) {
     case TOKEN_CONTINUE_KW: node = parse_loop_control(parser); break;
     case TOKEN_BREAK_KW: node = parse_loop_control(parser); break;
     case TOKEN_IMPORT_KW: node = parse_import(parser); break;
+    case TOKEN_FROM_KW: node = parse_from_import(parser); break;
     case TOKEN_TRY_KW: node = parse_try_catch(parser); break;
     case TOKEN_RAISE_KW: node = parse_raise(parser); break;
     case TOKEN_RETURN_KW: node = parse_return(parser); break;

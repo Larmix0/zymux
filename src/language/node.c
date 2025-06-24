@@ -336,14 +336,34 @@ Node *new_enum_node(ZmxProgram *program, DeclareVarNode *nameDecl, const TokenAr
 /** 
  * Allocates a statement which imports some file and binds its contents to a variable.
  * 
- * It makes its own copy of the passed path, therefore the responsibility of that strings memory
- * does not get passed to the node.
+ * Makese a copy of the passed path, therefore freeing the passed string isn't its responsibility.
  */
 Node *new_import_node(
     ZmxProgram *program, char *path, const u32 pathLength, DeclareVarNode *importVar
 ) {
     ImportNode *node = NEW_NODE(program, AST_IMPORT, ImportNode);
     node->importVar = importVar;
+    node->pathLength = pathLength;
+
+    node->path = ARRAY_ALLOC(node->pathLength + 1, char);
+    strncpy(node->path, path, node->pathLength);
+    node->path[node->pathLength] = '\0';
+    return AS_NODE(node);
+}
+
+/** 
+ * Allocates an import which only declares an array of names from the imported module.
+ * 
+ * Makese a copy of the passed path, therefore freeing the passed string isn't its responsibility.
+ */
+Node *new_from_import_node(
+    ZmxProgram *program, char *path, const u32 pathLength,
+    const TokenArray importedNames, const NodeArray namesAs, const SourcePosition pos
+) {
+    FromImportNode *node = NEW_NODE(program, AST_FROM_IMPORT, FromImportNode);
+    node->pos = pos;
+    node->importedNames = importedNames;
+    node->namesAs = namesAs;
     node->pathLength = pathLength;
 
     node->path = ARRAY_ALLOC(node->pathLength + 1, char);
@@ -474,6 +494,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_LOOP_CONTROL: return AS_PTR(LoopControlNode, node)->pos;
     case AST_ENUM: return AS_PTR(EnumNode, node)->nameDecl->name.pos;
     case AST_IMPORT: return get_node_pos(AS_NODE(AS_PTR(ImportNode, node)->importVar));
+    case AST_FROM_IMPORT: return AS_PTR(FromImportNode, node)->pos;
     case AST_TRY_CATCH: return get_node_pos(AS_NODE(AS_PTR(TryCatchNode, node)->tryBlock));
     case AST_RAISE: return AS_PTR(RaiseNode, node)->pos;
     case AST_RETURN: return AS_PTR(ReturnNode, node)->pos;
@@ -520,6 +541,11 @@ static void free_node(Node *node) {
         break;
     case AST_IMPORT:
         free(AS_PTR(ImportNode, node)->path);
+        break;
+    case AST_FROM_IMPORT:
+        free(AS_PTR(FromImportNode, node)->path);
+        FREE_DA(&AS_PTR(FromImportNode, node)->importedNames);
+        FREE_DA(&AS_PTR(FromImportNode, node)->namesAs);
         break;
     case AST_FUNC:
         FREE_DA(&AS_PTR(FuncNode, node)->mandatoryParams);

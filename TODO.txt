@@ -56,3 +56,10 @@ Does the STACK_LENGTH() macro actually improve performance over storing the leng
 This is a serious question since push operations always ask for STACK_LENGTH(),
 which has an arithmetic, meanwhile we avoided using a normal length for the purposes of skipping
 the "length++" operation at the end of each push.
+
+Potentially make it so that manually protected objects also have to be manually popped off of
+the protection array in the GC.
+
+Fix strings inside collection types not being wrapped in quotes.
+
+Add tests for normal imports and from imports.

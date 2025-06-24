@@ -867,6 +867,38 @@ static void compile_import(Compiler *compiler, const ImportNode *node) {
 }
 
 /** 
+ * Imports some variables from a module, declaring them with the same (or different) name.
+ * 
+ * First imports the module, then emits an import names instruction which grabs a list of names
+ * that are expected to be declared in the imported module at the top of the stack,
+ * and declares each one of the imported names to a new name (or the same name by default)
+ * on the module that imported them.
+ * 
+ * The imported names list is added in reverse so the VM can declare the imports from top to bottom,
+ * which is naturally in reverse.
+ */
+static void compile_from_import(Compiler *compiler, const FromImportNode *node) {
+    Obj *pathAsObj = AS_OBJ(new_string_obj(compiler->program, node->path, node->pathLength));
+    emit_const(compiler, OP_IMPORT, pathAsObj, get_node_pos(AS_NODE(node)));
+
+    GC_PUSH_PROTECTION(&compiler->program->gc);
+    ListObj *importedList = new_list_obj(compiler->program, (ObjArray)CREATE_DA());
+    GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(importedList));
+    for (i64 i = (i64)node->importedNames.length - 1; i >= 0; i--) {
+        const Token importedName = node->importedNames.data[i];
+        APPEND_DA(
+            &importedList->items, 
+            AS_OBJ(new_string_obj(compiler->program, importedName.lexeme, importedName.pos.length))
+        );
+    }
+    emit_const(compiler, OP_IMPORT_NAMES, AS_OBJ(importedList), get_node_pos(AS_NODE(node)));
+    GC_POP_PROTECTION(&compiler->program->gc);
+
+    // Declares a name for each imported variable's value left on the stack.
+    compile_node_array(compiler, &node->namesAs);
+}
+
+/** 
  * Compiles a try-catch and their blocks.
  * 
  * Adds a start try instruction before the try block in order to include the block's bytecode
@@ -1168,6 +1200,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_LOOP_CONTROL: compile_loop_control(compiler, AS_PTR(LoopControlNode, node)); break;
     case AST_ENUM: compile_enum(compiler, AS_PTR(EnumNode, node)); break;
     case AST_IMPORT: compile_import(compiler, AS_PTR(ImportNode, node)); break;
+    case AST_FROM_IMPORT: compile_from_import(compiler, AS_PTR(FromImportNode, node)); break;
     case AST_TRY_CATCH: compile_try_catch(compiler, AS_PTR(TryCatchNode, node)); break;
     case AST_RAISE: compile_raise(compiler, AS_PTR(RaiseNode, node)); break;
     case AST_RETURN: compile_return(compiler, AS_PTR(ReturnNode, node)); break;

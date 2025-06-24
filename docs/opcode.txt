@@ -407,6 +407,14 @@ OP_IMPORT:
 
     This is because when an import occurs it automatically executes the top-level code.
 
+OP_IMPORT_NAMES:
+    Expects the top of the stack to be a module, pops it,
+    and reads a constant which is a list that has all the names being imported
+    from the module as strings.
+
+    Pushes (in order) all the corresponding values of the imported names in the imported module,
+    so they can be declared later.
+
 OP_FINISH_TRY:
     Pops the most recently added catch state in the VM to represent the end of a try-catch.
 

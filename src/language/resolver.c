@@ -907,6 +907,11 @@ static void resolve_import(Resolver *resolver, ImportNode *node) {
     resolve_declare_var(resolver, node->importVar, NULL);
 }
 
+/** Resolves the imported variables of a "from import" statement. */
+static void resolve_from_import(Resolver *resolver, FromImportNode *node) {
+    resolve_node_array(resolver, &node->namesAs);
+}
+
 /** Resolves a try-catch's blocks. */
 static void resolve_try_catch(Resolver *resolver, TryCatchNode *node) {
     resolve_node(resolver, AS_NODE(node->tryBlock));
@@ -1073,6 +1078,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_LOOP_CONTROL: resolve_loop_control(resolver, AS_PTR(LoopControlNode, node)); break;
     case AST_ENUM: resolve_enum(resolver, AS_PTR(EnumNode, node)); break;
     case AST_IMPORT: resolve_import(resolver, AS_PTR(ImportNode, node)); break;
+    case AST_FROM_IMPORT: resolve_from_import(resolver, AS_PTR(FromImportNode, node)); break;
     case AST_TRY_CATCH: resolve_try_catch(resolver, AS_PTR(TryCatchNode, node)); break;
     case AST_RAISE: resolve_raise(resolver, AS_PTR(RaiseNode, node)); break;
     case AST_RETURN: resolve_return(resolver, AS_PTR(ReturnNode, node)); break;

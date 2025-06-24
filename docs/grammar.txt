@@ -43,14 +43,15 @@ STATEMENTS:
 
 statement {
     ifElseStmt
-    | importStmt
-    | tryCatchStmt
-    | raiseStmt
     | matchStmt
     | whileStmt
     | doWhileStmt
     | forStmt
     | loopControlStmt
+    | importStmt
+    | fromImportStmt
+    | tryCatchStmt
+    | raiseStmt
     | returnStmt
     | expressionStmt
     | block
@@ -58,18 +59,6 @@ statement {
 
 ifElseStmt {
     "if" expression block ("else" (block | ifElseStmt))?
-}
-
-importStmt {
-    "import" "."* (name ".")* name ("as" name)?
-}
-
-tryCatchStmt {
-    "try" block "catch" ("as" name)? block
-}
-
-raiseStmt {
-    "raise" expression ";"
 }
 
 matchStmt {
@@ -90,6 +79,30 @@ forStmt {
 
 loopControlStmt {
     "break" | "continue"
+}
+
+importStmt {
+    "import" importPath ("as" name)? ";"
+}
+
+fromImportStmt {
+    "from" importPath "import" (importedNames ";" | "{" importedNames "}")
+}
+
+importedNames {
+    (name ("as" name)?)+
+}
+
+importPath {
+    "."* (name ".")* name
+}
+
+tryCatchStmt {
+    "try" block "catch" ("as" name)? block
+}
+
+raiseStmt {
+    "raise" expression ";"
 }
 
 returnStmt {

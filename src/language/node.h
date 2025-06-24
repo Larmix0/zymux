@@ -52,6 +52,7 @@ typedef enum {
     AST_LOOP_CONTROL,
     AST_ENUM,
     AST_IMPORT,
+    AST_FROM_IMPORT,
     AST_TRY_CATCH,
     AST_RAISE,
     AST_RETURN,
@@ -380,6 +381,17 @@ typedef struct {
     DeclareVarNode *importVar;
 } ImportNode;
 
+/** Represents an import which only tries to grab some specific names from the imported module. */
+typedef struct {
+    Node node;
+    char *path;
+    u32 pathLength;
+    TokenArray importedNames; /** The names being imported. */
+    NodeArray namesAs; /** Their alias in the importing file as an array of declarations. */
+
+    SourcePosition pos;
+} FromImportNode;
+
 /** 
  * An error handling statement which goes to the catch block if an error occurs inside the try.
  * The always block simply executes every time, regardless of whether or not the catch was executed.
@@ -568,11 +580,20 @@ Node *new_enum_node(ZmxProgram *program, DeclareVarNode *nameDecl, const TokenAr
 /** 
  * Allocates a statement which imports some file and binds its contents to a variable.
  * 
- * It makes its own copy of the passed path, therefore the responsibility of that strings memory
- * does not get passed to the node.
+ * Makese a copy of the passed path, therefore freeing the passed string isn't its responsibility.
  */
 Node *new_import_node(
     ZmxProgram *program, char *path, const u32 pathLength, DeclareVarNode *importVar
+);
+
+/** 
+ * Allocates an import which only declares an array of names from the imported module.
+ * 
+ * Makese a copy of the passed path, therefore freeing the passed string isn't its responsibility.
+ */
+Node *new_from_import_node(
+    ZmxProgram *program, char *path, const u32 pathLength,
+    const TokenArray importedNames, const NodeArray namesAs, const SourcePosition pos
 );
 
 /** Allocates a statement which doesn't immediately exit and print a message on error. */

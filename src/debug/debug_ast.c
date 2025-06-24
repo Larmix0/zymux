@@ -338,9 +338,25 @@ static void append_enum(AstBuilder *ast, const EnumNode *node) {
 /** Appends an import statements that binds a file's contents to a variable. */
 static void append_import(AstBuilder *ast, const ImportNode *node) {
     buffer_append_string(&ast->string, "<import> ");
-    buffer_append_format(&ast->string, "%s ", node->path);
+    buffer_append_format(&ast->string, "'%s' ", node->path);
     buffer_append_string(&ast->string, "<as> ");
     append_declare_var(ast, node->importVar);
+}
+
+/** Appends a from import statements imported file, and imported names. */
+static void append_from_import(AstBuilder *ast, FromImportNode *node) {
+    buffer_append_string(&ast->string, "<from> ");
+    buffer_append_format(&ast->string, "'%s' ", node->path);
+    buffer_append_string(&ast->string, "<import> ");
+    for (u32 i = 0; i < node->importedNames.length; i++) {
+        if (i != 0) {
+            buffer_pop(&ast->string); // Pop spurious space.
+            buffer_append_string(&ast->string, ", ");
+        }
+        buffer_append_token(&ast->string, node->importedNames.data[i]);
+        buffer_append_string(&ast->string, "<as> ");
+        append_node(ast, node->namesAs.data[i]);
+    }
 }
 
 /** Appends a try-catch with both of its blocks and a caught message variable if there's one. */
@@ -453,6 +469,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_LOOP_CONTROL: append_loop_control(ast, AS_PTR(LoopControlNode, node)); break;
     case AST_ENUM: append_enum(ast, AS_PTR(EnumNode, node)); break;
     case AST_IMPORT: append_import(ast, AS_PTR(ImportNode, node)); break;
+    case AST_FROM_IMPORT: append_from_import(ast, AS_PTR(FromImportNode, node)); break;
     case AST_TRY_CATCH: append_try_catch(ast, AS_PTR(TryCatchNode, node)); break;
     case AST_RAISE: append_raise(ast, AS_PTR(RaiseNode, node)); break;
     case AST_RETURN: append_return(ast, AS_PTR(ReturnNode, node)); break;

@@ -998,6 +998,28 @@ static bool import_module(Vm *vm, StringObj *path) {
 }
 
 /** 
+ * Tries to push the values of all names that existed in the passed module from the names list.
+ * 
+ * Returns whether or not it found and successfully pushed all the values
+ * of the corresponding names.
+ */
+static bool import_names(Vm *vm, ModuleObj *importedModule, ListObj *names) {
+    for (u32 i = 0; i < names->items.length; i++) {
+        Obj *value = table_get(&importedModule->globals, names->items.data[i]);
+        if (value) {
+            PUSH(vm, value);
+        } else {
+            RUNTIME_ERROR(
+                vm, "Name '%s' not found in module '%s'.",
+                AS_PTR(StringObj, names->items.data[i])->string, importedModule->path->string
+            );
+            return false;            
+        }
+    }
+    return true;
+}
+
+/** 
  * Executes all the bytecode in the passed VM's function object.
  * 
  * Returns whether or not executing the VM was successful (no errors).
@@ -1576,6 +1598,16 @@ static bool vm_loop(Vm *vm) {
         case OP_IMPORT: {
             StringObj *path = AS_PTR(StringObj, READ_CONST(vm));
             if (!import_module(vm, path)) {
+                VM_LOOP_FINISH_ERROR(vm);
+            }
+            break;
+        }
+        case OP_IMPORT_NAMES: {
+            ASSERT(PEEK(vm)->type == OBJ_MODULE, "Expected module for imported names.");
+
+            ListObj *names = AS_PTR(ListObj, READ_CONST(vm));
+            ModuleObj *importedModule = AS_PTR(ModuleObj, POP(vm));
+            if (!import_names(vm, importedModule, names)) {
                 VM_LOOP_FINISH_ERROR(vm);
             }
             break;
