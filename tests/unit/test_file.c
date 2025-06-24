@@ -16,13 +16,13 @@ PRIVATE_TEST_CASE(test_get_path_type) {
     free_char_buffer(&path);
 }
 
-/** Tests if the alloc_fixed_source correctly resolves different types of line breaks into LF. */
-PRIVATE_TEST_CASE(test_fixed_source) {
-    char *fixed = alloc_fixed_source("hello \n \r\n middle\n\r \r\nend\r\r");
+/** Tests if the get_fixed_source() correctly resolves different types of line breaks into LF. */
+PRIVATE_TEST_CASE(test_get_fixed_source) {
+    char *fixed = get_fixed_source("hello \n \r\n middle\n\r \r\nend\r\r");
     ASSERT_STRING_EQUAL(fixed, "hello \n \n middle\n\n \nend\n\n");
 
     const char *noFix = "hello; this shouldn't \n\n be fixed as it only uses\n.\n";
-    char *noFixAfter = alloc_fixed_source(noFix);
+    char *noFixAfter = get_fixed_source(noFix);
     ASSERT_STRING_EQUAL(noFixAfter, noFix);
 
     free(noFixAfter);
@@ -51,6 +51,6 @@ PRIVATE_TEST_CASE(test_get_file_source) {
 /** Tests file.c. */
 void test_file() {
     TEST(test_get_path_type);
-    TEST(test_fixed_source);
+    TEST(test_get_fixed_source);
     TEST(test_get_file_source);
 }

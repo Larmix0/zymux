@@ -9,15 +9,18 @@ void free_char_buffer(CharBuffer *buffer);
 
 /** Creates and initializes a char buffer with a NUL terminator already appended. */
 CharBuffer create_char_buffer() {
-    CharBuffer buffer = {.capacity = 1, .length = 1, .text = ARRAY_ALLOC(1, char)};
+    CharBuffer buffer = {.capacity = 0, .length = 0, .text = ARRAY_ALLOC(1, char)};
     buffer.text[0] = '\0';
     return buffer;
 }
 
 /** Appends a string of length with strncat. */
 void buffer_append_string_len(CharBuffer *buffer, const char *string, const size_t length) {
+    if (*string == '\0') {
+        return; // Don't append more NULs.
+    }
     if (buffer->length + length + 1 > buffer->capacity) {
-        buffer->capacity += length * 2;
+        buffer->capacity += length * 2 + 1;
         buffer->text = ARRAY_REALLOC(buffer->text, buffer->capacity, sizeof(char));
     }
     strncat(buffer->text, string, length);
@@ -44,17 +47,21 @@ void buffer_append_strings(CharBuffer *buffer, const int amount, ...) {
 
 /** Appends a formatted string into the buffer by using vsnprintf (twice to tell the length). */
 void buffer_append_format(CharBuffer *buffer, const char *format, ...) {
+    if (*format == '\0') {
+        return; // Don't append more NULs.
+    }
+
     va_list argsForLength, args;
     va_start(args, format);
     va_copy(argsForLength, args);
 
     const int formatLength = vsnprintf(NULL, 0, format, argsForLength);
     if (buffer->length + formatLength + 1 > buffer->capacity) {
-        buffer->capacity += formatLength * 2;
+        buffer->capacity += formatLength * 2 + 1;
         buffer->text = ARRAY_REALLOC(buffer->text, buffer->capacity, sizeof(char));
     }
-    // -1 because char buffer's take NUL into account. +1 to length of format is for writing NUL.
-    vsnprintf(buffer->text + buffer->length - 1, formatLength + 1, format, args);
+    // +1 to length of format is for writing NUL.
+    vsnprintf(buffer->text + buffer->length, formatLength + 1, format, args);
     buffer->length += formatLength;
 
     va_end(args);
@@ -68,14 +75,16 @@ void buffer_append_format(CharBuffer *buffer, const char *format, ...) {
  */
 void buffer_append_char(CharBuffer *buffer, const char ch) {
     if (ch == '\0') {
-        return; // Don't append more NULs as char buffer automatically does that.
+        return; // Don't append more NULs.
     }
-    buffer->text[buffer->length - 1] = ch;
-    if (buffer->capacity < buffer->length + 1) {
+
+    buffer->text[buffer->length++] = ch; // Replace the NUL with the character.
+    if (buffer->length + 1 > buffer->capacity) { // +1 for NUL.
         INCREASE_CAPACITY(buffer->capacity);
         buffer->text = REALLOC(buffer->text, buffer->capacity * sizeof(char));
     }
-    buffer->text[buffer->length++] = '\0';
+    // Now append the automatic NUL since the character took its place.
+    buffer->text[buffer->length] = '\0';
 }
 
 /** 
@@ -85,9 +94,9 @@ void buffer_append_char(CharBuffer *buffer, const char ch) {
  * and then replace the new last character (the character to be actually popped) with NUL.
  */
 char buffer_pop(CharBuffer *buffer) {
-    ASSERT(buffer->length > 1, "Can't pop from an empty char buffer.");
-    char popped = buffer->text[buffer->length - 2];
-    buffer->text[buffer->length - 2] = '\0';
+    ASSERT(buffer->length > 0, "Buffer is already considered empty.");
+    char popped = buffer->text[buffer->length - 1];
+    buffer->text[buffer->length - 1] = '\0';
     buffer->length--;
     return popped;
 }

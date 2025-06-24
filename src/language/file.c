@@ -68,7 +68,7 @@ char *get_relative_path(ZmxProgram *program, const char *path) {
 
     char *lastSeparator = strrchr(combined.text, PATH_SEPARATOR);
     const u32 finalLength = lastSeparator - combined.text;
-    buffer_pop_amount(&combined, combined.length - finalLength - 1); // Pops excess.
+    buffer_pop_amount(&combined, combined.length - finalLength); // Pops excess.
 
     buffer_append_format(&combined, "%c%s", PATH_SEPARATOR, path);
     return combined.text;
@@ -81,9 +81,10 @@ char *get_relative_path(ZmxProgram *program, const char *path) {
  * 
  * In windows, a line break is CRLF (\r\n).
  * In older versions of mac, a line break is CR (\r).
- * Although newer versions have (\n) which is also what linux uses. It's also Zymux defaults to.
+ * Although newer versions have (\n) which is also what linux uses. It's also what we convert
+ * those CR/CRLF characters into for uniformity in the language.
  */
-static char *alloc_fixed_source(const char *source) {
+static char *get_fixed_source(const char *source) {
     CharBuffer buffer = create_char_buffer();
     int idx = 0;
     while (source[idx] != '\0') {
@@ -91,7 +92,8 @@ static char *alloc_fixed_source(const char *source) {
             buffer_append_char(&buffer, source[idx++]);
             continue;
         }
-
+        
+        // Uses CR/CRLF for a line break.
         idx++;
         if (source[idx] == '\n') {
             idx++;
@@ -139,7 +141,7 @@ char *get_file_source(const char *path) {
         FILE_ERROR("Failed to close file '%s' after reading it.", path);
     }
     source[fileLength] = '\0';
-    char *fixedSource = alloc_fixed_source(source);
+    char *fixedSource = get_fixed_source(source);
     free(source);
     return fixedSource;
 }

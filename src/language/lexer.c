@@ -175,12 +175,12 @@ static void append_lexed_float(Lexer *lexer, const ZmxFloat floatVal) {
 static void append_lexed_string(
     Lexer *lexer, StringLexer *string, CharBuffer buffer, const int includedQuotes
 ) {
-    const u32 textLength = buffer.length - 1; // -1 because CharBuffer counts NUL.
-    const u32 quotesLength = textLength + includedQuotes; // So the lexeme includes any side quotes.
+    // So the lexeme includes any side quotes.
+    const u32 quotesLength = buffer.length + includedQuotes;
     Token token = {
         .lexeme = lexer->tokenStart, .lexedIdx = lexer->tokens.length,
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, quotesLength + string->escapes),
-        .type = TOKEN_STRING_LIT, .stringVal = {.length = textLength, .text = buffer.text}
+        .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer.length, .text = buffer.text}
     };
     APPEND_DA(&lexer->tokens, token);
 }

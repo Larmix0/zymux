@@ -764,7 +764,7 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
 /** Returns a copy of the passed object as a string. */
 StringObj *as_string(ZmxProgram *program, const Obj *object) {
     CharBuffer cstring = object_cstring(object);
-    StringObj *result = new_string_obj(program, cstring.text, cstring.length - 1); // -1 for NUL.
+    StringObj *result = new_string_obj(program, cstring.text, cstring.length);
     free_char_buffer(&cstring);
     return result;
 }

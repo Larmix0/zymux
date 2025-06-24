@@ -5,12 +5,7 @@
 
 #include "dynamic_array.h"
 
-/**
- * An array of characters that is always NUL terminated (the NUL counts towards length).
- * 
- * The buffer's length always takes into account the NUL terminator, so it's always 1
- * number higher than using strlen().
- */
+/** An array of characters that is always NUL terminated (the NUL doesn't count towards length). */
 typedef struct {
     u32 length;
     u32 capacity;
