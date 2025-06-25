@@ -21,7 +21,8 @@ PRIVATE_TEST_CASE(test_compile_expr) {
         OP_LOAD_CONST, 6, OP_MINUS, OP_DIVIDE, OP_ADD, OP_POP_LOCAL,
         OP_LOAD_CONST, 7, OP_LOAD_CONST, 8, OP_LOAD_CONST, 9, OP_ADD, OP_AS, 3, OP_LOAD_CONST, 10,
         OP_LOAD_CONST, 11, OP_LOAD_CONST, 12, OP_ADD, OP_AS, 3,
-        OP_FINISH_STRING, 4, OP_LOAD_CONST, 13, OP_ADD, OP_POP_LOCAL, OP_END_PROGRAM
+        OP_FINISH_STRING, 4, OP_LOAD_CONST, 13, OP_ADD, OP_POP_LOCAL,
+        OP_LOAD_CONST, 14, OP_END_PROGRAM
     };
     ASSERT_BYTES_EQUAL(func->bytecode.data, expected, func->bytecode.length);
     free_zmx_program(&program);

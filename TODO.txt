@@ -49,3 +49,11 @@ Add command line.
 Add the keyword "private".
 Add more built-ins.
 Add file operations (part of built-ins).
+
+Add repl first and allow it to quit using a couple keywords.
+Then add command line which handles passing arguments and how they affect execution:
+    --db-token
+    --db-ast
+    --db-bytecode
+    --help, -H, help (without dashes) (Help is only allowed without passing a file?)
+
