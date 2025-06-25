@@ -1160,9 +1160,27 @@ static void compile_class(Compiler *compiler, const ClassNode *node) {
     compile_declare_var(compiler, node->nameDecl);
 }
 
-/** Compiles an EOF node, which is placed to indicate the end of the bytecode. */
+/** 
+ * Compiles an EOF node, which is placed to indicate the end of the bytecode.
+ * 
+ * In a compiler this can indicate the end of an importable file, or the end of the program
+ * as a whole (which happens when the exit as at the main file). Emits an end instruction
+ * depending on whether it's ending the module or the whole program.
+ */
 static void compile_eof(Compiler *compiler, const EofNode *node) {
-    emit_instr(compiler, compiler->isMain ? OP_END_PROGRAM : OP_END_MODULE, node->pos);
+    if (compiler->isMain) {
+        // Exit with code 0 (default).
+        emit_const(compiler, OP_LOAD_CONST, AS_OBJ(new_int_obj(compiler->program, 0)), node->pos);
+        emit_instr(compiler, OP_END_PROGRAM, node->pos);
+    } else {
+        emit_instr(compiler, OP_END_MODULE, node->pos);
+    }
+}
+
+/** Emits an exit with a specific exit code (the runtime will check if it's an integer by then). */
+static void compile_exit(Compiler *compiler, const ExitNode *node) {
+    compile_node(compiler, node->exitCode);
+    emit_instr(compiler, OP_END_PROGRAM, node->pos);
 }
 
 /** Compiles the bytecode for the passed node into the compiler's currently compiling function. */
@@ -1209,6 +1227,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_RETURN: compile_return(compiler, AS_PTR(ReturnNode, node)); break;
     case AST_FUNC: compile_func(compiler, AS_PTR(FuncNode, node)); break;
     case AST_CLASS: compile_class(compiler, AS_PTR(ClassNode, node)); break;
+    case AST_EXIT: compile_exit(compiler, AS_PTR(ExitNode, node)); break;
     case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;
     case AST_ERROR: break; // Do nothing on erroneous nodes.
     case AST_CASE: UNREACHABLE_ERROR(); // Should call its function directly as it returns a number.

@@ -17,18 +17,18 @@ typedef struct NullObj NullObj;
 typedef struct ZmxProgram {
     bool hasErrored; /** Whether the program has had any kind of errors. */
     bool showErrors; /** Whether or not error messages should be displayed and printed. */
+    ZmxInt exitCode; /** Current number for when we finish the program (0 by default). */
     
     Node *allNodes; /** All nodes in a linked list to make freeing them easier */
     Obj *allObjs; /** All objects in a linked list to make freeing them easier (and for the GC). */
-    
-    StringObj *currentFile; /** The name of the file currently being worked on. */
-    Table builtIn; /** The built-in functionality as name key and native object value pairs. */
     
     Table internedStrings; /** Hash set of all strings that are interned. */
     NullObj *internedNull; /** An interned null. */
     BoolObj *internedTrue; /** An interned boolean of true. */
     BoolObj *internedFalse; /** An interned boolean of false. */
 
+    StringObj *currentFile; /** The name of the file currently being worked on. */
+    Table builtIn; /** The built-in functionality as name key and native object value pairs. */
     Gc gc; /** The garbage collector for the program's objects. */
 } ZmxProgram;
 

@@ -897,6 +897,14 @@ static Node *parse_return(Parser *parser) {
     return new_return_node(parser->program, value, pos);
 }
 
+/** Parses and returns an exit statement, which exits the program with an exit code number. */
+static Node *parse_exit(Parser *parser) {
+    const SourcePosition pos = PEEK_PREVIOUS(parser).pos;
+    Node *exitCode = expression(parser);
+    CONSUME(parser, TOKEN_SEMICOLON, "Expected ';' after exit.");
+    return new_exit_node(parser->program, exitCode, pos);
+}
+
 /** Parses and returns a statement or expression-statement. */
 static Node *statement(Parser *parser) {
     Node *node;
@@ -914,6 +922,7 @@ static Node *statement(Parser *parser) {
     case TOKEN_TRY_KW: node = parse_try_catch(parser); break;
     case TOKEN_RAISE_KW: node = parse_raise(parser); break;
     case TOKEN_RETURN_KW: node = parse_return(parser); break;
+    case TOKEN_EXIT_KW: node = parse_exit(parser); break;
     default:
         RETREAT(parser);
         node = expression_stmt(parser);

@@ -427,4 +427,6 @@ OP_END_MODULE:
     then go back to executing the module that originally imported it.
 
 OP_END_PROGRAM:
-    Immediately terminates the whole program.
+    Immediately terminates the whole program program with an exit code that is expected
+    to be an integer at the top of the stack.
+    Raises a runtime error if it found an object that is not an integer at the top of the stack.

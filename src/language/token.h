@@ -71,14 +71,14 @@ typedef enum {
     /** Punctuation. */
     TOKEN_SEMICOLON, TOKEN_COMMA, TOKEN_DOT, TOKEN_DOT_DOT, TOKEN_QUESTION_MARK, TOKEN_COLON,
 
-    /** Implicitly inserted (without the user writing it themselves). */
-    TOKEN_INTERPOLATE, TOKEN_STRING_END, TOKEN_EOF,
-
     /** Literal. */
     TOKEN_STRING_LIT, TOKEN_INT_LIT, TOKEN_FLOAT_LIT,
 
+    /** Related to parsing string literals. */
+    TOKEN_INTERPOLATE, TOKEN_STRING_END,
+
     /** Miscellaneous. */
-    TOKEN_EQ, TOKEN_IDENTIFIER, TOKEN_ERROR
+    TOKEN_EQ, TOKEN_IDENTIFIER, TOKEN_EXIT_KW, TOKEN_EOF, TOKEN_ERROR
 } TokenType;
 
 /** A series of characters from the source code stored as a single unit. */

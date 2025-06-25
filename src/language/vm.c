@@ -1641,8 +1641,14 @@ static bool vm_loop(Vm *vm) {
             PUSH(vm, AS_OBJ(importedModule));
             break;
         }
-        case OP_END_PROGRAM:
+        case OP_END_PROGRAM: {
+            Obj *exitCode = POP(vm);
+            if (exitCode->type != OBJ_INT) {
+                VM_LOOP_RUNTIME_ERROR(vm, "Expected exit code to be integer.");
+            }
+            vm->program->exitCode = AS_PTR(IntObj, exitCode)->number;
             return true;
+        }
         TOGGLEABLE_DEFAULT_UNREACHABLE();
         }
     }

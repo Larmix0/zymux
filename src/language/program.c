@@ -9,11 +9,10 @@
 /** Returns an initialized zymux program with the parameters. */
 ZmxProgram create_zmx_program(char *file, const bool showErrors) {
     ZmxProgram program = {
-        .hasErrored = false, .showErrors = showErrors,
+        .hasErrored = false, .showErrors = showErrors, .exitCode = 0,
         .allNodes = NULL, .allObjs = NULL, .currentFile = NULL,
-        .builtIn = create_table(), .internedStrings = create_table(),
         .internedFalse = NULL, .internedTrue = NULL, .internedNull = NULL,
-        .gc = create_gc()
+        .builtIn = create_table(), .internedStrings = create_table(), .gc = create_gc()
     };
     intern_objs(&program);
     load_built_ins(&program);
@@ -29,7 +28,7 @@ ZmxProgram create_zmx_program(char *file, const bool showErrors) {
  */
 void free_zmx_program(ZmxProgram *program) {
     free_all_objs(program);
-    free_table(&program->builtIn);
     free_table(&program->internedStrings);
+    free_table(&program->builtIn);
     free_gc(&program->gc);
 }

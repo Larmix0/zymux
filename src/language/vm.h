@@ -93,7 +93,7 @@ typedef struct Vm {
      * 
      * Also, we have to change everything that points somewhere in the stack
      * if an append's reallocation causes the stack's address to move.
-     * So Zymux's default reallocation used in normal dynamic arrays won't cut it.
+     * So the default reallocation used in normal dynamic arrays won't cut it.
      */
     struct {
         Obj **objects;

@@ -58,6 +58,7 @@ typedef enum {
     AST_RETURN,
     AST_FUNC,
     AST_CLASS,
+    AST_EXIT,
     AST_EOF
 } AstType;
 
@@ -450,6 +451,13 @@ typedef struct {
     NodeArray methods;
 } ClassNode;
 
+/** Node that exits the program immediately with an exit code. */
+typedef struct {
+    Node node;
+    Node *exitCode; /** Expression for the exit code (should resolve to integer at runtime). */
+    SourcePosition pos;
+} ExitNode;
+
 /** Node that simply represents EOF and holds its position. */
 typedef struct {
     Node node;
@@ -622,6 +630,9 @@ Node *new_func_node(
  * (and not having to create too many variables).
  */
 Node *new_class_node(ZmxProgram *program, DeclareVarNode *nameDecl, const bool isAbstract);
+
+/** Allocates a node that instantly exits the program with an exit code. */
+Node *new_exit_node(ZmxProgram *program, Node *exitCode, const SourcePosition pos);
 
 /** Allocates a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos);

@@ -95,6 +95,7 @@ char *token_type_string(const TokenType type) {
     case TOKEN_EQ: return "EQUAL";
     case TOKEN_IDENTIFIER: return "IDENTIFIER";
     case TOKEN_DOT_DOT: return "DOT_DOT";
+    case TOKEN_EXIT_KW: return "EXIT";
     case TOKEN_EOF: return "EOF";
     case TOKEN_ERROR: return "ERROR";
     }

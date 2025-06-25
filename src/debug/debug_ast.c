@@ -344,7 +344,7 @@ static void append_import(AstBuilder *ast, const ImportNode *node) {
 }
 
 /** Appends a from import statements imported file, and imported names. */
-static void append_from_import(AstBuilder *ast, FromImportNode *node) {
+static void append_from_import(AstBuilder *ast, const FromImportNode *node) {
     buffer_append_string(&ast->string, "<from> ");
     buffer_append_format(&ast->string, "'%s' ", node->path);
     buffer_append_string(&ast->string, "<import> ");
@@ -418,6 +418,12 @@ static void append_class(AstBuilder *ast, const ClassNode *node) {
     }
 }
 
+/** Appends the exit keyword alongside the exit code expression. */
+static void append_exit(AstBuilder *ast, const ExitNode *node) {
+    buffer_append_string(&ast->string, "<exit> ");
+    append_node(ast, node->exitCode);
+}
+
 /** Appends an EOF string to the AST string. */
 static void append_eof(AstBuilder *ast) {
     buffer_append_string(&ast->string, "EOF ");
@@ -475,6 +481,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_RETURN: append_return(ast, AS_PTR(ReturnNode, node)); break;
     case AST_FUNC: append_func(ast, AS_PTR(FuncNode, node)); break;
     case AST_CLASS: append_class(ast, AS_PTR(ClassNode, node)); break;
+    case AST_EXIT: append_exit(ast, AS_PTR(ExitNode, node)); break;
     case AST_EOF: append_eof(ast); break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }

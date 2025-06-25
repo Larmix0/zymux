@@ -15,17 +15,23 @@ static void repl() {
     // TODO: implement repl.
 }
 
-/** Reads the passed file and makes it go through all the stages of Zymux to execute it. */
-static void run_zmx_file(char *passedFile) {
+/** 
+ * Reads the passed file and makes it go through all the stages of Zymux to execute it.
+ * 
+ * Returns the exit code of the file after executing the program.
+ */
+static ZmxInt run_zmx_file(char *passedFile) {
     char *absoluteFile = get_absolute_path(passedFile);
     char *source = get_file_source(absoluteFile);
     
     ZmxProgram program = create_zmx_program(absoluteFile, true);
     interpret_source(&program, source, true);
-    
+    const ZmxInt exitCode = program.exitCode;
+
     free_zmx_program(&program);
     free(source);
     free(absoluteFile);
+    return exitCode;
 }
 
 /** 
@@ -38,13 +44,13 @@ int main(const int argc, char **argv) {
 #if OS == UNKNOWN_OS
     OS_ERROR("Your operating system is not supported in Zymux.");
 #endif
-
+    ZmxInt exitCode = 0;
     if (argc == 1) {
         repl();
     } else if (argc == 2) {
-        run_zmx_file(argv[1]);
+        exitCode = run_zmx_file(argv[1]);
     } else {
         FILE_ERROR("Invalid amount of arguments.");
     }
-    return EXIT_SUCCESS;
+    return exitCode;
 }

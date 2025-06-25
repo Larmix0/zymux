@@ -1041,6 +1041,11 @@ static void resolve_class(Resolver *resolver, ClassNode *node) {
     resolver->currentCls = previous;
 }
 
+/** Resolves an exit node's expression that represents the exit code. */
+static void resolve_exit(Resolver *resolver, ExitNode *node) {
+    resolve_node(resolver, node->exitCode);
+}
+
 /** Resolves the passed nodes and anything inside it that requires resolution. */
 static void resolve_node(Resolver *resolver, Node *node) {
     if (node == NULL) {
@@ -1084,6 +1089,7 @@ static void resolve_node(Resolver *resolver, Node *node) {
     case AST_RETURN: resolve_return(resolver, AS_PTR(ReturnNode, node)); break;
     case AST_FUNC: resolve_func(resolver, AS_PTR(FuncNode, node), FUNC_FUNCTION); break;
     case AST_CLASS: resolve_class(resolver, AS_PTR(ClassNode, node)); break;
+    case AST_EXIT: resolve_exit(resolver, AS_PTR(ExitNode, node)); break;
 
     case AST_LITERAL:
     case AST_KEYWORD:

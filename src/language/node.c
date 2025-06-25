@@ -446,6 +446,14 @@ Node *new_class_node(ZmxProgram *program, DeclareVarNode *nameDecl, const bool i
     return AS_NODE(node);
 }
 
+/** Allocates a node that instantly exits the program with an exit code. */
+Node *new_exit_node(ZmxProgram *program, Node *exitCode, const SourcePosition pos) {
+    ExitNode *node = NEW_NODE(program, AST_EXIT, ExitNode);
+    node->exitCode = exitCode;
+    node->pos = pos;
+    return AS_NODE(node);
+}
+
 /** Returns a node which holds the position an EOF token. */
 Node *new_eof_node(ZmxProgram *program, const SourcePosition eofPos) {
     EofNode *node = NEW_NODE(program, AST_EOF, EofNode);
@@ -500,6 +508,7 @@ SourcePosition get_node_pos(const Node *node) {
     case AST_RETURN: return AS_PTR(ReturnNode, node)->pos;
     case AST_FUNC: return AS_PTR(FuncNode, node)->name.pos;
     case AST_CLASS: return AS_PTR(ClassNode, node)->nameDecl->name.pos;
+    case AST_EXIT: return AS_PTR(ExitNode, node)->pos;
     case AST_EOF: return AS_PTR(EofNode, node)->pos;
     }
     UNREACHABLE_ERROR();
@@ -581,6 +590,7 @@ static void free_node(Node *node) {
     case AST_TRY_CATCH:
     case AST_RAISE:
     case AST_RETURN:
+    case AST_EXIT:
     case AST_EOF:
         break; // Nothing to free.
     TOGGLEABLE_DEFAULT_UNREACHABLE();

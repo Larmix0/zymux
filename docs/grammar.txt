@@ -42,7 +42,9 @@ STATEMENTS:
     A whole statement which modifies something in the program, but does not declare any new names.
 
 statement {
-    ifElseStmt
+    block
+    | expressionStmt
+    | ifElseStmt
     | matchStmt
     | whileStmt
     | doWhileStmt
@@ -53,8 +55,15 @@ statement {
     | tryCatchStmt
     | raiseStmt
     | returnStmt
-    | expressionStmt
-    | block
+    | exitStmt
+}
+
+block {
+    "{" declaration* "}"
+}
+
+expressionStmt {
+    expression ";"
 }
 
 ifElseStmt {
@@ -109,12 +118,8 @@ returnStmt {
     "return" (expression)? ";"
 }
 
-expressionStmt {
-    expression ";"
-}
-
-block {
-    "{" declaration* "}"
+exitStmt {
+    "exit" expression ";"
 }
 
 ----------------------------------------------------------------------------------------------------
