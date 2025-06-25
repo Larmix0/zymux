@@ -46,7 +46,7 @@ PRIVATE_TEST_CASE(test_emit_instr) {
     ASSERT_TRUE(equal_position(positions->data[2], create_src_pos(99, 100, 100)));
 }
 
-/** Tests that insertion and removal work properly during emittion of bytecode. */
+/** Tests that insertion and removal work properly during emission of bytecode. */
 PRIVATE_TEST_CASE(test_insert_and_remove) {
     ByteArray *bytecode = &defaultCompiler->func->bytecode;
     emit_instr(defaultCompiler, OP_LOAD_CONST, create_src_pos(1, 12, 6));
@@ -103,7 +103,7 @@ PRIVATE_TEST_CASE(test_emit_const) {
     ASSERT_STRING_EQUAL(AS_PTR(StringObj, constPool[bytecode->data[3]])->string, "name");
 }
 
-/** Tests that the number reader and writer functions read and write to the btyecode properly. */
+/** Tests that the number reader and writer functions read and write to the bytecode properly. */
 PRIVATE_TEST_CASE(test_number_read_and_write) {
     emit_number(defaultCompiler, OP_AS, TYPE_FLOAT, create_src_pos(3, 4, 5));
     emit_number(defaultCompiler, OP_FINISH_STRING, U8_MAX + 100, create_src_pos(333, 44, 58));

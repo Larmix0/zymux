@@ -1,5 +1,5 @@
 const raiseMsg = "Raised error which should be caught.";
-const unexpectedCatchMsg = "Unexpectedly caught an error, while one shouldn't have ocurred.";
+const unexpectedCatchMsg = "Unexpectedly caught an error, while one shouldn't have occurred.";
 
 // Nothing caught.
 try {

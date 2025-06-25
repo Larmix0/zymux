@@ -41,7 +41,7 @@ static void adjust_jump(Jump *jump, const i64 adjustment) {
     if (jump->instrSize != before && !jump->isForward) {
         adjust_jump(jump, jump->instrSize - before);
         if (before == INSTR_ONE_BYTE) {
-            jump->sizeOffset++; // Go over the newely added arg size byte.
+            jump->sizeOffset++; // Go over the newly added arg size byte.
         }
     }
 }

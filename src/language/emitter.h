@@ -116,8 +116,8 @@ typedef enum {
 typedef struct {
     u32 index; /** The index of the first byte of the jump in bytecode. */
     u32 size; /** The amount of bytes to jump over. */
-    i64 indexOffset; /** The change in index that occured during fixing. */
-    i64 sizeOffset; /** The change in size that occured during fixing. */
+    i64 indexOffset; /** The change in index that occurred during fixing. */
+    i64 sizeOffset; /** The change in size that occurred during fixing. */
     InstrSize instrSize; /** The bytes after the instruction which represent the jump. */
     bool isForward; /** Whether the jump is forwards or backwards. */
     bool isResolved; /** Whether its offsets for other jumps have been resolved or not. */

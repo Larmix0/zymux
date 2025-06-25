@@ -587,7 +587,7 @@ static Node *ternary(Parser *parser) {
     if (MATCH(parser, TOKEN_QUESTION_MARK)) {
         Node *trueExpr = expression(parser);
         CONSUME(
-            parser, TOKEN_COLON, "Expected ':' after ternary condtion and true case expression."
+            parser, TOKEN_COLON, "Expected ':' after ternary condition and true case expression."
         );
         Node *falseExpr = expression(parser);
         expr = new_ternary_node(parser->program, expr, trueExpr, falseExpr);
@@ -627,9 +627,9 @@ static Node *finish_block(Parser *parser) {
 }
 
 /** 
- * Holds an if condition expression, a block if it's truthy, and an optional if falsey block.
+ * Holds an if condition expression, a block if it's truthy, and an optional if falsy block.
  * 
- * The falsey branch (else) either contains a block or another if-else statement,
+ * The falsy branch (else) either contains a block or another if-else statement,
  * which allows if/else-if/else statements.
  */
 static Node *parse_if_else(Parser *parser) {
@@ -839,7 +839,7 @@ static Node *parse_match(Parser *parser) {
     return new_match_node(parser->program, matchedExpr, cases, AS_PTR(BlockNode, defaultCase));
 }
 
-/** A while loop executes its block statement as long as the loop's condition evalutes to true. */
+/** A while loop executes its block statement as long as the loop's condition evaluates to true. */
 static Node *parse_while(Parser *parser) {
     Node *condition = expression(parser);
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after while loop's condition.");
@@ -1094,13 +1094,13 @@ static Node *parse_func(Parser *parser, const bool isMethod) {
 static Node *init_method(Parser *parser, ClassNode *cls) {
     if (cls->init) {
         parser_error_at(
-            parser, PEEK_PREVIOUS(parser), false, "Can't have multiple intializers in class."
+            parser, PEEK_PREVIOUS(parser), false, "Can't have multiple initializers in class."
         );
     }
     return named_func(parser, PEEK_PREVIOUS(parser), true);
 }
 
-/** Finishes parsing an abstract method, assuming the abstract keywoard was already consumed. */
+/** Finishes parsing an abstract method, assuming the abstract keyword was already consumed. */
 static Node *abstract_method(Parser *parser, ClassNode *cls) {
     if (!cls->isAbstract) {
         parser_error_at(

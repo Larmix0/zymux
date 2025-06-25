@@ -6,7 +6,7 @@
 }
 
 {
-    // Using curely brackets.
+    // Using curly brackets.
     from .variablesFile import {
         one, two
     }

@@ -7,7 +7,7 @@
 
 typedef struct Obj Obj;
 
-/** Evalutes a bool of whether or not the length exceeds the allowed amount relative to capacity. */
+/** A bool of whether or not the length exceeds the allowed amount relative to capacity. */
 #define TABLE_OVER_MAX_LOAD(table) ((table)->count + 1 > (table)->capacity * 0.75)
 
 /** Whether the passed entry is considered empty. */

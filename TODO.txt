@@ -6,8 +6,6 @@ This will (likely) be deleted once Zymux's development is mostly finished.
 Allow backslashes at lexer to skip escapes (like skipping a newline before it happens).
 Also, allow escaping actual escapes in strings?
 
-Name the slash/backslash that seperates folders of imports "delimiter".
-
 "nothing" keyword which assigns to nothing. Useful for throwaway assignments in multi-assignments.
 Also, maybe can be used with "is" in order to mean an "empty" datatype
 (like 0 for int, "" for strings, [] for lists, and {} for maps instead of null?).
@@ -37,7 +35,7 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-make maps uniterable and instead call a method that retrives the map as a 2d list,
+make maps uniterable and instead call a method that retrieves the map as a 2d list,
 which is a list of 2 element lists that represent the key and value. This will be done
 only when fields and methods are added to built-in objects.
 

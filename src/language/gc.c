@@ -206,7 +206,7 @@ static void table_delete_weak_references(Table *table, ZmxProgram *program) {
         if (!entry->key->isReachable) {
             APPEND_DA(&deletedKeys, entry->key);
         } else if (!entry->value->isReachable) {
-            // Set the value to null if the key isn't getting sweeped but the value is.
+            // Set the value to null if the key isn't getting swept but the value is.
             entry->value = AS_OBJ(new_null_obj(program));
         }
     }

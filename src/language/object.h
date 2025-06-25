@@ -350,10 +350,10 @@ FuncObj *new_func_obj(
     StringObj *module, const bool isTopLevel
 );
 
-/** Returns a newely created indirect reference to the passed object (capturing the object). */
+/** Returns a newly created indirect reference to the passed object (capturing the object). */
 CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackIdx);
 
-/** Returns a func which has some runtime values that might be independant from the static func. */
+/** Returns a func which has some runtime values that might be independent from the static func. */
 RuntimeFuncObj *new_runtime_func_obj(
     ZmxProgram *program, FuncObj *func, const bool hasOptionals, const bool isClosure
 );

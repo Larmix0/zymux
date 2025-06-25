@@ -14,7 +14,7 @@
     assert(variablesFile.three == "three");
 }
 
-// Global variable, and uses an aliase.
+// Global variable, and uses an alias.
 import ..imports.variablesFile as imported;
 assert(imported.one == "one");
 assert(imported.two == "two");

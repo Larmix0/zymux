@@ -201,7 +201,7 @@ FuncObj *new_func_obj(
     return object;
 }
 
-/** Returns a newely created indirect reference to the passed object (capturing the object). */
+/** Returns a newly created indirect reference to the passed object (capturing the object). */
 CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackIdx) {
     CapturedObj *object = NEW_OBJ(program, OBJ_CAPTURED, CapturedObj);
     object->isOpen = true;
@@ -211,7 +211,7 @@ CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stac
 }
 
 /** 
- * Returns a func which has some runtime values that might be independant from the static func.
+ * Returns a func which has some runtime values that might be independent from the static func.
  * 
  * This is because runtime functions aren't "objects", but instead a function
  * which has an extra runtime context extension allocated,
@@ -219,7 +219,7 @@ CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stac
  * 
  * We make the runtime function by setting its static func to a copy of the passed static func.
  * This indirect copy (because we use func obj directly instead func obj pointer) means that
- * booleans (like is closure and has optionals) will actually be independant from the original
+ * booleans (like is closure and has optionals) will actually be independent from the original
  * func that still has them set as false, although arrays and pointers will still be shared.
  * 
  * Worth mentioning that if the function we're wrapping is also a runtime function itself,

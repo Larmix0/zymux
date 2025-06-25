@@ -1,5 +1,5 @@
 const unexpectedCaseMsg = "Case unexpectedly executed.";
-const unexpectedDefaultMsg = "Default unexpectdly executed.";
+const unexpectedDefaultMsg = "Default unexpectedly executed.";
 
 // Empty match.
 match 1 {}

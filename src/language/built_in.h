@@ -12,7 +12,7 @@ typedef struct ZmxProgram ZmxProgram;
  * 
  * Return some object or NULL.
  * Even if the function doesn't want to return anything, it should
- * return a null object. However, it will return a NULL pointer if an error occured.
+ * return a null object. However, it will return a NULL pointer if an error occurred.
  */
 typedef Obj *(*NativeFunc)(Vm *vm, Obj **args);
 

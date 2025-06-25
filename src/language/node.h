@@ -524,7 +524,7 @@ Node *new_block_node(ZmxProgram *program, const NodeArray stmts, const SourcePos
 /** 
  * Allocates a variable declaration node.
  * 
- * Variable delcaration is the first variable assignment which also includes constness.
+ * Variable declaration is the first variable assignment which also includes constness.
  * It doesn't include whether or not it's private as private is a node that wraps around names.
  */
 Node *new_declare_var_node(ZmxProgram *program, const Token name, Node *value, const bool isConst);
@@ -588,7 +588,7 @@ Node *new_enum_node(ZmxProgram *program, DeclareVarNode *nameDecl, const TokenAr
 /** 
  * Allocates a statement which imports some file and binds its contents to a variable.
  * 
- * Makese a copy of the passed path, therefore freeing the passed string isn't its responsibility.
+ * Makes a copy of the passed path, therefore freeing the passed string isn't its responsibility.
  */
 Node *new_import_node(
     ZmxProgram *program, char *path, const u32 pathLength, DeclareVarNode *importVar
@@ -597,7 +597,7 @@ Node *new_import_node(
 /** 
  * Allocates an import which only declares an array of names from the imported module.
  * 
- * Makese a copy of the passed path, therefore freeing the passed string isn't its responsibility.
+ * Makes a copy of the passed path, therefore freeing the passed string isn't its responsibility.
  */
 Node *new_from_import_node(
     ZmxProgram *program, char *path, const u32 pathLength,

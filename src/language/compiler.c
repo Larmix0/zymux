@@ -512,7 +512,7 @@ static void compile_get_super(Compiler *compiler, const GetSuperNode *node) {
  * will load the iterable in order, placing the last element on the top of the stack,
  * so we need to start by also declaring the last variable first.
  * 
- * Because declaring a capture doesnt pop its value off of the stack instantly, we need to emit
+ * Because declaring a capture doesn't pop its value off of the stack instantly, we need to emit
  * differing depths for the capture instructions so they know which index out of the destructured
  * elements on the stack their value is at.
  */
@@ -905,7 +905,7 @@ static void compile_from_import(Compiler *compiler, const FromImportNode *node) 
  * 
  * Adds a start try instruction before the try block in order to include the block's bytecode
  * in the try-catch's protection. After that, the try ends with an automatic jump that goes
- * over the catch statement, as we only execute the catch if an error occured.
+ * over the catch statement, as we only execute the catch if an error occurred.
  * 
  * The start try instruction has a boolean before it of whether or not the catch state wants to save
  * an error message to a variable, and emits a number after the instruction, which is where to go
@@ -1047,7 +1047,7 @@ static void compile_params(Compiler *compiler, FuncObj *compiledFunc, const Func
 /** 
  * Declares the passed function onto the bytecode of the currently compiling func in the compiler.
  * 
- * First emits code for the compiled func's constant on the bytecode, then compiles the paramters,
+ * First emits code for the compiled func's constant on the bytecode, then compiles the parameters,
  * and performs an outside declaration so the func in the compiler can access that new func
  * as a variable. Doesn't do it if its a class's method though.
  * 
@@ -1102,7 +1102,7 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
 }
 
 /** 
- * Copmiles the abstract methods of a class.
+ * Compiles the abstract methods of a class.
  * 
  * Does so by loading each abstract method name into the stack as a string, then emitting
  * the abstract methods instruction that treats those strings as names of abstract methods.
@@ -1261,7 +1261,7 @@ bool compile(Compiler *compiler) {
  * Frees everything used and passed from the entire compilation pipeline.
  * 
  * Simply passing NULL for any of the things that are to be freed will skip freeing it
- * (useful when we haven't reached that stage yet, but we want to free somet things.
+ * (useful when we haven't reached that stage yet, but we want to free some things.
  */
 static void free_out_of_compilation(
     Lexer *lexer, Parser *parser, Resolver *resolver, Compiler *compiler

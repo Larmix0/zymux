@@ -411,7 +411,7 @@ static void resolve_declare_var(Resolver *resolver, DeclareVarNode *node, FuncNo
 }
 
 
-/** An error which occured due to an attempt to assign a constant variable. */
+/** An error which occurred due to an attempt to assign a constant variable. */
 static void const_assign_error(Resolver *resolver, const Node *node, const Token name) {
     resolution_error(
         resolver, get_node_pos(AS_NODE(node)),
@@ -959,7 +959,7 @@ static void resolve_return(Resolver *resolver, ReturnNode *node) {
     node->capturedPops = get_local_captures(CURRENT_CLOSURE(resolver));
 }
 
-/** Handles the resolutions of a function's mandatory and optional parameteres, and body. */
+/** Handles the resolutions of a function's mandatory and optional parameters, and body. */
 static void finish_func_resolution(Resolver *resolver, FuncNode *node) {
     for (u32 i = 0; i < node->mandatoryParams.length; i++) {
         resolve_declare_var(resolver, AS_PTR(DeclareVarNode, node->mandatoryParams.data[i]), node);
@@ -1013,7 +1013,7 @@ static void check_inherits_self(Resolver *resolver, ClassNode *node) {
  * Resolves a class's variable declaration, initializer (if there's one), and all methods.
  * 
  * First pushes the class scope so that everything inside it is automatically treated
- * as a local/capture (except the name of the class itself which'll get binded to a variable later),
+ * as a local/capture (except the name of the class itself which'll get bound to a variable later),
  * then resolve all methods, including the initializer and the abstract methods.
  */
 static void resolve_class(Resolver *resolver, ClassNode *node) {
