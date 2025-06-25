@@ -41,8 +41,8 @@ static Obj *new_obj(ZmxProgram *program, const ObjType type, const size_t size) 
     object->type = type;
     object->next = program->allObjs;
     program->allObjs = object;
-    if (program->gc.protectionLayers > 0) {
-        APPEND_DA(&program->gc.protected, object);
+    if (program->gc.frozenLayers > 0) {
+        APPEND_DA(&program->gc.frozen, object);
     }
     return object;
 }
@@ -80,7 +80,7 @@ NullObj *new_null_obj(ZmxProgram *program) {
  * We also use string interning to save memory on identical strings. In the case of a match
  * with an existing, interned string we just return it without manually allocating another one.
  * If that does occur while the GC is in protection mode, we manually protect the interned object
- * as if we called the real allocator and it protected the created object itself.
+ * as if we called the real allocator and it frozen the created object itself.
  */
 StringObj *new_string_obj(ZmxProgram *program, const char *string, const u32 length) {
     const u32 hash = hash_string(string, length);

@@ -11,18 +11,24 @@
 #define COLLECTION_GROWTH 2
 
 /** Puts the specifically passed object in the protection pool. */
-#define GC_PROTECT_OBJ(gc, obj) APPEND_DA(&(gc)->protected, obj)
+#define GC_PROTECT(gc, obj) APPEND_DA(&(gc)->protected, obj)
 
-/** Increments the number which allows protecting newly created objects from the GC if > 0. */
-#define GC_PUSH_PROTECTION(gc) ((gc)->protectionLayers++)
+/** Drops the topmost objects in the explicit protection pool. */
+#define GC_DROP_PROTECTED(gc) DROP_DA(&(gc)->protected)
 
-/** decrement the counter protecting new objects and clear the protected pool if safe to do so. */
-#define GC_POP_PROTECTION(gc) \
+/** Drops multiple objects in the protection pool. */
+#define GC_DROP_PROTECTED_AMOUNT(gc, amount) DROP_AMOUNT_DA(&(gc)->protected, amount)
+
+/** Increments the number which freezes GCing newly created objects from the GC if > 0. */
+#define GC_FREEZE(gc) ((gc)->frozenLayers++)
+
+/** decrement the counter protecting new objects and clear the frozen pool if safe to do so. */
+#define GC_END_FREEZE(gc) \
     do { \
-        (gc)->protectionLayers--; \
-        if ((gc)->protectionLayers <= 0) { \
-            FREE_DA(&(gc)->protected); \
-            INIT_DA(&(gc)->protected); \
+        (gc)->frozenLayers--; \
+        if ((gc)->frozenLayers <= 0) { \
+            FREE_DA(&(gc)->frozen); \
+            INIT_DA(&(gc)->frozen); \
         } \
     } while (false)
 
@@ -40,10 +46,13 @@ typedef struct Gc {
     Compiler *compiler; /** The current compiler to mark its objects as reachable. */
     Vm *vm; /** The current VM to mark its objects as reachable. */
 
-    /** How many "layers" of protection are on the GC. Protects all new objects if this is > 1. */
-    int protectionLayers;
+    /** How many "layers" of frozen objs are on the GC. Protects all new objects if this is > 1. */
+    int frozenLayers;
 
-    /** Objects temporarily protected from collection regardless of reachability. */
+    /** Objects temporarily frozen from collection regardless of reachability. */
+    ObjArray frozen;
+
+    /** Special objects explicitly and manually protected, and they have to be manually popped. */
     ObjArray protected;
 
     u64 allocated; /** Amount of bytes allocated so far. */

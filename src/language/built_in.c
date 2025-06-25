@@ -48,7 +48,7 @@
 
 /** Prints out an iterable and all of its objects. Adds newline after each element if it's set. */
 static void print_destructure(Vm *vm, Obj *toPrint, const bool addNewline) {
-    GC_PUSH_PROTECTION(&vm->program->gc);
+    GC_FREEZE(&vm->program->gc);
     IteratorObj *iterator = new_iterator_obj(vm->program, toPrint);
     Obj *current;
     while ((current = iterate(vm->program, iterator))) {
@@ -57,7 +57,7 @@ static void print_destructure(Vm *vm, Obj *toPrint, const bool addNewline) {
             putchar('\n');
         }
     }
-    GC_POP_PROTECTION(&vm->program->gc);
+    GC_END_FREEZE(&vm->program->gc);
 }
 
 /** Built-in printing function with some boolean flag settings. */
@@ -147,17 +147,17 @@ static FuncParams with_optionals(ZmxProgram *program, const u32 minArity, const 
 static void load_native_func(
     ZmxProgram *program, const char *name, NativeFunc func, const FuncParams params
 ) {
-    GC_PUSH_PROTECTION(&program->gc);
+    GC_FREEZE(&program->gc);
     StringObj *nameObj = new_string_obj(program, name, strlen(name));
     NativeFuncObj *native = new_native_func_obj(program, nameObj, func, params);
     
     table_set(&program->builtIn, AS_OBJ(nameObj), AS_OBJ(native));
-    GC_POP_PROTECTION(&program->gc);
+    GC_END_FREEZE(&program->gc);
 }
 
 /** Loads all built-in objects into the program. */
 void load_built_ins(ZmxProgram *program) {
-    GC_PUSH_PROTECTION(&program->gc);
+    GC_FREEZE(&program->gc);
     char *assertMsg = "Assert failed.";
     load_native_func(
         program, "assert", native_assert,
@@ -175,5 +175,5 @@ void load_built_ins(ZmxProgram *program) {
         )
     );
     load_native_func(program, "time", native_time, no_optionals(program, 0));
-    GC_POP_PROTECTION(&program->gc);
+    GC_END_FREEZE(&program->gc);
 }

@@ -17,13 +17,14 @@ Gc create_gc() {
     Gc gc = {
         .compiler = NULL, .vm = NULL,
         .allocated = 0, .nextCollection = FIRST_COLLECTION_SIZE,
-        .protected = CREATE_DA(), .protectionLayers = 0
+        .frozenLayers = 0, .frozen = CREATE_DA(), .protected = CREATE_DA()
     };
     return gc;
 }
 
 /** Frees the memory the garbage collector has allocated. */
 void free_gc(Gc *gc) {
+    FREE_DA(&gc->frozen);
     FREE_DA(&gc->protected);
 }
 
@@ -165,6 +166,7 @@ static void mark_program(ZmxProgram *program) {
 /** Marks all reachable objects in the program. */
 static void gc_mark(ZmxProgram *program) {
     Gc *gc = &program->gc;
+    mark_obj_array(gc->frozen);
     mark_obj_array(gc->protected);
     
     if (gc->compiler) {

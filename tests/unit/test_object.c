@@ -9,7 +9,7 @@ ZmxProgram *defaultProgram; /** Default program to have objects stored inside of
 PRIVATE_DECLARE_SETUP(setup_default_program) {
     defaultProgram = TYPE_ALLOC(ZmxProgram);
     *defaultProgram = create_zmx_program("no_file", false);
-    GC_PUSH_PROTECTION(&defaultProgram->gc);
+    GC_FREEZE(&defaultProgram->gc);
 }
 
 PRIVATE_DECLARE_TEARDOWN(teardown_default_program) {

@@ -20,9 +20,9 @@
     do { \
         CharBuffer buffer_ = create_char_buffer(); \
         buffer_append_format(&buffer_, __VA_ARGS__); \
-        GC_PUSH_PROTECTION(&(vm)->program->gc); \
+        GC_FREEZE(&(vm)->program->gc); \
         base_runtime_error(vm, new_string_obj((vm)->program, buffer_.text, strlen(buffer_.text))); \
-        GC_POP_PROTECTION(&(vm)->program->gc); \
+        GC_END_FREEZE(&(vm)->program->gc); \
         free_char_buffer(&buffer_); \
     } while (false)
 

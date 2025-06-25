@@ -21,7 +21,7 @@ static void compile_node_array(Compiler *compiler, const NodeArray *nodes);
 
 /** Returns a compiler initialized with the passed program and parsed AST. */
 Compiler create_compiler(ZmxProgram *program, const NodeArray ast, const bool isMain) {
-    GC_PUSH_PROTECTION(&program->gc);
+    GC_FREEZE(&program->gc);
     
     StringObj *name = program->currentFile;
     RuntimeFuncObj *mainClosure = new_runtime_func_obj(
@@ -834,7 +834,7 @@ static void compile_loop_control(Compiler *compiler, const LoopControlNode *node
  * can be fully handled at compilation time since no changing runtime variables are involved.
  */
 static void compile_enum(Compiler *compiler, const EnumNode *node) {
-    GC_PUSH_PROTECTION(&compiler->program->gc);
+    GC_FREEZE(&compiler->program->gc);
     StringObj *enumName = new_string_obj(
         compiler->program, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
     );
@@ -856,7 +856,7 @@ static void compile_enum(Compiler *compiler, const EnumNode *node) {
 
     emit_const(compiler, OP_LOAD_CONST, AS_OBJ(enumObj), get_node_pos(AS_NODE(node)));
     compile_declare_var(compiler, node->nameDecl);
-    GC_POP_PROTECTION(&compiler->program->gc);
+    GC_END_FREEZE(&compiler->program->gc);
 }
 
 /** Emits the import instruction that imports a file, then declares (binds) it to a variable. */
@@ -881,9 +881,8 @@ static void compile_from_import(Compiler *compiler, const FromImportNode *node) 
     Obj *pathAsObj = AS_OBJ(new_string_obj(compiler->program, node->path, node->pathLength));
     emit_const(compiler, OP_IMPORT, pathAsObj, get_node_pos(AS_NODE(node)));
 
-    GC_PUSH_PROTECTION(&compiler->program->gc);
+    GC_FREEZE(&compiler->program->gc);
     ListObj *importedList = new_list_obj(compiler->program, (ObjArray)CREATE_DA());
-    GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(importedList));
     for (u32 i = 0; i < node->importedNames.length; i++) {
         const Token importedName = node->importedNames.data[i];
         APPEND_DA(
@@ -892,7 +891,7 @@ static void compile_from_import(Compiler *compiler, const FromImportNode *node) 
         );
     }
     emit_const(compiler, OP_IMPORT_NAMES, AS_OBJ(importedList), get_node_pos(AS_NODE(node)));
-    GC_POP_PROTECTION(&compiler->program->gc);
+    GC_END_FREEZE(&compiler->program->gc);
 
     // Declares names in reverse, since declarations go from the top (last value) to bottom (first).
     for (i64 i = (i64)node->namesAs.length - 1; i >= 0; i--) {
@@ -1081,13 +1080,12 @@ static void declare_func(Compiler *compiler, FuncObj *compiledFunc, const FuncNo
  * meaning it losses its GC protection.
  */
 static void compile_func(Compiler *compiler, const FuncNode *node) {
-    GC_PUSH_PROTECTION(&compiler->program->gc);
     StringObj *nameAsObj = new_string_obj(
         compiler->program, node->name.lexeme, node->name.pos.length
     );
     FuncObj *original = compiler->func;
-    GC_PROTECT_OBJ(&compiler->program->gc, AS_OBJ(original)); // Created before the protection push.
-
+    GC_PROTECT(&compiler->program->gc, AS_OBJ(original));
+    GC_PROTECT(&compiler->program->gc, AS_OBJ(nameAsObj));
     compiler->func = new_func_obj(
         compiler->program, nameAsObj,
         node->mandatoryParams.length, node->mandatoryParams.length + node->optionalParams.length,
@@ -1095,10 +1093,12 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
     );
     finish_func(compiler, node);
     FuncObj *compiledFunc = compiler->func;
+    GC_PROTECT(&compiler->program->gc, AS_OBJ(compiledFunc)); // No longer in the compiler.
     compiler->func = original;
-    declare_func(compiler, compiledFunc, node); // Declare the new func we just compiled.
+    declare_func(compiler, compiledFunc, node); // Declare the function compiled in the original.
 
-    GC_POP_PROTECTION(&compiler->program->gc);
+    // Now the name string and the 2 functions are safe stored in the compiler.
+    GC_DROP_PROTECTED_AMOUNT(&compiler->program->gc, 3);
 }
 
 /** 
@@ -1278,7 +1278,7 @@ Compiler compile_source(ZmxProgram *program, char *source, const bool isMain) {
     // Create and set the compiler as the one being GCed. Now compiler's objects can be GCed.
     Compiler compiler = create_compiler(program, resolver.ast, isMain);
     program->gc.compiler = &compiler;
-    GC_POP_PROTECTION(&program->gc);
+    GC_END_FREEZE(&program->gc);
     if (!compile(&compiler)) {
         free_out_of_compilation(&lexer, &parser, &resolver, &compiler);
         return emptyCompiler;

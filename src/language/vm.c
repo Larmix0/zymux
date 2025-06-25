@@ -514,7 +514,7 @@ static Obj *obj_from_slice(Vm *vm, Obj *callee, const ObjArray slice) {
 static bool slice(Vm *vm, Obj *callee, Obj *subscript, const ZmxInt length) {
     ObjArray slice = CREATE_DA();
 
-    GC_PUSH_PROTECTION(&vm->program->gc);
+    GC_FREEZE(&vm->program->gc);
     IteratorObj *iterator = new_iterator_obj(vm->program, subscript);
     Obj *current;
     while ((current = iterate(vm->program, iterator))) {
@@ -528,7 +528,7 @@ static bool slice(Vm *vm, Obj *callee, Obj *subscript, const ZmxInt length) {
     PUSH(vm, result);
 
     FREE_DA(&slice);
-    GC_POP_PROTECTION(&vm->program->gc);
+    GC_END_FREEZE(&vm->program->gc);
     return true;
 }
 
@@ -714,9 +714,8 @@ static bool destructure(Vm *vm, const u32 amount) {
         );
         return false;
     }
-    GC_PUSH_PROTECTION(&vm->program->gc);
     IteratorObj *iterator = new_iterator_obj(vm->program, PEEK(vm));
-    GC_PROTECT_OBJ(&vm->program->gc, AS_OBJ(iterator)); // Protect iterator while iterating.
+    GC_PROTECT(&vm->program->gc, AS_OBJ(iterator)); // Protect iterator while iterating.
     DROP(vm); // Now safe to pop iterable, as the protected iterator holds it.
 
     Obj *current;
@@ -725,7 +724,7 @@ static bool destructure(Vm *vm, const u32 amount) {
         PUSH(vm, current);
         i++;
     }
-    GC_POP_PROTECTION(&vm->program->gc);
+    GC_DROP_PROTECTED(&vm->program->gc);
     if (i < amount || current) {
         // One of the finishing conditions hasn't been met, so either too few or too many elements.
         RUNTIME_ERROR(vm, "Expected %"PRIu32" elements in iterable.", amount);

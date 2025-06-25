@@ -12,7 +12,7 @@ static Table defaultTable; /** Default table for testing. */
 /** Setup for initializing the global hash table. */
 DECLARE_SETUP(table_setup) {
     defaultProgram = create_zmx_program("Table test.", false);
-    GC_PUSH_PROTECTION(&defaultProgram.gc);
+    GC_FREEZE(&defaultProgram.gc);
     defaultTable = create_table();
 }
 

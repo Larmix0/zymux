@@ -9,7 +9,7 @@ PRIVATE_TEST_CASE(test_runtime_stack) {
     ASSERT_NULL(createVm.stack.objects);
 
     ZmxProgram program = create_zmx_program("test", false);
-    GC_PUSH_PROTECTION(&program.gc);
+    GC_FREEZE(&program.gc);
     StringObj *name = new_string_obj(&program, "test", strlen("test"));
     Vm vm = create_vm(&program, new_func_obj(&program, program.currentFile, 0, 0, name, true));
 
