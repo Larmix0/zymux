@@ -58,5 +58,3 @@ the "length++" operation at the end of each push.
 
 Potentially make it so that manually protected objects also have to be manually popped off of
 the protection array in the GC.
-
-Fix strings inside collection types not being wrapped in quotes.

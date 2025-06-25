@@ -12,7 +12,7 @@
 #define NEW_OBJ(program, objType, cType) \
     ((cType *)new_obj(program, objType, sizeof(cType)))
 
-static CharBuffer object_cstring(const Obj *object);
+static CharBuffer object_cstring(const Obj *object, const bool debugCString);
 void print_obj(const Obj *object, const bool debugPrint);
 char *obj_type_str(ObjType type);
 
@@ -307,7 +307,7 @@ static void list_cstring(const ListObj *list, CharBuffer *string) {
         if (i != 0) {
             buffer_append_string(string, ", ");
         }
-        CharBuffer itemBuf = object_cstring(list->items.data[i]);
+        CharBuffer itemBuf = object_cstring(list->items.data[i], true);
         buffer_append_format(string, "%s", itemBuf.text);
         free_char_buffer(&itemBuf);
     }
@@ -327,8 +327,8 @@ static void map_cstring(const MapObj *map, CharBuffer *string) {
         } else {
             firstFilled = false;
         }
-        CharBuffer keyBuf = object_cstring(map->table.entries[i].key);
-        CharBuffer valueBuf = object_cstring(map->table.entries[i].value);
+        CharBuffer keyBuf = object_cstring(map->table.entries[i].key, true);
+        CharBuffer valueBuf = object_cstring(map->table.entries[i].value, true);
         buffer_append_format(string, "%s: %s", keyBuf.text, valueBuf.text);
         free_char_buffer(&keyBuf);
         free_char_buffer(&valueBuf);
@@ -337,8 +337,13 @@ static void map_cstring(const MapObj *map, CharBuffer *string) {
 
 }
 
-/** Returns a C-string representation of the object in an allocated char buffer. */
-static CharBuffer object_cstring(const Obj *object) {
+/** 
+ * Returns a C-string representation of the object in an allocated char buffer.
+ * 
+ * The debug string parameter indicates whether this should be returned as a debug string
+ * with extra information such as quotes in strings.
+ */
+static CharBuffer object_cstring(const Obj *object, const bool debugCString) {
     CharBuffer string = create_char_buffer();
     switch (object->type) {
     case OBJ_INT:
@@ -354,7 +359,11 @@ static CharBuffer object_cstring(const Obj *object) {
         buffer_append_string(&string, "null");
         break;
     case OBJ_STRING:
-        buffer_append_string(&string, AS_PTR(StringObj, object)->string);
+        if (debugCString) {
+            buffer_append_format(&string, "'%s'", AS_PTR(StringObj, object)->string);
+        } else {
+            buffer_append_string(&string, AS_PTR(StringObj, object)->string);
+        }
         break;
     case OBJ_RANGE: {
         RangeObj *range = AS_PTR(RangeObj, object);
@@ -763,7 +772,7 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
 
 /** Returns a copy of the passed object as a string. */
 StringObj *as_string(ZmxProgram *program, const Obj *object) {
-    CharBuffer cstring = object_cstring(object);
+    CharBuffer cstring = object_cstring(object, false);
     StringObj *result = new_string_obj(program, cstring.text, cstring.length);
     free_char_buffer(&cstring);
     return result;
@@ -776,15 +785,9 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
  * If debugPrint is on, it prints some extra things to make the output clearer during debugging.
  */
 void print_obj(const Obj *object, const bool debugPrint) {
-    if (debugPrint && object->type == OBJ_STRING) {
-        putchar('\'');
-    }
-    CharBuffer string = object_cstring(object);
+    CharBuffer string = object_cstring(object, debugPrint);
     printf("%s", string.text);
     free_char_buffer(&string);
-    if (debugPrint && object->type == OBJ_STRING) {
-        putchar('\'');
-    }
 }
 
 /** Returns a readable C string from the passed object type enum. */
