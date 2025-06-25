@@ -974,12 +974,12 @@ static bool is_circular_import(Vm *vm, StringObj *path) {
  * it simply returns false, otherwise returns true.
  */
 static bool import_module(Vm *vm, StringObj *path) {
-    char *absolutePath = get_absolute_path(path->string);
-    if (!absolutePath) {
+    if (!file_exists(path->string)) {
         RUNTIME_ERROR(vm, "File '%s' doesn't exist.", path->string);
         return false;
     }
     // Convert to ensure the path is absolute (important for storing and erroring circular imports).
+    char *absolutePath = get_absolute_path(path->string);
     path = new_string_obj(vm->program, absolutePath, strlen(absolutePath));
     free(absolutePath);
     if (is_circular_import(vm, path)) {
