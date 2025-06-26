@@ -7,9 +7,9 @@
 #include "program.h"
 
 /** Returns an initialized zymux program with the parameters. */
-ZmxProgram create_zmx_program(char *file, const bool showErrors) {
+ZmxProgram create_zmx_program(char *file, CliHandler *cli, const bool showErrors) {
     ZmxProgram program = {
-        .hasErrored = false, .showErrors = showErrors, .exitCode = 0,
+        .hasErrored = false, .showErrors = showErrors, .cli = cli,
         .allNodes = NULL, .allObjs = NULL, .currentFile = NULL,
         .internedFalse = NULL, .internedTrue = NULL, .internedNull = NULL,
         .builtIn = create_table(), .internedStrings = create_table(), .gc = create_gc()

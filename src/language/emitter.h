@@ -109,7 +109,8 @@ typedef enum {
     OP_FINISH_TRY,
     OP_RAISE,
     OP_END_MODULE,
-    OP_END_PROGRAM
+    OP_EXIT,
+    OP_EOF
 } OpCode;
 
 /** Represents the information of a jump instruction in bytecode (which may change to patching). */

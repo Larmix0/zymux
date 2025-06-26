@@ -3,6 +3,7 @@
 #include "lukip.h"
 
 #include "debug_ast.h"
+#include "cli_handler.h"
 #include "lexer.h"
 
 #include "parser.c"
@@ -36,7 +37,8 @@ static void buffer_append_ast_strings(CharBuffer *buffer, const int amount, ...)
 
 /** Lexes and parses the passed source, then returns the AST debugger's string representation. */
 static CharBuffer source_to_ast_string(char *source) {
-    ZmxProgram program = create_zmx_program("test", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    ZmxProgram program = create_zmx_program("test", &cli, false);
     Lexer lexer = create_lexer(&program, source);
     ASSERT_TRUE(lex(&lexer));
 
@@ -53,7 +55,8 @@ static CharBuffer source_to_ast_string(char *source) {
 /** Test that the macros of the parser work properly. */
 PRIVATE_TEST_CASE(test_parser_macros) {
     char *source = "1 + 3 ** 22 --2;";
-    ZmxProgram program = create_zmx_program("test", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    ZmxProgram program = create_zmx_program("test", &cli, false);
     Lexer lexer = create_lexer(&program, source);
     ASSERT_TRUE(lex(&lexer));
     Parser parser = create_parser(&program, lexer.tokens);

@@ -6,6 +6,7 @@
 #include "object.h"
 #include "token.h"
 
+#include "cli_handler.h"
 #include "lexer.c"
 
 /** The last token which was appended to the lexer. */
@@ -19,7 +20,8 @@ static Lexer *defaultLexer; /** The default lexer to hold and lex the default so
 /** A setup to initialize the default lexer. */
 PRIVATE_DECLARE_SETUP(setup_default_lexer) {
     ZmxProgram *program = TYPE_ALLOC(ZmxProgram);
-    *program = create_zmx_program("default", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    *program = create_zmx_program("default", &cli, false);
 
     defaultLexer = TYPE_ALLOC(Lexer);
     *defaultLexer = create_lexer(program, defaultSource);
@@ -173,7 +175,8 @@ PRIVATE_TEST_CASE(test_lex_successful_programs) {
     );
 
     for (size_t arrayIdx = 0; arrayIdx < sourcesAmount; arrayIdx++) {
-        ZmxProgram program = create_zmx_program("testLex", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+        ZmxProgram program = create_zmx_program("testLex", &cli, false);
         Lexer lexer = create_lexer(&program, sources[arrayIdx]);
         lex(&lexer);
         ASSERT_FALSE(lexer.program->hasErrored);
@@ -202,7 +205,8 @@ PRIVATE_TEST_CASE(test_lex_errors) {
     }; 
     const size_t sourcesAmount = sizeof(sources) / sizeof(char *);
     for (size_t i = 0; i < sourcesAmount; i++) {
-        ZmxProgram program = create_zmx_program("testError", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+        ZmxProgram program = create_zmx_program("testError", &cli, false);
         Lexer lexer = create_lexer(&program, sources[i]);
         lex(&lexer);
         ASSERT_TRUE(lexer.program->hasErrored);
@@ -264,7 +268,8 @@ PRIVATE_TEST_CASE(test_lex_all_tokens) {
         float_test_token("44.2"), create_token("=", TOKEN_EQ),
         create_token("variable", TOKEN_IDENTIFIER), create_token("..", TOKEN_DOT_DOT)
     );
-    ZmxProgram program = create_zmx_program("testAll", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    ZmxProgram program = create_zmx_program("testAll", &cli, false);
     Lexer lexer = create_lexer(&program, source);
     lex(&lexer);
 
@@ -291,7 +296,8 @@ PRIVATE_TEST_CASE(test_lex_spots) {
     );
     // Set EOF position manually.
     allTokens.data[allTokens.length - 1].pos = create_src_pos(7, 1, 0);
-    ZmxProgram program = create_zmx_program("testLine", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    ZmxProgram program = create_zmx_program("testLine", &cli, false);
     Lexer lexer = create_lexer(&program, source);
     lex(&lexer);
 
@@ -324,7 +330,8 @@ PRIVATE_TEST_CASE(test_lex_number) {
         float_test_token("2.3300"), int_test_token("931453229", 10),
         float_test_token("23.3"), float_test_token("3.0")
     );
-    ZmxProgram program = create_zmx_program("testNumber", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    ZmxProgram program = create_zmx_program("testNumber", &cli, false);
     Lexer lexer = create_lexer(&program, source);
     while (!IS_EOF(&lexer)) {
         START_TOKEN(&lexer);
@@ -351,7 +358,8 @@ PRIVATE_TEST_CASE(test_lex_name) {
         create_token("L2dm3e44", TOKEN_IDENTIFIER), create_token("_22_", TOKEN_IDENTIFIER),
         create_token("string", TOKEN_STRING_KW), create_token("_NAME_HERE", TOKEN_IDENTIFIER)
     );
-    ZmxProgram program = create_zmx_program("testName", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    ZmxProgram program = create_zmx_program("testName", &cli, false);
     Lexer lexer = create_lexer(&program, source);
     while (!IS_EOF(&lexer)) {
         START_TOKEN(&lexer);
@@ -426,7 +434,8 @@ PRIVATE_TEST_CASE(test_lex_string) {
         string_test_token(""), create_token("", TOKEN_INTERPOLATE),
         string_test_token("brace."), create_token("", TOKEN_STRING_END)
     );
-    ZmxProgram program = create_zmx_program("testString", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    ZmxProgram program = create_zmx_program("testString", &cli, false);
     Lexer lexer = create_lexer(&program, source);
     while (!IS_EOF(&lexer)) {
         START_TOKEN(&lexer);
@@ -461,7 +470,8 @@ PRIVATE_TEST_CASE(test_lex_chars_tokens) {
         create_token("&", TOKEN_AMPER), create_token("..", TOKEN_DOT_DOT),
         create_token(".", TOKEN_DOT), create_token(";", TOKEN_SEMICOLON)
     );
-    ZmxProgram program = create_zmx_program("testString", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    ZmxProgram program = create_zmx_program("testString", &cli, false);
     Lexer lexer = create_lexer(&program, source);
     for (int i = 0; i < 4; i++) {
         START_TOKEN(&lexer);

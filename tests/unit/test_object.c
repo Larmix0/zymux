@@ -1,5 +1,7 @@
 #include "lukip.h"
 
+#include "cli_handler.h"
+
 #include "object.c"
 
 #define NEW_TEST_STRING(program, string) (new_string_obj(program, string, strlen(string)))
@@ -8,7 +10,8 @@ ZmxProgram *defaultProgram; /** Default program to have objects stored inside of
 
 PRIVATE_DECLARE_SETUP(setup_default_program) {
     defaultProgram = TYPE_ALLOC(ZmxProgram);
-    *defaultProgram = create_zmx_program("no_file", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    *defaultProgram = create_zmx_program("no_file", &cli, false);
     GC_FREEZE(&defaultProgram->gc);
 }
 

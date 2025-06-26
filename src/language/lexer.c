@@ -5,12 +5,10 @@
 
 #include "allocator.h"
 #include "char_buffer.h"
+#include "debug_tokens.h"
 #include "dynamic_array.h"
 #include "lexer.h"
 
-#if DEBUG_TOKENS
-    #include "debug_tokens.h"
-#endif
 
 #define CURRENT_TOKEN_LENGTH(lexer) ((lexer)->current - (lexer)->tokenStart)
 #define START_TOKEN(lexer) \
@@ -966,8 +964,8 @@ bool lex(Lexer *lexer) {
         }
     }
 
-#if DEBUG_TOKENS
-    print_tokens(lexer->tokens);
-#endif
+    if (lexer->program->cli->debugTokens || DEBUG_TOKENS) {
+        print_tokens(lexer->tokens);
+    }
     return !lexer->program->hasErrored;
 }

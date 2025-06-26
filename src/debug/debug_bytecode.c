@@ -150,7 +150,8 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_FINISH_TRY: print_bare_instr("FINISH_TRY", &idx); break;
     case OP_RAISE: print_bare_instr("RAISE", &idx); break;
     case OP_END_MODULE: print_bare_instr("END_MODULE", &idx); break;
-    case OP_END_PROGRAM: print_bare_instr("END_PROGRAM", &idx); break;
+    case OP_EXIT: print_bare_instr("EXIT", &idx); break;
+    case OP_EOF: print_bare_instr("EOF", &idx); break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     putchar('\n');

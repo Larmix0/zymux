@@ -37,7 +37,9 @@
         "debug_ast.h": "c",
         "typeinfo": "c",
         "compiler.h": "c",
-        "errno.h": "c"
+        "errno.h": "c",
+        "stdlib.h": "c",
+        "cli_handler.h": "c"
     },
     "cSpell.words": [
         "Zymux"

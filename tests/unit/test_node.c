@@ -1,5 +1,6 @@
 #include "lukip.h"
 
+#include "cli_handler.h"
 #include "constants.h"
 #include "token.h"
 
@@ -7,7 +8,8 @@
 
 /** Tests that we can get the position of a node correctly. */
 PRIVATE_TEST_CASE(test_get_node_pos) {
-    ZmxProgram program = create_zmx_program("no_file", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    ZmxProgram program = create_zmx_program("no_file", &cli, false);
 
     Node *leftLiteral = new_literal_node(&program, (Token){.pos = create_src_pos(3, 12, 4)});
     Node *rightLiteral = new_literal_node(&program, (Token){.pos = create_src_pos(1, 8, 2)});
@@ -29,7 +31,8 @@ PRIVATE_TEST_CASE(test_get_node_pos) {
 
 /** Tests that we can generally create new nodes correctly. */
 PRIVATE_TEST_CASE(test_new_node) {
-    ZmxProgram program = create_zmx_program("no_file", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    ZmxProgram program = create_zmx_program("no_file", &cli, false);
     BinaryNode *binary = NEW_NODE(&program, AST_BINARY, BinaryNode);
 
     ASSERT_INT_EQUAL(sizeof(*binary), sizeof(BinaryNode));

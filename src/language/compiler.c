@@ -2,14 +2,11 @@
 #include <string.h>
 
 #include "compiler.h"
+#include "debug_bytecode.h"
 #include "emitter.h"
 #include "lexer.h"
 #include "parser.h"
 #include "resolver.h"
-
-#if DEBUG_BYTECODE
-    #include "debug_bytecode.h"
-#endif
 
 /** The position of the previous opcode. Defaults to 0s if there aren't any previous opcodes. */
 #define PREVIOUS_OPCODE_POS(compiler) \
@@ -1063,9 +1060,9 @@ static void declare_func(Compiler *compiler, FuncObj *compiledFunc, const FuncNo
         compile_declare_var(compiler, node->outerDecl); // Put the loaded func obj on a variable.
     }
 
-#if DEBUG_BYTECODE
-    print_bytecode(compiledFunc);
-#endif
+    if (compiler->program->cli->debugBytecode || DEBUG_BYTECODE) {
+        print_bytecode(compiledFunc);
+    }
 }
 
 /** 
@@ -1168,19 +1165,13 @@ static void compile_class(Compiler *compiler, const ClassNode *node) {
  * depending on whether it's ending the module or the whole program.
  */
 static void compile_eof(Compiler *compiler, const EofNode *node) {
-    if (compiler->isMain) {
-        // Exit with code 0 (default).
-        emit_const(compiler, OP_LOAD_CONST, AS_OBJ(new_int_obj(compiler->program, 0)), node->pos);
-        emit_instr(compiler, OP_END_PROGRAM, node->pos);
-    } else {
-        emit_instr(compiler, OP_END_MODULE, node->pos);
-    }
+    emit_instr(compiler, compiler->isMain ? OP_EOF : OP_END_MODULE, node->pos);
 }
 
 /** Emits an exit with a specific exit code (the runtime will check if it's an integer by then). */
 static void compile_exit(Compiler *compiler, const ExitNode *node) {
     compile_node(compiler, node->exitCode);
-    emit_instr(compiler, OP_END_PROGRAM, node->pos);
+    emit_instr(compiler, OP_EXIT, node->pos);
 }
 
 /** Compiles the bytecode for the passed node into the compiler's currently compiling function. */

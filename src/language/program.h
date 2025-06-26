@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#include "cli_handler.h"
 #include "gc.h"
 #include "hash_table.h"
 
@@ -17,8 +18,8 @@ typedef struct NullObj NullObj;
 typedef struct ZmxProgram {
     bool hasErrored; /** Whether the program has had any kind of errors. */
     bool showErrors; /** Whether or not error messages should be displayed and printed. */
-    ZmxInt exitCode; /** Current number for when we finish the program (0 by default). */
-    
+    CliHandler *cli; /** The command line's information (such as arguments and exit codes). */
+
     Node *allNodes; /** All nodes in a linked list to make freeing them easier */
     Obj *allObjs; /** All objects in a linked list to make freeing them easier (and for the GC). */
     
@@ -33,7 +34,7 @@ typedef struct ZmxProgram {
 } ZmxProgram;
 
 /** Returns an initialized zymux program with the parameters. */
-ZmxProgram create_zmx_program(char *file, const bool showErrors);
+ZmxProgram create_zmx_program(char *file, CliHandler *cli, const bool showErrors);
 
 /** Frees generally everything held by program. */
 void free_zmx_program(ZmxProgram *program);

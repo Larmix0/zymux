@@ -1,5 +1,7 @@
 #include "lukip.h"
 
+#include "cli_handler.h"
+
 #include "vm.c"
 
 /** Tests that the runtime stack's functionality works properly. */
@@ -8,7 +10,8 @@ PRIVATE_TEST_CASE(test_runtime_stack) {
     ASSERT_INT_EQUAL(createVm.stack.capacity, 0);
     ASSERT_NULL(createVm.stack.objects);
 
-    ZmxProgram program = create_zmx_program("test", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    ZmxProgram program = create_zmx_program("test", &cli, false);
     GC_FREEZE(&program.gc);
     StringObj *name = new_string_obj(&program, "test", strlen("test"));
     Vm vm = create_vm(&program, new_func_obj(&program, program.currentFile, 0, 0, name, true));

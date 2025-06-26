@@ -1,5 +1,6 @@
 #include "lukip.h"
 
+#include "cli_handler.h"
 #include "program.h"
 
 #include "hash_table.c"
@@ -11,7 +12,8 @@ static Table defaultTable; /** Default table for testing. */
 
 /** Setup for initializing the global hash table. */
 DECLARE_SETUP(table_setup) {
-    defaultProgram = create_zmx_program("Table test.", false);
+    CliHandler cli = create_cli_handler(0, NULL);
+    defaultProgram = create_zmx_program("Table test.", &cli, false);
     GC_FREEZE(&defaultProgram.gc);
     defaultTable = create_table();
 }

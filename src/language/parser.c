@@ -1,14 +1,11 @@
+#include <string.h>
+
 #include "char_buffer.h"
+#include "debug_ast.h"
 #include "dynamic_array.h"
 #include "file.h"
 #include "parser.h"
 #include "report_error.h"
-
-#include <string.h>
-
-#if DEBUG_AST
-    #include "debug_ast.h"
-#endif
 
 #define PEEK(parser) (*(parser)->current)
 #define PEEK_PREVIOUS(parser) (*((parser)->current - 1))
@@ -1232,8 +1229,8 @@ bool parse(Parser *parser) {
     }
     APPEND_DA(&parser->ast, new_eof_node(parser->program, PEEK(parser).pos));
 
-#if DEBUG_AST
-    print_ast(&parser->ast);
-#endif
+    if (parser->program->cli->debugAst || DEBUG_AST) {
+        print_ast(&parser->ast);
+    }
     return !parser->program->hasErrored;
 }

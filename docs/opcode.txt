@@ -426,7 +426,10 @@ OP_END_MODULE:
     For the current module: Collapse, exit, and pushes its information as a module object,
     then go back to executing the module that originally imported it.
 
-OP_END_PROGRAM:
-    Immediately terminates the whole program program with an exit code that is expected
-    to be an integer at the top of the stack.
+OP_EXIT:
+    Represents an exit statement, which immediately terminated the whole program with an exit code
+    that is expected to be an integer at the top of the stack.
     Raises a runtime error if it found an object that is not an integer at the top of the stack.
+
+OP_EOF:
+    Represents the end of the program, terminates with exit code 0 (success).
