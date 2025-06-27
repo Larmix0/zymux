@@ -16,18 +16,22 @@
 static void compile_node(Compiler *compiler, const Node *node);
 static void compile_node_array(Compiler *compiler, const NodeArray *nodes);
 
-/** Returns a compiler initialized with the passed program and parsed AST. */
+/** 
+ * Returns a compiler initialized with the passed program and parsed AST.
+ * 
+ * Note that the compiler returned will have objects not covered by the GC, therefore
+ * the GC's compiler should be set to this upon return immediately.
+ */
 Compiler create_compiler(ZmxProgram *program, const NodeArray ast, const bool isMain) {
-    GC_FREEZE(&program->gc);
-    
     StringObj *name = program->currentFile;
-    RuntimeFuncObj *mainClosure = new_runtime_func_obj(
-        program, new_func_obj(program, name, 0, 0, program->currentFile, true), false, true
-    );
+    FuncObj *mainFunc = new_func_obj(program, name, 0, 0, program->currentFile, true);
+    GC_PROTECT(&program->gc, AS_OBJ(mainFunc));
+    RuntimeFuncObj *mainClosure = new_runtime_func_obj(program, mainFunc, false, true);
     Compiler compiler = {
         .program = program, .ast = ast, .isMain = isMain, .func = AS_PTR(FuncObj, mainClosure),
         .jumps = CREATE_DA(), .breaks = CREATE_DA(), .continues = CREATE_DA(),
     };
+    GC_DROP_PROTECTED(&program->gc);
     return compiler;
 }
 
@@ -1263,37 +1267,81 @@ static void free_out_of_compilation(
     if (compiler != NULL) free_compiler(compiler);
 }
 
-/** Returns a compiled compiler. Either it's compiled or everything is set to 0/NULL if errored. */
-Compiler compile_source(ZmxProgram *program, char *source, const bool isMain) {
-    Compiler emptyCompiler = {.program = NULL, .func = NULL};
+/** 
+ * Lexes the source into the lexer and if it didn't error then it parses it onto the parser.
+ * 
+ * If it fails the program errors. Otherwise, on success it just returns true.
+ * In either case it doesn't free neither the lexer nor parser.
+ */
+static bool parse_source(ZmxProgram *program, Lexer *lexer, Parser *parser) {
+    if (!lex(lexer)) {
+        return false;
+    }
 
+    *parser = create_parser(program, lexer->tokens);
+    if (!parse(parser)) {
+        return false;
+    }
+    return true;
+}
+
+/** Returns a compiled function or NULL if it errored. */
+FuncObj *compile_file_source(ZmxProgram *program, char *source, const bool isMain) {
     Lexer lexer = create_lexer(program, source);
-    if (!lex(&lexer)) {
-        free_out_of_compilation(&lexer, NULL, NULL, NULL);
-        return emptyCompiler;
-    }
-
     Parser parser = create_parser(program, lexer.tokens);
-    if (!parse(&parser)) {
+    if (!parse_source(program, &lexer, &parser)) {
         free_out_of_compilation(&lexer, &parser, NULL, NULL);
-        return emptyCompiler;
+        return NULL;
     }
-
     Resolver resolver = create_resolver(program, parser.ast);
     if (!resolve(&resolver)) {
         free_out_of_compilation(&lexer, &parser, &resolver, NULL);
-        return emptyCompiler;
+        return NULL;
     }
 
     // Create and set the compiler as the one being GCed. Now compiler's objects can be GCed.
     Compiler compiler = create_compiler(program, resolver.ast, isMain);
     program->gc.compiler = &compiler;
-    GC_END_FREEZE(&program->gc);
-    if (!compile(&compiler)) {
-        free_out_of_compilation(&lexer, &parser, &resolver, &compiler);
-        return emptyCompiler;
+    const bool succeeded = compile(&compiler);
+    FuncObj *func = succeeded ? compiler.func : NULL;
+
+    free_out_of_compilation(&lexer, &parser, &resolver, &compiler);
+    free_all_token_strings(program);
+    free_all_nodes(program);
+    program->gc.compiler = NULL;
+    return func;
+}
+
+/** 
+ * Returns a compiled function (NULL if failed) for a REPL source line.
+ * 
+ * Because REPL requires context of previous lines and what was declared in them,
+ * we require passing the specific resolver here to keep track of one resolution
+ * for the whole REPL session.
+ * 
+ * This is also why when we fail we only free the lexer, parser, and compiler,
+ * because the resolver lasts the whole REPL session.
+ */
+FuncObj *compile_repl_source(ZmxProgram *program, char *source, Resolver *resolver) {
+    Lexer lexer = create_lexer(program, source);
+    Parser parser = create_parser(program, lexer.tokens);
+    if (!parse_source(program, &lexer, &parser)) {
+        free_out_of_compilation(&lexer, &parser, NULL, NULL);
+        return NULL;
     }
 
-    free_out_of_compilation(&lexer, &parser, &resolver, NULL);
-    return compiler;
+    resolver->ast = parser.ast;
+    if (!resolve(resolver)) {
+        free_out_of_compilation(&lexer, &parser, NULL, NULL);
+        return NULL;
+    }
+
+    Compiler compiler = create_compiler(program, resolver->ast, true);
+    program->gc.compiler = &compiler;
+    const bool succeeded = compile(&compiler);
+    program->gc.compiler = NULL;
+    FuncObj *func = succeeded ? compiler.func : NULL;
+
+    free_out_of_compilation(&lexer, &parser, NULL, &compiler);
+    return func;
 }

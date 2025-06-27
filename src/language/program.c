@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "built_in.h"
+#include "lexer.h"
 #include "node.h"
 #include "object.h"
 #include "program.h"
@@ -10,7 +11,7 @@
 ZmxProgram create_zmx_program(char *file, CliHandler *cli, const bool showErrors) {
     ZmxProgram program = {
         .hasErrored = false, .showErrors = showErrors, .cli = cli,
-        .allNodes = NULL, .allObjs = NULL, .currentFile = NULL,
+        .allTokenStrings = CREATE_DA(), .allNodes = NULL, .allObjs = NULL, .currentFile = NULL,
         .internedFalse = NULL, .internedTrue = NULL, .internedNull = NULL,
         .builtIn = create_table(), .internedStrings = create_table(), .gc = create_gc()
     };
@@ -20,14 +21,12 @@ ZmxProgram create_zmx_program(char *file, CliHandler *cli, const bool showErrors
     return program;
 }
 
-/** 
- * Frees all the memory the passed program owns which is freed after the VM's execution.
- * 
- * This means it doesn't free nodes or tokens, as they should be manually freed
- * after compiling and before executing the VM for runtime memory efficiency.
- */
+/** Frees all the memory the passed program owns which is freed after the VM's execution. */
 void free_zmx_program(ZmxProgram *program) {
+    free_all_token_strings(program);
+    free_all_nodes(program);
     free_all_objs(program);
+
     free_table(&program->internedStrings);
     free_table(&program->builtIn);
     free_gc(&program->gc);

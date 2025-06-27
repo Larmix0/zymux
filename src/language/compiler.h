@@ -6,6 +6,8 @@
 #include "node.h"
 #include "object.h"
 
+typedef struct Resolver Resolver;
+
 /** The compiler for a Zymux program. */
 typedef struct Compiler {
     ZmxProgram *program; /** Zymux program to hold the program's information. */
@@ -30,8 +32,15 @@ Compiler create_compiler(ZmxProgram *program, const NodeArray ast, const bool is
  */
 bool compile(Compiler *compiler);
 
-/** Returns a compiled compiler. Either it's compiled or everything is set to 0/NULL if errored. */
-Compiler compile_source(ZmxProgram *program, char *source, const bool isMain);
+/** Returns a compiled function or NULL if it errored. */
+FuncObj *compile_file_source(ZmxProgram *program, char *source, const bool isMain);
+
+/** 
+ * Returns a compiled function (NULL if failed) for a REPL source line.
+ *
+ * This is made for REPL as it takes the one resolver and doesn't free it in case of an error.
+ */
+FuncObj *compile_repl_source(ZmxProgram *program, char *source, Resolver *resolver);
 
 /** Frees all memory the compiler owns. */
 void free_compiler(Compiler *compiler);

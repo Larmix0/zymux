@@ -65,13 +65,17 @@ Lexer create_lexer(ZmxProgram *program, char *source) {
     return lexer;
 }
 
-/** Frees all the memory the lexing stage of Zymux owns. */
-void free_lexer(Lexer *lexer) {
-    for (u32 i = 0; i < lexer->tokens.length; i++) {
-        if (lexer->tokens.data[i].type == TOKEN_STRING_LIT) {
-            free(lexer->tokens.data[i].stringVal.text);
-        }
+/** Frees all the strings inside the program's allocated tokens array (+ the array itself). */
+void free_all_token_strings(ZmxProgram *program) {
+    for (u32 i = 0; i < program->allTokenStrings.length; i++) {
+        free(program->allTokenStrings.data[i]);
     }
+    FREE_DA(&program->allTokenStrings);
+    INIT_DA(&program->allTokenStrings); // So it can start lexing again.
+}
+
+/** Frees all the memory the lexing stage of Zymux owns (doesn't include tokens themselves). */
+void free_lexer(Lexer *lexer) {
     FREE_DA(&lexer->tokens);
 }
 
@@ -117,7 +121,8 @@ static void append_lexed_error(Lexer *lexer, const char *format, ...) {
     va_list args;
     va_start(args, format);
     zmx_user_error(
-        lexer->program, lexer->program->currentFile->string, error.pos, "Syntax error", format, &args
+        lexer->program, lexer->program->currentFile->string, error.pos,
+        "Syntax error", format, &args
     );
     va_end(args);
 }
@@ -180,6 +185,7 @@ static void append_lexed_string(
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, quotesLength + string->escapes),
         .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer.length, .text = buffer.text}
     };
+    APPEND_DA(&lexer->program->allTokenStrings, buffer.text); // So it can be freed later.
     APPEND_DA(&lexer->tokens, token);
 }
 

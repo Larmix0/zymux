@@ -12,9 +12,7 @@ PRIVATE_TEST_CASE(test_compile_expr) {
     ZmxProgram program = create_zmx_program("no_file", &cli, false);
     char *source = "3 + 4 * --9 * 2 / 7 ** 6 / -2;"
         "$\"start {1 + 2} middle {'inner' + ' string'}\" + ' end.';";
-    Compiler compiled = compile_source(&program, source, true);
-    FuncObj *func = compiled.func;
-    free_compiler(&compiled);
+    FuncObj *func = compile_file_source(&program, source, true);
     ASSERT_NOT_NULL(func);
 
     const u8 expected[] = {

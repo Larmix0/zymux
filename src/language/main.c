@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "char_buffer.h"
 #include "cli_handler.h"
 #include "compiler.h"
 #include "file.h"
@@ -9,11 +10,33 @@
 #include "parser.h"
 #include "program.h"
 #include "report_error.h"
+#include "resolver.h"
 #include "vm.h"
 
-/** Runs Zymux on a REPL loop. */
-static void run_repl() {
-    // TODO: implement repl.
+/** Frees the REPL lines string array and all its contents. */
+static void free_repl_lines(StringArray *replLines) {
+    for (u32 i = 0; i < replLines->length; i++) {
+        free(replLines->data[i]);
+    }
+    FREE_DA(replLines);
+}
+
+/** Runs a program on a REPL loop. */
+static void run_repl(CliHandler *cli) {
+    StringArray replLines = CREATE_DA();
+    ZmxProgram program = create_zmx_program("<REPL>", cli, false);
+    NodeArray emptyAst = CREATE_DA();
+    Resolver resolver = create_resolver(&program, emptyAst);
+    Vm vm = create_vm(&program, new_func_obj(&program, NULL, 0, 0, NULL, true));
+    program.gc.vm = &vm;
+
+    while (!cli->exitedRepl) {
+        APPEND_DA(&replLines, repl_line(cli, &program, &resolver, &vm));
+    }
+    free_resolver(&resolver);
+    free_vm(&vm);
+    free_repl_lines(&replLines);
+    free_zmx_program(&program);
 }
 
 /** 
@@ -28,9 +51,9 @@ static void run_zmx_file(char *passedPath, CliHandler *cli) {
     
     ZmxProgram program = create_zmx_program(absoluteFile, cli, true);
     if (cli->debugTokens || cli->debugAst || cli->debugBytecode) {
-        compile_source(&program, source, true); // Only compile to print the debugging.
+        compile_file_source(&program, source, true); // Only compile to print the debugging.
     } else {
-        interpret_source(&program, source, true);
+        interpret_file_source(&program, source, true);
     }
 
     free_zmx_program(&program);
@@ -55,7 +78,7 @@ int main(const int argc, char **argv) {
     if (cli.file) {
         run_zmx_file(cli.file, &cli);
     } else {
-        run_repl();
+        run_repl(&cli);
     }
     return cli.exitCode;
 }

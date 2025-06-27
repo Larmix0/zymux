@@ -107,12 +107,15 @@ Vm create_vm(ZmxProgram *program, FuncObj *func);
 /** Frees all memory that the passed VM allocated. */
 void free_vm(Vm *vm);
 
+/** Executes the bytecode inside the passed, already created VM. */
+bool interpret_vm(Vm *vm);
+
 /** 
  * Simply executes the passed source string and frees all memory used except the program's.
  * 
  * This is because Zymux sometimes extra VMs for imported modules.
  */
-bool interpret_source(ZmxProgram *program, char *source, const bool isMain);
+bool interpret_file_source(ZmxProgram *program, char *source, const bool isMain);
 
 /** 
  * Base function that tries to raise a runtime error with an object error message.

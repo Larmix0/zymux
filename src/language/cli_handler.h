@@ -5,9 +5,14 @@
 
 #include "constants.h"
 
+typedef struct ZmxProgram ZmxProgram;
+typedef struct Resolver Resolver;
+typedef struct Vm Vm;
+
 /** Stores all information needed to handle the command line interface of the program. */
 typedef struct {
     bool validArgs; /** Whether or not the args given to the CLI handler were valid. */
+    bool exitedRepl; /** Whether or not REPL has finished. */
     char *file; /** Name of file being ran (NULL if REPL is running). */
 
     bool help;
@@ -32,5 +37,8 @@ CliHandler create_cli_handler(const int argc, char **argv);
 
 /** Prints the documentation of the CLI. */
 void print_cli_help();
+
+/** Prompts the user for one line and runs it in REPL once. */
+char *repl_line(CliHandler *cli, ZmxProgram *program, Resolver *resolver, Vm *vm);
 
 #endif

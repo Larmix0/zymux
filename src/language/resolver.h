@@ -88,7 +88,7 @@ DECLARE_DA_STRUCT(ClosedVariablesArray, ClosedVariables);
  * compiled which wasn't set by the parser since it doesn't handle keeping track of semantics.
  * An example would be adding info about whether a variable assignment is local or global.
  */
-typedef struct {
+typedef struct Resolver {
     ZmxProgram *program; /** Zymux program to hold the program's information. */
     NodeArray ast; /** The whole AST that is being resolved. */
 

@@ -989,16 +989,16 @@ static bool import_module(Vm *vm, StringObj *path) {
 
     char *source = get_file_source(path->string);
     vm->program->currentFile = path;
-    Compiler compiler = compile_source(vm->program, source, false);
+    FuncObj *func = compile_file_source(vm->program, source, false);
     free(source);
-    if (compiler.func == NULL) {
+    if (func == NULL) {
         return false; // Failed to compile.
     }
 
+    GC_PROTECT(&vm->program->gc, AS_OBJ(func));
     push_module_context(vm, path);
-    push_stack_frame(vm, compiler.func, vm->frame->sp, vm->frame->sp);
-    vm->program->gc.compiler = NULL;
-    free_compiler(&compiler);
+    push_stack_frame(vm, func, vm->frame->sp, vm->frame->sp);
+    GC_DROP_PROTECTED(&vm->program->gc);
     return true;
 }
 
@@ -1665,7 +1665,7 @@ static bool vm_loop(Vm *vm) {
  * Wrapper around vm_loop() for debugging and loading built-in names.
  * Returns whether we succeeded at execution, or a runtime error occurred.
  */
-static bool interpret_vm(Vm *vm) {
+bool interpret_vm(Vm *vm) {
 #if DEBUG_RUNTIME
     printf("-------------------- VM START --------------------\n");
 #endif
@@ -1677,18 +1677,15 @@ static bool interpret_vm(Vm *vm) {
 }
 
 /** Simply executes the passed source string and frees all used memory except the program's. */
-bool interpret_source(ZmxProgram *program, char *source, const bool isMain) {
-    Compiler compiler = compile_source(program, source, isMain);
-    if (compiler.func == NULL) {
+bool interpret_file_source(ZmxProgram *program, char *source, const bool isMain) {
+    FuncObj *func = compile_file_source(program, source, isMain);
+    if (func == NULL) {
         return false; // Failed to compile.
     }
-    Vm vm = create_vm(program, compiler.func);
+    Vm vm = create_vm(program, func);
     program->gc.vm = &vm;
-    program->gc.compiler = NULL;
-    free_compiler(&compiler);
 
     interpret_vm(&vm);
-
     program->gc.vm = NULL;
     free_vm(&vm);
     return !program->hasErrored;

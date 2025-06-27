@@ -12,21 +12,13 @@ Also, maybe can be used with "is" in order to mean an "empty" datatype
 
 Issue warnings for weird edge cases for the language. Example:
     AST finding the expression condition of an if/while to be an assignment.
-(Allow warnings to be disabled with a certain flag or something)
-
-When importing a new module and setting a new VM temporarily, change the GC's vm to that VM until
-it finishes executing the module, after that set it back to the older VM so the GC can work on its
-objects. This should be fine to do if only one module can be creating/collecting objects at a time.
+(Allow warnings to be disabled with a certain flag)
 
 ----------------------------------------------------------------------------------------------------
 
 Optimization:
-    1. Heavily optimize memory usage in parser by traversing the AST for freeing nodes
-        instead of having a linked list. This saves the need for an 8 byte "next" pointer.
-        Potentially use an arena to avoid the linked list for objects too, as all objects
-        are in front of each other in the arena. Might also increase or even decrease performance?
-        Gotta benchmark it, though.
-
+    1. More efficient vm loops with dispatch tables utilizing goto.
+    
     2. Optimize node memory for unary/binary nodes by storing their operation token as just
         the source position and a token type enum value.
 
@@ -43,7 +35,6 @@ Improve the positioning of some bytecode for error handling.
 
 ----------------------------------------------------------------------------------------------------
 
-Add REPL.
 Add the keyword "private".
 Add more built-ins.
 Add file operations (part of built-ins).

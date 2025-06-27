@@ -17,13 +17,11 @@ PRIVATE_DECLARE_SETUP(setup_default_compiler) {
 
     defaultCompiler = TYPE_ALLOC(Compiler);
     *defaultCompiler = create_compiler(program, defaultAst, true);
+    program->gc.compiler = defaultCompiler;
 }
 
 /** A teardown for the default compiler and other things it uses. */
 PRIVATE_DECLARE_TEARDOWN(teardown_default_compiler) {
-    free_all_nodes(defaultCompiler->program);
-    FREE_DA(&defaultCompiler->ast);
-
     free_zmx_program(defaultCompiler->program);
     free(defaultCompiler->program);
 

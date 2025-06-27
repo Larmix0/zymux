@@ -39,7 +39,6 @@ Parser create_parser(ZmxProgram *program, TokenArray tokens) {
 /** Frees all the memory the passed parser owns. */
 void free_parser(Parser *parser) {
     FREE_DA(&parser->ast);
-    free_all_nodes(parser->program);
 }
 
 /** Reports a parsing error on a specific, erroneous token, then panics if that is set to true. */

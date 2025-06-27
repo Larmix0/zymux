@@ -6,6 +6,7 @@
 #include "cli_handler.h"
 #include "gc.h"
 #include "hash_table.h"
+#include "token.h"
 
 typedef struct Node Node;
 
@@ -14,12 +15,16 @@ typedef struct StringObj StringObj;
 typedef struct BoolObj BoolObj;
 typedef struct NullObj NullObj;
 
+/** An array of strings, which is just an array of pointers to string locations. */
+DECLARE_DA_STRUCT(StringArray, char *);
+
 /** Stores the state of Zymux throughout the entire execution of the program. */
 typedef struct ZmxProgram {
     bool hasErrored; /** Whether the program has had any kind of errors. */
     bool showErrors; /** Whether or not error messages should be displayed and printed. */
     CliHandler *cli; /** The command line's information (such as arguments and exit codes). */
 
+    StringArray allTokenStrings; /** All strings allocated for tokens in an array. */
     Node *allNodes; /** All nodes in a linked list to make freeing them easier */
     Obj *allObjs; /** All objects in a linked list to make freeing them easier (and for the GC). */
     

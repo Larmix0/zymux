@@ -25,7 +25,6 @@ PRIVATE_TEST_CASE(test_get_node_pos) {
     ASSERT_TRUE(equal_position(get_node_pos(exprStmt), create_src_pos(88, 99, 7)));
     ASSERT_TRUE(equal_position(get_node_pos(eof), create_src_pos(101, 102, 0)));
 
-    free_all_nodes(&program);
     free_zmx_program(&program);
 }
 
@@ -38,7 +37,6 @@ PRIVATE_TEST_CASE(test_new_node) {
     ASSERT_INT_EQUAL(sizeof(*binary), sizeof(BinaryNode));
     ASSERT_TRUE(AS_NODE(binary)->type == AST_BINARY);
 
-    free_all_nodes(&program);
     free_zmx_program(&program);
 }
 

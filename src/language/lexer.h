@@ -27,6 +27,9 @@ typedef struct {
 /** Returns an initialized lexer. */
 Lexer create_lexer(ZmxProgram *program, char *source);
 
+/** Frees all the strings inside the program's allocated tokens array (+ the array itself). */
+void free_all_token_strings(ZmxProgram *program);
+
 /** Frees all the memory the lexer has used (including the tokens it generated). */
 void free_lexer(Lexer *lexer);
 
