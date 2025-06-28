@@ -18,7 +18,7 @@ Issue warnings for weird edge cases for the language. Example:
 
 Optimization:
     1. More efficient vm loops with dispatch tables utilizing goto.
-    
+
     2. Optimize node memory for unary/binary nodes by storing their operation token as just
         the source position and a token type enum value.
 
@@ -35,6 +35,6 @@ Improve the positioning of some bytecode for error handling.
 
 ----------------------------------------------------------------------------------------------------
 
-Add the keyword "private".
-Add more built-ins.
-Add file operations (part of built-ins).
+Bugs:
+Backslash at the end of file name goes into REPL?
+Inexistent file names in REPL yield errno 14 because we try to resolve absolute file before reading.

@@ -13,7 +13,8 @@ ZmxProgram create_zmx_program(char *file, CliHandler *cli, const bool showErrors
         .hasErrored = false, .showErrors = showErrors, .cli = cli,
         .allTokenStrings = CREATE_DA(), .allNodes = NULL, .allObjs = NULL, .currentFile = NULL,
         .internedFalse = NULL, .internedTrue = NULL, .internedNull = NULL,
-        .builtIn = create_table(), .internedStrings = create_table(), .gc = create_gc()
+        .internedStrings = create_table(), .builtIn = empty_built_ins(),
+        .gc = create_gc()
     };
     intern_objs(&program);
     load_built_ins(&program);
@@ -28,6 +29,6 @@ void free_zmx_program(ZmxProgram *program) {
     free_all_objs(program);
 
     free_table(&program->internedStrings);
-    free_table(&program->builtIn);
+    free_built_ins(&program->builtIn);
     free_gc(&program->gc);
 }

@@ -76,7 +76,7 @@ static void print_error_line(char *current, const SourcePosition pos) {
 
 /** Iterates through the source of the passed file and then prints the errored line when reached. */
 static void show_zmx_error_line(const char *file, const SourcePosition pos) {
-    char *source = get_file_source(file);
+    char *source = alloc_file_source(file);
     const int sourceLength = strlen(source);
     int sourceLine = 1;
     for (int i = 0; i < sourceLength; i++) {

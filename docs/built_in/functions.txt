@@ -1,8 +1,4 @@
-This file documents the names, arguments, behavior, and return value of built-in names in Zymux.
-
-The style of built-in function documentation is the following:
-    {return type} name(arg1, arg2... optional1={value}, optional2={value}...):
-        {documentation}.
+Built-in functions documentation
 
 ----------------------------------------------------------------------------------------------------
 
@@ -21,6 +17,12 @@ null assert(condition, message="Assert failure."):
     Does nothing if the condition evaluates to true.
 
     message: The message which gets printed on error. Expected to be a string.
+
+file open(path, mode):
+    Returns an opened file from the passed file opened with the passed mode.
+    Can cause an error if the file failed to open or if the mode was invalid.
+
+    Accepted modes are: "r", "rb", "r+", "rb+", "a", "ab", "a+", "ab+", "w", "wb", "w+", "wb+".
 
 float time():
     Returns the time which has passed since the beginning of the program.

@@ -62,6 +62,17 @@ static void mark_obj(Obj *object) {
         mark_obj(AS_OBJ(AS_PTR(EnumMemberObj, object)->enumObj));
         mark_obj(AS_OBJ(AS_PTR(EnumMemberObj, object)->name));
         break;
+    case OBJ_ITERATOR:
+        mark_obj(AS_OBJ(AS_PTR(IteratorObj, object)->iterable));
+        break;
+    case OBJ_MODULE:
+        mark_obj(AS_OBJ(AS_PTR(ModuleObj, object)->path));
+        mark_table(AS_PTR(ModuleObj, object)->globals);
+        break;
+    case OBJ_FILE:
+        mark_obj(AS_OBJ(AS_PTR(FileObj, object)->path));
+        mark_table(AS_PTR(FileObj, object)->fields);
+        break;
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);
         mark_obj(AS_OBJ(func->name));
@@ -98,12 +109,10 @@ static void mark_obj(Obj *object) {
         mark_obj(AS_OBJ(AS_PTR(NativeFuncObj, object)->name));
         mark_func_params(AS_PTR(NativeFuncObj, object)->params);
         break;
-    case OBJ_ITERATOR:
-        mark_obj(AS_OBJ(AS_PTR(IteratorObj, object)->iterable));
-        break;
-    case OBJ_MODULE:
-        mark_obj(AS_OBJ(AS_PTR(ModuleObj, object)->path));
-        mark_table(AS_PTR(ModuleObj, object)->globals);
+    case OBJ_NATIVE_METHOD:
+        mark_obj(AS_OBJ(AS_PTR(NativeMethodObj, object)->instance));
+        mark_obj(AS_OBJ(AS_PTR(NativeMethodObj, object)->cls));
+        mark_obj(AS_OBJ(AS_PTR(NativeMethodObj, object)->func));
         break;
     case OBJ_INT:
     case OBJ_FLOAT:
@@ -154,13 +163,20 @@ static void mark_vm(Vm *vm) {
     }
 }
 
+/** Marks all the built-in objects in the program. */
+static void mark_built_ins(BuiltIns *builtIn) {
+    mark_table(builtIn->funcs);
+    
+    mark_obj(AS_OBJ(builtIn->fileClass));
+}
+
 /** Marks all the objects stored in a program. */
 static void mark_program(ZmxProgram *program) {
     mark_obj(AS_OBJ(program->currentFile));
     mark_obj(AS_OBJ(program->internedNull));
     mark_obj(AS_OBJ(program->internedTrue));
     mark_obj(AS_OBJ(program->internedFalse));
-    mark_table(program->builtIn);
+    mark_built_ins(&program->builtIn);
 }
 
 /** Marks all reachable objects in the program. */

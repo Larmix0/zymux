@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +14,7 @@
     ((cType *)new_obj(program, objType, sizeof(cType)))
 
 static CharBuffer object_cstring(const Obj *object, const bool debugCString);
+static void set_fields(ZmxProgram *program, Table *fields, const u32 amount, ...);
 void print_obj(const Obj *object, const bool debugPrint);
 char *obj_type_str(ObjType type);
 
@@ -173,6 +175,23 @@ ModuleObj *new_module_obj(ZmxProgram *program, StringObj *path, const Table glob
 }
 
 /** 
+ * Returns a new file object representing an opened file.
+ * 
+ * This function expects an already validated file stream and mode.
+ */
+FileObj *new_file_obj(ZmxProgram *program, FILE *stream, StringObj *path, StringObj *modeStr) {
+    FileObj *object = NEW_OBJ(program, OBJ_FILE, FileObj);
+    object->stream = stream;
+    object->mode = parse_file_mode(modeStr->string, modeStr->length);
+    object->path = path;
+    object->isOpen = true;
+
+    object->fields = create_table();
+    set_fields(program, &object->fields, 2, "path", AS_OBJ(path), "mode", AS_OBJ(modeStr));
+    return object;
+}
+
+/** 
  * Returns a new allocated function object.
  * 
  * The class a function should be added later while turning the function into a method in the VM,
@@ -289,6 +308,17 @@ NativeFuncObj *new_native_func_obj(
     return object;
 }
 
+/** Returns a method of a built-in class, which is tied to a built-in object as an instance. */
+NativeMethodObj *new_native_method_obj(
+    ZmxProgram *program, Obj *instance, ClassObj *cls, NativeFuncObj *func
+) {
+    NativeMethodObj *object = NEW_OBJ(program, OBJ_NATIVE_METHOD, NativeMethodObj);
+    object->instance = instance;
+    object->func = func;
+    object->cls = cls;
+    return object;
+}
+
 /** Allocates some objects for interning and puts them in the passed program. */
 void intern_objs(ZmxProgram *program) {
     program->internedTrue = NEW_OBJ(program, OBJ_BOOL, BoolObj);
@@ -391,9 +421,10 @@ static CharBuffer object_cstring(const Obj *object, const bool debugCString) {
         buffer_append_format(&string, "<iterator>");
         break;
     case OBJ_MODULE:
-        buffer_append_format(
-            &string, "<module %s>", AS_PTR(ModuleObj, object)->path->string
-        );
+        buffer_append_format(&string, "<module %s>", AS_PTR(ModuleObj, object)->path->string);
+        break;
+    case OBJ_FILE:
+        buffer_append_format(&string, "<file %s>", AS_PTR(FileObj, object)->path->string);
         break;
     case OBJ_FUNC:
         buffer_append_format(&string, "<function %s>", AS_PTR(FuncObj, object)->name->string);
@@ -422,6 +453,14 @@ static CharBuffer object_cstring(const Obj *object, const bool debugCString) {
             &string, "<native function %s>", AS_PTR(NativeFuncObj, object)->name->string
         );
         break;
+    case OBJ_NATIVE_METHOD: {
+        NativeMethodObj *method = AS_PTR(NativeMethodObj, object);
+        buffer_append_format(
+            &string, "<instance method %s.%s>",
+            method->cls->name->string, method->func->name->string
+        );
+        break;
+    }
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }
     return string;
@@ -444,12 +483,14 @@ bool is_iterable(const Obj *object) {
     case OBJ_ENUM_MEMBER:
     case OBJ_ITERATOR:
     case OBJ_MODULE:
+    case OBJ_FILE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
+    case OBJ_NATIVE_METHOD:
         return false;
     }
     UNREACHABLE_ERROR();
@@ -523,14 +564,16 @@ Obj *iterate(ZmxProgram *program, IteratorObj *iterator) {
     case OBJ_BOOL:
     case OBJ_NULL:
     case OBJ_ENUM_MEMBER:
+    case OBJ_ITERATOR:
+    case OBJ_MODULE:
+    case OBJ_FILE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
-    case OBJ_ITERATOR:
-    case OBJ_MODULE:
+    case OBJ_NATIVE_METHOD:
         UNREACHABLE_ERROR();
     }
     UNREACHABLE_ERROR();
@@ -594,12 +637,14 @@ bool equal_obj(const Obj *left, const Obj *right) {
     case OBJ_ENUM:
     case OBJ_ITERATOR:
     case OBJ_MODULE:
+    case OBJ_FILE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
+    case OBJ_NATIVE_METHOD:
         return left == right; // Compare addresses directly.
 
     case OBJ_BOOL:
@@ -689,12 +734,14 @@ IntObj *as_int(ZmxProgram *program, const Obj *object) {
     case OBJ_ENUM:
     case OBJ_ITERATOR:
     case OBJ_MODULE:
+    case OBJ_FILE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
+    case OBJ_NATIVE_METHOD:
         // Can't ever convert to integer.
         return NULL;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
@@ -726,12 +773,14 @@ FloatObj *as_float(ZmxProgram *program, const Obj *object) {
     case OBJ_ENUM:
     case OBJ_ITERATOR:
     case OBJ_MODULE:
+    case OBJ_FILE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
+    case OBJ_NATIVE_METHOD:
         // Can't ever convert to float.
         return NULL;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
@@ -747,12 +796,14 @@ BoolObj *as_bool(ZmxProgram *program, const Obj *object) {
     case OBJ_ENUM:
     case OBJ_ITERATOR:
     case OBJ_MODULE:
+    case OBJ_FILE:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
     case OBJ_INSTANCE:
     case OBJ_METHOD:
     case OBJ_NATIVE_FUNC:
+    case OBJ_NATIVE_METHOD:
         // Always considered "truthy".
         result = true;
         break;
@@ -776,6 +827,18 @@ StringObj *as_string(ZmxProgram *program, const Obj *object) {
     StringObj *result = new_string_obj(program, cstring.text, cstring.length);
     free_char_buffer(&cstring);
     return result;
+}
+
+/** Sets an amount of string and object pairs as fields in the passed table of fields. */
+static void set_fields(ZmxProgram *program, Table *fields, const u32 amount, ...) {
+    va_list args;
+    va_start(args, amount);
+    for (u32 i = 0; i < amount; i++) {
+        char *name = va_arg(args, char *);
+        Obj *value = va_arg(args, Obj *);
+        table_set(fields, AS_OBJ(new_string_obj(program, name, strlen(name))), value);
+    }
+    va_end(args);
 }
 
 /** 
@@ -802,15 +865,17 @@ char *obj_type_str(ObjType type) {
     case OBJ_LIST: return "list";
     case OBJ_MAP: return "map";
     case OBJ_ENUM: return "enum";
+    case OBJ_ENUM_MEMBER: return "enum member";
     case OBJ_ITERATOR: return "iterator";
     case OBJ_MODULE: return "module";
-    case OBJ_ENUM_MEMBER: return "enum member";
+    case OBJ_FILE: return "file";
     case OBJ_FUNC: return "function";
     case OBJ_CAPTURED: return "captured";
     case OBJ_CLASS: return "class";
     case OBJ_INSTANCE: return "instance";
     case OBJ_METHOD: return "instance method";
     case OBJ_NATIVE_FUNC: return "native function";
+    case OBJ_NATIVE_METHOD: return "native method";
     }
     UNREACHABLE_ERROR();
 }
@@ -860,6 +925,13 @@ void free_obj(Obj *object) {
     case OBJ_MODULE:
         free_table(&AS_PTR(ModuleObj, object)->globals);
         break;
+    case OBJ_FILE: {
+        if (AS_PTR(FileObj, object)->isOpen) {
+            fclose(AS_PTR(FileObj, object)->stream); // Only close if it's not already closed.
+        }
+        free_table(&AS_PTR(FileObj, object)->fields);
+        break;
+    }
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);
         if (func->hasOptionals || func->isClosure) {
@@ -893,6 +965,7 @@ void free_obj(Obj *object) {
     case OBJ_ITERATOR:
     case OBJ_CAPTURED:
     case OBJ_METHOD:
+    case OBJ_NATIVE_METHOD:
         break; // The object itself doesn't own any memory.
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }

@@ -646,23 +646,46 @@ static Obj *find_method(ClassObj *cls, StringObj *name) {
     }
 }
 
+/** 
+ * Tries to access a property in a passed instance.
+ * 
+ * If the property is a method, then it either binds it to a user method or a native method
+ * depending on whether the instance is that of a user class or a built-in object.
+ * 
+ * Returns whether or not it successfully put the property at the top of the stack, completing
+ * the get operation.
+ */
+static bool get_instance_property(
+    Vm *vm, Table *fields, Obj *instance, ClassObj *cls, StringObj *name, const bool isNative
+) {
+    Obj *field = table_get(fields, AS_OBJ(name));
+    if (field) {
+        PEEK(vm) = field;
+        return true;
+    }
+
+    Obj *method = find_method(cls, name);
+    if (!method) {
+        RUNTIME_ERROR(vm, "No property called '%s'.", name->string);
+        return false;
+    }
+    Obj *bound = isNative ?
+        AS_OBJ(new_native_method_obj(vm->program, instance, cls, AS_PTR(NativeFuncObj, method)))
+        : AS_OBJ(
+            new_method_obj(vm->program, AS_PTR(InstanceObj, instance), AS_PTR(FuncObj, method))
+        );
+    PEEK(vm) = bound;
+    return true;
+}
+
 /** Access a property inside some object that might have multiple properties inside it. */
 static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
     switch (originalObj->type) {
     case OBJ_INSTANCE: {
         InstanceObj *instance = AS_PTR(InstanceObj, originalObj);
-        Obj *field = table_get(&instance->fields, AS_OBJ(name));
-        if (field) {
-            PEEK(vm) = field;
-            return true;
-        }
-        Obj *method = find_method(instance->cls, name);
-        if (method) {
-            PEEK(vm) = AS_OBJ(new_method_obj(vm->program, instance, AS_PTR(FuncObj, method)));
-            return true;
-        }
-        RUNTIME_ERROR(vm, "No property called '%s'.", name->string);
-        return false;
+        return get_instance_property(
+            vm, &instance->fields, AS_OBJ(instance), instance->cls, name, false
+        );
     }
     case OBJ_ENUM: {
         EnumObj *enumObj = AS_PTR(EnumObj, originalObj);
@@ -673,7 +696,7 @@ static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
         }
         ASSERT(propertyIdx->type == OBJ_INT, "Enum lookup table value wasn't an integer.");
         PEEK(vm) = enumObj->members.data[AS_PTR(IntObj, propertyIdx)->number];
-        break;
+        return true;
     }
     case OBJ_MODULE: {
         ModuleObj *module = AS_PTR(ModuleObj, originalObj);
@@ -683,7 +706,12 @@ static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
             return false;
         }
         PEEK(vm) = global;
-        break;
+        return true;
+    }
+    case OBJ_FILE: {
+        FileObj *file = AS_PTR(FileObj, originalObj);
+        ClassObj *cls = vm->program->builtIn.fileClass;
+        return get_instance_property(vm, &file->fields, AS_OBJ(file), cls, name, true);
     }
     default:
         RUNTIME_ERROR(
@@ -691,8 +719,6 @@ static bool get_property(Vm *vm, Obj *originalObj, StringObj *name) {
         );
         return false;
     }
-
-    return true;
 }
 
 
@@ -862,7 +888,7 @@ static bool call(Vm *vm, Obj *callee, const u32 argsIdx, const u32 argAmount) {
     }
     case OBJ_CLASS: {
         ClassObj *cls = AS_PTR(ClassObj, callee);
-        PEEK_DEPTH(vm, argAmount + 1) = AS_OBJ(new_instance_obj(vm->program, cls)); // +1 (kwargs).
+        vm->stack.objects[argsIdx - 1] = AS_OBJ(new_instance_obj(vm->program, cls));
         if (cls->init) {
             return call(vm, AS_OBJ(cls->init), argsIdx, argAmount);
         } else if (argAmount == 0) {
@@ -875,7 +901,7 @@ static bool call(Vm *vm, Obj *callee, const u32 argsIdx, const u32 argAmount) {
     }
     case OBJ_METHOD: {
         MethodObj *method = AS_PTR(MethodObj, callee);
-        PEEK_DEPTH(vm, argAmount + 1) = AS_OBJ(method->instance); // +1 to go over kwargs map too.
+        vm->stack.objects[argsIdx - 1] = AS_OBJ(method->instance); 
         return call(vm, AS_OBJ(method->func), argsIdx, argAmount);
     }
     case OBJ_NATIVE_FUNC: {
@@ -886,7 +912,10 @@ static bool call(Vm *vm, Obj *callee, const u32 argsIdx, const u32 argAmount) {
         ) {
             return false;
         }
-        Obj *nativeReturn = native->func(vm, vm->stack.objects + argsIdx);
+
+        Obj *nativeReturn = native->func(
+            vm, vm->stack.objects[argsIdx - 1], vm->stack.objects + argsIdx
+        );
         if (nativeReturn == NULL) {
             return false;
         }
@@ -894,6 +923,11 @@ static bool call(Vm *vm, Obj *callee, const u32 argsIdx, const u32 argAmount) {
         PEEK_DEPTH(vm, arity) = nativeReturn;
         DROP_AMOUNT(vm, arity);
         return true;
+    }
+    case OBJ_NATIVE_METHOD: {
+        NativeMethodObj *method = AS_PTR(NativeMethodObj, callee);
+        vm->stack.objects[argsIdx - 1] = AS_OBJ(method->instance);
+        return call(vm, AS_OBJ(method->func), argsIdx, argAmount);
     }
     default:
         RUNTIME_ERROR(vm, "Can't call object of type %s.", obj_type_str(callee->type));
@@ -979,7 +1013,7 @@ static bool import_module(Vm *vm, StringObj *path) {
         return false;
     }
     // Convert to ensure the path is absolute (important for storing and erroring circular imports).
-    char *absolutePath = get_absolute_path(path->string);
+    char *absolutePath = alloc_absolute_path(path->string);
     path = new_string_obj(vm->program, absolutePath, strlen(absolutePath));
     free(absolutePath);
     if (is_circular_import(vm, path)) {
@@ -987,7 +1021,7 @@ static bool import_module(Vm *vm, StringObj *path) {
         return false;
     }
 
-    char *source = get_file_source(path->string);
+    char *source = alloc_file_source(path->string);
     vm->program->currentFile = path;
     FuncObj *func = compile_file_source(vm->program, source, false);
     free(source);
@@ -1054,9 +1088,9 @@ static bool vm_loop(Vm *vm) {
                 ));
                 DROP_AMOUNT(vm, 2);
                 PUSH(vm, result);
-            } else {
-                MATH_BIN_OP(vm, "+", NUM_VAL(BIN_LEFT(vm)) + NUM_VAL(BIN_RIGHT(vm)));
+                break;
             }
+            MATH_BIN_OP(vm, "+", NUM_VAL(BIN_LEFT(vm)) + NUM_VAL(BIN_RIGHT(vm)));
             break;
         case OP_SUBTRACT:
             MATH_BIN_OP(vm, "-", NUM_VAL(BIN_LEFT(vm)) - NUM_VAL(BIN_RIGHT(vm)));
@@ -1065,6 +1099,18 @@ static bool vm_loop(Vm *vm) {
             MATH_BIN_OP(vm, "*", NUM_VAL(BIN_LEFT(vm)) * NUM_VAL(BIN_RIGHT(vm)));
             break;
         case OP_DIVIDE:
+            if (BIN_LEFT(vm)->type == OBJ_STRING && BIN_RIGHT(vm)->type == OBJ_STRING) {
+                CharBuffer fullString = create_char_buffer();
+                buffer_append_format(
+                    &fullString, "%s%c%s", AS_PTR(StringObj, BIN_LEFT(vm))->string,
+                    PATH_SEPARATOR, AS_PTR(StringObj, BIN_RIGHT(vm))->string
+                );
+                StringObj *result = new_string_obj(vm->program, fullString.text, fullString.length);
+                free_char_buffer(&fullString);
+                DROP_AMOUNT(vm, 2);
+                PUSH(vm, AS_OBJ(result));
+                break;
+            }
             if (IS_NUM(BIN_LEFT(vm)) && IS_NUM(BIN_RIGHT(vm)) && NUM_VAL(BIN_RIGHT(vm)) == 0) {
                 VM_LOOP_RUNTIME_ERROR(vm, "Can't divide by 0.");
             }
@@ -1252,7 +1298,7 @@ static bool vm_loop(Vm *vm) {
             break;
         }
         case OP_GET_BUILT_IN: {
-            Obj *value = table_get(&vm->program->builtIn, READ_CONST(vm));
+            Obj *value = table_get(&vm->program->builtIn.funcs, READ_CONST(vm));
             PUSH(vm, value);
             break;
         }

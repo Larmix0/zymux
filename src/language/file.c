@@ -46,12 +46,28 @@ bool file_exists(const char *path) {
 #endif
 }
 
+/** Returns the size of the passed file. */
+long get_file_size(FILE *file, const char *path) {
+    if (fseek(file, 0L, SEEK_END) != 0) {
+        FILE_ERROR("Couldn't seek to the end of file '%s' to view its length.", path);
+    }
+    
+    const long fileSize = ftell(file);
+    if (fileSize == -1) {
+        FILE_ERROR("Failed to read length of file '%s'.", path);
+    }
+    if (fseek(file, 0L, SEEK_SET) != 0) {
+        FILE_ERROR("Couldn't seek to the beginning of file '%s' to read the source.", path);
+    }
+    return fileSize;
+}
+
 /** 
  * Returns an allocated string of the absolute path that the passed relative path refers to.
  * 
  * Will return NULL if it fails (especially if the file doesn't exist as an absolute path).
  */
-char *get_absolute_path(const char *relativePath) {
+char *alloc_absolute_path(const char *relativePath) {
 #if OS == UNIX_OS
     return realpath(relativePath, NULL);
 #elif OS == WINDOWS_OS
@@ -60,7 +76,7 @@ char *get_absolute_path(const char *relativePath) {
 }
 
 /** Returns an allocated string of the directory at the program's current file + the passed path. */
-char *get_relative_path(ZmxProgram *program, const char *path) {
+char *alloc_relative_path(ZmxProgram *program, const char *path) {
     ASSERT(program->currentFile != NULL, "A file must be set before getting a relative path.");
 
     CharBuffer combined = create_char_buffer();
@@ -74,6 +90,28 @@ char *get_relative_path(ZmxProgram *program, const char *path) {
     return combined.text;
 }
 
+/** Returns a file mode parsed from the passed string. Can be an invalid mode. */
+FileMode parse_file_mode(char *modeStr, const u32 length) {
+    if ((length == 1) || (length == 2 && modeStr[1] == 'b')) {
+        switch (*modeStr) {
+        case 'r': return FILE_READ_ONLY;
+        case 'a': return FILE_WRITE_ONLY;
+        case 'w': return FILE_WRITE_ONLY;
+        }
+    } else if (
+        (length == 2 && modeStr[1] == '+')
+        || (length == 3 && modeStr[1] == 'b' && modeStr[2] == '+')
+    ) {
+        switch (*modeStr) {
+        case 'r':
+        case 'a':
+        case 'w':
+            return FILE_READ_AND_WRITE;
+        }
+    }
+    return FILE_INVALID; // Couldn't parse.
+}
+
 /** 
  * iterates over some source and returns a string copy where every CRLF and CR turns into LF.
  * 
@@ -84,7 +122,7 @@ char *get_relative_path(ZmxProgram *program, const char *path) {
  * Although newer versions have (\n) which is also what linux uses. It's also what we convert
  * those CR/CRLF characters into for uniformity in the language.
  */
-static char *get_fixed_source(const char *source) {
+static char *alloc_fixed_source(const char *source) {
     CharBuffer buffer = create_char_buffer();
     int idx = 0;
     while (source[idx] != '\0') {
@@ -108,7 +146,7 @@ static char *get_fixed_source(const char *source) {
  * 
  * All line breaks are written as "\n" in the returned string, no matter the system.
  */
-char *get_file_source(const char *path) {
+char *alloc_file_source(const char *path) {
     FILE *file = fopen(path, "rb");
     if (file == NULL) {
         FILE_ERROR("Couldn't open file '%s': %s (Errno %d).", path, strerror(errno), errno);
@@ -121,27 +159,16 @@ char *get_file_source(const char *path) {
         FILE_ERROR("Expected file, but '%s' isn't a file.", path);
     }
 
-    if (fseek(file, 0L, SEEK_END) != 0) {
-        FILE_ERROR("Couldn't seek to the end of file '%s' to view its length.", path);
-    }
-    
-    const long fileLength = ftell(file);
-    if (fileLength == -1) {
-        FILE_ERROR("Failed to read length of file '%s'.", path);
-    }
-    if (fseek(file, 0L, SEEK_SET) != 0) {
-        FILE_ERROR("Couldn't seek to the beginning of file '%s' to read the source.", path);
-    }
-
-    char *source = ARRAY_ALLOC(fileLength + 1, char);
-    if (fread(source, sizeof(char), fileLength, file) != (size_t)fileLength) {
+    const long fileSize = get_file_size(file, path);
+    char *source = ARRAY_ALLOC(fileSize + 1, char);
+    if (fread(source, sizeof(char), fileSize, file) != (size_t)fileSize) {
         FILE_ERROR("Failed to read the source of file '%s'.", path);
     }
     if (fclose(file) != 0) {
         FILE_ERROR("Failed to close file '%s' after reading it.", path);
     }
-    source[fileLength] = '\0';
-    char *fixedSource = get_fixed_source(source);
+    source[fileSize] = '\0';
+    char *fixedSource = alloc_fixed_source(source);
     free(source);
     return fixedSource;
 }

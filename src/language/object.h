@@ -2,10 +2,12 @@
 #define OBJECT_H
 
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "built_in.h"
 #include "constants.h"
 #include "dynamic_array.h"
+#include "file.h"
 #include "hash_table.h"
 
 /** Converts anything that "inherits" from object to its type punning base form. */
@@ -43,12 +45,14 @@ typedef enum {
     OBJ_ENUM,
     OBJ_ITERATOR,
     OBJ_MODULE,
+    OBJ_FILE,
     OBJ_FUNC,
     OBJ_CAPTURED,
     OBJ_CLASS,
     OBJ_INSTANCE,
     OBJ_METHOD,
-    OBJ_NATIVE_FUNC
+    OBJ_NATIVE_FUNC,
+    OBJ_NATIVE_METHOD
 } ObjType;
 
 /** Base object struct for all objects in Zymux (for type punning). */
@@ -148,6 +152,16 @@ typedef struct {
     StringObj *path; /** The file path of this module. */
     Table globals; /** Globals which can be accessed by other modules (doesn't include privates). */
 } ModuleObj;
+
+/** Represents an opened file at runtime. */
+typedef struct {
+    Obj obj;
+    FILE *stream; /** The internally opened file pointer in C, which is a stream. */
+    FileMode mode; /** The mode the file is open in (such as read, or write+, etc.). */
+    StringObj *path; /** The string path of this file. */
+    bool isOpen; /** Stays true until the stream is closed. */
+    Table fields;
+} FileObj;
 
 /** Represents one enum value in an enum. */
 typedef struct {
@@ -275,20 +289,39 @@ typedef struct {
     Table fields;
 } InstanceObj;
 
-/** A method with the instance tied to it (in order to access "this" inside the method). */
+/** 
+ * A method with the instance tied to it (in order to access "this" inside the method).
+ * 
+ * This is created on the runtime when the "method" (which is a function inside the class)
+ * is called, which creates this object that actually ties the function inside the class
+ * to the instance.
+ */
 typedef struct {
     Obj obj;
     InstanceObj *instance;
     FuncObj *func;
 } MethodObj;
 
-/** A built-in Zymux function whose implementation is written in C. */
+/** A built-in function whose implementation is written in C. */
 typedef struct {
     Obj obj;
     StringObj *name; /** Its name in the Zymux program. */
     NativeFunc func; /** The C-callable function pointer with the native function signature. */
     FuncParams params; /** Parameters of the native function. */
 } NativeFuncObj;
+
+/** 
+ * A built-in method, which is a built-in func bound to a built-in object as an instance.
+ * 
+ * Just like normal methods this only gets created at runtime to bind the instance to
+ * the built-in function inside the built-in class
+ */
+typedef struct {
+    Obj obj;
+    NativeFuncObj *func; /** The base native function object without any method binding. */
+    ClassObj *cls; /** The built-in class this method belongs to. */
+    Obj *instance; /** The built-in object itself acts as the instance where fields are accessed. */
+} NativeMethodObj;
 
 /** Returns a new allocated integer object. */
 IntObj *new_int_obj(ZmxProgram *program, const ZmxInt number);
@@ -340,6 +373,13 @@ IteratorObj *new_iterator_obj(ZmxProgram *program, Obj *iterable);
 ModuleObj *new_module_obj(ZmxProgram *program, StringObj *path, const Table globals);
 
 /** 
+ * Returns a new file object representing an opened file.
+ * 
+ * This function expects an already validated file stream and mode.
+ */
+FileObj *new_file_obj(ZmxProgram *program, FILE *stream, StringObj *path, StringObj *modeStr);
+
+/** 
  * Returns a new allocated function object.
  * 
  * The class a function should be added later while turning the function into a method in the VM,
@@ -370,6 +410,11 @@ MethodObj *new_method_obj(ZmxProgram *program, InstanceObj *instance, FuncObj *f
 /** Returns a new allocated native function object. */
 NativeFuncObj *new_native_func_obj(
     ZmxProgram *program, StringObj *name, NativeFunc func, const FuncParams params
+);
+
+/** Returns a method of a built-in class, which is tied to a built-in object as an instance. */
+NativeMethodObj *new_native_method_obj(
+    ZmxProgram *program, Obj *instance, ClassObj *cls, NativeFuncObj *func
 );
 
 /** Allocates some objects for interning and puts them in the passed program. */

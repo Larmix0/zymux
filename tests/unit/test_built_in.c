@@ -7,7 +7,7 @@
 /** Tests that the built-in names are loaded correctly. */
 PRIVATE_TEST_CASE(test_load_built_ins) {
     ZmxProgram program = {
-        .builtIn = create_table(), .internedStrings = create_table(),
+        .builtIn = empty_built_ins(), .internedStrings = create_table(),
         .allObjs = NULL, .gc = create_gc(),
     };
     intern_objs(&program);
@@ -15,7 +15,7 @@ PRIVATE_TEST_CASE(test_load_built_ins) {
     
     const char *printString = "print";
     Obj *printName = AS_OBJ(new_string_obj(&program, printString, strlen(printString)));
-    Obj *nativePrint = table_get(&program.builtIn, printName);
+    Obj *nativePrint = table_get(&program.builtIn.funcs, printName);
 
     ASSERT_TRUE(nativePrint->type == OBJ_NATIVE_FUNC);
     ASSERT_TRUE(equal_obj(AS_OBJ(AS_PTR(NativeFuncObj, nativePrint)->name), printName));

@@ -50,6 +50,8 @@
 #define ZMX_INT_FMT "%" PRId64
 #define ZMX_FLOAT_FMT "%lf"
 
+#define MAX_PATH_LENGTH U8_MAX
+
 /** Gets rid of a compiler warning for a variable which was declared but never used. */
 #define UNUSED_VARIABLE(parameter) ((void)(parameter))
 

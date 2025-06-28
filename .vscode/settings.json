@@ -39,7 +39,8 @@
         "compiler.h": "c",
         "errno.h": "c",
         "stdlib.h": "c",
-        "cli_handler.h": "c"
+        "cli_handler.h": "c",
+        "stat.h": "c"
     },
     "cSpell.words": [
         "Zymux"

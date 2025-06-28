@@ -687,7 +687,7 @@ static char *parse_import_path(Parser *parser) {
 
     if (isRelative) {
         // Makes the full path relative to the current file. Will be made absolute at runtime.
-        char *relativePath = get_relative_path(parser->program, path.text);
+        char *relativePath = alloc_relative_path(parser->program, path.text);
         free_char_buffer(&path);
         return relativePath;
     } else {

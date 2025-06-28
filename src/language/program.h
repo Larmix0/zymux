@@ -34,7 +34,7 @@ typedef struct ZmxProgram {
     BoolObj *internedFalse; /** An interned boolean of false. */
 
     StringObj *currentFile; /** The name of the file currently being worked on. */
-    Table builtIn; /** The built-in functionality as name key and native object value pairs. */
+    BuiltIns builtIn; /** All the built-ins of the language. */
     Gc gc; /** The garbage collector for the program's objects. */
 } ZmxProgram;
 

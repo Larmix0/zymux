@@ -46,8 +46,8 @@ static void run_repl(CliHandler *cli) {
  * in order to display only the debug output.
  */
 static void run_zmx_file(char *passedPath, CliHandler *cli) {
-    char *absoluteFile = get_absolute_path(passedPath);
-    char *source = get_file_source(absoluteFile);
+    char *absoluteFile = alloc_absolute_path(passedPath);
+    char *source = alloc_file_source(absoluteFile);
     
     ZmxProgram program = create_zmx_program(absoluteFile, cli, true);
     if (cli->debugTokens || cli->debugAst || cli->debugBytecode) {

@@ -398,7 +398,7 @@ static void resolve_declare_var(Resolver *resolver, DeclareVarNode *node, FuncNo
     
     const Token name = node->name;
     Obj *nameAsObj = AS_OBJ(new_string_obj(resolver->program, name.lexeme, name.pos.length));
-    if (table_get(&resolver->program->builtIn, nameAsObj)) {
+    if (table_get(&resolver->program->builtIn.funcs, nameAsObj)) {
         resolution_error(
             resolver, name.pos, "Can't redeclare built-in name '%.*s'.",
             name.pos.length, name.lexeme
@@ -631,7 +631,7 @@ static void resolve_assign_var(Resolver *resolver, AssignVarNode *node) {
 
     // Guaranteed error at this point. We just try to put a more informative error message.
     Obj *nameAsObj = AS_OBJ(new_string_obj(resolver->program, name.lexeme, name.pos.length));
-    if (table_get(&resolver->program->builtIn, nameAsObj)) {
+    if (table_get(&resolver->program->builtIn.funcs, nameAsObj)) {
         resolution_error(
             resolver, get_node_pos(AS_NODE(node)), "Can't assign to built-in name '%.*s'.",
             name.pos.length, name.lexeme
@@ -701,7 +701,7 @@ static bool try_get_global(Resolver *resolver, GetVarNode *node) {
  * information about the node to be that of a built-in variable.
  */
 static bool try_get_built_in(Resolver *resolver, Obj *nameAsObj, GetVarNode *node) {
-    if (table_get(&resolver->program->builtIn, nameAsObj)) {
+    if (table_get(&resolver->program->builtIn.funcs, nameAsObj)) {
         node->resolution.scope = VAR_BUILT_IN;
         return true;
     }
