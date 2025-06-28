@@ -107,7 +107,11 @@ Vm create_vm(ZmxProgram *program, FuncObj *func);
 /** Frees all memory that the passed VM allocated. */
 void free_vm(Vm *vm);
 
-/** Executes the bytecode inside the passed, already created VM. */
+/**
+ * Executes the bytecode inside the passed, already created VM.
+ * 
+ * Doesn't execute when CLI debugging modes are on.
+ */
 bool interpret_vm(Vm *vm);
 
 /** 

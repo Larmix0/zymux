@@ -1246,9 +1246,9 @@ bool compile(Compiler *compiler) {
     compile_node_array(compiler, &compiler->ast);
     write_jumps(compiler);
 
-#if DEBUG_BYTECODE
-    print_bytecode(compiler->func);
-#endif
+    if (compiler->program->cli->debugBytecode || DEBUG_BYTECODE) {
+        print_bytecode(compiler->func);
+    }
     return !compiler->program->hasErrored;
 }
 

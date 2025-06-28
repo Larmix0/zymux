@@ -1710,8 +1710,15 @@ static bool vm_loop(Vm *vm) {
  * 
  * Wrapper around vm_loop() for debugging and loading built-in names.
  * Returns whether we succeeded at execution, or a runtime error occurred.
+ * 
+ * Doesn't execute when CLI debugging modes are on.
  */
 bool interpret_vm(Vm *vm) {
+    CliHandler *cli = vm->program->cli;
+    if (cli->debugTokens || cli->debugAst || cli->debugBytecode) {
+        return true; // Don' execute when debugging.
+    }
+
 #if DEBUG_RUNTIME
     printf("-------------------- VM START --------------------\n");
 #endif

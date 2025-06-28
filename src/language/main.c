@@ -45,16 +45,12 @@ static void run_repl(CliHandler *cli) {
  * If any debugging flags of the CLI are on, then it only compiles the file without executing it
  * in order to display only the debug output.
  */
-static void run_zmx_file(char *passedPath, CliHandler *cli) {
-    char *absoluteFile = alloc_absolute_path(passedPath);
-    char *source = alloc_file_source(absoluteFile);
+static void run_file(char *passedPath, CliHandler *cli) {
+    char *source = alloc_file_source(passedPath);
     
+    char *absoluteFile = alloc_absolute_path(passedPath);
     ZmxProgram program = create_zmx_program(absoluteFile, cli, true);
-    if (cli->debugTokens || cli->debugAst || cli->debugBytecode) {
-        compile_file_source(&program, source, true); // Only compile to print the debugging.
-    } else {
-        interpret_file_source(&program, source, true);
-    }
+    interpret_file_source(&program, source, true);
 
     free_zmx_program(&program);
     free(source);
@@ -76,7 +72,7 @@ int main(const int argc, char **argv) {
     }
 
     if (cli.file) {
-        run_zmx_file(cli.file, &cli);
+        run_file(cli.file, &cli);
     } else {
         run_repl(&cli);
     }

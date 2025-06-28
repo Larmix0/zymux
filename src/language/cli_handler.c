@@ -145,14 +145,15 @@ char *repl_line(CliHandler *cli, ZmxProgram *program, Resolver *resolver, Vm *vm
     }
 
     FuncObj *func = compile_repl_source(program, line, resolver);
-    program->hasErrored = false; // Erroring doesn't matter in REPL, so immediately reset it.
-    
-    // Only execute if compilation was successful and no debugging flags are enabled.
-    if (func != NULL && !cli->debugTokens && !cli->debugAst && !cli->debugBytecode) {
-        vm->frame->func = func;
-        vm->frame->ip = func->bytecode.data;
-        interpret_vm(vm);
-        cli->exitedRepl = cli->manuallyExited;
+    if (func == NULL) {
+        // Errors don't matter in REPL, so just reset and try again.
+        program->hasErrored = false;
+        return line;
     }
+    vm->frame->func = func;
+    vm->frame->ip = func->bytecode.data;
+
+    interpret_vm(vm);
+    cli->exitedRepl = cli->manuallyExited;
     return line;
 }

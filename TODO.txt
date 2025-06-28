@@ -34,7 +34,3 @@ only when fields and methods are added to built-in objects.
 Improve the positioning of some bytecode for error handling.
 
 ----------------------------------------------------------------------------------------------------
-
-Bugs:
-Backslash at the end of file name goes into REPL?
-Inexistent file names in REPL yield errno 14 because we try to resolve absolute file before reading.
