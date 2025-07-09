@@ -32,14 +32,14 @@ void print_runtime_state(
 
 /** Prints information about a caught runtime error, its effects, and the error message . */
 void print_caught_runtime_error(
-    ZmxProgram *program, FuncObj *setFunc, const u32 poppedLocals, const u32 poppedCaptures,
+    VulnerableObjs *vulnObjs, FuncObj *setFunc, const u32 poppedLocals, const u32 poppedCaptures,
     const u32 poppedOpenCaptures, const char *errorMessage
 ) {
     printf("RUNTIME ERROR CAUGHT:\n" INDENT);
     printf("Error message: %s\n" INDENT, errorMessage);
     printf(
         "Going back to %s: popping %"PRIu32" locals, %"PRIu32" captures (%"PRIu32" open).\n",
-        as_string(program, AS_OBJ(setFunc))->string, poppedLocals, poppedCaptures,
+        as_string(vulnObjs, AS_OBJ(setFunc))->string, poppedLocals, poppedCaptures,
         poppedOpenCaptures
     );
 }

@@ -7,6 +7,7 @@
 #include "constants.h"
 
 typedef struct Obj Obj;
+typedef struct VulnerableObjs VulnerableObjs;
 
 /** A bool of whether or not the length exceeds the allowed amount relative to capacity. */
 #define TABLE_OVER_MAX_LOAD(table) ((table)->count + 1 > (table)->capacity * 0.75)
@@ -48,9 +49,6 @@ u32 get_hash(const Obj *object);
 /** Creates an empty hash table. */
 Table create_table();
 
-/** Sets each entry in the "from" table on the "to" table, essentially copying all its entries. */
-void copy_entries(const Table *from, Table *to);
-
 /** Gets the passed key's entire respective entry in the hash table, empty or not. */
 Entry *table_key_entry(Table *table, Obj *key);
 
@@ -63,6 +61,7 @@ Obj *table_get(Table *table, Obj *key);
 
 /** 
  * Sets a key value pair in the passed hash table.
+ * 
  * If the key already exists, then it modified the value, otherwise creates a new key-value entry.
  */
 void table_set(Table *table, Obj *key, Obj *value);
@@ -74,8 +73,43 @@ void table_set(Table *table, Obj *key, Obj *value);
  */
 bool table_delete(Table *table, Obj *key);
 
+/** 
+ * Performs a get operation on a table using a C-string (converted to object in function).
+ * 
+ * Assumes the passed string is terminated.
+ */
+Obj *table_string_get(VulnerableObjs *vulnObjs, Table *table, const char *keyString);
+
+/** Performs a get operation on a table using a number directly. */
+Obj *table_int_get(VulnerableObjs *vulnObjs, Table *table, const ZmxInt keyNumber);
+
+/** 
+ * Sets a key value pair in a hash table of key string to value objects.
+ * 
+ * This is for convenience when inserting a key-value pair into a table where all keys are
+ * strings anyway. The passed string is assumed to be terminated.
+ */
+void table_string_set(VulnerableObjs *vulnObjs, Table *table, const char *keyString, Obj *value);
+
+/** Sets a key value pair on a table of key numbers. Convenience for passing the number directly. */
+void table_int_set(VulnerableObjs *vulnObjs, Table *table, const ZmxInt keyNumber, Obj *value);
+
+/**
+ * Deletes a string object off of the table using a passed C-string (assumed to be terminated).
+ * 
+ * Returns whether or not it succeeded.
+ */
+bool table_string_delete(VulnerableObjs *vulnObjs, Table *table, const char *keyString);
+
+/** 
+ * Deletes an integer object off of the table using a passed C integer.
+ * 
+ * Returns whether or not it succeeded
+ */
+bool table_int_delete(VulnerableObjs *vulnObjs, Table *table, const ZmxInt keyNumber);
+
 /** Returns the string key in a hash table if it exists, otherwise returns NULL. */
-Obj *table_get_string(Table *table, const char *string, const u32 length, const u32 hash);
+Obj *table_get_string_key(Table *table, const char *string, const u32 length, const u32 hash);
 
 /** Frees the memory allocated by the passed hash table. */
 void free_table(Table *table);

@@ -9,23 +9,61 @@
 /** The default size of how many bytes before the first garbage collection is performed. */
 #define FIRST_COLLECTION_SIZE 128 * 1024
 
-static void mark_obj_array(ObjArray objects);
-static void mark_table(Table table);
+static void mark_obj(Obj *object);
 
 /** Creates an empty garbage collector. */
-Gc create_gc() {
+Gc create_gc(ZmxProgram *program) {
     Gc gc = {
-        .compiler = NULL, .vm = NULL,
-        .allocated = 0, .nextCollection = FIRST_COLLECTION_SIZE,
-        .frozenLayers = 0, .frozen = CREATE_DA(), .protected = CREATE_DA()
+        .startupVulnObjs = create_vulnerables(program), .vm = NULL,
+        .allocated = 0, .nextCollection = FIRST_COLLECTION_SIZE, .lock = TYPE_ALLOC(Mutex)
     };
+    init_mutex(gc.lock);
     return gc;
 }
 
 /** Frees the memory the garbage collector has allocated. */
 void free_gc(Gc *gc) {
-    FREE_DA(&gc->frozen);
-    FREE_DA(&gc->protected);
+    destroy_mutex(gc->lock);
+    free(gc->lock);
+    free_vulnerables(&gc->startupVulnObjs);
+}
+
+/** Marks a full array of objects. */
+static void mark_obj_array(ObjArray objects) {
+    for (u32 i = 0; i < objects.length; i++) {
+        mark_obj(objects.data[i]);
+    }
+}
+
+/** Marks all objects inside the passed hash table. */
+static void mark_table(Table table) {
+    for (u32 i = 0; i < table.capacity; i++) {
+        mark_obj(table.entries[i].key);
+        mark_obj(table.entries[i].value);
+    }
+}
+
+/** Marks all vulnerable objects in a vulnerables struct.  */
+static void mark_vulnerables(VulnerableObjs *vulnObjs) {
+    mark_obj_array(vulnObjs->unrooted);
+    mark_obj_array(vulnObjs->protected);
+}
+
+/** Marks all objects inside the thread and its structures, including its vulnerables. */
+static void mark_thread(ThreadObj *thread) {
+    mark_vulnerables(&thread->vulnObjs);
+    mark_obj(AS_OBJ(thread->runnable));
+    mark_obj(AS_OBJ(thread->module));
+
+    for (u32 i = 0; i < thread->stack.length; i++) {
+        mark_obj(thread->stack.objects[i]);
+    }
+    for (u32 i = 0; i < thread->callStack.length; i++) {
+        mark_obj(AS_OBJ(thread->callStack.data[i].func));
+    }
+    for (u32 i = 0; i < thread->catches.length; i++) {
+        mark_obj(AS_OBJ(thread->catches.data[i].func));
+    }   
 }
 
 /** Marks all objects inside a function params struct. */
@@ -34,18 +72,65 @@ static void mark_func_params(FuncParams params) {
     mark_obj_array(params.values);
 }
 
+/** Marks a full function (including its runtime context if there's one.) */
+static void mark_func(FuncObj *func) {
+    mark_obj(AS_OBJ(func->name));
+    mark_obj(AS_OBJ(func->cls));
+    mark_obj_array(func->constPool);
+    mark_func_params(func->params);
+
+    if (FLAG_IS_SET(func->flags, FUNC_RUNTIME_BIT)) {
+        // Function is a runtime extension of the static one. Mark its runtime context.
+        RuntimeFuncObj *runtimeFunc = AS_PTR(RuntimeFuncObj, func);
+        mark_obj_array(runtimeFunc->paramVals);
+        mark_obj_array(runtimeFunc->captures);
+    }
+}
+
+/** Mark all object roots in the passed VM (including threads). */
+static void mark_vm(Vm *vm) {
+    mutex_lock(&vm->threadsLock);
+    mark_obj_array(vm->threadsUnsafe);
+    mutex_unlock(&vm->threadsLock);
+
+    mutex_lock(&vm->modulesLock);
+    mark_obj_array(vm->modulesUnsafe);
+    mutex_unlock(&vm->modulesLock);
+}
+
+/** Marks all the built-in objects in the program. */
+static void mark_built_ins(BuiltIns *builtIn) {
+    mark_table(builtIn->funcs);
+    
+    mark_obj(AS_OBJ(builtIn->fileClass));
+    mark_obj(AS_OBJ(builtIn->threadClass));
+}
+
+/** Marks all the objects stored in a program. */
+static void mark_program(ZmxProgram *program) {
+    mark_obj(AS_OBJ(program->currentFile));
+    mark_obj(AS_OBJ(program->internedNull));
+    mark_obj(AS_OBJ(program->internedTrue));
+    mark_obj(AS_OBJ(program->internedFalse));
+    mark_built_ins(&program->builtIn);
+}
+
 /** Marks the passed object and the objects it has inside it recursively. */
 static void mark_obj(Obj *object) {
-    if (object == NULL || object->isReachable) {
-        return; // Already marked or doesn't exist.
+    if (
+        object == NULL
+        || FLAG_IS_SET(object->flags, OBJ_REACHABLE_BIT)
+        || !FLAG_IS_SET(object->flags, OBJ_INITIALIZED_BIT)
+    ) {
+        return; // doesn't exist, is already marked reachable, or is not even intialized yet.
     }
+    FLAG_ENABLE(object->flags, OBJ_REACHABLE_BIT);
 
 #if DEBUG_LOG_GC
     printf("Mark %p | %s (", (void*)object, obj_type_str(object->type));
     print_obj(object, true);
     printf(")\n");
 #endif
-    object->isReachable = true;
     switch (object->type) {
     case OBJ_LIST:
         mark_obj_array(AS_PTR(ListObj, object)->items);
@@ -67,26 +152,22 @@ static void mark_obj(Obj *object) {
         break;
     case OBJ_MODULE:
         mark_obj(AS_OBJ(AS_PTR(ModuleObj, object)->path));
-        mark_table(AS_PTR(ModuleObj, object)->globals);
+        mark_obj(AS_OBJ(AS_PTR(ModuleObj, object)->importedBy));
+
+        mutex_lock(&(AS_PTR(ModuleObj, object)->globalsLock));
+        mark_table(AS_PTR(ModuleObj, object)->globalsUnsafe);
+        mutex_unlock(&(AS_PTR(ModuleObj, object)->globalsLock));
         break;
     case OBJ_FILE:
         mark_obj(AS_OBJ(AS_PTR(FileObj, object)->path));
         mark_table(AS_PTR(FileObj, object)->fields);
         break;
-    case OBJ_FUNC: {
-        FuncObj *func = AS_PTR(FuncObj, object);
-        mark_obj(AS_OBJ(func->name));
-        mark_obj(AS_OBJ(func->cls));
-        mark_obj_array(func->constPool);
-        mark_func_params(func->params);
-        if (func->hasOptionals || func->isClosure) {
-            // Mark the closure context of a function with a closure extension.
-            RuntimeFuncObj *runtimeFunc = AS_PTR(RuntimeFuncObj, object);
-            mark_obj_array(runtimeFunc->paramVals);
-            mark_obj_array(runtimeFunc->captures);
-        }
+    case OBJ_THREAD:
+        mark_thread(AS_PTR(ThreadObj, object));
         break;
-    }
+    case OBJ_FUNC:
+        mark_func(AS_PTR(FuncObj, object));
+        break;
     case OBJ_CAPTURED:
         mark_obj(AS_PTR(CapturedObj, object)->captured);
         break;
@@ -125,73 +206,15 @@ static void mark_obj(Obj *object) {
     }
 }
 
-/** Marks a full array of objects. */
-static void mark_obj_array(ObjArray objects) {
-    for (u32 i = 0; i < objects.length; i++) {
-        mark_obj(objects.data[i]);
-    }
-}
-
-/** Marks all objects inside the passed hash table. */
-static void mark_table(Table table) {
-    for (u32 i = 0; i < table.capacity; i++) {
-        mark_obj(table.entries[i].key);
-        mark_obj(table.entries[i].value);
-    }
-}
-
-/** Mark all object roots in the passed compiler. */
-static void mark_compiler(Compiler *compiler) {
-    mark_obj(AS_OBJ(compiler->func));
-}
-
-/** Mark all object roots in the passed VM. */
-static void mark_vm(Vm *vm) {
-    for (u32 i = 0; i < STACK_LENGTH(vm); i++) {
-        mark_obj(vm->stack.objects[i]);
-    }
-    for (u32 i = 0; i < vm->callStack.length; i++) {
-        mark_obj(AS_OBJ(vm->callStack.data[i].func));
-    }
-
-    for (u32 i = 0; i < vm->catches.length; i++) {
-        mark_obj(AS_OBJ(vm->catches.data[i].func));
-    }
-    for (u32 i = 0; i < vm->modules.length; i++) {
-        mark_obj_array(vm->modules.data[i].openCaptures);
-        mark_table(vm->modules.data[i].globals);
-    }
-}
-
-/** Marks all the built-in objects in the program. */
-static void mark_built_ins(BuiltIns *builtIn) {
-    mark_table(builtIn->funcs);
-    
-    mark_obj(AS_OBJ(builtIn->fileClass));
-}
-
-/** Marks all the objects stored in a program. */
-static void mark_program(ZmxProgram *program) {
-    mark_obj(AS_OBJ(program->currentFile));
-    mark_obj(AS_OBJ(program->internedNull));
-    mark_obj(AS_OBJ(program->internedTrue));
-    mark_obj(AS_OBJ(program->internedFalse));
-    mark_built_ins(&program->builtIn);
-}
-
 /** Marks all reachable objects in the program. */
 static void gc_mark(ZmxProgram *program) {
     Gc *gc = &program->gc;
-    mark_obj_array(gc->frozen);
-    mark_obj_array(gc->protected);
-    
-    if (gc->compiler) {
-        mark_compiler(gc->compiler);
-    }
+
+    mark_vulnerables(&gc->startupVulnObjs);
+    mark_program(program);
     if (gc->vm) {
         mark_vm(program->gc.vm);
     }
-    mark_program(program);
 }
 
 /**
@@ -206,26 +229,20 @@ static void gc_mark(ZmxProgram *program) {
  * before their memory is freed.
  * 
  * Also, we can't delete keys as we go from the table, because their deletion might shift the next
- * element (which may also need to be deleted) back 1 spot, making us never iterating over that key.
- * For example, if key 2 and 3 are both to be deleted, and key 3 has a psl > 0,
+ * element (which may also need to be deleted) back 1 spot, making us never iterate over that key.
+ * For example, if key 2 and 3 are both to be deleted, and key 3 has a PSL > 0,
  * then directly deleting key 2 will shift key 3 to its spot, while the loop changes the i to 3,
  * meaning that the loop skips over key 3 entirely.
  */
-static void table_delete_weak_references(Table *table, ZmxProgram *program) {
+static void table_delete_weak_references(Table *table) {
     ObjArray deletedKeys = CREATE_DA();
     for (u32 i = 0; i < table->capacity; i++) {
         Entry *entry = &table->entries[i];
-        if (EMPTY_ENTRY(entry)) {
-            continue;
-        }
-
-        if (!entry->key->isReachable) {
-            APPEND_DA(&deletedKeys, entry->key);
-        } else if (!entry->value->isReachable) {
-            // Set the value to null if the key isn't getting swept but the value is.
-            entry->value = AS_OBJ(new_null_obj(program));
+        if (!EMPTY_ENTRY(entry) && !FLAG_IS_SET(entry->key->flags, OBJ_REACHABLE_BIT)) {
+            PUSH_DA(&deletedKeys, entry->key);
         }
     }
+
     for (u32 i = 0; i < deletedKeys.length; i++) {
         table_delete(table, deletedKeys.data[i]);
     }
@@ -244,8 +261,8 @@ static void gc_sweep(ZmxProgram *program) {
     Obj *previous = NULL;
     Obj *current = program->allObjs;
     while (current != NULL) {
-        if (current->isReachable) {
-            current->isReachable = false;
+        if (FLAG_IS_SET(current->flags, OBJ_REACHABLE_BIT)) {
+            FLAG_DISABLE(current->flags, OBJ_REACHABLE_BIT);// Prepare for next GC.
             previous = current;
             current = current->next;
         } else if (previous == NULL) {
@@ -266,9 +283,12 @@ void gc_collect(ZmxProgram *program) {
     printf("========================== GC start. ==========================\n");
 #endif
 
+    mutex_lock(program->gc.lock);
     gc_mark(program);
-    table_delete_weak_references(&program->internedStrings, program);
+
+    table_delete_weak_references(&program->internedStrings);
     gc_sweep(program);
+    mutex_unlock(program->gc.lock);
 
 #if DEBUG_LOG_GC
     printf("========================== GC end. ==========================\n");

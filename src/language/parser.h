@@ -14,8 +14,10 @@
  * We go back to normally parsing afterwards.
  */
 typedef struct {
-    bool isPanicking; /** Denotes whether or not the parser's panicking. */
     ZmxProgram *program; /** Information about the Zymux program. */
+    bool hasErrored; /** Whether or not the resolver errored. */
+    bool isPanicking; /** Denotes whether or not the parser's panicking. */
+
     TokenArray tokens; /** Lexed tokens we're parsing. */
     Token *current; /** The token we're currently parsing on. */
     Token *syncSpot; /** Pointer to the token we should start syncing from in case of an error. */
@@ -30,5 +32,13 @@ void free_parser(Parser *parser);
 
 /** Parses the array of tokens in the passed parser. */
 bool parse(Parser *parser);
+
+/** 
+ * Lexes the source into the lexer and if it didn't error then it parses it onto the parser.
+ * 
+ * If it fails the program errors. Otherwise, on success it just returns true.
+ * In either case it doesn't free neither the lexer nor parser.
+ */
+bool parse_source(ZmxProgram *program, Lexer *lexer, Parser *parser);
 
 #endif

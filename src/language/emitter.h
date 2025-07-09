@@ -3,10 +3,10 @@
 
 #include "constants.h"
 #include "dynamic_array.h"
-#include "object.h"
 #include "report_error.h"
 
 typedef struct Compiler Compiler;
+typedef struct Obj Obj;
 
 /** 
  * Represents how many bytes the next number to be read is.
@@ -19,7 +19,7 @@ typedef enum {
     INSTR_FOUR_BYTES = 4
 } InstrSize;
 
-/** Represents each data type in Zymux. */
+/** Represents each data type at runtime. */
 typedef enum {
     TYPE_INT,
     TYPE_FLOAT,
@@ -83,8 +83,9 @@ typedef enum {
     OP_CALL,
     OP_ASSIGN_SUBSCR,
     OP_GET_SUBSCR,
+    OP_FUNC,
     OP_OPTIONALS_FUNC,
-    OP_CLOSURE,
+    OP_MAKE_CLOSURE,
     OP_CLASS,
     OP_ADD_INIT,
     OP_METHODS,
@@ -134,7 +135,7 @@ void emit_instr(Compiler *compiler, u8 instr, const SourcePosition pos);
 void emit_number(Compiler *compiler, u8 instr, const u32 number, const SourcePosition pos);
 
 /** Reads a number that's a max size of a U32 which begins from numStart as an index in bytecode. */
-u32 read_number(const ByteArray *bytecode, const u32 numStart, InstrSize *size);
+u32 bytecode_number(const ByteArray *bytecode, const u32 numStart, InstrSize *size);
 
 /** Emits an instruction followed by an idx after to be used for an object in the const pool. */
 void emit_const(Compiler *compiler, u8 instr, Obj *constant, const SourcePosition pos);

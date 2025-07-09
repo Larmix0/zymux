@@ -28,6 +28,7 @@ bool is_hashable(const Obj *object) {
     case OBJ_ITERATOR:
     case OBJ_MODULE:
     case OBJ_FILE:
+    case OBJ_THREAD:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
@@ -91,6 +92,7 @@ u32 get_hash(const Obj *object) {
     case OBJ_ITERATOR:
     case OBJ_MODULE:
     case OBJ_FILE:
+    case OBJ_THREAD:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
@@ -110,7 +112,7 @@ Table create_table() {
 }
 
 /** Sets each entry in the "from" table on the "to" table, essentially copying all its entries. */
-void copy_entries(const Table *from, Table *to) {
+static void copy_entries(const Table *from, Table *to) {
     for (u32 i = 0; i < from->capacity; i++) {
         Entry *entry = &from->entries[i];
         if (entry->key) {
@@ -262,8 +264,69 @@ bool table_delete(Table *table, Obj *key) {
     return true;
 }
 
+/** 
+ * Performs a get operation on a table using a C-string (converted to object in function).
+ * 
+ * Assumes the passed string is terminated.
+ */
+Obj *table_string_get(VulnerableObjs *vulnObjs, Table *table, const char *keyString) {
+    Obj *key = AS_OBJ(new_string_obj(vulnObjs, keyString, strlen(keyString)));
+    Obj *value = table_get(table, key);
+    DROP_UNROOTED(vulnObjs);
+    return value;
+}
+
+/** Performs a get operation on a table using a number directly. */
+Obj *table_int_get(VulnerableObjs *vulnObjs, Table *table, const ZmxInt keyNumber) {
+    Obj *key = AS_OBJ(new_int_obj(vulnObjs, keyNumber));
+    Obj *value = table_get(table, key);
+    DROP_UNROOTED(vulnObjs);
+    return value;
+}
+
+/** 
+ * Sets a key value pair in a hash table of key string to value objects.
+ * 
+ * This is for convenience when inserting a key-value pair into a table where all keys are
+ * strings anyway. The passed string is assumed to be terminated.
+ */
+void table_string_set(VulnerableObjs *vulnObjs, Table *table, const char *keyString, Obj *value) {
+    Obj *key = AS_OBJ(new_string_obj(vulnObjs, keyString, strlen(keyString)));
+    table_set(table, key, value);
+}
+
+/** Sets a key value pair on a table of key numbers. Convenience for passing the number directly. */
+void table_int_set(VulnerableObjs *vulnObjs, Table *table, const ZmxInt keyNumber, Obj *value) {
+    Obj *key = AS_OBJ(new_int_obj(vulnObjs, keyNumber));
+    table_set(table, key, value);
+}
+
+/**
+ * Deletes a string object off of the table using a passed C-string (assumed to be terminated).
+ * 
+ * Returns whether or not it succeeded.
+ */
+bool table_string_delete(VulnerableObjs *vulnObjs, Table *table, const char *keyString) {
+    Obj *key = AS_OBJ(new_string_obj(vulnObjs, keyString, strlen(keyString)));
+    const bool success = table_delete(table, key);
+    DROP_UNROOTED(vulnObjs);
+    return success;
+}
+
+/** 
+ * Deletes an integer object off of the table using a passed C integer.
+ * 
+ * Returns whether or not it succeeded
+ */
+bool table_int_delete(VulnerableObjs *vulnObjs, Table *table, const ZmxInt keyNumber) {
+    Obj *key = AS_OBJ(new_int_obj(vulnObjs, keyNumber));
+    const bool success = table_delete(table, key);
+    DROP_UNROOTED(vulnObjs);
+    return success;
+}
+
 /** Returns the string key in a hash table if it exists, otherwise returns NULL. */
-Obj *table_get_string(Table *table, const char *string, const u32 length, const u32 hash) {
+Obj *table_get_string_key(Table *table, const char *string, const u32 length, const u32 hash) {
     if (table->entries == NULL) {
         // Empty table, just expand it and return that the key doesn't exist.
         expand_table(table);

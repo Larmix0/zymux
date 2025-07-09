@@ -20,7 +20,7 @@
             if (!(condition)) { \
                 internal_error(SOURCE_INFO, "Assert error", __VA_ARGS__); \
             } \
-        } while (false)
+        } while (0)
 #else
     /** 
      * Asserts a passed condition and spits an assert error if it's falsy with a message.
@@ -80,6 +80,9 @@
 /** Reports a file-related error. */
 #define FILE_ERROR(...) (file_error(__VA_ARGS__))
 
+/** Reports an error that occurred due to an internal threading problem. */
+#define THREAD_ERROR(...) (internal_error(SOURCE_INFO, "Thread error", __VA_ARGS__))
+
 /** Forward declaration to avoid circular include. */
 typedef struct ZmxProgram ZmxProgram;
 
@@ -113,7 +116,7 @@ void internal_error(const SourceInfo info, const char *errorName, const char *fo
 void file_error(const char *format, ...);
 
 /** 
- * Displays an error that happened due to a mistake from the person using Zymux in a *.zmx file.
+ * Displays an error that happened due to a mistake from the person using the language.
  * 
  * Takes in the args directly as this is supposed to be a base error function,
  * which could be wrapped around for extra functionality regarding errors during other stages
@@ -122,8 +125,8 @@ void file_error(const char *format, ...);
  * Passing NULL for the args parameter would simply print the passed bare string without formatting.
  */
 void zmx_user_error(
-    ZmxProgram *program, const char *fileName, const SourcePosition pos, const char *errorName,
-    const char *format, va_list *args
+    ZmxProgram *program, const char *fileName, const SourcePosition pos,
+    const char *errorName, const char *format, va_list *args
 );
 
 #endif

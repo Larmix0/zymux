@@ -19,28 +19,34 @@ typedef struct Compiler {
     U32Array breaks; /** Bytecode indices where unpatched breaks are. */
 
     /** The "function" whose bytecode is being emitted. Toplevel is also implicitly a function. */
-    FuncObj *func; 
+    FuncObj *func;
+
+    /** The vulnerable objects of the compiler (this is expected to be shared with a root). */
+    VulnerableObjs *vulnObjs;
 } Compiler;
 
-/** Returns a compiler initialized with the passed program and parsed AST. */
-Compiler create_compiler(ZmxProgram *program, const NodeArray ast, const bool isMain);
-
 /** 
- * Compiles bytecode from the AST inside compiler into its func.
+ * Returns a compiler with the passed AST.
  * 
- * Returns whether or not we've errored.
+ * The function inside the returned compiler automatically gets protected in the special protection
+ * pool of the "vulnerables" passed.
+ * It has to be manually unprotected later when the functionn is put
+ * inside a safe runtime root, or is no longer needed.
  */
-bool compile(Compiler *compiler);
+Compiler create_compiler(VulnerableObjs *vulnObjs, const NodeArray ast, const bool isMain);
 
-/** Returns a compiled function or NULL if it errored. */
-FuncObj *compile_file_source(ZmxProgram *program, char *source, const bool isMain);
+/** Compiles bytecode from the AST inside compiler into its func. */
+void compile(Compiler *compiler);
+
+/** Returns a compiled function protected inside the passed vulnerables, or NULL if it errored. */
+FuncObj *compile_file_source(VulnerableObjs *vulnObjs, char *source, const bool isMain);
 
 /** 
- * Returns a compiled function (NULL if failed) for a REPL source line.
+ * Returns a compiled function protected inside vulnerables (NULL if failed) for a REPL line.
  *
  * This is made for REPL as it takes the one resolver and doesn't free it in case of an error.
  */
-FuncObj *compile_repl_source(ZmxProgram *program, char *source, Resolver *resolver);
+FuncObj *compile_repl_source(VulnerableObjs *vulnObjs, char *source, Resolver *resolver);
 
 /** Frees all memory the compiler owns. */
 void free_compiler(Compiler *compiler);

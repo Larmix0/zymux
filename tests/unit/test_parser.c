@@ -38,17 +38,17 @@ static void buffer_append_ast_strings(CharBuffer *buffer, const int amount, ...)
 /** Lexes and parses the passed source, then returns the AST debugger's string representation. */
 static CharBuffer source_to_ast_string(char *source) {
     CliHandler cli = create_cli_handler(0, NULL);
-    ZmxProgram program = create_zmx_program("test", &cli, false);
-    Lexer lexer = create_lexer(&program, source);
+    ZmxProgram *program = new_zmx_program("test", &cli, false);
+    Lexer lexer = create_lexer(program, source);
     ASSERT_TRUE(lex(&lexer));
 
-    Parser parser = create_parser(&program, lexer.tokens);
+    Parser parser = create_parser(program, lexer.tokens);
     ASSERT_TRUE(parse(&parser));
 
     CharBuffer astString = get_ast_string(&parser.ast);
     free_lexer(&lexer);
     free_parser(&parser);
-    free_zmx_program(&program);
+    free_zmx_program(program);
     return astString;
 }
 
@@ -56,10 +56,10 @@ static CharBuffer source_to_ast_string(char *source) {
 PRIVATE_TEST_CASE(test_parser_macros) {
     char *source = "1 + 3 ** 22 --2;";
     CliHandler cli = create_cli_handler(0, NULL);
-    ZmxProgram program = create_zmx_program("test", &cli, false);
-    Lexer lexer = create_lexer(&program, source);
+    ZmxProgram *program = new_zmx_program("test", &cli, false);
+    Lexer lexer = create_lexer(program, source);
     ASSERT_TRUE(lex(&lexer));
-    Parser parser = create_parser(&program, lexer.tokens);
+    Parser parser = create_parser(program, lexer.tokens);
 
     const Token one = create_int_token("1", 10, -1);
     const Token plus = create_token("+", TOKEN_PLUS);
@@ -89,7 +89,7 @@ PRIVATE_TEST_CASE(test_parser_macros) {
 
     free_lexer(&lexer);
     free_parser(&parser);
-    free_zmx_program(&program);
+    free_zmx_program(program);
 }
 
 /** Tests that the parser handles expressions correctly. */

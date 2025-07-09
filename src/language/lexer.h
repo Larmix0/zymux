@@ -10,6 +10,9 @@
 
 /** A lexer for a given piece of source code to produce its array of tokens for parsing later. */
 typedef struct {
+    ZmxProgram *program;
+    bool hasErrored; /** Whether or not the lexer errored. */
+
     char *tokenStart;
     int tokenColumn;
 
@@ -20,7 +23,6 @@ typedef struct {
     char *source;
     size_t sourceLength;
     
-    ZmxProgram *program;
     TokenArray tokens;
 } Lexer;
 

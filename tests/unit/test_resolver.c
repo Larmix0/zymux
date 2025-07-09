@@ -5,12 +5,12 @@
 /** Test that the function for counting how many local captures a closure has counts correctly. */
 PRIVATE_TEST_CASE(test_get_local_captures) {
     ClosedVariables closure = {.localCaptures = CREATE_DA()};
-    APPEND_DA(&closure.localCaptures, 1);
-    APPEND_DA(&closure.localCaptures, 22);
+    PUSH_DA(&closure.localCaptures, 1);
+    PUSH_DA(&closure.localCaptures, 22);
     ASSERT_INT_EQUAL(get_local_captures(&closure), 23);
 
-    APPEND_DA(&closure.localCaptures, 0);
-    APPEND_DA(&closure.localCaptures, 3);
+    PUSH_DA(&closure.localCaptures, 0);
+    PUSH_DA(&closure.localCaptures, 3);
     ASSERT_INT_EQUAL(get_local_captures(&closure), 26);
 
     FREE_DA(&closure.localCaptures);
@@ -26,7 +26,7 @@ PRIVATE_TEST_CASE(test_find_variable_array_var) {
     );
 
     ASSERT_NULL(find_variable_array_var(&variables, lookupVar.name));
-    APPEND_DA(
+    PUSH_DA(
         &variables,
         create_variable(
             false, false, false,
@@ -36,11 +36,11 @@ PRIVATE_TEST_CASE(test_find_variable_array_var) {
     );
     ASSERT_NULL(find_variable_array_var(&variables, lookupVar.name));
 
-    APPEND_DA(&variables, lookupVar);
+    PUSH_DA(&variables, lookupVar);
     ASSERT_TRUE(
         equal_token(find_variable_array_var(&variables, lookupVar.name)->name, lookupVar.name)
     );
-    APPEND_DA(
+    PUSH_DA(
         &variables,
         create_variable(
             false, true, false,
@@ -61,28 +61,28 @@ PRIVATE_TEST_CASE(test_find_variable_array_var) {
 /** Tests that popping the top scope of a variable array pops only the variables at top scope. */
 PRIVATE_TEST_CASE(test_pop_top_scope) {
     VariableArray variables = CREATE_DA();
-    APPEND_DA(
+    PUSH_DA(
         &variables,
         create_variable(
             true, true, true,
             create_token("a", TOKEN_IDENTIFIER), 1, 0, 0, create_var_resolution(0, VAR_LOCAL), NULL
         )
     );
-    APPEND_DA(
+    PUSH_DA(
         &variables,
         create_variable(
             false, true, false,
             create_token("b", TOKEN_IDENTIFIER), 2, 0, 0, create_var_resolution(0, VAR_LOCAL), NULL
         )
     );
-    APPEND_DA(
+    PUSH_DA(
         &variables,
         create_variable(
             false, false, true,
             create_token("c", TOKEN_IDENTIFIER), 2, 0, 0, create_var_resolution(0, VAR_LOCAL), NULL
         )
     );
-    APPEND_DA(
+    PUSH_DA(
         &variables,
         create_variable(
             false, false, false,

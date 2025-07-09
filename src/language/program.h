@@ -22,6 +22,7 @@ DECLARE_DA_STRUCT(StringArray, char *);
 typedef struct ZmxProgram {
     bool hasErrored; /** Whether the program has had any kind of errors. */
     bool showErrors; /** Whether or not error messages should be displayed and printed. */
+    bool isRuntime; /** Whether or not runtime execution has started. */
     CliHandler *cli; /** The command line's information (such as arguments and exit codes). */
 
     StringArray allTokenStrings; /** All strings allocated for tokens in an array. */
@@ -38,8 +39,8 @@ typedef struct ZmxProgram {
     Gc gc; /** The garbage collector for the program's objects. */
 } ZmxProgram;
 
-/** Returns an initialized zymux program with the parameters. */
-ZmxProgram create_zmx_program(char *file, CliHandler *cli, const bool showErrors);
+/** Returns an initialized, allocated zymux program with the parameters. */
+ZmxProgram *new_zmx_program(char *file, CliHandler *cli, const bool showErrors);
 
 /** Frees generally everything held by program. */
 void free_zmx_program(ZmxProgram *program);

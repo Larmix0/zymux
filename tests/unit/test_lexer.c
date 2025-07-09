@@ -19,9 +19,8 @@ static Lexer *defaultLexer; /** The default lexer to hold and lex the default so
 
 /** A setup to initialize the default lexer. */
 PRIVATE_DECLARE_SETUP(setup_default_lexer) {
-    ZmxProgram *program = TYPE_ALLOC(ZmxProgram);
     CliHandler cli = create_cli_handler(0, NULL);
-    *program = create_zmx_program("default", &cli, false);
+    ZmxProgram *program = new_zmx_program("default", &cli, false);
 
     defaultLexer = TYPE_ALLOC(Lexer);
     *defaultLexer = create_lexer(program, defaultSource);
@@ -30,8 +29,7 @@ PRIVATE_DECLARE_SETUP(setup_default_lexer) {
 /** A teardown for the default lexer and the other things it uses. */
 PRIVATE_DECLARE_TEARDOWN(teardown_default_lexer) {
     free_zmx_program(defaultLexer->program);
-    free(defaultLexer->program);
-
+    
     free_lexer(defaultLexer);
     free(defaultLexer);
 }
@@ -86,9 +84,9 @@ static void append_test_tokens(TokenArray *tokens, const int amount, ...) {
     va_list args;
     va_start(args, amount);
     for (int i = 0; i < amount; i++) {
-        APPEND_DA(tokens, va_arg(args, Token));
+        PUSH_DA(tokens, va_arg(args, Token));
     }
-    APPEND_DA(tokens, create_token("", TOKEN_EOF));
+    PUSH_DA(tokens, create_token("", TOKEN_EOF));
     va_end(args);
 }
 
@@ -176,14 +174,14 @@ PRIVATE_TEST_CASE(test_lex_successful_programs) {
 
     for (size_t arrayIdx = 0; arrayIdx < sourcesAmount; arrayIdx++) {
     CliHandler cli = create_cli_handler(0, NULL);
-        ZmxProgram program = create_zmx_program("testLex", &cli, false);
-        Lexer lexer = create_lexer(&program, sources[arrayIdx]);
+        ZmxProgram *program = new_zmx_program("testLex", &cli, false);
+        Lexer lexer = create_lexer(program, sources[arrayIdx]);
         lex(&lexer);
         ASSERT_FALSE(lexer.program->hasErrored);
 
         compare_lexed(&lexer, &tokens2DArray[arrayIdx], false);
         free_lexer(&lexer);
-        free_zmx_program(&program);
+        free_zmx_program(program);
     }
     for (size_t i = 0; i < sourcesAmount; i++) {
         FREE_DA(&tokens2DArray[i]);
@@ -206,13 +204,13 @@ PRIVATE_TEST_CASE(test_lex_errors) {
     const size_t sourcesAmount = sizeof(sources) / sizeof(char *);
     for (size_t i = 0; i < sourcesAmount; i++) {
     CliHandler cli = create_cli_handler(0, NULL);
-        ZmxProgram program = create_zmx_program("testError", &cli, false);
-        Lexer lexer = create_lexer(&program, sources[i]);
+        ZmxProgram *program = new_zmx_program("testError", &cli, false);
+        Lexer lexer = create_lexer(program, sources[i]);
         lex(&lexer);
         ASSERT_TRUE(lexer.program->hasErrored);
         
         free_lexer(&lexer);
-        free_zmx_program(&program);
+        free_zmx_program(program);
     }
 }
 
@@ -269,13 +267,13 @@ PRIVATE_TEST_CASE(test_lex_all_tokens) {
         create_token("variable", TOKEN_IDENTIFIER), create_token("..", TOKEN_DOT_DOT)
     );
     CliHandler cli = create_cli_handler(0, NULL);
-    ZmxProgram program = create_zmx_program("testAll", &cli, false);
-    Lexer lexer = create_lexer(&program, source);
+    ZmxProgram *program = new_zmx_program("testAll", &cli, false);
+    Lexer lexer = create_lexer(program, source);
     lex(&lexer);
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
-    free_zmx_program(&program);
+    free_zmx_program(program);
     FREE_DA(&allTokens);
 }
 
@@ -297,13 +295,13 @@ PRIVATE_TEST_CASE(test_lex_spots) {
     // Set EOF position manually.
     allTokens.data[allTokens.length - 1].pos = create_src_pos(7, 1, 0);
     CliHandler cli = create_cli_handler(0, NULL);
-    ZmxProgram program = create_zmx_program("testLine", &cli, false);
-    Lexer lexer = create_lexer(&program, source);
+    ZmxProgram *program = new_zmx_program("testLine", &cli, false);
+    Lexer lexer = create_lexer(program, source);
     lex(&lexer);
 
     compare_lexed(&lexer, &allTokens, true);
     free_lexer(&lexer);
-    free_zmx_program(&program);
+    free_zmx_program(program);
     FREE_DA(&allTokens);
 }
 
@@ -331,18 +329,18 @@ PRIVATE_TEST_CASE(test_lex_number) {
         float_test_token("23.3"), float_test_token("3.0")
     );
     CliHandler cli = create_cli_handler(0, NULL);
-    ZmxProgram program = create_zmx_program("testNumber", &cli, false);
-    Lexer lexer = create_lexer(&program, source);
+    ZmxProgram *program = new_zmx_program("testNumber", &cli, false);
+    Lexer lexer = create_lexer(program, source);
     while (!IS_EOF(&lexer)) {
         START_TOKEN(&lexer);
         lex_number(&lexer);
         ignore_whitespace(&lexer);
     }
-    APPEND_DA(&lexer.tokens, create_token("", TOKEN_EOF));
+    PUSH_DA(&lexer.tokens, create_token("", TOKEN_EOF));
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
-    free_zmx_program(&program);
+    free_zmx_program(program);
     FREE_DA(&allTokens);
 }
 
@@ -359,18 +357,18 @@ PRIVATE_TEST_CASE(test_lex_name) {
         create_token("string", TOKEN_STRING_KW), create_token("_NAME_HERE", TOKEN_IDENTIFIER)
     );
     CliHandler cli = create_cli_handler(0, NULL);
-    ZmxProgram program = create_zmx_program("testName", &cli, false);
-    Lexer lexer = create_lexer(&program, source);
+    ZmxProgram *program = new_zmx_program("testName", &cli, false);
+    Lexer lexer = create_lexer(program, source);
     while (!IS_EOF(&lexer)) {
         START_TOKEN(&lexer);
         lex_name(&lexer);
         ignore_whitespace(&lexer);
     }
-    APPEND_DA(&lexer.tokens, create_token("", TOKEN_EOF));
+    PUSH_DA(&lexer.tokens, create_token("", TOKEN_EOF));
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
-    free_zmx_program(&program);
+    free_zmx_program(program);
     FREE_DA(&allTokens);
 }
 
@@ -435,18 +433,18 @@ PRIVATE_TEST_CASE(test_lex_string) {
         string_test_token("brace."), create_token("", TOKEN_STRING_END)
     );
     CliHandler cli = create_cli_handler(0, NULL);
-    ZmxProgram program = create_zmx_program("testString", &cli, false);
-    Lexer lexer = create_lexer(&program, source);
+    ZmxProgram *program = new_zmx_program("testString", &cli, false);
+    Lexer lexer = create_lexer(program, source);
     while (!IS_EOF(&lexer)) {
         START_TOKEN(&lexer);
         lex_string(&lexer);
         ignore_whitespace(&lexer);
     }
-    APPEND_DA(&lexer.tokens, create_token("", TOKEN_EOF));
+    PUSH_DA(&lexer.tokens, create_token("", TOKEN_EOF));
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
-    free_zmx_program(&program);
+    free_zmx_program(program);
 
     FREE_DA(&allTokens);
 }
@@ -471,8 +469,8 @@ PRIVATE_TEST_CASE(test_lex_chars_tokens) {
         create_token(".", TOKEN_DOT), create_token(";", TOKEN_SEMICOLON)
     );
     CliHandler cli = create_cli_handler(0, NULL);
-    ZmxProgram program = create_zmx_program("testString", &cli, false);
-    Lexer lexer = create_lexer(&program, source);
+    ZmxProgram *program = new_zmx_program("testString", &cli, false);
+    Lexer lexer = create_lexer(program, source);
     for (int i = 0; i < 4; i++) {
         START_TOKEN(&lexer);
         ADVANCE(&lexer);
@@ -494,11 +492,11 @@ PRIVATE_TEST_CASE(test_lex_chars_tokens) {
     START_TOKEN(&lexer);
     ADVANCE(&lexer);
     append_lexed(&lexer, TOKEN_SEMICOLON);
-    APPEND_DA(&lexer.tokens, create_token("", TOKEN_EOF));
+    PUSH_DA(&lexer.tokens, create_token("", TOKEN_EOF));
 
     compare_lexed(&lexer, &allTokens, false);
     free_lexer(&lexer);
-    free_zmx_program(&program);
+    free_zmx_program(program);
     FREE_DA(&allTokens);
 }
 

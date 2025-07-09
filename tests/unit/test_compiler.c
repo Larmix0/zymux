@@ -9,10 +9,10 @@
 /** Tests that math expressions compile properly.*/
 PRIVATE_TEST_CASE(test_compile_expr) {
     CliHandler cli = create_cli_handler(0, NULL);
-    ZmxProgram program = create_zmx_program("no_file", &cli, false);
+    ZmxProgram *program = new_zmx_program("no_file", &cli, false);
     char *source = "3 + 4 * --9 * 2 / 7 ** 6 / -2;"
         "$\"start {1 + 2} middle {'inner' + ' string'}\" + ' end.';";
-    FuncObj *func = compile_file_source(&program, source, true);
+    FuncObj *func = compile_file_source(&program->gc.startupVulnObjs, source, true);
     ASSERT_NOT_NULL(func);
 
     const u8 expected[] = {
@@ -24,7 +24,7 @@ PRIVATE_TEST_CASE(test_compile_expr) {
         OP_FINISH_STRING, 4, OP_LOAD_CONST, 13, OP_ADD, OP_POP_LOCAL, OP_EOF
     };
     ASSERT_BYTES_EQUAL(func->bytecode.data, expected, func->bytecode.length);
-    free_zmx_program(&program);
+    free_zmx_program(program);
 }
 
 /** Tests compiler.c. */

@@ -34,3 +34,14 @@ only when fields and methods are added to built-in objects.
 Improve the positioning of some bytecode for error handling.
 
 ----------------------------------------------------------------------------------------------------
+Is not recursing in object_cstring actually helpful, or do we just need to just print all freed
+objects at the end of the program before manually freeing them without printing to avoid memory
+issues. Not to mention it's useful for printing more object info in threads and such.
+
+Singularize debug_tokens.c/.h to debug_token.c/.h.
+Rename append macros to pushes.
+
+Ensure efficient use of the new table integer and string functions.
+
+Does the circular import check actually work? Especially for threads which use the parent thread's
+module.

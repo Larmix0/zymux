@@ -90,6 +90,7 @@ DECLARE_DA_STRUCT(ClosedVariablesArray, ClosedVariables);
  */
 typedef struct Resolver {
     ZmxProgram *program; /** Zymux program to hold the program's information. */
+    bool hasErrored; /** Whether or not the resolver errored. */
     NodeArray ast; /** The whole AST that is being resolved. */
 
     ClosedVariables globals; /** An array of only globally declared variables. */
@@ -100,10 +101,13 @@ typedef struct Resolver {
     u32 scopeDepth; /** How deep the current scope is. */
     FuncType currentFunc; /** Function context for things like "return". */
     ClsType currentCls; /** Class context for things like "this" and "super". */
+
+    /** This is a shared vulnerables struct between the resolver and a safe root who created it. */
+    VulnerableObjs *vulnObjs;
 } Resolver;
 
 /** Returns a starting resolve for the passed AST. */
-Resolver create_resolver(ZmxProgram *program, NodeArray ast);
+Resolver create_resolver(VulnerableObjs *vulnObjs, NodeArray ast);
 
 /** Frees all the owned and allocated memory of the resolver. */
 void free_resolver(Resolver *resolver);

@@ -7,11 +7,45 @@
 #include "built_in.h"
 #include "constants.h"
 #include "dynamic_array.h"
+#include "emitter.h"
 #include "file.h"
 #include "hash_table.h"
+#include "thread.h"
 
 /** Converts anything that "inherits" from object to its type punning base form. */
 #define AS_OBJ(object) ((Obj *)object)
+
+/** Appends an element onto the vulnerable's unrooted objects array. */
+#define PUSH_UNROOTED(vulnObjs, obj) PUSH_DA(&(vulnObjs)->unrooted, AS_OBJ(obj))
+
+/** Pops an element off of a vulnerable's unrooted objects array. */
+#define DROP_UNROOTED(vulnObjs) DROP_DA(&(vulnObjs)->unrooted)
+
+/** 
+ * Same as the normal drop function, but the name self-documents that it's an optimization.
+ * 
+ * This is optionally to be used in places where dropping an unrooted object is not actually
+ * mandatory, but is an optimization, like when creating lots of temporary objects at runtime,
+ * but not wanting to wait till the next instruction before the thread's unrooted array
+ * is emptied.
+ * 
+ * In other words, this is a self-documenting name for object pops in unrooted arrays
+ * that indicates it's only a memory optimization call, not that
+ * it would've otherwise never been popped.
+ */
+#define OPT_DROP_UNROOTED(vulnObjs) DROP_UNROOTED(vulnObjs)
+
+/** Drops all the vulnerable's unrooted. Used when we know vulnerables should be empty. */
+#define DROP_ALL_UNROOTED(vulnObjs) ((vulnObjs)->unrooted.length = 0)
+
+/** Puts the passed vulnerable object in the protection pool. */
+#define PUSH_PROTECTED(vulnObjs, obj) PUSH_DA(&(vulnObjs)->protected, AS_OBJ(obj))
+
+/** Drops the topmost object in the protection pool. */
+#define DROP_PROTECTED(vulnObjs) DROP_DA(&(vulnObjs)->protected)
+
+/** Drops multiple objects in the protection pool. */
+#define DROP_AMOUNT_PROTECTED(vulnObjs, amount) DROP_AMOUNT_DA(&(vulnObjs)->protected, amount)
 
 /** Resolves to whether or not the passed object is considered a number (integer or float). */
 #define IS_NUM(obj) ((obj)->type == OBJ_INT || (obj)->type == OBJ_FLOAT)
@@ -27,9 +61,23 @@
 #define BIT_VAL(obj) \
     ((obj)->type == OBJ_INT ? AS_PTR(IntObj, obj)->number : AS_PTR(BoolObj, obj)->boolean)
 
+#define OBJ_REACHABLE_BIT (0x01) /** First bit. Means object is marked as reachable in GC. */
+#define OBJ_INITIALIZED_BIT (0x02) /** Second bit. Means object has all its field initialized. */
+
+#define FUNC_RUNTIME_BIT (0x01) /** First bit. Represents any func with runtimem extension. */
+#define FUNC_TOP_LEVEL_BIT (0x02) /** Second bit. Reserved for top-level code "functions". */
+#define FUNC_CLOSURE_BIT (0x04) /** Third bit. Whether or not this stores a closure context. */
+#define FUNC_OPTIONALS_BIT (0x08) /** Fourth bit. Whether or not the func has optional params. */
+
+#define FLAG_IS_SET(flags, bit) (((flags) & (bit)) != 0) /** Checks if a passed flag is on. */
+#define FLAG_ENABLE(flags, bit) ((flags) |= (bit)) /** Sets a passed flag as true. */
+#define FLAG_DISABLE(flags, bit) ((flags) &= ~(bit)) /** Sets a passed flag as false. */
+
 typedef struct ZmxProgram ZmxProgram;
 typedef struct Obj Obj;
 typedef struct ClassObj ClassObj;
+typedef struct ModuleObj ModuleObj;
+typedef struct FuncObj FuncObj;
 
 /** Represents all the different types of objects in Zymux in an enum. */
 typedef enum {
@@ -46,6 +94,7 @@ typedef enum {
     OBJ_ITERATOR,
     OBJ_MODULE,
     OBJ_FILE,
+    OBJ_THREAD,
     OBJ_FUNC,
     OBJ_CAPTURED,
     OBJ_CLASS,
@@ -57,19 +106,28 @@ typedef enum {
 
 /** Base object struct for all objects in Zymux (for type punning). */
 typedef struct Obj {
+    u8 flags; /** The boolean flags, currently an "is reachable" and "is initialized" booleans. */
     Obj *next; /** Linked list of all objects to make sure we can always access all of them. */
     ObjType type; /** The type of the object. */
-    bool isReachable; /** Whether or not the object is reachable or could be collected. */
 } Obj;
 
 /** Holds an array of objects, which is an array of pointers to them. */
 DECLARE_DA_STRUCT(ObjArray, Obj *);
 
-/** An array of unsigned bytes, typically used for bytecode. */
-DECLARE_DA_STRUCT(ByteArray, u8);
-
 /** An array of source positions for storing debugging information. */
 DECLARE_DA_STRUCT(SourcePositionArray, SourcePosition);
+
+/** 
+ * Holds all kind of objects considered "vulnerable" (might not be rooted) in a program.
+ * 
+ * Protects them from GC till they're in a root or are unneeded. This is assumed to be inside
+ * a root itself (such as inside a VM thread).
+ */
+typedef struct VulnerableObjs {
+    ZmxProgram *program; /** The program for convenience during allocation. */
+    ObjArray unrooted; /** The array of objects as a temporary root. */
+    ObjArray protected; /** An array of manually appended and popped vulnerable objects. */
+} VulnerableObjs;
 
 /** An integer object. */
 typedef struct {
@@ -139,6 +197,14 @@ typedef struct {
     Table lookupTable; /** Multiple strings of name keys and integer values to index members. */
 } EnumObj;
 
+/** Represents one enum value in an enum. */
+typedef struct {
+    Obj obj;
+    EnumObj *enumObj; /** The enum which holds this member. */
+    StringObj *name; /** The textual string of the member used to access it. */
+    ZmxInt index; /** The index on the array of members it's on. */
+} EnumMemberObj;
+
 /** An iterator, which holds an iterable object which it iterates over its elements 1 by 1. */
 typedef struct {
     Obj obj;
@@ -147,10 +213,21 @@ typedef struct {
 } IteratorObj;
 
 /** Represents an imported module's visible information. */
-typedef struct {
+typedef struct ModuleObj {
     Obj obj;
     StringObj *path; /** The file path of this module. */
-    Table globals; /** Globals which can be accessed by other modules (doesn't include privates). */
+    ModuleObj *importedBy; /** The module which imported this. NULL if it's the first module. */
+    Table globalsUnsafe; /** Globals which can be accessed by other modules. Not thread-safe. */
+    Mutex globalsLock; /** The mutex key used for threads to synchronize accessing globals. */
+
+    /** 
+     * The ID of this specific module object so it can be identified in the VM module table.
+     * 
+     * Each module has its own ID because the same file may be imported multiple times,
+     * but each time needs its own module object, therefore the ID is a way for us to know
+     * the exact module imported.
+     */
+    u32 id;
 } ModuleObj;
 
 /** Represents an opened file at runtime. */
@@ -163,13 +240,86 @@ typedef struct {
     Table fields;
 } FileObj;
 
-/** Represents one enum value in an enum. */
+/** 
+ * Represents some information of the VM that needs to be reverted to when an error is caught.
+ * 
+ * Only stores the amount of locals/captures and not their arrays themselves, as any variables
+ * modified inside the try-catch should stay modified, the only thing we revert is removing
+ * new variables created inside the try-catch.
+ */
 typedef struct {
+    FuncObj *func; /** Function that has the try-catch block. */
+    u8 *ip; /** Points to the first instruction in the catch block of func. */
+
+    u32 localsAmount; /** Amount of locals in the VM's stack when this was created. */
+    u32 capturesAmount; /** 0 if func isn't a closure to begin with. */
+    u32 openCapturesAmount; /** The amount of captures not closed at the time of the try-catch. */
+
+    u32 frameAmount; /** The amount of frames the VM had when this was created. */
+    ModuleObj *module; /** The module which this try-catch started on. */
+    bool saveError; /** Whether or not the error message should be stored as a local variable. */
+} CatchState;
+
+/** An array of catch states for being inside try-catch statements. */
+DECLARE_DA_STRUCT(CatchStateArray, CatchState);
+
+/** Holds a frame around of information around a currently executing function object. */
+typedef struct {
+    FuncObj *func; /** Current executing function. */
+    u8 *ip; /** Instruction pointer. Points to the byte that should be read next. */
+    Obj **bp; /** Base pointer. Points to the first object in the stack frame. */
+    Obj **sp; /** Stack pointer. Points to the topmost object in the stack + 1. */
+} StackFrame;
+
+/** An array of frames that hold each function call's information at runtime. */
+DECLARE_DA_STRUCT(CallStack, StackFrame);
+
+/** 
+ * Represents a thread as an object.
+ * 
+ * Any execution of bytecode in the language is done under a thread, and a thread has both
+ * its own information alongside some shared information in the VM.
+ * Local context, such as the stack, catch statement points, the call stack are all given
+ * to the thread. Each thread also has its own lock so it can have its state check or modified
+ * synchronously.
+ */
+typedef struct ThreadObj {
     Obj obj;
-    EnumObj *enumObj; /** The enum which holds this member. */
-    StringObj *name; /** The textual string of the member used to access it. */
-    ZmxInt index; /** The index on the array of members it's on. */
-} EnumMemberObj;
+    Vm *vm; /** The virtual machine this is created on. */
+    VulnerableObjs vulnObjs; /** Where objects are placed until they reach a proper root. */
+
+    ThreadHandle native; /** The native OS thread in C which is actually running. */
+    Mutex lock; /** The mutex to access the native thread handle, state, etc. */
+    u32 id; /** The ID of this specific thread so it can be identified in the VM thread table. */
+    ModuleObj *module; /** The module context this thread is on (like the globals and name). */
+    Obj *runnable; /** The first function the thread enters with executing. */
+    ThreadState stateUnsafe; /** The current state of execution for the thread. Not thread-safe. */
+
+    bool isMain; /** Whether or not it is the main executing thread the program ran with. */
+    bool isDaemon; /** Whether this is a background thread (is daemon), or should be joined. */
+    bool isJoinedUnsafe; /** Whether or not this thread has been joined. Not thread-safe. */
+
+    InstrSize instrSize; /** The size of the number instruction to be read after the opcode. */
+    CatchStateArray catches; /** Saved states for caught errors where last item is closest catch. */
+    ObjArray openCaptures; /** Captures whose locals are still alive on the stack. */
+    CallStack callStack; /** Holds the entire call stack of stack frames during runtime. */
+    StackFrame *frame; /** The current frame which holds the bytecode we're executing. */
+    Table fields; /** All the fields of the thread instance. */
+
+    /** 
+     * The stack that keeps track of objects while executing.
+     * 
+     * This doesn't use the default dynamic array, but a special array with the same fields.
+     * The reason is because we have to change everything that points somewhere in the stack
+     * if an append's reallocation causes the stack's address to move.
+     * So the default reallocation used in normal dynamic arrays won't cut it.
+     */
+    struct {
+        Obj **objects;
+        u32 capacity;
+        u32 length;
+    } stack;
+} ThreadObj;
 
 /** Parameters for any kind of function object (user, native, etc.). Not an object. */
 typedef struct {
@@ -196,7 +346,7 @@ typedef struct {
  * function creation (like optional values and captured variables) should be handled in a different,
  * runtime function object struct.
  */
-typedef struct {
+typedef struct FuncObj {
     Obj obj;
 
     /** Name of the function. It gets a special name if it's the top-level code's function. */
@@ -214,12 +364,6 @@ typedef struct {
     /** The class this function is tied to if it's a method. NULL if it's not a method. */
     ClassObj *cls;
 
-    /** The name of the module which this function was declared inside of. */
-    StringObj *module;
-
-    /** Whether this represents top-level code of a module, or any other func inside a module. */
-    bool isToplevel;
-
     /** 
      * Static information about the parameters of the function.
      * 
@@ -229,11 +373,12 @@ typedef struct {
      */
     FuncParams params;
 
-    /** Whether or not this has runtime optional values. */
-    bool hasOptionals;
-
-    /** Whether this function can have closure objects inheriting it with a closure context. */
-    bool isClosure;
+    /** 
+     * All the boolean flags of this function.
+     * 
+     * This includes (in order) "is runtime", "is top level", "is closure", and "has optionals".
+     */
+    u8 flags;
 } FuncObj;
 
 /** An object that simply stores a reference to another object. */
@@ -261,7 +406,11 @@ typedef struct {
  * and normal/static functions in the same places.
  */
 typedef struct {
+    /** The copy of the statically compiled function. */
     FuncObj func;
+
+    /** The module object this executed under at runtime. */
+    ModuleObj *module;
 
     /** The runtime value of each parameter of the function. NULL for each mandatory param first. */
     ObjArray paramVals;
@@ -323,31 +472,41 @@ typedef struct {
     Obj *instance; /** The built-in object itself acts as the instance where fields are accessed. */
 } NativeMethodObj;
 
+/** 
+ * Returns an empty vulnerable to place objects that should be manually tracked by the GC.
+ * 
+ * This must be placed inside some actual root in order to have all its objects tracked by the GC.
+ */
+VulnerableObjs create_vulnerables(ZmxProgram *program);
+
+/** Frees all memory owned by the vulnerable objects struct. */
+void free_vulnerables(VulnerableObjs *vulnObjs);
+
 /** Returns a new allocated integer object. */
-IntObj *new_int_obj(ZmxProgram *program, const ZmxInt number);
+IntObj *new_int_obj(VulnerableObjs *vulnObjs, const ZmxInt number);
 
 /** Returns a new allocated float object. */
-FloatObj *new_float_obj(ZmxProgram *program, const ZmxFloat number);
+FloatObj *new_float_obj(VulnerableObjs *vulnObjs, const ZmxFloat number);
 
 /** Returns an interned boolean object depending on the passed bool. */
-BoolObj *new_bool_obj(ZmxProgram *program, const bool boolean);
+BoolObj *new_bool_obj(VulnerableObjs *vulnObjs, const bool boolean);
 
 /** Returns an interned null object. */
-NullObj *new_null_obj(ZmxProgram *program);
+NullObj *new_null_obj(VulnerableObjs *vulnObjs);
 
 /** Returns a new allocated string object. */
-StringObj *new_string_obj(ZmxProgram *program, const char *string, const u32 length);
+StringObj *new_string_obj(VulnerableObjs *vulnObjs, const char *string, const u32 length);
 
 /** Returns a range object created from the passed numbers. */
 RangeObj *new_range_obj(
-    ZmxProgram *program, const ZmxInt start, const ZmxInt end, const ZmxInt step
+    VulnerableObjs *vulnObjs, const ZmxInt start, const ZmxInt end, const ZmxInt step
 );
 
 /** Returns a list, which encapsulates an array of objects that is ordered. */
-ListObj *new_list_obj(ZmxProgram *program, const ObjArray items);
+ListObj *new_list_obj(VulnerableObjs *vulnObjs, const ObjArray items);
 
 /** Returns an object which holds a hash table of key-value pairs. */
-MapObj *new_map_obj(ZmxProgram *program, const Table table);
+MapObj *new_map_obj(VulnerableObjs *vulnObjs, const Table table);
 
 /**
  * Returns one member of an enum.
@@ -356,98 +515,113 @@ MapObj *new_map_obj(ZmxProgram *program, const Table table);
  * and its index inside the enum.
  */
 EnumMemberObj *new_enum_member_obj(
-    ZmxProgram *program, EnumObj *enumObj, StringObj *name, const ZmxInt index
+    VulnerableObjs *vulnObjs, EnumObj *enumObj, StringObj *name, const ZmxInt index
 );
 
 /** Returns an enum, which holds a bunch of names in order. */
-EnumObj *new_enum_obj(ZmxProgram *program, StringObj *name);
+EnumObj *new_enum_obj(VulnerableObjs *vulnObjs, StringObj *name);
 
 /** Returns an iterator which wraps around an iterable object being iterated on. */
-IteratorObj *new_iterator_obj(ZmxProgram *program, Obj *iterable);
+IteratorObj *new_iterator_obj(VulnerableObjs *vulnObjs, Obj *iterable);
 
 /** 
  * Returns an imported module as an object.
  * 
  * Doesn't take responsibility of freeing the passed globals table, as it only copies them.
  */
-ModuleObj *new_module_obj(ZmxProgram *program, StringObj *path, const Table globals);
+ModuleObj *new_module_obj(
+    VulnerableObjs *vulnObjs, StringObj *path, ModuleObj *importedBy, const u32 id
+);
 
 /** 
  * Returns a new file object representing an opened file.
  * 
  * This function expects an already validated file stream and mode.
  */
-FileObj *new_file_obj(ZmxProgram *program, FILE *stream, StringObj *path, StringObj *modeStr);
+FileObj *new_file_obj(VulnerableObjs *vulnObjs, FILE *stream, StringObj *path, StringObj *modeStr);
+
+/** Returns an initialized thread object (but doesn't actually execute it). */
+ThreadObj *new_thread_obj(
+    VulnerableObjs *vulnObjs, Vm *vm, Obj *runnable, ModuleObj *module,
+    const u32 id, const bool isMain, const bool isDaemon
+);
 
 /** 
  * Returns a new allocated function object.
  * 
- * The class a function should be added later while turning the function into a method in the VM,
- * meanwhile every function must be declared inside some module, so it's mandatory to provide it.
+ * The class a function should be added later while turning the function into a method in the VM.
  */
 FuncObj *new_func_obj(
-    ZmxProgram *program, StringObj *name, const u32 minArity, const u32 maxArity,
-    StringObj *module, const bool isTopLevel
+    VulnerableObjs *vulnObjs, StringObj *name, const u32 minArity, const u32 maxArity,
+    const bool isTopLevel
 );
 
 /** Returns a newly created indirect reference to the passed object (capturing the object). */
-CapturedObj *new_captured_obj(ZmxProgram *program, Obj *captured, const u32 stackIdx);
+CapturedObj *new_captured_obj(VulnerableObjs *vulnObjs, Obj *captured, const u32 stackIdx);
 
 /** Returns a func which has some runtime values that might be independent from the static func. */
-RuntimeFuncObj *new_runtime_func_obj(
-    ZmxProgram *program, FuncObj *func, const bool hasOptionals, const bool isClosure
-);
+RuntimeFuncObj *new_runtime_func_obj(VulnerableObjs *vulnObjs, FuncObj *func, ModuleObj *module);
 
 /** Returns a bare-bones class with a name. Other information is added later. */
-ClassObj *new_class_obj(ZmxProgram *program, StringObj *name, const bool isAbstract);
+ClassObj *new_class_obj(VulnerableObjs *vulnObjs, StringObj *name, const bool isAbstract);
 
 /** Returns a separate instance of the class, which has its own fields. */
-InstanceObj *new_instance_obj(ZmxProgram *program, ClassObj *cls);
+InstanceObj *new_instance_obj(VulnerableObjs *vulnObjs, ClassObj *cls);
 
 /** Returns a method of a class, which is tied to an instance of it (to access its properties). */
-MethodObj *new_method_obj(ZmxProgram *program, InstanceObj *instance, FuncObj *func);
+MethodObj *new_method_obj(VulnerableObjs *vulnObjs, InstanceObj *instance, FuncObj *func);
 
 /** Returns a new allocated native function object. */
 NativeFuncObj *new_native_func_obj(
-    ZmxProgram *program, StringObj *name, NativeFunc func, const FuncParams params
+    VulnerableObjs *vulnObjs, StringObj *name, NativeFunc func, const FuncParams params
 );
 
 /** Returns a method of a built-in class, which is tied to a built-in object as an instance. */
 NativeMethodObj *new_native_method_obj(
-    ZmxProgram *program, Obj *instance, ClassObj *cls, NativeFuncObj *func
+    VulnerableObjs *vulnObjs, Obj *instance, ClassObj *cls, NativeFuncObj *func
 );
 
 /** Allocates some objects for interning and puts them in the passed program. */
-void intern_objs(ZmxProgram *program);
+void intern_objs(VulnerableObjs *vulnObjs);
 
 /** Returns whether or not the passed object is something that can be iterated over. */
 bool is_iterable(const Obj *object);
 
 /** 
  * Iterates over an object that is assumed to be iterable.
- * Returns the iterated element of the iterable, or NULL if the iterator's exhausted.
  * 
+ * Returns the iterated element of the iterable, or NULL if the iterator's exhausted.
  * Passing a non-iterable is considered unreachable.
+ * 
+ * The boolean address is an optional boolean to be set which indicates whether this function
+ * has allocated a new object, or reused one already in the iterator.
+ * Passing NULL is perfectly valid for cases where that boolean is not needed.
  */
-Obj *iterate(ZmxProgram *program, IteratorObj *iterator);
+Obj *iterate(VulnerableObjs *vulnObjs, IteratorObj *iterator, bool *hasAllocated);
+
+/** Returns a new string object that is formed from concatenating left with right. */
+StringObj *concatenate(VulnerableObjs *vulnObjs, const StringObj *left, const StringObj *right);
+
+/** Safely retrieves the state of the passed thread object. */
+ThreadState get_thread_state(ThreadObj *thread);
+
+/** Safely set a state for the passed thread object. */
+void set_thread_state(ThreadObj *thread, const ThreadState newState);
 
 /** Returns whether or not 2 objects are considered equal. */
 bool equal_obj(const Obj *left, const Obj *right);
 
-/** Returns a new string object that is formed from concatenating left with right. */
-StringObj *concatenate(ZmxProgram *program, const StringObj *left, const StringObj *right);
-
 /** Returns a copy of the passed object as an integer. Returns NULL if conversion failed. */
-IntObj *as_int(ZmxProgram *program, const Obj *object);
+IntObj *as_int(VulnerableObjs *vulnObjs, const Obj *object);
 
 /** Returns a copy of the passed object as a float. Returns NULL if conversion failed. */
-FloatObj *as_float(ZmxProgram *program, const Obj *object);
+FloatObj *as_float(VulnerableObjs *vulnObjs, const Obj *object);
 
 /** Returns a copy of the passed object's boolean (whether the object is "truthy" or "falsy"). */
-BoolObj *as_bool(ZmxProgram *program, const Obj *object);
+BoolObj *as_bool(VulnerableObjs *vulnObjs, const Obj *object);
 
 /** Returns a copy of the passed object as a string. */
-StringObj *as_string(ZmxProgram *program, const Obj *object);
+StringObj *as_string(VulnerableObjs *vulnObjs, const Obj *object);
 
 /** 
  * Prints the passed object to the console.

@@ -313,24 +313,29 @@ OP_GET_SUBSCR:
     object and filter out the objects that won't be a part of the slice. The iterator gets popped
     alongside the subscript and the subscripted before pushing the slice in that case.
 
+OP_FUNC:
+    Reads a constant, which is the statically compiled function on the stack. Then replaces it
+    with a runtime function object that has the same compilation base, but an extension
+    that stores the runtime module it currently is on.
+
 OP_OPTIONALS_FUNC:
     Expects the top element of the stack to be some a list of loaded, runtime values for
-    the optional values of a function, which is the second to top element in the stack.
+    the optional values of a (runtime) function, which is the second to top element in the stack.
 
     It does so by first appending a C-NULL for each mandatory parameter which doesn't have a default
-    value, then it starts appending the default values and places them in a new runtime function
+    value, then it starts appending the default values and places them in the runtime function
     object so that each time the function is encountered (like a loop for example) it creates
-    its own list of optional values.
-    Finally, pops the optional values at the top of the stack and replaces the original
-    static function on the stack with the runtime one.
+    its own list of optional values from the current variable values.
+    Finally, pops the optional values at the top of the stack.
 
-OP_CLOSURE:
-    Copies over all captured variables of the current frame over to the function in the stack,
-    loads it after wrapping it over a runtiem function object with a closure context set.
+OP_MAKE_CLOSURE:
+    Copies over all captured variables of the current frame over to the runtime function
+    it expects to find at the top of the stack, and sets a boolean indicating that the function
+    is now a closure with closure context.
 
-    Also, if the function wrapping this closure is a closure itself, then it copies that closure's
-    context to the new created closure too.
-
+    Also, this copies the closure context of the runtime function that ran this instruction,
+    just in case it has some other captures for the function stack to see.
+    
 OP_CLASS:
     Creates a bare-bones class with no init and no methods using a read constant for its name.
     Reads a boolean that was placed on the stack indicated whether or not this is an abstract

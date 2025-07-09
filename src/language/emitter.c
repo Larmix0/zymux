@@ -62,7 +62,7 @@ static void insert_byte(Compiler *compiler, u8 byte, const u32 index) {
         bytecode->data[i] = byte;
         byte = originalByte;
     }
-    APPEND_DA(bytecode, byte);
+    PUSH_DA(bytecode, byte);
     SourcePositionArray *positions = &compiler->func->positions;
     SourcePosition pos = positions->data[index - 1];
     for (u32 i = index; i < positions->length; i++) {
@@ -70,7 +70,7 @@ static void insert_byte(Compiler *compiler, u8 byte, const u32 index) {
         positions->data[i] = pos;
         pos = originalPos;
     }
-    APPEND_DA(positions, pos);
+    PUSH_DA(positions, pos);
 }
 
 /** Removes a byte at the passed index, and removes its corresponding position. */
@@ -110,8 +110,8 @@ static void insert_number(Compiler *compiler, const u32 startIdx, const u32 numb
  * Also appends bytePos as debugging info to the positions.
  */
 void emit_instr(Compiler *compiler, const u8 instr, const SourcePosition pos) {
-    APPEND_DA(&compiler->func->bytecode, instr);
-    APPEND_DA(&compiler->func->positions, pos);
+    PUSH_DA(&compiler->func->bytecode, instr);
+    PUSH_DA(&compiler->func->positions, pos);
 }
 
 /** 
@@ -147,7 +147,7 @@ void emit_number(Compiler *compiler, const u8 instr, const u32 number, const Sou
  * The amount of bytes read depends on the passed instruction size. Worth mentioning that the 
  * instruction size pointer is automatically set to 1 byte for next reads after being called.
  */
-u32 read_number(const ByteArray *bytecode, const u32 numStart, InstrSize *size) {
+u32 bytecode_number(const ByteArray *bytecode, const u32 numStart, InstrSize *size) {
     ASSERT(numStart + *size - 1 < bytecode->length, "Reading outside bytecode boundary.");
     u32 total = 0;
     for (int i = 0; i < (int)*size; i++) {
@@ -159,7 +159,7 @@ u32 read_number(const ByteArray *bytecode, const u32 numStart, InstrSize *size) 
 
 /** Emits an instruction followed by an idx after to be used for an object in the const pool. */
 void emit_const(Compiler *compiler, const u8 instr, Obj *constant, const SourcePosition pos) {
-    APPEND_DA(&compiler->func->constPool, constant);
+    PUSH_DA(&compiler->func->constPool, constant);
     const u32 constIdx = compiler->func->constPool.length - 1;
     emit_number(compiler, instr, constIdx, pos);
 }
@@ -178,7 +178,7 @@ u32 emit_unpatched_jump(Compiler *compiler, const u8 instr, const SourcePosition
 /** Patches a jump in the compiler from the passed jump information. */
 void patch_jump(Compiler *compiler, const u32 start, const u32 end, const bool isForward) {
     u32 jumpSize = end > start ? end - start : start - end;
-    APPEND_DA(&compiler->jumps, create_jump(start, jumpSize, isForward));
+    PUSH_DA(&compiler->jumps, create_jump(start, jumpSize, isForward));
 }
 
 /** Patches a u32 array of different opcode locations that all resolve to one place. */

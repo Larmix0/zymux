@@ -4,6 +4,7 @@
 #include "debug_ast.h"
 #include "dynamic_array.h"
 #include "file.h"
+#include "lexer.h"
 #include "parser.h"
 #include "report_error.h"
 
@@ -30,7 +31,7 @@ static Node *multi_declaration(Parser *parser, const bool isConst, const bool sc
 /** Returns an initialized parser. */
 Parser create_parser(ZmxProgram *program, TokenArray tokens) {
     Parser parser = {
-        .isPanicking = false, .ast = CREATE_DA(), .program = program,
+        .program = program, .hasErrored = false, .isPanicking = false, .ast = CREATE_DA(),
         .tokens = tokens, .current = tokens.data, .syncSpot = NULL
     };
     return parser;
@@ -49,6 +50,7 @@ static void parser_error_at(
         return;
     }
 
+    parser->hasErrored = true;
     if (shouldPanic) {
         ASSERT(erroredToken.lexedIdx >= 0, "Expected positive number for parser error index.");
         parser->syncSpot = &parser->tokens.data[erroredToken.lexedIdx];
@@ -79,6 +81,7 @@ static void parser_error_missing(
         return;
     }
 
+    parser->hasErrored = true;
     if (shouldPanic) {
         ASSERT(beforeMissing.lexedIdx >= 0, "Expected positive number for parser error index.");
         parser->syncSpot = &parser->tokens.data[beforeMissing.lexedIdx + 1];
@@ -119,10 +122,10 @@ static Node *parse_string(Parser *parser) {
             const bool emptyString = literal.stringVal.length > 0;
             const bool onlyString = CHECK(parser, TOKEN_STRING_END) && exprs.length == 0;
             if (emptyString || onlyString) {
-                APPEND_DA(&exprs, new_literal_node(parser->program, literal));
+                PUSH_DA(&exprs, new_literal_node(parser->program, literal));
             }
         } else {
-            APPEND_DA(&exprs, expression(parser));
+            PUSH_DA(&exprs, expression(parser));
         }
         nextIsString = !nextIsString;
         MATCH(parser, TOKEN_INTERPOLATE);
@@ -191,11 +194,11 @@ static Node *list(Parser *parser) {
     NodeArray items = CREATE_DA();
     Token leftBracket = PEEK_PREVIOUS(parser);
     if (!CHECK(parser, TOKEN_RSQUARE) && !CHECK(parser, TOKEN_EOF)) {
-        APPEND_DA(&items, expression(parser));
+        PUSH_DA(&items, expression(parser));
     }
     while (!CHECK(parser, TOKEN_RSQUARE) && !IS_EOF(parser) && !parser->isPanicking) {
         CONSUME(parser, TOKEN_COMMA, "Expected ',' or ']' after list element.");
-        APPEND_DA(&items, expression(parser));
+        PUSH_DA(&items, expression(parser));
     }
     CONSUME(parser, TOKEN_RSQUARE, "Expected ',' or ']' in list.");
     return new_list_node(parser->program, items, leftBracket.pos);
@@ -203,9 +206,9 @@ static Node *list(Parser *parser) {
 
 /** Parses one map entry into the key and value arrays. */
 static void map_entry(Parser *parser, NodeArray *keys, NodeArray *values) {
-    APPEND_DA(keys, expression(parser));
+    PUSH_DA(keys, expression(parser));
     CONSUME(parser, TOKEN_COLON, "Expected ':' after map key.");
-    APPEND_DA(values, expression(parser));
+    PUSH_DA(values, expression(parser));
 }
 
 static Node *map(Parser *parser) {
@@ -254,11 +257,11 @@ static bool one_arg(
         check_keyword_arg_repeated(parser, name, kwargs);
         CONSUME(parser, TOKEN_EQ, "Expected '=' after keyword argument name.");
 
-        APPEND_DA(&kwargs->keys, new_literal_node(parser->program, name));
-        APPEND_DA(&kwargs->values, expression(parser));
+        PUSH_DA(&kwargs->keys, new_literal_node(parser->program, name));
+        PUSH_DA(&kwargs->values, expression(parser));
         return true;
     } else {
-        APPEND_DA(positionals, expression(parser));
+        PUSH_DA(positionals, expression(parser));
         return false;
     }
 }
@@ -503,10 +506,10 @@ static Node *multi_assignment(Parser *parser, ListNode *list) {
         Node *assignVar = list->items.data[i];
         if (assignVar->type == AST_GET_VAR) {
             const Token name = AS_PTR(GetVarNode, list->items.data[i])->name;
-            APPEND_DA(&assigns, new_assign_var_node(parser->program, name, NULL));
+            PUSH_DA(&assigns, new_assign_var_node(parser->program, name, NULL));
         } else if (assignVar->type == AST_GET_PROPERTY) {
             GetPropertyNode *get = AS_PTR(GetPropertyNode, list->items.data[i]);
-            APPEND_DA(&assigns, new_set_property_node(parser->program, get, NULL));
+            PUSH_DA(&assigns, new_set_property_node(parser->program, get, NULL));
         } else {
             parser_error_at(parser, leftBracket, false, "Expected only valid assignment names.");
         }
@@ -616,7 +619,7 @@ static Node *finish_block(Parser *parser) {
     SourcePosition pos = PEEK_PREVIOUS(parser).pos;
     NodeArray stmts = CREATE_DA();
     while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
-        APPEND_DA(&stmts, declaration(parser));
+        PUSH_DA(&stmts, declaration(parser));
     }
     CONSUME(parser, TOKEN_RCURLY, "Expected closing '}'.");
     return new_block_node(parser->program, stmts, pos);
@@ -726,14 +729,14 @@ static void parse_import_names(
     // Use a do-while, as a from-import must include at least one name.
     do {
         const Token importedName = CONSUME(parser, TOKEN_IDENTIFIER, "Expected imported name.");
-        APPEND_DA(importedNames, importedName);
+        PUSH_DA(importedNames, importedName);
         if (MATCH(parser, TOKEN_AS_KW)) {
             DeclareVarNode *nameDecl = NO_VALUE_DECL_NODE(
                 parser->program, CONSUME(parser, TOKEN_IDENTIFIER, "Expected name after 'as'.")
             );
-            APPEND_DA(namesAs, AS_NODE(nameDecl));
+            PUSH_DA(namesAs, AS_NODE(nameDecl));
         } else {
-            APPEND_DA(namesAs, AS_NODE(NO_VALUE_DECL_NODE(parser->program, importedName)));
+            PUSH_DA(namesAs, AS_NODE(NO_VALUE_DECL_NODE(parser->program, importedName)));
         }
     } while MATCH(parser, TOKEN_COMMA);
 }
@@ -801,12 +804,12 @@ static Node *parse_raise(Parser *parser) {
 /** Parses one case into the case labels and case blocks arrays. */
 static Node *parse_case(Parser *parser) {
     NodeArray labelVals = CREATE_DA();
-    APPEND_DA(&labelVals, expression(parser));
+    PUSH_DA(&labelVals, expression(parser));
     const SourcePosition pos = get_node_pos(labelVals.data[0]); // First label value we just parsed.
 
     while (!CHECK(parser, TOKEN_LCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
         CONSUME(parser, TOKEN_COMMA, "Expected '{' or ',' after case label value.");
-        APPEND_DA(&labelVals, expression(parser));
+        PUSH_DA(&labelVals, expression(parser));
     }
     CONSUME(parser, TOKEN_LCURLY, "Expected block after case label.");
     Node *caseBlock = finish_block(parser);
@@ -820,7 +823,7 @@ static Node *parse_match(Parser *parser) {
 
     NodeArray cases = CREATE_DA();
     while (MATCH(parser, TOKEN_CASE_KW)) {
-        APPEND_DA(&cases, parse_case(parser));
+        PUSH_DA(&cases, parse_case(parser));
     }
     
     Node *defaultCase = NULL;
@@ -967,10 +970,10 @@ static Node *multi_declaration(Parser *parser, const bool isConst, const bool sc
     }
 
     NodeArray declarations = CREATE_DA();
-    APPEND_DA(&declarations, one_declaration(parser));
+    PUSH_DA(&declarations, one_declaration(parser));
     while (!CHECK(parser, TOKEN_RSQUARE) && !IS_EOF(parser) && !parser->isPanicking) {
         CONSUME(parser, TOKEN_COMMA, "Expected ',' or ']' after declared variable's name.");
-        APPEND_DA(&declarations, one_declaration(parser));
+        PUSH_DA(&declarations, one_declaration(parser));
     }
     CONSUME(parser, TOKEN_RSQUARE, "Expected closing ']' in multi-variable declaration.");
 
@@ -1003,11 +1006,11 @@ static Node *parse_enum(Parser *parser) {
     }
 
     const Token firstMember = CONSUME(parser, TOKEN_IDENTIFIER, "Expected enum member or '}'.");
-    APPEND_DA(&members, firstMember);
+    PUSH_DA(&members, firstMember);
     while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
         CONSUME(parser, TOKEN_COMMA, "Expected ',' or '}' after enum member.");
         const Token member = CONSUME(parser, TOKEN_IDENTIFIER, "Expected enum member after ','.");
-        APPEND_DA(&members, member);
+        PUSH_DA(&members, member);
     }
     CONSUME(parser, TOKEN_RCURLY, "Expected ',' or '}' in enum.");
     return new_enum_node(parser->program, declaration, members);
@@ -1035,9 +1038,9 @@ static bool one_param(
 
     Node *parameter = new_declare_var_node(parser->program, name, value, false);
     if (optionalsStarted) {
-        APPEND_DA(optionals, parameter);
+        PUSH_DA(optionals, parameter);
     } else {
-        APPEND_DA(mandatories, parameter);
+        PUSH_DA(mandatories, parameter);
     }
     return optionalsStarted;
 }
@@ -1116,9 +1119,9 @@ static void class_method(Parser *parser, ClassNode *cls) {
     if (MATCH(parser, TOKEN_INIT_KW)) {
         cls->init = AS_PTR(FuncNode, init_method(parser, cls));
     } else if (MATCH(parser, TOKEN_ABSTRACT_KW)) {
-        APPEND_DA(&cls->abstractMethods, abstract_method(parser, cls));
+        PUSH_DA(&cls->abstractMethods, abstract_method(parser, cls));
     } else {
-        APPEND_DA(&cls->methods, parse_func(parser, true));
+        PUSH_DA(&cls->methods, parse_func(parser, true));
     }
 }
 
@@ -1224,12 +1227,30 @@ static Node *declaration(Parser *parser) {
  */
 bool parse(Parser *parser) {
     while (!IS_EOF(parser)) {
-        APPEND_DA(&parser->ast, declaration(parser));
+        PUSH_DA(&parser->ast, declaration(parser));
     }
-    APPEND_DA(&parser->ast, new_eof_node(parser->program, PEEK(parser).pos));
+    PUSH_DA(&parser->ast, new_eof_node(parser->program, PEEK(parser).pos));
 
     if (parser->program->cli->debugAst || DEBUG_AST) {
         print_ast(&parser->ast);
     }
-    return !parser->program->hasErrored;
+    return !parser->hasErrored;
+}
+
+/** 
+ * Lexes the source into the lexer and if it didn't error then it parses it onto the parser.
+ * 
+ * If it fails the program errors. Otherwise, on success it just returns true.
+ * In either case it doesn't free neither the lexer nor parser.
+ */
+bool parse_source(ZmxProgram *program, Lexer *lexer, Parser *parser) {
+    if (!lex(lexer)) {
+        return false;
+    }
+
+    *parser = create_parser(program, lexer->tokens);
+    if (!parse(parser)) {
+        return false;
+    }
+    return true;
 }

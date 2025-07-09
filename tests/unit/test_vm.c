@@ -6,39 +6,40 @@
 
 /** Tests that the runtime stack's functionality works properly. */
 PRIVATE_TEST_CASE(test_runtime_stack) {
-    Vm createVm = {.stack = CREATE_STACK()};
-    ASSERT_INT_EQUAL(createVm.stack.capacity, 0);
-    ASSERT_NULL(createVm.stack.objects);
-
     CliHandler cli = create_cli_handler(0, NULL);
-    ZmxProgram program = create_zmx_program("test", &cli, false);
-    GC_FREEZE(&program.gc);
-    StringObj *name = new_string_obj(&program, "test", strlen("test"));
-    Vm vm = create_vm(&program, new_func_obj(&program, program.currentFile, 0, 0, name, true));
+    ZmxProgram *program = new_zmx_program("test", &cli, false);
+    VulnerableObjs *vulnObjs = &program->gc.startupVulnObjs;
 
-    PUSH(&vm, AS_OBJ(new_int_obj(&program, 32)));
-    PUSH(&vm, AS_OBJ(new_float_obj(&program, 53.1)));
-    ASSERT_INT_EQUAL(STACK_LENGTH(&vm), 2);
-    ASSERT_TRUE(equal_obj(vm.stack.objects[0], AS_OBJ(new_int_obj(&program, 32))));
-    ASSERT_TRUE(equal_obj(vm.stack.objects[1], AS_OBJ(new_float_obj(&program, 53.1))));
+    Vm vm;
+    FuncObj *func = new_func_obj(vulnObjs, program->currentFile, 0, 0, true);
+    init_vm(&vm, program, new_runtime_func_obj(vulnObjs, func, NULL));
+    ThreadObj *mainThread = get_main_thread(&vm);
 
-    DROP(&vm);
-    ASSERT_INT_EQUAL(STACK_LENGTH(&vm), 1);
-    Obj *popped = POP(&vm);
-    ASSERT_TRUE(equal_obj(popped, AS_OBJ(new_int_obj(&program, 32))));
-    ASSERT_INT_EQUAL(STACK_LENGTH(&vm), 0);
+    PUSH(mainThread, new_int_obj(vulnObjs, 32));
+    PUSH(mainThread, new_float_obj(vulnObjs, 53.1));
+    ASSERT_INT_EQUAL(mainThread->stack.length, 2);
+    ASSERT_TRUE(equal_obj(mainThread->stack.objects[0], AS_OBJ(new_int_obj(vulnObjs, 32))));
+    ASSERT_TRUE(equal_obj(mainThread->stack.objects[1], AS_OBJ(new_float_obj(vulnObjs, 53.1))));
 
-    PUSH(&vm, AS_OBJ(new_bool_obj(&program, false)));
-    PUSH(&vm, AS_OBJ(new_int_obj(&program, 32)));
-    PUSH(&vm, AS_OBJ(new_float_obj(&program, 53.1)));
-    PUSH(&vm, AS_OBJ(new_int_obj(&program, -23)));
-    ASSERT_TRUE(equal_obj(PEEK(&vm), AS_OBJ(new_int_obj(&program, -23))));
-    ASSERT_TRUE(equal_obj(PEEK_DEPTH(&vm, 3), AS_OBJ(new_bool_obj(&program, false))));
-    DROP_AMOUNT(&vm, 3);
-    ASSERT_TRUE(equal_obj(PEEK(&vm), AS_OBJ(new_bool_obj(&program, false))));
+    DROP(mainThread);
+    ASSERT_INT_EQUAL(mainThread->stack.length, 1);
+    DROP(mainThread);
+    ASSERT_INT_EQUAL(mainThread->stack.length, 0);
+
+    PUSH(mainThread, new_bool_obj(vulnObjs, false));
+    PUSH(mainThread, new_int_obj(vulnObjs, 32));
+    PUSH(mainThread, new_float_obj(vulnObjs, 53.1));
+    PUSH(mainThread, new_int_obj(vulnObjs, -23));
+    ASSERT_TRUE(equal_obj(PEEK(mainThread), AS_OBJ(new_int_obj(vulnObjs, -23))));
+    ASSERT_TRUE(equal_obj(PEEK_DEPTH(mainThread, 3), AS_OBJ(new_bool_obj(vulnObjs, false))));
+    ASSERT_INT_EQUAL(mainThread->stack.length, 4);
+
+    DROP_AMOUNT(mainThread, 3);
+    ASSERT_TRUE(equal_obj(PEEK(mainThread), AS_OBJ(new_bool_obj(vulnObjs, false))));
+    ASSERT_INT_EQUAL(mainThread->stack.length, 1);
 
     free_vm(&vm);
-    free_zmx_program(&program);
+    free_zmx_program(program);
 }
 
 /** Tests vm.c. */

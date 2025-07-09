@@ -17,21 +17,29 @@ static void compile_node(Compiler *compiler, const Node *node);
 static void compile_node_array(Compiler *compiler, const NodeArray *nodes);
 
 /** 
- * Returns a compiler initialized with the passed program and parsed AST.
+ * Returns a compiler with the passed AST.
  * 
- * Note that the compiler returned will have objects not covered by the GC, therefore
- * the GC's compiler should be set to this upon return immediately.
+ * The function inside the returned compiler automatically gets protected in the special protection
+ * pool of the "vulnerables" passed.
+ * It has to be manually unprotected later when the functionn is put
+ * inside a safe runtime root, or is no longer needed.
  */
-Compiler create_compiler(ZmxProgram *program, const NodeArray ast, const bool isMain) {
+Compiler create_compiler(VulnerableObjs *vulnObjs, const NodeArray ast, const bool isMain) {
+    ZmxProgram *program = vulnObjs->program;
     StringObj *name = program->currentFile;
-    FuncObj *mainFunc = new_func_obj(program, name, 0, 0, program->currentFile, true);
-    GC_PROTECT(&program->gc, AS_OBJ(mainFunc));
-    RuntimeFuncObj *mainClosure = new_runtime_func_obj(program, mainFunc, false, true);
+    FuncObj *mainFunc = new_func_obj(vulnObjs, name, 0, 0, true);
+    RuntimeFuncObj *mainClosure = new_runtime_func_obj(vulnObjs, mainFunc, NULL);
+    FLAG_ENABLE(mainClosure->func.flags, FUNC_CLOSURE_BIT);
+
     Compiler compiler = {
-        .program = program, .ast = ast, .isMain = isMain, .func = AS_PTR(FuncObj, mainClosure),
+        .program = program, .ast = ast, .isMain = isMain,
         .jumps = CREATE_DA(), .breaks = CREATE_DA(), .continues = CREATE_DA(),
+        .func = compiler.func = AS_PTR(FuncObj, mainClosure), .vulnObjs = vulnObjs
     };
-    GC_DROP_PROTECTED(&program->gc);
+
+    // A compiler is never rooted, so compilation happens with its func being specially protected.
+    PUSH_PROTECTED(vulnObjs, compiler.func);
+    DROP_ALL_UNROOTED(vulnObjs);
     return compiler;
 }
 
@@ -51,14 +59,14 @@ static void compile_literal(Compiler *compiler, const LiteralNode *node) {
     Obj *literalAsObj;
     switch (value.type) {
     case TOKEN_INT_LIT:
-        literalAsObj = AS_OBJ(new_int_obj(compiler->program, value.intVal));
+        literalAsObj = AS_OBJ(new_int_obj(compiler->vulnObjs, value.intVal));
         break;
     case TOKEN_FLOAT_LIT:
-        literalAsObj = AS_OBJ(new_float_obj(compiler->program, value.floatVal));
+        literalAsObj = AS_OBJ(new_float_obj(compiler->vulnObjs, value.floatVal));
         break;
     case TOKEN_STRING_LIT:
         literalAsObj = AS_OBJ(
-            new_string_obj(compiler->program, value.stringVal.text, value.stringVal.length)
+            new_string_obj(compiler->vulnObjs, value.stringVal.text, value.stringVal.length)
         );
         break;
     default:
@@ -364,7 +372,7 @@ static void declare_variable_depth(
         break;
     }
     case VAR_GLOBAL: {
-        StringObj *nameAsObj = new_string_obj(compiler->program, name.lexeme, name.pos.length);
+        StringObj *nameAsObj = new_string_obj(compiler->vulnObjs, name.lexeme, name.pos.length);
         emit_const(compiler, OP_DECLARE_GLOBAL, AS_OBJ(nameAsObj), name.pos);
         break;
     }
@@ -414,7 +422,7 @@ static void compile_assign_var(Compiler *compiler, const AssignVarNode *node) {
         emit_number(compiler, OP_ASSIGN_CAPTURED, node->resolution.index, name.pos);
         break;
     case VAR_GLOBAL: {
-        StringObj *nameAsObj = new_string_obj(compiler->program, name.lexeme, name.pos.length);
+        StringObj *nameAsObj = new_string_obj(compiler->vulnObjs, name.lexeme, name.pos.length);
         emit_const(compiler, OP_ASSIGN_GLOBAL, AS_OBJ(nameAsObj), name.pos);
         break;
     }
@@ -442,7 +450,7 @@ static void compile_assign_var(Compiler *compiler, const AssignVarNode *node) {
 static void compile_get_var(Compiler *compiler, const GetVarNode *node) {
     // Just declare the name object here since it's used multiple times.
     const Token name = node->name;
-    Obj *nameAsObj = AS_OBJ(new_string_obj(compiler->program, name.lexeme, name.pos.length));
+    Obj *nameAsObj = AS_OBJ(new_string_obj(compiler->vulnObjs, name.lexeme, name.pos.length));
     switch (node->resolution.scope) {
     case VAR_LOCAL:
         emit_number(compiler, OP_GET_LOCAL, node->resolution.index, name.pos);
@@ -469,7 +477,7 @@ static void compile_set_property(Compiler *compiler, const SetPropertyNode *node
     compile_node(compiler, node->value);
     compile_node(compiler, node->get->originalObj);
     Obj *property = AS_OBJ(new_string_obj(
-        compiler->program, node->get->property.lexeme, node->get->property.pos.length
+        compiler->vulnObjs, node->get->property.lexeme, node->get->property.pos.length
     ));
     emit_const(compiler, OP_SET_PROPERTY, property, get_node_pos(AS_NODE(node)));
 }
@@ -483,7 +491,7 @@ static void compile_set_property(Compiler *compiler, const SetPropertyNode *node
 static void compile_get_property(Compiler *compiler, const GetPropertyNode *node) {
     compile_node(compiler, node->originalObj);
     Obj *property = AS_OBJ(new_string_obj(
-        compiler->program, node->property.lexeme, node->property.pos.length
+        compiler->vulnObjs, node->property.lexeme, node->property.pos.length
     ));
     emit_const(compiler, OP_GET_PROPERTY, property, get_node_pos(AS_NODE(node)));
 }
@@ -498,7 +506,7 @@ static void compile_get_property(Compiler *compiler, const GetPropertyNode *node
 static void compile_get_super(Compiler *compiler, const GetSuperNode *node) {
     compile_get_var(compiler, node->instanceGet);
     Obj *property = AS_OBJ(new_string_obj(
-        compiler->program, node->property.lexeme, node->property.pos.length
+        compiler->vulnObjs, node->property.lexeme, node->property.pos.length
     ));
     emit_const(compiler, OP_GET_SUPER, property, get_node_pos(AS_NODE(node)));   
 }
@@ -621,7 +629,7 @@ static void compile_case(Compiler *compiler, CaseNode *node, U32Array *exitJumps
             // Last label value, will jump to the next case's label if falsy.
             lastCase = emit_unpatched_jump(compiler, OP_POP_JUMP_IF_NOT, get_node_pos(value));
         } else {
-            APPEND_DA(
+            PUSH_DA(
                 &toBlockJumps, emit_unpatched_jump(compiler, OP_POP_JUMP_IF, get_node_pos(value))
             );
         }
@@ -630,7 +638,7 @@ static void compile_case(Compiler *compiler, CaseNode *node, U32Array *exitJumps
     FREE_DA(&toBlockJumps);
 
     compile_block(compiler, node->block);
-    APPEND_DA(exitJumps, emit_unpatched_jump(compiler, OP_JUMP, PREVIOUS_OPCODE_POS(compiler)));
+    PUSH_DA(exitJumps, emit_unpatched_jump(compiler, OP_JUMP, PREVIOUS_OPCODE_POS(compiler)));
     patch_jump(compiler, lastCase, compiler->func->bytecode.length, true);
 }
 
@@ -822,8 +830,8 @@ static void compile_loop_control(Compiler *compiler, const LoopControlNode *node
 
     const u32 controlSpot = emit_unpatched_jump(compiler, 0, node->pos);
     switch (node->keyword) {
-    case TOKEN_BREAK_KW: APPEND_DA(&compiler->breaks, controlSpot); break;
-    case TOKEN_CONTINUE_KW: APPEND_DA(&compiler->continues, controlSpot); break;
+    case TOKEN_BREAK_KW: PUSH_DA(&compiler->breaks, controlSpot); break;
+    case TOKEN_CONTINUE_KW: PUSH_DA(&compiler->continues, controlSpot); break;
     default: UNREACHABLE_ERROR();
     }
 }
@@ -835,34 +843,32 @@ static void compile_loop_control(Compiler *compiler, const LoopControlNode *node
  * can be fully handled at compilation time since no changing runtime variables are involved.
  */
 static void compile_enum(Compiler *compiler, const EnumNode *node) {
-    GC_FREEZE(&compiler->program->gc);
     StringObj *enumName = new_string_obj(
-        compiler->program, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
+        compiler->vulnObjs, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
     );
-    EnumObj *enumObj = new_enum_obj(compiler->program, enumName);
+    EnumObj *enumObj = new_enum_obj(compiler->vulnObjs, enumName);
     
     for (u32 i = 0; i < node->members.length; i++) {
         StringObj *memberText = new_string_obj(
-            compiler->program, node->members.data[i].lexeme, node->members.data[i].pos.length
+            compiler->vulnObjs, node->members.data[i].lexeme, node->members.data[i].pos.length
         );
         EnumMemberObj *memberVal = new_enum_member_obj(
-            compiler->program, enumObj, memberText, (ZmxInt)i
+            compiler->vulnObjs, enumObj, memberText, (ZmxInt)i
         );
-        APPEND_DA(&enumObj->members, AS_OBJ(memberVal));
+        PUSH_DA(&enumObj->members, AS_OBJ(memberVal));
         table_set(
             &enumObj->lookupTable,
-            AS_OBJ(memberText), AS_OBJ(new_int_obj(compiler->program, (ZmxInt)i))
+            AS_OBJ(memberText), AS_OBJ(new_int_obj(compiler->vulnObjs, (ZmxInt)i))
         );
     }
 
     emit_const(compiler, OP_LOAD_CONST, AS_OBJ(enumObj), get_node_pos(AS_NODE(node)));
     compile_declare_var(compiler, node->nameDecl);
-    GC_END_FREEZE(&compiler->program->gc);
 }
 
 /** Emits the import instruction that imports a file, then declares (binds) it to a variable. */
 static void compile_import(Compiler *compiler, const ImportNode *node) {
-    Obj *pathAsObj = AS_OBJ(new_string_obj(compiler->program, node->path, node->pathLength));
+    Obj *pathAsObj = AS_OBJ(new_string_obj(compiler->vulnObjs, node->path, node->pathLength));
     emit_const(compiler, OP_IMPORT, pathAsObj, get_node_pos(AS_NODE(node)));
     compile_declare_var(compiler, node->importVar);
 }
@@ -879,20 +885,18 @@ static void compile_import(Compiler *compiler, const ImportNode *node) {
  * which is naturally in reverse.
  */
 static void compile_from_import(Compiler *compiler, const FromImportNode *node) {
-    Obj *pathAsObj = AS_OBJ(new_string_obj(compiler->program, node->path, node->pathLength));
+    Obj *pathAsObj = AS_OBJ(new_string_obj(compiler->vulnObjs, node->path, node->pathLength));
     emit_const(compiler, OP_IMPORT, pathAsObj, get_node_pos(AS_NODE(node)));
 
-    GC_FREEZE(&compiler->program->gc);
-    ListObj *importedList = new_list_obj(compiler->program, (ObjArray)CREATE_DA());
+    ListObj *importedList = new_list_obj(compiler->vulnObjs, (ObjArray)CREATE_DA());
     for (u32 i = 0; i < node->importedNames.length; i++) {
         const Token importedName = node->importedNames.data[i];
-        APPEND_DA(
+        PUSH_DA(
             &importedList->items, 
-            AS_OBJ(new_string_obj(compiler->program, importedName.lexeme, importedName.pos.length))
+            AS_OBJ(new_string_obj(compiler->vulnObjs, importedName.lexeme, importedName.pos.length))
         );
     }
     emit_const(compiler, OP_IMPORT_NAMES, AS_OBJ(importedList), get_node_pos(AS_NODE(node)));
-    GC_END_FREEZE(&compiler->program->gc);
 
     // Declares names in reverse, since declarations go from the top (last value) to bottom (first).
     for (i64 i = (i64)node->namesAs.length - 1; i >= 0; i--) {
@@ -997,8 +1001,10 @@ static void finish_func(Compiler *compiler, const FuncNode *node) {
 static void param_names(ZmxProgram *program, FuncObj *func, const NodeArray params) {
     for (u32 i = 0; i < params.length; i++) {
         DeclareVarNode *param = AS_PTR(DeclareVarNode, params.data[i]);
-        StringObj *name = new_string_obj(program, param->name.lexeme, param->name.pos.length);
-        APPEND_DA(&func->params.names, AS_OBJ(name));
+        StringObj *name = new_string_obj(
+            &program->gc.startupVulnObjs, param->name.lexeme, param->name.pos.length
+        );
+        PUSH_DA(&func->params.names, AS_OBJ(name));
     }
 }
 
@@ -1038,7 +1044,7 @@ static void compile_params(Compiler *compiler, FuncObj *compiledFunc, const Func
     param_names(compiler->program, compiledFunc, node->optionalParams);
 
     for (u32 i = 0; i < node->mandatoryParams.length + node->optionalParams.length; i++) {
-        APPEND_DA(&compiledFunc->params.values, NULL); // A C-NULL value for each param.
+        PUSH_DA(&compiledFunc->params.values, NULL); // A C-NULL value for each param.
     }
     if (node->optionalParams.length > 0) {
         optional_param_values(compiler, node);
@@ -1054,10 +1060,10 @@ static void compile_params(Compiler *compiler, FuncObj *compiledFunc, const Func
  * 
  */
 static void declare_func(Compiler *compiler, FuncObj *compiledFunc, const FuncNode *node) {
-    emit_const(
-        compiler, node->isClosure ? OP_CLOSURE : OP_LOAD_CONST, AS_OBJ(compiledFunc),
-        PREVIOUS_OPCODE_POS(compiler)
-    );
+    emit_const(compiler, OP_FUNC, AS_OBJ(compiledFunc), PREVIOUS_OPCODE_POS(compiler));
+    if (node->isClosure) {
+        emit_instr(compiler, OP_MAKE_CLOSURE, PREVIOUS_OPCODE_POS(compiler));
+    }
     // Outside decl and params here since they require the compiled func to be loaded on the stack.
     compile_params(compiler, compiledFunc, node);
     if (!node->isMethod) {
@@ -1082,24 +1088,21 @@ static void declare_func(Compiler *compiler, FuncObj *compiledFunc, const FuncNo
  */
 static void compile_func(Compiler *compiler, const FuncNode *node) {
     StringObj *nameAsObj = new_string_obj(
-        compiler->program, node->name.lexeme, node->name.pos.length
+        compiler->vulnObjs, node->name.lexeme, node->name.pos.length
     );
     FuncObj *original = compiler->func;
-    GC_PROTECT(&compiler->program->gc, AS_OBJ(original));
-    GC_PROTECT(&compiler->program->gc, AS_OBJ(nameAsObj));
     compiler->func = new_func_obj(
-        compiler->program, nameAsObj,
+        compiler->vulnObjs, nameAsObj,
         node->mandatoryParams.length, node->mandatoryParams.length + node->optionalParams.length,
-        compiler->program->currentFile, false
+        false
     );
+    // Protect the new function during its compilation (original was already protected recursively).
+    PUSH_PROTECTED(compiler->vulnObjs, AS_OBJ(compiler->func));
     finish_func(compiler, node);
     FuncObj *compiledFunc = compiler->func;
-    GC_PROTECT(&compiler->program->gc, AS_OBJ(compiledFunc)); // No longer in the compiler.
     compiler->func = original;
     declare_func(compiler, compiledFunc, node); // Declare the function compiled in the original.
-
-    // Now the name string and the 2 functions are safe stored in the compiler.
-    GC_DROP_PROTECTED_AMOUNT(&compiler->program->gc, 3);
+    DROP_PROTECTED(compiler->vulnObjs); // No need to protect anymore, it's inside original now.
 }
 
 /** 
@@ -1116,7 +1119,7 @@ static void compile_abstract_methods(Compiler *compiler, const ClassNode *node) 
     for (u32 i = 0; i < node->abstractMethods.length; i++) {
         Token *name = &AS_PTR(DeclareVarNode, node->abstractMethods.data[i])->name;
         Obj *methodString = AS_OBJ(
-            new_string_obj(compiler->program, name->lexeme, name->pos.length)
+            new_string_obj(compiler->vulnObjs, name->lexeme, name->pos.length)
         );
         emit_const(
             compiler, OP_LOAD_CONST, methodString, get_node_pos(node->abstractMethods.data[i])
@@ -1137,7 +1140,7 @@ static void compile_abstract_methods(Compiler *compiler, const ClassNode *node) 
  */
 static void compile_class(Compiler *compiler, const ClassNode *node) {
     StringObj *nameAsObj = new_string_obj(
-        compiler->program, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
+        compiler->vulnObjs, node->nameDecl->name.lexeme, node->nameDecl->name.pos.length
     );
     emit_instr(compiler, node->isAbstract ? OP_TRUE : OP_FALSE, get_node_pos(AS_NODE(node)));
     emit_const(compiler, OP_CLASS, AS_OBJ(nameAsObj), get_node_pos(AS_NODE(node)));
@@ -1237,19 +1240,17 @@ static void compile_node_array(Compiler *compiler, const NodeArray *nodes) {
     }
 }
 
-/** 
- * Compiles bytecode from the AST inside compiler into its func.
- * 
- * Returns whether or not compilation was successful.
- */
-bool compile(Compiler *compiler) {
-    compile_node_array(compiler, &compiler->ast);
+/** Compiles bytecode from the AST inside compiler into its func. */
+void compile(Compiler *compiler) {
+    for (u32 i = 0; i < compiler->ast.length; i++) {
+        compile_node(compiler, compiler->ast.data[i]);
+        DROP_ALL_UNROOTED(compiler->vulnObjs); // Anything here is now rooted or not needed anymore.
+    }
     write_jumps(compiler);
 
     if (compiler->program->cli->debugBytecode || DEBUG_BYTECODE) {
         print_bytecode(compiler->func);
     }
-    return !compiler->program->hasErrored;
 }
 
 /** 
@@ -1267,53 +1268,34 @@ static void free_out_of_compilation(
     if (compiler != NULL) free_compiler(compiler);
 }
 
-/** 
- * Lexes the source into the lexer and if it didn't error then it parses it onto the parser.
- * 
- * If it fails the program errors. Otherwise, on success it just returns true.
- * In either case it doesn't free neither the lexer nor parser.
- */
-static bool parse_source(ZmxProgram *program, Lexer *lexer, Parser *parser) {
-    if (!lex(lexer)) {
-        return false;
-    }
-
-    *parser = create_parser(program, lexer->tokens);
-    if (!parse(parser)) {
-        return false;
-    }
-    return true;
-}
-
-/** Returns a compiled function or NULL if it errored. */
-FuncObj *compile_file_source(ZmxProgram *program, char *source, const bool isMain) {
+/** Returns a compiled function protected inside the passed vulnerables, or NULL if it errored. */
+FuncObj *compile_file_source(VulnerableObjs *vulnObjs, char *source, const bool isMain) {
+    ZmxProgram *program = vulnObjs->program;
     Lexer lexer = create_lexer(program, source);
     Parser parser = create_parser(program, lexer.tokens);
     if (!parse_source(program, &lexer, &parser)) {
         free_out_of_compilation(&lexer, &parser, NULL, NULL);
         return NULL;
     }
-    Resolver resolver = create_resolver(program, parser.ast);
+    Resolver resolver = create_resolver(vulnObjs, parser.ast);
     if (!resolve(&resolver)) {
         free_out_of_compilation(&lexer, &parser, &resolver, NULL);
         return NULL;
     }
 
     // Create and set the compiler as the one being GCed. Now compiler's objects can be GCed.
-    Compiler compiler = create_compiler(program, resolver.ast, isMain);
-    program->gc.compiler = &compiler;
-    const bool succeeded = compile(&compiler);
-    FuncObj *func = succeeded ? compiler.func : NULL;
+    Compiler compiler = create_compiler(vulnObjs, resolver.ast, isMain);
+    compile(&compiler);
+    FuncObj *func = compiler.func;
 
     free_out_of_compilation(&lexer, &parser, &resolver, &compiler);
     free_all_token_strings(program);
     free_all_nodes(program);
-    program->gc.compiler = NULL;
     return func;
 }
 
 /** 
- * Returns a compiled function (NULL if failed) for a REPL source line.
+ * Returns a compiled function protected inside vulnerables (NULL if failed) for a REPL line.
  * 
  * Because REPL requires context of previous lines and what was declared in them,
  * we require passing the specific resolver here to keep track of one resolution
@@ -1322,7 +1304,8 @@ FuncObj *compile_file_source(ZmxProgram *program, char *source, const bool isMai
  * This is also why when we fail we only free the lexer, parser, and compiler,
  * because the resolver lasts the whole REPL session.
  */
-FuncObj *compile_repl_source(ZmxProgram *program, char *source, Resolver *resolver) {
+FuncObj *compile_repl_source(VulnerableObjs *vulnObjs, char *source, Resolver *resolver) {
+    ZmxProgram *program = vulnObjs->program;
     Lexer lexer = create_lexer(program, source);
     Parser parser = create_parser(program, lexer.tokens);
     if (!parse_source(program, &lexer, &parser)) {
@@ -1336,11 +1319,9 @@ FuncObj *compile_repl_source(ZmxProgram *program, char *source, Resolver *resolv
         return NULL;
     }
 
-    Compiler compiler = create_compiler(program, resolver->ast, true);
-    program->gc.compiler = &compiler;
-    const bool succeeded = compile(&compiler);
-    program->gc.compiler = NULL;
-    FuncObj *func = succeeded ? compiler.func : NULL;
+    Compiler compiler = create_compiler(vulnObjs, resolver->ast, true);
+    compile(&compiler);
+    FuncObj *func = compiler.func;
 
     free_out_of_compilation(&lexer, &parser, NULL, &compiler);
     return func;

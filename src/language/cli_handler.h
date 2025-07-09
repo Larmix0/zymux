@@ -8,6 +8,7 @@
 typedef struct ZmxProgram ZmxProgram;
 typedef struct Resolver Resolver;
 typedef struct Vm Vm;
+typedef struct VulnerableObjs VulnerableObjs;
 
 /** Stores all information needed to handle the command line interface of the program. */
 typedef struct {
@@ -39,6 +40,6 @@ CliHandler create_cli_handler(const int argc, char **argv);
 void print_cli_help();
 
 /** Prompts the user for one line and runs it in REPL once. */
-char *repl_line(CliHandler *cli, ZmxProgram *program, Resolver *resolver, Vm *vm);
+char *repl_line(CliHandler *cli, VulnerableObjs *vulnObjs, Resolver *resolver, Vm *vm);
 
 #endif

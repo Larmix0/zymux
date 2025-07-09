@@ -24,19 +24,22 @@ static void free_repl_lines(StringArray *replLines) {
 /** Runs a program on a REPL loop. */
 static void run_repl(CliHandler *cli) {
     StringArray replLines = CREATE_DA();
-    ZmxProgram program = create_zmx_program("<REPL>", cli, false);
+    ZmxProgram *program = new_zmx_program("<REPL>", cli, false);
+    VulnerableObjs *vulnObjs = &program->gc.startupVulnObjs;
     NodeArray emptyAst = CREATE_DA();
-    Resolver resolver = create_resolver(&program, emptyAst);
-    Vm vm = create_vm(&program, new_func_obj(&program, NULL, 0, 0, NULL, true));
-    program.gc.vm = &vm;
+    Resolver resolver = create_resolver(vulnObjs, emptyAst);
+    Vm vm;
+    init_vm(
+        &vm, program, new_runtime_func_obj(vulnObjs, new_func_obj(vulnObjs, NULL, 0, 0, true), NULL)
+    );
 
     while (!cli->exitedRepl) {
-        APPEND_DA(&replLines, repl_line(cli, &program, &resolver, &vm));
+        PUSH_DA(&replLines, repl_line(cli, vulnObjs, &resolver, &vm));
     }
     free_resolver(&resolver);
     free_vm(&vm);
     free_repl_lines(&replLines);
-    free_zmx_program(&program);
+    free_zmx_program(program);
 }
 
 /** 
@@ -49,10 +52,10 @@ static void run_file(char *passedPath, CliHandler *cli) {
     char *source = alloc_file_source(passedPath);
     
     char *absoluteFile = alloc_absolute_path(passedPath);
-    ZmxProgram program = create_zmx_program(absoluteFile, cli, true);
-    interpret_file_source(&program, source, true);
+    ZmxProgram *program = new_zmx_program(absoluteFile, cli, true);
+    interpret_file_source(program, source, true);
 
-    free_zmx_program(&program);
+    free_zmx_program(program);
     free(source);
     free(absoluteFile);
 }

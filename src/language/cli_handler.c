@@ -136,24 +136,24 @@ static bool line_is_quit(char *line) {
  * storing the AST, and the AST has some tokens in its nodes whose lexemes point to whichever
  * part of the source string they come from.
  */
-char *repl_line(CliHandler *cli, ZmxProgram *program, Resolver *resolver, Vm *vm) {
+char *repl_line(CliHandler *cli, VulnerableObjs *vulnObjs, Resolver *resolver, Vm *vm) {
     printf("> ");
     char *line = get_repl_input();
     if (line_is_quit(line)) {
         cli->exitedRepl = true;
         return line;
     }
-
-    FuncObj *func = compile_repl_source(program, line, resolver);
+    FuncObj *func = compile_repl_source(vulnObjs, line, resolver);
     if (func == NULL) {
         // Errors don't matter in REPL, so just reset and try again.
-        program->hasErrored = false;
+        vulnObjs->program->hasErrored = false;
         return line;
     }
-    vm->frame->func = func;
-    vm->frame->ip = func->bytecode.data;
+    ThreadObj *mainThread = get_main_thread(vm);
+    mainThread->frame->func = func;
+    mainThread->frame->ip = func->bytecode.data;
+    interpret(vm); // Executes the main thread in the VM.
 
-    interpret_vm(vm);
     cli->exitedRepl = cli->manuallyExited;
     return line;
 }

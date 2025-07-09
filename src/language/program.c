@@ -7,18 +7,31 @@
 #include "object.h"
 #include "program.h"
 
-/** Returns an initialized zymux program with the parameters. */
-ZmxProgram create_zmx_program(char *file, CliHandler *cli, const bool showErrors) {
-    ZmxProgram program = {
-        .hasErrored = false, .showErrors = showErrors, .cli = cli,
-        .allTokenStrings = CREATE_DA(), .allNodes = NULL, .allObjs = NULL, .currentFile = NULL,
-        .internedFalse = NULL, .internedTrue = NULL, .internedNull = NULL,
-        .internedStrings = create_table(), .builtIn = empty_built_ins(),
-        .gc = create_gc()
-    };
-    intern_objs(&program);
-    load_built_ins(&program);
-    program.currentFile = new_string_obj(&program, file, strlen(file));
+/** Returns an initialized, allocated zymux program with the parameters. */
+ZmxProgram *new_zmx_program(char *file, CliHandler *cli, const bool showErrors) {
+    ZmxProgram *program = TYPE_ALLOC(ZmxProgram);
+
+    program->isRuntime = false;
+    program->hasErrored = false;
+    program->showErrors = showErrors;
+    program->cli = cli;
+    INIT_DA(&program->allTokenStrings);
+
+    program->allNodes = NULL;
+    program->allObjs = NULL;
+    program->currentFile = NULL;
+
+    program->internedFalse = NULL;
+    program->internedTrue = NULL;
+    program->internedNull = NULL;
+    program->internedStrings = create_table();
+    program->builtIn = empty_built_ins(),
+    program->gc = create_gc(program);
+
+    // Now initialize the built-in objects after everything's been safely zeroed out.
+    intern_objs(&program->gc.startupVulnObjs);
+    load_built_ins(&program->gc.startupVulnObjs);
+    program->currentFile = new_string_obj(&program->gc.startupVulnObjs, file, strlen(file));
     return program;
 }
 
@@ -31,4 +44,6 @@ void free_zmx_program(ZmxProgram *program) {
     free_table(&program->internedStrings);
     free_built_ins(&program->builtIn);
     free_gc(&program->gc);
+
+    free(program); // The program itself is allocated.
 }

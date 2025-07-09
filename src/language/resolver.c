@@ -31,15 +31,16 @@ static ClosedVariables empty_closure() {
 }
 
 /** Returns a starting resolver for the passed AST. */
-Resolver create_resolver(ZmxProgram *program, NodeArray ast) {
+Resolver create_resolver(VulnerableObjs *vulnObjs, NodeArray ast) {
     Resolver resolver = {
-        .program = program, .ast = ast,
+        .program = vulnObjs->program, .hasErrored = false, .ast = ast,
         .globals = empty_closure(), .locals = CREATE_DA(),
         .loopScopes = CREATE_DA(), .scopeDepth = 0,
-        .currentFunc = FUNC_NONE, .currentCls = CLS_NONE
+        .currentFunc = FUNC_NONE, .currentCls = CLS_NONE,
+        .vulnObjs = vulnObjs
     };
     // Add the permanent closure for locals not covered by functions (like vars in global loops).
-    APPEND_DA(&resolver.locals, empty_closure());
+    PUSH_DA(&resolver.locals, empty_closure());
     return resolver;
 }
 
@@ -92,6 +93,7 @@ static VarResolution create_var_resolution(const i64 index, const VarType scopeT
 static void resolution_error(
     Resolver *resolver, const SourcePosition pos, const char *format, ...
 ) {
+    resolver->hasErrored = true;
     va_list args;
     va_start(args, format);
     zmx_user_error(
@@ -160,7 +162,7 @@ static Variable copy_variable(const Variable original) {
         original.resolution, original.paramFunc
     );
     for (u32 i = 0; i < original.resolutions.length; i++) {
-        APPEND_DA(&copied.resolutions, original.resolutions.data[i]);
+        PUSH_DA(&copied.resolutions, original.resolutions.data[i]);
     }
     return copied;
 }
@@ -176,7 +178,7 @@ static void append_new_closure(Resolver *resolver) {
     ClosedVariables *prevClosure = CURRENT_CLOSURE(resolver);
     const u32 prevClosureIdx = resolver->locals.length - 1;
 
-    APPEND_DA(&resolver->locals, empty_closure());
+    PUSH_DA(&resolver->locals, empty_closure());
     if (prevClosure->captured.length > 0) {
         CURRENT_CLOSURE(resolver)->isClosure = true; // Already becomes a closure just in case.
     }
@@ -184,22 +186,22 @@ static void append_new_closure(Resolver *resolver) {
         for (i64 j = (i64)prevClosure->vars.length - 1; j >= 0; j--) {
             if (equal_token(prevClosure->vars.data[j].name, prevClosure->captured.data[i].name)) {
                 capture_local(resolver, &prevClosure->vars.data[j], prevClosureIdx);
-                APPEND_DA(CURRENT_CAPTURED(resolver), LAST_ITEM_DA(&prevClosure->captured));
+                PUSH_DA(CURRENT_CAPTURED(resolver), LAST_ITEM_DA(&prevClosure->captured));
                 return;
             }
         }
         // Didn't find an uncaptured local, so copy the capture we had.
-        APPEND_DA(CURRENT_CAPTURED(resolver), copy_variable(prevClosure->captured.data[i]));
+        PUSH_DA(CURRENT_CAPTURED(resolver), copy_variable(prevClosure->captured.data[i]));
     }
 }
 
 /** Adds a scope that's one layer deeper (usually from entering a new block scope). */
 static void push_scope(Resolver *resolver, const ScopeType type) {
     resolver->scopeDepth++;
-    APPEND_DA(&CURRENT_CLOSURE(resolver)->localCaptures, 0); // Start new captures scope with 0.
+    PUSH_DA(&CURRENT_CLOSURE(resolver)->localCaptures, 0); // Start new captures scope with 0.
 
     if (type == SCOPE_LOOP) {
-        APPEND_DA(&resolver->loopScopes, resolver->scopeDepth);
+        PUSH_DA(&resolver->loopScopes, resolver->scopeDepth);
     } else if (type == SCOPE_FUNC) {
         append_new_closure(resolver);
     }
@@ -357,8 +359,8 @@ static void declare_local(Resolver *resolver, DeclareVarNode *node, FuncNode *pa
         false, node->isConst, false, name, resolver->scopeDepth,
         CURRENT_LOCALS(resolver)->length, resolver->locals.length - 1, node->resolution, paramFunc
     );
-    APPEND_DA(&declared.resolutions, &node->resolution);
-    APPEND_DA(CURRENT_LOCALS(resolver), declared);
+    PUSH_DA(&declared.resolutions, &node->resolution);
+    PUSH_DA(CURRENT_LOCALS(resolver), declared);
 }
 
 /** 
@@ -380,8 +382,8 @@ static void declare_global(Resolver *resolver, DeclareVarNode *node, FuncNode *p
         false, node->isConst, false, name, resolver->scopeDepth,
         resolver->globals.vars.length, 0, node->resolution, paramFunc
     );
-    APPEND_DA(&declared.resolutions, &node->resolution);
-    APPEND_DA(&resolver->globals.vars, declared);
+    PUSH_DA(&declared.resolutions, &node->resolution);
+    PUSH_DA(&resolver->globals.vars, declared);
 }
 
 /**
@@ -397,8 +399,9 @@ static void resolve_declare_var(Resolver *resolver, DeclareVarNode *node, FuncNo
     resolve_node(resolver, node->value);
     
     const Token name = node->name;
-    Obj *nameAsObj = AS_OBJ(new_string_obj(resolver->program, name.lexeme, name.pos.length));
-    if (table_get(&resolver->program->builtIn.funcs, nameAsObj)) {
+    Obj *nameAsObj = AS_OBJ(new_string_obj(resolver->vulnObjs, name.lexeme, name.pos.length));
+    Obj *builtIn = table_get(&resolver->program->builtIn.funcs, nameAsObj);
+    if (builtIn) {
         resolution_error(
             resolver, name.pos, "Can't redeclare built-in name '%.*s'.",
             name.pos.length, name.lexeme
@@ -429,7 +432,7 @@ static void const_assign_error(Resolver *resolver, const Node *node, const Token
  */
 static void add_variable_reference(Variable *variable, VarResolution *resolution) {
     *resolution = variable->resolution;
-    APPEND_DA(&variable->resolutions, resolution);
+    PUSH_DA(&variable->resolutions, resolution);
 }
 
 /** 
@@ -442,7 +445,7 @@ static void add_variable_reference(Variable *variable, VarResolution *resolution
 static void mark_param_captured(ClosedVariables *closure, Variable *parameter) {
     for (i64 i = (i64)closure->vars.length - 1; i >= 0; i--) {
         if (equal_token(closure->vars.data[i].name, parameter->name)) {
-            APPEND_DA(&parameter->paramFunc->capturedParams, i);
+            PUSH_DA(&parameter->paramFunc->capturedParams, i);
             return;
         }
     }
@@ -481,7 +484,7 @@ static void append_capture(VariableArray *captures, Variable *capturedVar) {
         }
     }
     fix_capture_resolution(capturedVar, captureIdx);
-    APPEND_DA(captures, *capturedVar);
+    PUSH_DA(captures, *capturedVar);
 }
 
 /**
@@ -630,8 +633,9 @@ static void resolve_assign_var(Resolver *resolver, AssignVarNode *node) {
     }
 
     // Guaranteed error at this point. We just try to put a more informative error message.
-    Obj *nameAsObj = AS_OBJ(new_string_obj(resolver->program, name.lexeme, name.pos.length));
-    if (table_get(&resolver->program->builtIn.funcs, nameAsObj)) {
+    Obj *nameAsObj = AS_OBJ(new_string_obj(resolver->vulnObjs, name.lexeme, name.pos.length));
+    Obj *builtIn = table_get(&resolver->program->builtIn.funcs, nameAsObj);
+    if (builtIn) {
         resolution_error(
             resolver, get_node_pos(AS_NODE(node)), "Can't assign to built-in name '%.*s'.",
             name.pos.length, name.lexeme
@@ -721,8 +725,10 @@ static void resolve_get_var(Resolver *resolver, GetVarNode *node) {
             return;
         }
     }
-    Obj *nameAsObj = AS_OBJ(new_string_obj(resolver->program, name.lexeme, name.pos.length));
-    if (try_get_global(resolver, node) || try_get_built_in(resolver, nameAsObj, node)) {
+    Obj *nameAsObj = AS_OBJ(new_string_obj(resolver->vulnObjs, name.lexeme, name.pos.length));
+    bool isBuiltIn = try_get_built_in(resolver, nameAsObj, node);
+    bool isGlobal = try_get_global(resolver, node);
+    if (isGlobal || isBuiltIn) {
         return;
     }
 
@@ -794,7 +800,7 @@ static void resolve_match(Resolver *resolver, MatchNode *node) {
     resolve_node(resolver, node->matchedExpr);
 
     const u32 matchIdx = CURRENT_LOCALS(resolver)->length;
-    APPEND_DA(
+    PUSH_DA(
         CURRENT_LOCALS(resolver),
         create_variable(
             false, false, false, create_token("<matched expr>", 0), resolver->scopeDepth,
@@ -838,7 +844,7 @@ static void resolve_for(Resolver *resolver, ForNode *node) {
     resolve_node(resolver, node->loopVar);
 
     const u32 loopVarSpot = CURRENT_LOCALS(resolver)->length;
-    APPEND_DA(
+    PUSH_DA(
         CURRENT_LOCALS(resolver),
         create_variable(
             false, false, false, create_token("<iter>", 0), resolver->scopeDepth,
@@ -1113,7 +1119,10 @@ static void resolve_node_array(Resolver *resolver, NodeArray *nodes) {
  * Returns whether or not the semantic analysis was successful and didn't raise any errors.
  */
 bool resolve(Resolver *resolver) {
-    resolve_node_array(resolver, &resolver->ast);
+    for (u32 i = 0; i < resolver->ast.length; i++) {
+        resolve_node(resolver, resolver->ast.data[i]);
+        DROP_ALL_UNROOTED(resolver->vulnObjs); // Anything still here is unneeded or already rooted.
+    }
 
-    return !resolver->program->hasErrored;
+    return !resolver->hasErrored;
 }

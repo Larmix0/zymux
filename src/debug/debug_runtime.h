@@ -12,7 +12,7 @@ void print_runtime_state(
 
 /** Prints information about a caught runtime error, its effects, and the error message . */
 void print_caught_runtime_error(
-    ZmxProgram *program, FuncObj *setFunc, const u32 poppedLocals, const u32 poppedCaptures,
+    VulnerableObjs *vulnObjs, FuncObj *setFunc, const u32 poppedLocals, const u32 poppedCaptures,
     const u32 poppedOpenCaptures, const char *errorMessage
 );
 

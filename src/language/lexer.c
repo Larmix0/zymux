@@ -56,10 +56,10 @@ static void lex_token(Lexer *lexer);
 /** Returns an initialized lexer with the source code passed. */
 Lexer create_lexer(ZmxProgram *program, char *source) {
     Lexer lexer = {
+        .program = program, .hasErrored = false,
         .source = source, .sourceLength = strlen(source),
         .current = source, .line = 1, .column = 1,
         .tokenStart = source, .tokenColumn = 1,
-        .program = program,
         .tokens = CREATE_DA()
     };
     return lexer;
@@ -106,7 +106,7 @@ static void append_implicit(Lexer *lexer, const TokenType type) {
         .lexeme = "", .lexedIdx = lexer->tokens.length,
         .pos = create_src_pos(lexer->line, lexer->column, 0), .type = type
     };
-    APPEND_DA(&lexer->tokens, implicit);
+    PUSH_DA(&lexer->tokens, implicit);
 }
 
 /** Appends the token we've been lexing as an error with the passed message. */
@@ -116,7 +116,8 @@ static void append_lexed_error(Lexer *lexer, const char *format, ...) {
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .type = TOKEN_ERROR,
     };
-    APPEND_DA(&lexer->tokens, error);
+    PUSH_DA(&lexer->tokens, error);
+    lexer->hasErrored = true;
 
     va_list args;
     va_start(args, format);
@@ -134,7 +135,8 @@ static void append_error_at(
     Token error = {
         .lexeme = errorStart, .lexedIdx = lexer->tokens.length, .pos = pos, .type = TOKEN_ERROR
     };
-    APPEND_DA(&lexer->tokens, error);
+    PUSH_DA(&lexer->tokens, error);
+    lexer->hasErrored = true;
 
     va_list args;
     va_start(args, format);
@@ -151,7 +153,7 @@ static void append_lexed(Lexer *lexer, const TokenType type) {
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .type = type
     };
-    APPEND_DA(&lexer->tokens, token);
+    PUSH_DA(&lexer->tokens, token);
 }
 
 /** Appends an integer that was lexed and sets its integer union to the passed literal value. */
@@ -161,7 +163,7 @@ static void append_lexed_int(Lexer *lexer, const ZmxInt integer) {
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .type = TOKEN_INT_LIT, .intVal = integer
     };
-    APPEND_DA(&lexer->tokens, token);
+    PUSH_DA(&lexer->tokens, token);
 }
 
 /** Appends a float that was lexed and sets its float union to the passed literal value. */
@@ -171,7 +173,7 @@ static void append_lexed_float(Lexer *lexer, const ZmxFloat floatVal) {
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
         .type = TOKEN_FLOAT_LIT, .floatVal = floatVal
     };
-    APPEND_DA(&lexer->tokens, token);
+    PUSH_DA(&lexer->tokens, token);
 }
 
 /** Appends a string that was lexed by making the string union the passed buffer. */
@@ -185,8 +187,8 @@ static void append_lexed_string(
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, quotesLength + string->escapes),
         .type = TOKEN_STRING_LIT, .stringVal = {.length = buffer.length, .text = buffer.text}
     };
-    APPEND_DA(&lexer->program->allTokenStrings, buffer.text); // So it can be freed later.
-    APPEND_DA(&lexer->tokens, token);
+    PUSH_DA(&lexer->program->allTokenStrings, buffer.text); // So it can be freed later.
+    PUSH_DA(&lexer->tokens, token);
 }
 
 /** One line comments, which start with 2 slashes then ignore everything until EOF or newline. */
@@ -973,5 +975,5 @@ bool lex(Lexer *lexer) {
     if (lexer->program->cli->debugTokens || DEBUG_TOKENS) {
         print_tokens(lexer->tokens);
     }
-    return !lexer->program->hasErrored;
+    return !lexer->hasErrored;
 }

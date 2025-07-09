@@ -148,11 +148,13 @@ void file_error(const char *format, ...) {
  * If the passed args list is NULL, it'll simply print the passed string with no formatting.
  */
 void zmx_user_error(
-    ZmxProgram *program, const char *fileName, const SourcePosition pos, const char *errorName,
-    const char *format, va_list *args
+    ZmxProgram *program, const char *fileName, const SourcePosition pos,
+    const char *errorName, const char *format, va_list *args
 ) {
     const bool hasErrored = program->hasErrored;
-    program->hasErrored = true;
+    if (!program->isRuntime) {
+        program->hasErrored = true; // Only set up to exit if runtime hasn't started.
+    }
     if (!program->showErrors) {
         return;
     }

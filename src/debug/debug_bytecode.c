@@ -21,7 +21,7 @@ static u32 print_number_instr(
 ) {
     print_bare_instr(instrName, idx);
     *idx += *size;
-    const u32 number = read_number(&func->bytecode, *idx - *size, size);
+    const u32 number = bytecode_number(&func->bytecode, *idx - *size, size);
     printf(" %"PRIu32, number);
     return number;
 }
@@ -124,8 +124,9 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_CALL: print_number_instr("CALL", func, &idx, size); break;
     case OP_ASSIGN_SUBSCR: print_bare_instr("ASSIGN_SUBSCR", &idx); break;
     case OP_GET_SUBSCR: print_bare_instr("GET_SUBSCR", &idx); break;
+    case OP_FUNC: print_const_instr("FUNC", func, &idx, size); break;
     case OP_OPTIONALS_FUNC: print_bare_instr("OPTIONALS_FUNC", &idx); break;
-    case OP_CLOSURE: print_const_instr("CLOSURE", func, &idx, size); break;
+    case OP_MAKE_CLOSURE: print_bare_instr("MAKE_CLOSURE", &idx); break;
     case OP_CLASS: print_const_instr("CLASS", func, &idx, size); break;
     case OP_ADD_INIT: print_bare_instr("ADD_INIT", &idx); break;
     case OP_METHODS: print_number_instr("METHODS", func, &idx, size); break;
