@@ -53,7 +53,7 @@ ThreadState get_thread_state(ThreadObj *thread);
 void set_thread_state(ThreadObj *thread, const ThreadState newState);
 
 /** Safely returns whether or not the thread has been joined yet. */
-bool is_thread_joined(ThreadObj *thread);
+bool is_joined_thread(ThreadObj *thread);
 
 /** Safely changes whether or not the thread has been joined to the passed bool. */
 void set_thread_joined(ThreadObj *thread, const bool hasJoined);

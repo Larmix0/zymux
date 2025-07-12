@@ -111,6 +111,15 @@ ThreadObj *vm_push_thread(
  */
 FuncObj *get_runnable_func(Obj *runnable);
 
+/** Given a function object, returns the dynamic/runtime version of the params struct in it. */
+FuncParams derive_runtime_params(FuncObj *func);
+
+/** Returns a boolean of whether or not the call is valid. Errors and returns false if not. */
+bool call_is_valid(
+    ThreadObj *thread, char *name, const FuncParams params, const u32 positionalAmount,
+    MapObj *kwargs
+);
+
 /** 
  * The internal thread start function, which executes with a thread that has protected arguments.
  * 

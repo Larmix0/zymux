@@ -358,7 +358,7 @@ static void print_stack_trace(ThreadObj *thread) {
         } else {
             fprintf(stderr, "%s(): ", frame->func->name->string);
         }
-        const u32 bytecodeIdx = frame->ip - frame->func->bytecode.data - 1;
+        const u32 bytecodeIdx = frame->ip - frame->func->bytecode.data;
         fprintf(stderr, "line %d\n", frame->func->positions.data[bytecodeIdx].line);
     }
     fputc('\n', stderr);
@@ -435,7 +435,7 @@ void base_runtime_error(ThreadObj *thread, StringObj *errorMessage) {
     }
 
     print_stack_trace(thread);
-    const u32 bytecodeIdx = thread->frame->ip - thread->frame->func->bytecode.data - 1;
+    const u32 bytecodeIdx = thread->frame->ip - thread->frame->func->bytecode.data;
     zmx_user_error(
         thread->vm->program, AS_PTR(RuntimeFuncObj, thread->frame->func)->module->path->string,
         thread->frame->func->positions.data[bytecodeIdx],
@@ -919,35 +919,38 @@ static Obj *for_iter_or_jump(ThreadObj *thread) {
  * Errors and returns false if the arity check fails, otherwise returns true.
  */
 static bool check_arity(
-    ThreadObj *thread, const u32 minArity, const u32 maxArity, const u32 positionalAmount
+    ThreadObj *thread, char *name, const u32 minArity, const u32 maxArity,
+    const u32 positionalAmount
 ) {
-    MapObj *keywordArgs = AS_PTR(MapObj, PEEK(thread));
+    MapObj *kwargs = AS_PTR(MapObj, PEEK(thread));
     char *argString = minArity == 1 ? "argument" : "arguments";
-    const u32 allAmount = positionalAmount + keywordArgs->table.count;
+    const u32 allAmount = positionalAmount + kwargs->table.count;
 
     const bool noOptionals = minArity == maxArity;
     const bool tooFewArgs = allAmount < minArity;
     const bool tooManyArgs = allAmount > maxArity;
     if (tooFewArgs && noOptionals) {
         RUNTIME_ERROR(
-            thread, "Expected %"PRIu32" %s, got %"PRIu32" instead.", minArity, argString, allAmount
+            thread, "%s() expected %"PRIu32" %s, got %"PRIu32" instead.",
+            name, minArity, argString, allAmount
         );
         return false;
     } else if (tooManyArgs && noOptionals) {
         RUNTIME_ERROR(
-            thread, "Expected %"PRIu32" %s, got %"PRIu32" instead.", minArity, argString, allAmount
+            thread, "%s() expected %"PRIu32" %s, got %"PRIu32" instead.",
+            name, minArity, argString, allAmount
         );
         return false;
     } else if (tooFewArgs) {
         RUNTIME_ERROR(
-            thread, "Expected at least %"PRIu32" %s, but only got %"PRIu32".",
-            minArity, argString, allAmount
+            thread, "%s() expected at least %"PRIu32" %s, but only got %"PRIu32".",
+            name, minArity, argString, allAmount
         );
         return false;
     } else if (tooManyArgs) {
         RUNTIME_ERROR(
-            thread, "Expected %"PRIu32" to %"PRIu32" arguments, got %"PRIu32" instead.",
-            minArity, maxArity, allAmount
+            thread, "%s() expected %"PRIu32" to %"PRIu32" arguments, got %"PRIu32" instead.",
+            name, minArity, maxArity, allAmount
         );
         return false;
     }
@@ -968,39 +971,77 @@ static bool check_arity(
  * 
  * Returns whether or not an error occurred while flattening the keyword arguments.
  */
-static bool flatten_kwargs(ThreadObj *thread, const FuncParams params, const u32 argAmount) {
-    MapObj *keywordArgs = AS_PTR(MapObj, safe_pop(thread));
+static bool flatten_kwargs(
+    ThreadObj *thread, char *name, const FuncParams params, const u32 positionalsAmount
+) {
+    MapObj *kwargs = AS_PTR(MapObj, safe_pop(thread));
 
-    for (u32 i = 0; i < argAmount; i++) {
-        if (table_get(&keywordArgs->table, params.names.data[i])) {
+    for (u32 i = 0; i < positionalsAmount; i++) {
+        if (table_get(&kwargs->table, params.names.data[i])) {
             // Argument was already provided positionally, but exists again in keyword args.
             RUNTIME_ERROR(
-                thread, "Keyword argument '%s' was already provided positionally.",
-                AS_PTR(StringObj, params.names.data[i])->string
+                thread, "for %s(), keyword argument '%s' was already provided positionally.",
+                name, AS_PTR(StringObj, params.names.data[i])->string
             );
             return false;
         }
     }
-    for (u32 i = argAmount; i < params.names.length; i++) {
-        Obj *argValue = table_get(&keywordArgs->table, params.names.data[i]);
+    for (u32 i = positionalsAmount; i < params.names.length; i++) {
+        Obj *argValue = table_get(&kwargs->table, params.names.data[i]);
         if (argValue) {
             PUSH(thread, argValue);
-            table_delete(&keywordArgs->table, params.names.data[i]);
+            table_delete(&kwargs->table, params.names.data[i]);
         } else if (params.values.data[i] != NULL) {
             PUSH(thread, params.values.data[i]);
         } else {
             RUNTIME_ERROR(
-                thread, "Expected value for parameter '%s'.",
-                AS_PTR(StringObj, params.names.data[i])->string
+                thread, "%s() expected value for parameter '%s'.",
+                name, AS_PTR(StringObj, params.names.data[i])->string
             );
             return false;
         }
     }
-    if (keywordArgs->table.count > 0) {
+    if (kwargs->table.count > 0) {
         // Not exhausted, which means some keyword arguments had names not in the parameters.
-        RUNTIME_ERROR(thread, "Keyword arguments must only have optional parameter names.");
+        RUNTIME_ERROR(thread, "for %s(), keyword arguments must only have parameter names.", name);
         return false;
     }
+    return true;
+}
+
+/** Given a function object, returns the dynamic/runtime version of the params struct in it. */
+FuncParams derive_runtime_params(FuncObj *func) {
+    ObjArray runtimeVals = FLAG_IS_SET(func->flags, FUNC_OPTIONALS_BIT) ?
+        AS_PTR(RuntimeFuncObj, func)->paramVals : func->staticParams.values;
+    const FuncParams runtimeParams = {
+        .minArity = func->staticParams.minArity, .maxArity = func->staticParams.maxArity,
+        .names = func->staticParams.names, .values = runtimeVals
+    };
+    return runtimeParams;
+} 
+
+/** 
+ * Returns a boolean of whether or not the call is valid. Errors and returns false if not.
+ * 
+ * Does so using the map to verify if it can be flattened + the amount of params to verify
+ * if they're of the right amount.
+ */
+bool call_is_valid(
+    ThreadObj *thread, char *name, const FuncParams params, const u32 positionalAmount,
+    MapObj *kwargs
+) {
+    const u32 kwargsAmount = kwargs->table.count;
+    MapObj *kwargsCopy = new_map_obj(&thread->vulnObjs, create_table());
+    copy_entries(&kwargs->table, &kwargsCopy->table);
+    PUSH(thread, kwargsCopy); // This will have its elements changed instead of the real map.
+
+    if (!check_arity(thread, name, params.minArity, params.maxArity, positionalAmount)) {
+        return false;
+    }
+    if (!(flatten_kwargs(thread, name, params, positionalAmount))) {
+        return false;
+    }
+    DROP_AMOUNT(thread, kwargsAmount); // Drops all flattened kwargs.
     return true;
 }
 
@@ -1009,16 +1050,10 @@ static bool call(ThreadObj *thread, Obj *callee, const u32 argsIdx, const u32 ar
     switch (callee->type) {
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, callee);
-        // Use the set of runtime values, or the static func's C-NULLs if they don't exist.
-        ObjArray paramVals = FLAG_IS_SET(func->flags, FUNC_OPTIONALS_BIT) ?
-            AS_PTR(RuntimeFuncObj, func)->paramVals : func->params.values;
-        FuncParams params = {
-            .minArity = func->params.minArity, .maxArity = func->params.maxArity,
-            .names = func->params.names, .values = paramVals
-        };
+        const FuncParams params = derive_runtime_params(func);
         if (
-            !check_arity(thread, params.minArity, params.maxArity, argAmount)
-            || !flatten_kwargs(thread, params, argAmount)
+            !check_arity(thread, func->name->string, params.minArity, params.maxArity, argAmount)
+            || !flatten_kwargs(thread, func->name->string, params, argAmount)
         ) {
             return false;
         }
@@ -1045,9 +1080,10 @@ static bool call(ThreadObj *thread, Obj *callee, const u32 argsIdx, const u32 ar
     }
     case OBJ_NATIVE_FUNC: {
         NativeFuncObj *native = AS_PTR(NativeFuncObj, callee);
+        const FuncParams params = native->params;
         if (
-            !check_arity(thread, native->params.minArity, native->params.maxArity, argAmount)
-            || !flatten_kwargs(thread, native->params, argAmount)
+            !check_arity(thread, native->name->string, params.minArity, params.maxArity, argAmount)
+            || !flatten_kwargs(thread, native->name->string, params, argAmount)
         ) {
             return false;
         }
@@ -1058,7 +1094,7 @@ static bool call(ThreadObj *thread, Obj *callee, const u32 argsIdx, const u32 ar
         if (nativeReturn == NULL) {
             return false;
         }
-        DROP_PUSH_DEPTH(thread, nativeReturn, native->params.maxArity + 1); // +1 for the callee.
+        DROP_PUSH_DEPTH(thread, nativeReturn, params.maxArity + 1); // +1 for the callee.
         return true;
     }
     case OBJ_NATIVE_METHOD: {
@@ -1172,7 +1208,7 @@ static void close_captures(ThreadObj *thread, const u32 pops) {
  * Also, closes all alive variables that are gonna be deleted from the stack after the return.
  */
 static void call_return(ThreadObj *thread) {
-    const u32 arity = thread->frame->func->params.maxArity;
+    const u32 arity = thread->frame->func->staticParams.maxArity;
     Obj *returned = safe_pop(thread);
     if (thread->openCaptures.length > 0) {
         close_captures(thread, thread->frame->sp - thread->frame->bp);
@@ -1744,7 +1780,7 @@ static void interpreter_loop(ThreadObj *thread) {
             RuntimeFuncObj *withOptionals = AS_PTR(RuntimeFuncObj, func);
 
             FLAG_ENABLE(withOptionals->func.flags, FUNC_OPTIONALS_BIT);
-            for (u32 i = 0; i < withOptionals->func.params.minArity; i++) {
+            for (u32 i = 0; i < withOptionals->func.staticParams.minArity; i++) {
                 PUSH_DA(&withOptionals->paramVals, NULL); // C-NULL values for mandatories.
             }
             for (u32 i = 0; i < values.length; i++) {

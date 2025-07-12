@@ -251,14 +251,23 @@ DEFINE_NATIVE_FUNC(Thread) {
 DEFINE_NATIVE_FUNC(thread_run) {
     PARAM_TYPE_CHECK(thread, args, 0, OBJ_LIST);
     PARAM_TYPE_CHECK(thread, args, 1, OBJ_MAP);
-
+    ListObj *argList = AS_PTR(ListObj, args[0]);
+    MapObj *kwargMap = AS_PTR(MapObj, args[1]);
     ThreadObj *threadToRun = AS_PTR(ThreadObj, callee);
+    FuncObj *runnableFunc = get_runnable_func(threadToRun->runnable);
+    PUSH_PROTECTED(&threadToRun->vulnObjs, argList);
+    PUSH_PROTECTED(&threadToRun->vulnObjs, kwargMap);
+
+    const bool validCall = call_is_valid(
+        thread, runnableFunc->name->string, derive_runtime_params(runnableFunc),
+        argList->items.length, kwargMap
+    );
     if (get_thread_state(threadToRun) != THREAD_NOT_STARTED) {
         RETURN_ERROR(thread, "Cannot run thread multiple times.");
     }
-
-    PUSH_PROTECTED(&threadToRun->vulnObjs, args[0]); // Args list.
-    PUSH_PROTECTED(&threadToRun->vulnObjs, args[1]); // Kwargs map.
+    if (!validCall) {
+        RETURN_ERROR_SIGNAL();
+    }
     run_thread(threadToRun, thread_entry); // Thread runs independently now.
 
     DEFAULT_RETURN(thread);
@@ -372,7 +381,8 @@ static void load_file_class(VulnerableObjs *vulnObjs) {
     load_native_method(vulnObjs, &fileClass->methods, "close", native_file_close, no_args());
     load_native_method(vulnObjs, &fileClass->methods, "read", native_file_read, no_args());
     load_native_method(
-        vulnObjs, &fileClass->methods, "write", native_file_write, no_optional_args(vulnObjs, 1, "text")
+        vulnObjs, &fileClass->methods, "write", native_file_write,
+        no_optional_args(vulnObjs, 1, "text")
     );
     vulnObjs->program->builtIn.fileClass = fileClass;
 }

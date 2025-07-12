@@ -29,7 +29,8 @@ Optimization:
 
 make maps uniterable and instead call a method that retrieves the map as a 2d list,
 which is a list of 2 element lists that represent the key and value. This will be done
-only when fields and methods are added to built-in objects.
+only when fields and methods are added to built-in objects. This is to allow the user to potentially
+see the order of the iterating map before the iteration happens.
 
 Improve the positioning of some bytecode for error handling.
 
@@ -39,9 +40,3 @@ objects at the end of the program before manually freeing them without printing 
 issues. Not to mention it's useful for printing more object info in threads and such.
 
 Singularize debug_tokens.c/.h to debug_token.c/.h.
-Rename append macros to pushes.
-
-Ensure efficient use of the new table integer and string functions.
-
-Does the circular import check actually work? Especially for threads which use the parent thread's
-module.

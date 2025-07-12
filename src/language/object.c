@@ -37,7 +37,9 @@ char *obj_type_str(ObjType type);
  * This must be placed inside some actual root in order to have all its objects tracked by the GC.
  */
 VulnerableObjs create_vulnerables(ZmxProgram *program) {
-    VulnerableObjs vulnObjs = {.program = program, .unrooted = CREATE_DA(), .protected = CREATE_DA()};
+    VulnerableObjs vulnObjs = {
+        .program = program, .unrooted = CREATE_DA(), .protected = CREATE_DA()
+    };
     return vulnObjs;
 }
 
@@ -285,10 +287,10 @@ FuncObj *new_func_obj(
     }
 
     object->cls = NULL;
-    object->params.minArity = minArity;
-    object->params.maxArity = maxArity;
-    INIT_DA(&object->params.names);
-    INIT_DA(&object->params.values);
+    object->staticParams.minArity = minArity;
+    object->staticParams.maxArity = maxArity;
+    INIT_DA(&object->staticParams.names);
+    INIT_DA(&object->staticParams.values);
 
     INIT_DA(&object->bytecode);
     INIT_DA(&object->positions);
@@ -968,7 +970,7 @@ static void free_func_params(FuncParams *params) {
 
 /** Frees the allocated content/arrays of a function. */
 static void free_func_obj(FuncObj *func) {
-    free_func_params(&func->params);
+    free_func_params(&func->staticParams);
     FREE_DA(&func->bytecode);
     FREE_DA(&func->constPool);
     FREE_DA(&func->positions);

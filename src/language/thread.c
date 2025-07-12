@@ -65,7 +65,7 @@ void set_thread_state(ThreadObj *thread, const ThreadState newState) {
 }
 
 /** Safely returns whether or not the thread has been joined yet. */
-bool is_thread_joined(ThreadObj *thread) {
+bool is_joined_thread(ThreadObj *thread) {
     mutex_lock(&thread->lock);
     const bool isJoined = thread->isJoinedUnsafe;
     mutex_unlock(&thread->lock);
@@ -77,6 +77,12 @@ void set_thread_joined(ThreadObj *thread, const bool hasJoined) {
     mutex_lock(&thread->lock);
     thread->isJoinedUnsafe = hasJoined;
     mutex_unlock(&thread->lock);   
+}
+
+/** Returns whether or not the thread can be joined. */
+static bool is_joinable_thread(ThreadObj *thread) {
+    return !is_joined_thread(thread) && get_thread_state(thread) != THREAD_NOT_STARTED
+        && !thread->isDaemon && !thread->isMain;
 }
 
 /** 
@@ -92,7 +98,7 @@ void finish_vm_threads(Vm *vm) {
         for (u32 i = 0; i < vm_threads_length(vm); i++) {
             ThreadObj *thread = vm_thread_at(vm, i);
 
-            if (!is_thread_joined(thread) && !thread->isDaemon && !thread->isMain) {
+            if (is_joinable_thread(thread)) {
                 join_thread(thread);
                 joinedAny = true;
             }

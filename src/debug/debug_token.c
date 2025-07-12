@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "debug_tokens.h"
+#include "debug_token.h"
 #include "char_buffer.h"
 #include "report_error.h"
 

@@ -371,7 +371,7 @@ typedef struct FuncObj {
      * as those should be created separately in a runtime func object, since each object
      * keeps track of its own runtime optional values whenever one is created.
      */
-    FuncParams params;
+    FuncParams staticParams;
 
     /** 
      * All the boolean flags of this function.

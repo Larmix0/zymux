@@ -5,7 +5,7 @@
 
 #include "allocator.h"
 #include "char_buffer.h"
-#include "debug_tokens.h"
+#include "debug_token.h"
 #include "dynamic_array.h"
 #include "lexer.h"
 

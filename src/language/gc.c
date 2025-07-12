@@ -77,7 +77,7 @@ static void mark_func(FuncObj *func) {
     mark_obj(AS_OBJ(func->name));
     mark_obj(AS_OBJ(func->cls));
     mark_obj_array(func->constPool);
-    mark_func_params(func->params);
+    mark_func_params(func->staticParams);
 
     if (FLAG_IS_SET(func->flags, FUNC_RUNTIME_BIT)) {
         // Function is a runtime extension of the static one. Mark its runtime context.

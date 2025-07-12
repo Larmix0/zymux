@@ -112,7 +112,7 @@ Table create_table() {
 }
 
 /** Sets each entry in the "from" table on the "to" table, essentially copying all its entries. */
-static void copy_entries(const Table *from, Table *to) {
+void copy_entries(const Table *from, Table *to) {
     for (u32 i = 0; i < from->capacity; i++) {
         Entry *entry = &from->entries[i];
         if (entry->key) {
@@ -272,7 +272,6 @@ bool table_delete(Table *table, Obj *key) {
 Obj *table_string_get(VulnerableObjs *vulnObjs, Table *table, const char *keyString) {
     Obj *key = AS_OBJ(new_string_obj(vulnObjs, keyString, strlen(keyString)));
     Obj *value = table_get(table, key);
-    DROP_UNROOTED(vulnObjs);
     return value;
 }
 
@@ -280,7 +279,6 @@ Obj *table_string_get(VulnerableObjs *vulnObjs, Table *table, const char *keyStr
 Obj *table_int_get(VulnerableObjs *vulnObjs, Table *table, const ZmxInt keyNumber) {
     Obj *key = AS_OBJ(new_int_obj(vulnObjs, keyNumber));
     Obj *value = table_get(table, key);
-    DROP_UNROOTED(vulnObjs);
     return value;
 }
 
@@ -309,7 +307,6 @@ void table_int_set(VulnerableObjs *vulnObjs, Table *table, const ZmxInt keyNumbe
 bool table_string_delete(VulnerableObjs *vulnObjs, Table *table, const char *keyString) {
     Obj *key = AS_OBJ(new_string_obj(vulnObjs, keyString, strlen(keyString)));
     const bool success = table_delete(table, key);
-    DROP_UNROOTED(vulnObjs);
     return success;
 }
 
@@ -321,7 +318,6 @@ bool table_string_delete(VulnerableObjs *vulnObjs, Table *table, const char *key
 bool table_int_delete(VulnerableObjs *vulnObjs, Table *table, const ZmxInt keyNumber) {
     Obj *key = AS_OBJ(new_int_obj(vulnObjs, keyNumber));
     const bool success = table_delete(table, key);
-    DROP_UNROOTED(vulnObjs);
     return success;
 }
 

@@ -1004,7 +1004,7 @@ static void param_names(ZmxProgram *program, FuncObj *func, const NodeArray para
         StringObj *name = new_string_obj(
             &program->gc.startupVulnObjs, param->name.lexeme, param->name.pos.length
         );
-        PUSH_DA(&func->params.names, AS_OBJ(name));
+        PUSH_DA(&func->staticParams.names, AS_OBJ(name));
     }
 }
 
@@ -1044,7 +1044,7 @@ static void compile_params(Compiler *compiler, FuncObj *compiledFunc, const Func
     param_names(compiler->program, compiledFunc, node->optionalParams);
 
     for (u32 i = 0; i < node->mandatoryParams.length + node->optionalParams.length; i++) {
-        PUSH_DA(&compiledFunc->params.values, NULL); // A C-NULL value for each param.
+        PUSH_DA(&compiledFunc->staticParams.values, NULL); // A C-NULL value for each param.
     }
     if (node->optionalParams.length > 0) {
         optional_param_values(compiler, node);
