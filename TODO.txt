@@ -34,9 +34,11 @@ see the order of the iterating map before the iteration happens.
 
 Improve the positioning of some bytecode for error handling.
 
-----------------------------------------------------------------------------------------------------
 Is not recursing in object_cstring actually helpful, or do we just need to just print all freed
 objects at the end of the program before manually freeing them without printing to avoid memory
 issues. Not to mention it's useful for printing more object info in threads and such.
 
-Singularize debug_tokens.c/.h to debug_token.c/.h.
+----------------------------------------------------------------------------------------------------
+
+Make methods' first character of the class capitalized in the internal name for conventions,
+and full/clear separation from other functions.

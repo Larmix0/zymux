@@ -166,8 +166,7 @@ DEFINE_NATIVE_FUNC(file_read) {
         RETURN_ERROR(thread, "Cannot do file operation on closed file.");
     }
     if (file->mode == FILE_WRITE_ONLY) {
-        StringObj *modeStr = new_string_obj(&thread->vulnObjs, "mode", strlen("mode"));
-        Obj *mode = table_get(&file->fields, AS_OBJ(modeStr));
+        Obj *mode = table_string_get(&thread->vulnObjs, &file->fields, "mode");
         RETURN_ERROR(thread, "Can't read file with mode '%s'.", AS_PTR(StringObj, mode)->string);
     }
 
@@ -253,6 +252,7 @@ DEFINE_NATIVE_FUNC(thread_run) {
     PARAM_TYPE_CHECK(thread, args, 1, OBJ_MAP);
     ListObj *argList = AS_PTR(ListObj, args[0]);
     MapObj *kwargMap = AS_PTR(MapObj, args[1]);
+
     ThreadObj *threadToRun = AS_PTR(ThreadObj, callee);
     FuncObj *runnableFunc = get_runnable_func(threadToRun->runnable);
     PUSH_PROTECTED(&threadToRun->vulnObjs, argList);
@@ -270,6 +270,19 @@ DEFINE_NATIVE_FUNC(thread_run) {
     }
     run_thread(threadToRun, thread_entry); // Thread runs independently now.
 
+    DEFAULT_RETURN(thread);
+}
+
+/** Thread class: joins the passed thread. Errors by default unless bypass is on. */
+DEFINE_NATIVE_FUNC(thread_join) {
+    PARAM_TYPE_CHECK(thread, args, 0, OBJ_BOOL);
+    const bool bypass = AS_PTR(BoolObj, args[0])->boolean;
+    ThreadObj *threadToJoin = AS_PTR(ThreadObj, callee);
+    if (!threadToJoin->isDaemon) {
+        join_thread(threadToJoin);
+    } else if (!bypass) {
+        RETURN_ERROR(thread, "Can't join daemon thread."); // Daemon and not bypassed.
+    }
     DEFAULT_RETURN(thread);
 }
 
@@ -398,6 +411,10 @@ static void load_thread_class(VulnerableObjs *vulnObjs) {
             vulnObjs, 0, 2, "args", new_list_obj(vulnObjs, (ObjArray)CREATE_DA()),
             "kwargs", new_map_obj(vulnObjs, create_table())
         )
+    );
+    load_native_method(
+        vulnObjs, &threadClass->methods, "join", native_thread_join,
+        with_optional_args(vulnObjs, 0, 1, "bypass", new_bool_obj(vulnObjs, false))
     );
     vulnObjs->program->builtIn.threadClass = threadClass;
 }

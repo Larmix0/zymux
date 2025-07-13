@@ -7,6 +7,11 @@ null run(args=[], kwargs={}):
     Executes the thread object with an optional list of arguments and map of kwargs if supplied.
     A thread cannot run twice.
 
+null join(bypass=false):
+    Joins the thread to the main executing thread.
+    If the thread being joined is daemon, it errors out if bypass is false, otherwise ignores
+    the entire function call if bypass is set to true.
+
 ----------------------------------------------------------------------------------------------------
 ===== Fields.
 
