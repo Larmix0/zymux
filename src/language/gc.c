@@ -201,6 +201,7 @@ static void mark_obj(Obj *object) {
     case OBJ_NULL:
     case OBJ_STRING:
     case OBJ_RANGE:
+    case OBJ_LOCK:
         break;
     TOGGLEABLE_DEFAULT_UNREACHABLE();
     }

@@ -22,6 +22,7 @@ bool is_hashable(const Obj *object) {
     case OBJ_RANGE:
     case OBJ_ENUM_MEMBER:
         return true;
+
     case OBJ_LIST:
     case OBJ_MAP:
     case OBJ_ENUM:
@@ -29,6 +30,7 @@ bool is_hashable(const Obj *object) {
     case OBJ_MODULE:
     case OBJ_FILE:
     case OBJ_THREAD:
+    case OBJ_LOCK:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
@@ -93,6 +95,7 @@ u32 get_hash(const Obj *object) {
     case OBJ_MODULE:
     case OBJ_FILE:
     case OBJ_THREAD:
+    case OBJ_LOCK:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:

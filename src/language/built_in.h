@@ -24,6 +24,7 @@ typedef struct {
     Table funcs;
     ClassObj *fileClass;
     ClassObj *threadClass;
+    ClassObj *lockClass;
 } BuiltIns;
 
 /** Loads all built-ins into the built-in struct in the program inside the passed vulnerabes. */

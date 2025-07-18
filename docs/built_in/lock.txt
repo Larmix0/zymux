@@ -1,0 +1,15 @@
+Built-in lock object documentation (thread locks)
+
+----------------------------------------------------------------------------------------------------
+===== Methods.
+
+null obtain():
+    Grabs control of the lock, and waits for its turn
+    if it's already in current use from another thread.
+
+null release():
+    Relinquishes the obtained lock so that another thread can begin using it.
+    Raises a runtime error if the lock wasn't obtained to begin with.
+
+bool held():
+    Returns whether or not the lock is currently in use (obtained) by any threads.

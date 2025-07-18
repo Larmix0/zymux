@@ -781,22 +781,26 @@ static Obj *find_method(ClassObj *cls, StringObj *name) {
  * 
  * Returns whether or not it successfully put the property at the top of the stack, completing
  * the get operation.
+ * 
+ * This function is safe to call with a NULL for either of instance fields and cls.
+ * The NULL will be treated as an empty table with nothing to search on it.
  */
 static bool get_instance_property(
     ThreadObj *thread, Table *fields, Obj *instance, ClassObj *cls, StringObj *name,
     const bool isNative
 ) {
-    Obj *field = table_get(fields, AS_OBJ(name));
+    Obj *field = fields ? table_get(fields, AS_OBJ(name)) : NULL; // NULL if no fields passed.
     if (field) {
         PEEK(thread) = field;
         return true;
     }
 
-    Obj *method = find_method(cls, name);
+    Obj *method = cls ? find_method(cls, name) : NULL; // NULL if no class passed.
     if (!method) {
         RUNTIME_ERROR(thread, "No property called '%s'.", name->string);
         return false;
     }
+    
     VulnerableObjs *vulnObjs = &thread->vulnObjs;
     Obj *bound = isNative ?
         AS_OBJ(new_native_method_obj(vulnObjs, instance, cls, AS_PTR(NativeFuncObj, method)))
@@ -836,16 +840,19 @@ static bool get_property(ThreadObj *thread, Obj *originalObj, StringObj *name) {
         return true;
     }
     case OBJ_FILE: {
-        FileObj *file = AS_PTR(FileObj, originalObj);
+        FileObj *instance = AS_PTR(FileObj, originalObj);
         ClassObj *cls = thread->vm->program->builtIn.fileClass;
-        return get_instance_property(thread, &file->fields, AS_OBJ(file), cls, name, true);
+        return get_instance_property(thread, &instance->fields, AS_OBJ(instance), cls, name, true);
     }
     case OBJ_THREAD: {
-        ThreadObj *threadInstance = AS_PTR(ThreadObj, originalObj);
+        ThreadObj *instance = AS_PTR(ThreadObj, originalObj);
         ClassObj *cls = thread->vm->program->builtIn.threadClass;
-        return get_instance_property(
-            thread, &threadInstance->fields, AS_OBJ(threadInstance), cls, name, true
-        );
+        return get_instance_property(thread, &instance->fields, AS_OBJ(instance), cls, name, true);
+    }
+    case OBJ_LOCK: {
+        LockObj *instance = AS_PTR(LockObj, originalObj);
+        ClassObj *cls = thread->vm->program->builtIn.lockClass;
+        return get_instance_property(thread, NULL, AS_OBJ(instance), cls, name, true);
     }
     default:
         RUNTIME_ERROR(

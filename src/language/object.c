@@ -27,7 +27,7 @@
 
 static CharBuffer object_cstring(const Obj *object, const bool debugCString);
 void set_thread_state(ThreadObj *thread, const ThreadState newState);
-static void set_fields(VulnerableObjs *vulnObjs, Table *fields, const u32 amount, ...);
+static void create_fields(VulnerableObjs *vulnObjs, Table *fields, const u32 amount, ...);
 void print_obj(const Obj *object, const bool debugPrint);
 char *obj_type_str(ObjType type);
 
@@ -232,8 +232,7 @@ FileObj *new_file_obj(VulnerableObjs *vulnObjs, FILE *stream, StringObj *path, S
     object->path = path;
     object->isOpen = true;
 
-    object->fields = create_table();
-    set_fields(vulnObjs, &object->fields, 2, "path", AS_OBJ(path), "mode", AS_OBJ(modeStr));
+    create_fields(vulnObjs, &object->fields, 2, "path", AS_OBJ(path), "mode", AS_OBJ(modeStr));
     OBJ_TYPE_ALLOCATOR_RETURN(object);
 }
 
@@ -254,8 +253,7 @@ ThreadObj *new_thread_obj(
     object->isMain = isMain;
     object->isDaemon = isDaemon;
     object->isJoinedUnsafe = false;
-    object->fields = create_table();
-    set_fields(vulnObjs, &object->fields, 1, "daemon", new_bool_obj(vulnObjs, isDaemon));
+    create_fields(vulnObjs, &object->fields, 1, "daemon", new_bool_obj(vulnObjs, isDaemon));
 
     object->vulnObjs = create_vulnerables(vulnObjs->program);
     INIT_DA(&object->catches);
@@ -267,6 +265,15 @@ ThreadObj *new_thread_obj(
     object->stack.capacity = 0;
     object->stack.length = 0;
 
+    OBJ_TYPE_ALLOCATOR_RETURN(object);
+}
+
+/** Returns an initialized mutex lock object for threads. */
+LockObj *new_lock_obj(VulnerableObjs *vulnObjs) {
+    LockObj *object = NEW_OBJ(vulnObjs, OBJ_LOCK, LockObj);
+    
+    init_mutex(&object->lock);
+    object->isHeld = false;
     OBJ_TYPE_ALLOCATOR_RETURN(object);
 }
 
@@ -480,7 +487,7 @@ static CharBuffer object_cstring(const Obj *object, const bool debugCString) {
         break;
     }
     case OBJ_ITERATOR:
-        buffer_append_format(&string, "<iterator>");
+        buffer_append_string(&string, "<iterator>");
         break;
     case OBJ_MODULE:
         buffer_append_format(&string, "<module %s>", AS_PTR(ModuleObj, object)->path->string);
@@ -489,7 +496,12 @@ static CharBuffer object_cstring(const Obj *object, const bool debugCString) {
         buffer_append_format(&string, "<file %s>", AS_PTR(FileObj, object)->path->string);
         break;
     case OBJ_THREAD:
-        buffer_append_format(&string, "<thread>");
+        buffer_append_string(&string, "<thread>");
+        break;
+    case OBJ_LOCK:
+        buffer_append_format(
+            &string, "<lock (held=%s)>", AS_PTR(LockObj, object)->isHeld ? "true" : "false"
+        );
         break;
     case OBJ_FUNC:
         buffer_append_format(&string, "<function %s>", AS_PTR(FuncObj, object)->name->string);
@@ -550,6 +562,7 @@ bool is_iterable(const Obj *object) {
     case OBJ_MODULE:
     case OBJ_FILE:
     case OBJ_THREAD:
+    case OBJ_LOCK:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
@@ -643,6 +656,7 @@ Obj *iterate(VulnerableObjs *vulnObjs, IteratorObj *iterator, bool *hasAllocated
     case OBJ_MODULE:
     case OBJ_FILE:
     case OBJ_THREAD:
+    case OBJ_LOCK:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
@@ -668,8 +682,10 @@ StringObj *concatenate(VulnerableObjs *vulnObjs, const StringObj *left, const St
     return result;
 }
 
-/** Sets an amount of string and object pairs as fields in the passed table of fields. */
-static void set_fields(VulnerableObjs *vulnObjs, Table *fields, const u32 amount, ...) {
+/** Initializes and sets an amount of string and object pairs as fields in the passed fields. */
+static void create_fields(VulnerableObjs *vulnObjs, Table *fields, const u32 amount, ...) {
+    *fields = create_table();
+
     va_list args;
     va_start(args, amount);
     for (u32 i = 0; i < amount; i++) {
@@ -740,6 +756,7 @@ bool equal_obj(const Obj *left, const Obj *right) {
     case OBJ_MODULE:
     case OBJ_FILE:
     case OBJ_THREAD:
+    case OBJ_LOCK:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
@@ -825,6 +842,7 @@ IntObj *as_int(VulnerableObjs *vulnObjs, const Obj *object) {
     case OBJ_ITERATOR:
     case OBJ_MODULE:
     case OBJ_FILE:
+    case OBJ_LOCK:
     case OBJ_THREAD:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
@@ -866,6 +884,7 @@ FloatObj *as_float(VulnerableObjs *vulnObjs, const Obj *object) {
     case OBJ_MODULE:
     case OBJ_FILE:
     case OBJ_THREAD:
+    case OBJ_LOCK:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
@@ -890,6 +909,7 @@ BoolObj *as_bool(VulnerableObjs *vulnObjs, const Obj *object) {
     case OBJ_MODULE:
     case OBJ_FILE:
     case OBJ_THREAD:
+    case OBJ_LOCK:
     case OBJ_FUNC:
     case OBJ_CAPTURED:
     case OBJ_CLASS:
@@ -951,6 +971,7 @@ char *obj_type_str(ObjType type) {
     case OBJ_MODULE: return "module";
     case OBJ_FILE: return "file";
     case OBJ_THREAD: return "thread";
+    case OBJ_LOCK: return "lock";
     case OBJ_FUNC: return "function";
     case OBJ_CAPTURED: return "captured";
     case OBJ_CLASS: return "class";
@@ -1025,6 +1046,9 @@ void free_obj(Obj *object) {
         destroy_mutex(&thread->lock);
         break;
     }
+    case OBJ_LOCK:
+        destroy_mutex(&AS_PTR(LockObj, object)->lock);
+        break;
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);
         if (FLAG_IS_SET(func->flags, FUNC_RUNTIME_BIT)) {

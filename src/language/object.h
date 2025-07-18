@@ -95,6 +95,7 @@ typedef enum {
     OBJ_MODULE,
     OBJ_FILE,
     OBJ_THREAD,
+    OBJ_LOCK,
     OBJ_FUNC,
     OBJ_CAPTURED,
     OBJ_CLASS,
@@ -321,6 +322,13 @@ typedef struct ThreadObj {
     } stack;
 } ThreadObj;
 
+/** Represents a lock object for synchronizing a thread object. */
+typedef struct {
+    Obj obj;
+    Mutex lock; /** The actual native mutex lock of the lock object. */
+    bool isHeld; /** Whether or not the lock is currently in use by a thread. */
+} LockObj;
+
 /** Parameters for any kind of function object (user, native, etc.). Not an object. */
 typedef struct {
     /** The minimum amount of arguments to provide this function (excludes optional arguments). */
@@ -545,6 +553,9 @@ ThreadObj *new_thread_obj(
     VulnerableObjs *vulnObjs, Vm *vm, Obj *runnable, ModuleObj *module,
     const u32 id, const bool isMain, const bool isDaemon
 );
+
+/** Returns an initialized mutex lock object for threads. */
+LockObj *new_lock_obj(VulnerableObjs *vulnObjs);
 
 /** 
  * Returns a new allocated function object.

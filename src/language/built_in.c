@@ -159,7 +159,7 @@ DEFINE_NATIVE_FUNC(open) {
 }
 
 /** File class: attempts to read and return the whole file as one string. Can error. */
-DEFINE_NATIVE_FUNC(file_read) {
+DEFINE_NATIVE_FUNC(File_read) {
     UNUSED_VARIABLE(args);
     FileObj *file = AS_PTR(FileObj, callee);
     if (!file->isOpen) {
@@ -186,7 +186,7 @@ DEFINE_NATIVE_FUNC(file_read) {
 }
 
 /** FIle class: writes to a file, creates one if it doesn't exist. */
-DEFINE_NATIVE_FUNC(file_write) {
+DEFINE_NATIVE_FUNC(File_write) {
     PARAM_TYPE_CHECK(thread, args, 0, OBJ_STRING);
     FileObj *file = AS_PTR(FileObj, callee);
     StringObj *text = AS_PTR(StringObj, args[0]);
@@ -211,7 +211,7 @@ DEFINE_NATIVE_FUNC(file_write) {
  * This only closes the stream and sets a flag indicating that file operations should no longer
  * be done on the file object, but doesn't free the object.
  */
-DEFINE_NATIVE_FUNC(file_close) {
+DEFINE_NATIVE_FUNC(File_close) {
     UNUSED_VARIABLE(args);
     FileObj *file = AS_PTR(FileObj, callee);
 
@@ -247,7 +247,7 @@ DEFINE_NATIVE_FUNC(Thread) {
 }
 
 /** Thread class: begins executing the thread with arguments: a list of args and a map of kwargs. */
-DEFINE_NATIVE_FUNC(thread_run) {
+DEFINE_NATIVE_FUNC(Thread_run) {
     PARAM_TYPE_CHECK(thread, args, 0, OBJ_LIST);
     PARAM_TYPE_CHECK(thread, args, 1, OBJ_MAP);
     ListObj *argList = AS_PTR(ListObj, args[0]);
@@ -274,7 +274,7 @@ DEFINE_NATIVE_FUNC(thread_run) {
 }
 
 /** Thread class: joins the passed thread. Errors by default unless bypass is on. */
-DEFINE_NATIVE_FUNC(thread_join) {
+DEFINE_NATIVE_FUNC(Thread_join) {
     PARAM_TYPE_CHECK(thread, args, 0, OBJ_BOOL);
     const bool bypass = AS_PTR(BoolObj, args[0])->boolean;
     ThreadObj *threadToJoin = AS_PTR(ThreadObj, callee);
@@ -286,20 +286,53 @@ DEFINE_NATIVE_FUNC(thread_join) {
     DEFAULT_RETURN(thread);
 }
 
+/** Lock class: the initializer function for a lock object's creation. */
+DEFINE_NATIVE_FUNC(Lock) {
+    UNUSED_VARIABLE(callee);
+    UNUSED_VARIABLE(args);
+    RETURN_OBJ(new_lock_obj(&thread->vulnObjs));
+}
+
+/** Lock class: attempts to obtain a lock before continuing code execution. */
+DEFINE_NATIVE_FUNC(Lock_obtain) {
+    UNUSED_VARIABLE(args);
+
+    LockObj *lock = AS_PTR(LockObj, callee);
+    mutex_lock(&lock->lock);
+    lock->isHeld = true;
+    DEFAULT_RETURN(thread);
+}
+
+/** Lock class: releases a held lock so other threads can start obtaining it. */
+DEFINE_NATIVE_FUNC(Lock_release) {
+    UNUSED_VARIABLE(args);
+
+    LockObj *lock = AS_PTR(LockObj, callee);
+    if (!lock->isHeld) {
+        RETURN_ERROR(thread, "Attempted to release lock not currently in use.");
+    }
+
+    mutex_unlock(&lock->lock);
+    lock->isHeld = false;
+    DEFAULT_RETURN(thread);
+}
+
+/** Lock class: returns a boolean of whether or not the lock is currently in use. */
+DEFINE_NATIVE_FUNC(Lock_held) {
+    UNUSED_VARIABLE(args);
+    RETURN_OBJ(new_bool_obj(&thread->vulnObjs, AS_PTR(LockObj, callee)->isHeld));
+}
+
 /** Returns an empty func parameters struct with no optionals or even mandatory parameters. */
-static FuncParams no_args() {
-    FuncParams params = {
-        .minArity = 0, .maxArity = 0,
-        .names = CREATE_DA(), .values = CREATE_DA()
-    };
+static FuncParams no_params() {
+    FuncParams params = {.minArity = 0, .maxArity = 0, .names = CREATE_DA(), .values = CREATE_DA()};
     return params;
 }
 
 /** Returns func parameters which have no optionals, only named mandatory parameters. */
-static FuncParams no_optional_args(VulnerableObjs *vulnObjs, const u32 arity, ...) {
+static FuncParams mandatory_params(VulnerableObjs *vulnObjs, const u32 arity, ...) {
     FuncParams params = {
-        .minArity = arity, .maxArity = arity,
-        .names = CREATE_DA(), .values = CREATE_DA()
+        .minArity = arity, .maxArity = arity, .names = CREATE_DA(), .values = CREATE_DA()
     };
     
     va_list args;
@@ -314,12 +347,11 @@ static FuncParams no_optional_args(VulnerableObjs *vulnObjs, const u32 arity, ..
 }
 
 /** Returns a native function's parameters with some optionals. */
-static FuncParams with_optional_args(
+static FuncParams with_optional_params(
     VulnerableObjs *vulnObjs, const u32 minArity, const u32 maxArity, ...
 ) {
     FuncParams params = {
-        .minArity = minArity, .maxArity = maxArity,
-        .names = CREATE_DA(), .values = CREATE_DA()
+        .minArity = minArity, .maxArity = maxArity, .names = CREATE_DA(), .values = CREATE_DA()
     };
 
     va_list args;
@@ -356,7 +388,7 @@ static void load_funcs(VulnerableObjs *vulnObjs) {
     char *assertMsg = "Assert failed.";
     load_native_func(
         vulnObjs, "print", native_print,
-        with_optional_args(
+        with_optional_params(
             vulnObjs, 1, 3,
             "value", NULL,
             "newline", new_bool_obj(vulnObjs, true), "destructure", new_bool_obj(vulnObjs, false)
@@ -364,22 +396,24 @@ static void load_funcs(VulnerableObjs *vulnObjs) {
     );
     load_native_func(
         vulnObjs, "assert", native_assert,
-        with_optional_args(
+        with_optional_params(
             vulnObjs, 1, 2,
             "condition", NULL, "message", new_string_obj(vulnObjs, assertMsg, strlen(assertMsg))
         )
     );
     load_native_func(
-        vulnObjs, "sleep", native_sleep, no_optional_args(vulnObjs, 1, "milliseconds")
+        vulnObjs, "sleep", native_sleep, mandatory_params(vulnObjs, 1, "milliseconds")
     );
-    load_native_func(vulnObjs, "time", native_time, no_args());
-    load_native_func(vulnObjs, "open", native_open, no_optional_args(vulnObjs, 2, "path", "mode"));
+    load_native_func(vulnObjs, "time", native_time, no_params());
+    load_native_func(vulnObjs, "open", native_open, mandatory_params(vulnObjs, 2, "path", "mode"));
+
     load_native_func(
         vulnObjs, "Thread", native_Thread,
-        with_optional_args(
+        with_optional_params(
             vulnObjs, 1, 2, "runnable", NULL, "daemon", new_bool_obj(vulnObjs, false)
         )
     );
+    load_native_func(vulnObjs, "Lock", native_Lock, no_params());
 }
 
 /** Returns an initialized native class without methods or attributes with a terminated C-string. */
@@ -391,11 +425,11 @@ static ClassObj *initial_native_class(VulnerableObjs *vulnObjs, char *nameChars)
 static void load_file_class(VulnerableObjs *vulnObjs) {
     ClassObj *fileClass = initial_native_class(vulnObjs, "File");
 
-    load_native_method(vulnObjs, &fileClass->methods, "close", native_file_close, no_args());
-    load_native_method(vulnObjs, &fileClass->methods, "read", native_file_read, no_args());
+    load_native_method(vulnObjs, &fileClass->methods, "close", native_File_close, no_params());
+    load_native_method(vulnObjs, &fileClass->methods, "read", native_File_read, no_params());
     load_native_method(
-        vulnObjs, &fileClass->methods, "write", native_file_write,
-        no_optional_args(vulnObjs, 1, "text")
+        vulnObjs, &fileClass->methods, "write", native_File_write,
+        mandatory_params(vulnObjs, 1, "text")
     );
     vulnObjs->program->builtIn.fileClass = fileClass;
 }
@@ -406,23 +440,34 @@ static void load_thread_class(VulnerableObjs *vulnObjs) {
 
     // Safe to pass empty list and map because this only ever gets called once per thread.
     load_native_method(
-        vulnObjs, &threadClass->methods, "run", native_thread_run,
-        with_optional_args(
+        vulnObjs, &threadClass->methods, "run", native_Thread_run,
+        with_optional_params(
             vulnObjs, 0, 2, "args", new_list_obj(vulnObjs, (ObjArray)CREATE_DA()),
             "kwargs", new_map_obj(vulnObjs, create_table())
         )
     );
     load_native_method(
-        vulnObjs, &threadClass->methods, "join", native_thread_join,
-        with_optional_args(vulnObjs, 0, 1, "bypass", new_bool_obj(vulnObjs, false))
+        vulnObjs, &threadClass->methods, "join", native_Thread_join,
+        with_optional_params(vulnObjs, 0, 1, "bypass", new_bool_obj(vulnObjs, false))
     );
     vulnObjs->program->builtIn.threadClass = threadClass;
+}
+
+/** Loads the lock class's information. */
+static void load_lock_class(VulnerableObjs *vulnObjs) {
+    ClassObj *lockClass = initial_native_class(vulnObjs, "Lock");
+
+    load_native_method(vulnObjs, &lockClass->methods, "obtain", native_Lock_obtain, no_params());
+    load_native_method(vulnObjs, &lockClass->methods, "release", native_Lock_release, no_params());
+    load_native_method(vulnObjs, &lockClass->methods, "held", native_Lock_held, no_params());
+    vulnObjs->program->builtIn.lockClass = lockClass;
 }
 
 /** Loads all built-in classes. */
 static void load_classes(VulnerableObjs *vulnObjs) {
     load_file_class(vulnObjs);
     load_thread_class(vulnObjs);
+    load_lock_class(vulnObjs);
 }
 
 /** 
