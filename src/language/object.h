@@ -255,6 +255,7 @@ typedef struct {
     u32 localsAmount; /** Amount of locals in the VM's stack when this was created. */
     u32 capturesAmount; /** 0 if func isn't a closure to begin with. */
     u32 openCapturesAmount; /** The amount of captures not closed at the time of the try-catch. */
+    Table openIndicesSet; /** The original integer hash set of open captures in the stack. */
 
     u32 frameAmount; /** The amount of frames the VM had when this was created. */
     ModuleObj *module; /** The module which this try-catch started on. */
@@ -290,7 +291,7 @@ typedef struct ThreadObj {
     VulnerableObjs vulnObjs; /** Where objects are placed until they reach a proper root. */
 
     ThreadHandle native; /** The native OS thread in C which is actually running. */
-    Mutex lock; /** The mutex to access the native thread handle, state, etc. */
+    Mutex threadLock; /** The mutex to access the native thread handle, state, etc. */
     u32 id; /** The ID of this specific thread so it can be identified in the VM thread table. */
     ModuleObj *module; /** The module context this thread is on (like the globals and name). */
     Obj *runnable; /** The first function the thread enters with executing. */
@@ -301,8 +302,9 @@ typedef struct ThreadObj {
     bool isJoinedUnsafe; /** Whether or not this thread has been joined. Not thread-safe. */
 
     InstrSize instrSize; /** The size of the number instruction to be read after the opcode. */
-    CatchStateArray catches; /** Saved states for caught errors where last item is closest catch. */
     ObjArray openCaptures; /** Captures whose locals are still alive on the stack. */
+    Table openIndicesSet; /** Stack indices set for open capture objects for O(1) access. */
+    CatchStateArray catches; /** Saved states for caught errors where last item is closest catch. */
     CallStack callStack; /** Holds the entire call stack of stack frames during runtime. */
     StackFrame *frame; /** The current frame which holds the bytecode we're executing. */
     Table fields; /** All the fields of the thread instance. */
@@ -311,8 +313,8 @@ typedef struct ThreadObj {
      * The stack that keeps track of objects while executing.
      * 
      * This doesn't use the default dynamic array, but a special array with the same fields.
-     * The reason is because we have to change everything that points somewhere in the stack
-     * if an append's reallocation causes the stack's address to move.
+     * The reason is because we have to change everything that points somewhere in the stack if an
+     * append's reallocation causes the stack's address to move.
      * So the default reallocation used in normal dynamic arrays won't cut it.
      */
     struct {
@@ -320,6 +322,9 @@ typedef struct ThreadObj {
         u32 capacity;
         u32 length;
     } stack;
+
+    /** Locks the stack to access captures because they're potentially shared between threads. */
+    Mutex capturesLock;
 } ThreadObj;
 
 /** Represents a lock object for synchronizing a thread object. */
@@ -393,7 +398,8 @@ typedef struct FuncObj {
 typedef struct {
     Obj obj;
     bool isOpen; /** Whether or not the original variable is still alive on the stack. */
-    u32 stackIdx; /** Index of the original object getting captured on the VM's stack. */
+    ThreadObj *threadUnsafe; /** Thread that created this object. Must be accessed with mutex. */
+    u32 stackIdx; /** Index of the original object getting captured on the origin thread's stack. */
     Obj *captured; /** The final object of the local variable which was captured. */
 } CapturedObj;
 
@@ -568,7 +574,9 @@ FuncObj *new_func_obj(
 );
 
 /** Returns a newly created indirect reference to the passed object (capturing the object). */
-CapturedObj *new_captured_obj(VulnerableObjs *vulnObjs, Obj *captured, const u32 stackIdx);
+CapturedObj *new_captured_obj(
+    VulnerableObjs *vulnObjs, Obj *captured, ThreadObj *threadUnsafe, const u32 stackIdx
+);
 
 /** Returns a func which has some runtime values that might be independent from the static func. */
 RuntimeFuncObj *new_runtime_func_obj(VulnerableObjs *vulnObjs, FuncObj *func, ModuleObj *module);

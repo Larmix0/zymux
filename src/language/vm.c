@@ -212,9 +212,10 @@ static CatchState create_catch_state(ThreadObj *thread, u8 *ip, const bool saveE
     CatchState catchState = {
         .func = func, .ip = ip, .localsAmount = thread->stack.length,
         .capturesAmount = capturesAmount, .openCapturesAmount = thread->openCaptures.length,
-        .frameAmount = thread->callStack.length, .module = thread->module,
-        .saveError = saveError
+        .openIndicesSet = create_table(), .frameAmount = thread->callStack.length,
+        .module = thread->module, .saveError = saveError
     };
+    copy_entries(&thread->openIndicesSet, &catchState.openIndicesSet);
     return catchState;
 }
 
@@ -269,10 +270,12 @@ static void set_global(ModuleObj *module, Obj *name, Obj *value) {
  * Safely grabs a value from the globals table using the passed name as a key.
  * 
  * Can return NULL if the global doesn't exist in the passed module.
+ * The object is gauranteed to live for at least one instruction
  */
-static Obj *get_global(ModuleObj *module, Obj *name) {
+static Obj *get_global(VulnerableObjs *vulnObjs, ModuleObj *module, Obj *name) {
     mutex_lock(&module->globalsLock);
     Obj *global = table_get(&module->globalsUnsafe, name);
+    PUSH_UNROOTED(vulnObjs, global);
     mutex_unlock(&module->globalsLock);
     return global;
 }
@@ -342,6 +345,38 @@ static void push_module(ThreadObj *thread, StringObj *path, ModuleObj *importedB
     mutex_unlock(&vm->modulesLock);
 }
 
+/** Safely assigns to the alive capture of a captured object on its original thread's stack. */
+static void assign_open_capture(CapturedObj *toAssign, Obj *value) {
+    mutex_lock(&toAssign->threadUnsafe->capturesLock);
+    toAssign->threadUnsafe->stack.objects[toAssign->stackIdx] = value;
+    mutex_unlock(&toAssign->threadUnsafe->capturesLock);
+}
+
+/** Safely retrieves a captured object. Gauranteed to live for an instruction. */
+static Obj *get_open_capture(VulnerableObjs *vulnObjs, CapturedObj *toGet) {
+    mutex_lock(&toGet->threadUnsafe->capturesLock);
+    Obj *value = toGet->threadUnsafe->stack.objects[toGet->stackIdx];
+    PUSH_UNROOTED(vulnObjs, value); // Safe for an instruction.
+    mutex_unlock(&toGet->threadUnsafe->capturesLock);
+    return value;
+}
+
+/** Safely assigns to a captured local which may be viewable by other threads that capture it. */
+static void assign_open_local(ThreadObj *thread, const u32 index, Obj *value) {
+    mutex_lock(&thread->capturesLock);
+    thread->frame->bp[index] = value;
+    mutex_unlock(&thread->capturesLock);
+}
+
+/** Safely retrieves a local which is captured. Gauranteed to live for an instruction. */
+static Obj *get_open_local(ThreadObj *thread, const u32 index) {
+    mutex_lock(&thread->capturesLock);
+    Obj *local = thread->frame->bp[index];
+    PUSH_UNROOTED(&thread->vulnObjs, local); // Safe for an instruction.
+    mutex_unlock(&thread->capturesLock);
+    return local;
+}
+
 /** 
  * Prints a stack trace for a runtime error.
  * 
@@ -392,6 +427,10 @@ static void catch_error(ThreadObj *thread, StringObj *errorMessage) {
     DROP_AMOUNT(thread, localPops);
     const u32 openCapturePops = thread->openCaptures.length - catch.openCapturesAmount;
     DROP_AMOUNT_DA(&thread->openCaptures, openCapturePops);
+
+    // Set the open indices table as the previous one
+    free_table(&thread->openIndicesSet);
+    thread->openIndicesSet = catch.openIndicesSet;
 
     u32 capturePops = 0;
     if (FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT)) {
@@ -831,7 +870,7 @@ static bool get_property(ThreadObj *thread, Obj *originalObj, StringObj *name) {
     }
     case OBJ_MODULE: {
         ModuleObj *module = AS_PTR(ModuleObj, originalObj);
-        Obj *global = get_global(module, AS_OBJ(name));
+        Obj *global = get_global(&thread->vulnObjs, module, AS_OBJ(name));
         if (global == NULL) {
             RUNTIME_ERROR(thread, "Module doesn't have '%s'.", name->string);
             return false;
@@ -1199,9 +1238,13 @@ static void close_captures(ThreadObj *thread, const u32 pops) {
     for (i64 i = (i64)thread->openCaptures.length - 1; i >= 0; i--) {
         CapturedObj *toClose = AS_PTR(CapturedObj, thread->openCaptures.data[i]);
         if (toClose->stackIdx >= thread->stack.length - pops) {
+            mutex_lock(&thread->capturesLock);
             toClose->isOpen = false;
             toClose->captured = thread->stack.objects[toClose->stackIdx];
+            mutex_unlock(&thread->capturesLock);
+
             DROP_DA(&thread->openCaptures);
+            table_int_delete(&thread->vulnObjs, &thread->openIndicesSet, toClose->stackIdx);
         }
     }
 }
@@ -1237,12 +1280,27 @@ static bool is_spawned_thread_done(ThreadObj *thread) {
     return !thread->isMain && thread->callStack.length == 1;
 }
 
-/** Captures a variable by creating a capture object and placing it in the appropriate places. */
+/** 
+ * Captures a variable by creating a capture object and placing it in the appropriate places.
+ * 
+ * First, it gets added to the current function's closure context of captures array,
+ * then it gets placed in the open captures array to signify that it's still alive on the stack
+ * (will be popped from that array later when the captured variable is popped from the stack).
+ * 
+ * Finally, sets it on the open indices set for easy O(1) access so local variable
+ * instructions in the VM can figure out whether a variable is shared between multiple functions
+ * (which means it might be shared between threads too, making the access not thread safe),
+ * or if it's completely unshared and safe to directly access without locks for performance.
+ */
 static void capture_variable(ThreadObj *thread, Obj *capturedObj, const u32 stackLocation) {
     RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, thread->frame->func);
-    Obj *capture = AS_OBJ(new_captured_obj(&thread->vulnObjs, capturedObj, stackLocation));
+    Obj *capture = AS_OBJ(new_captured_obj(&thread->vulnObjs, capturedObj, thread, stackLocation));
     PUSH_DA(&closure->captures, capture);
     PUSH_DA(&thread->openCaptures, capture);
+    table_int_set(
+        &thread->vulnObjs, &thread->openIndicesSet,
+        stackLocation, AS_OBJ(thread->vm->program->internedNull)
+    );
 }
 
 /** 
@@ -1306,7 +1364,7 @@ static bool import_module(ThreadObj *thread, StringObj *path) {
  */
 static bool import_names(ThreadObj *thread, ModuleObj *importedModule, ListObj *names) {
     for (u32 i = 0; i < names->items.length; i++) {
-        Obj *value = get_global(importedModule, names->items.data[i]);
+        Obj *value = get_global(&thread->vulnObjs, importedModule, names->items.data[i]);
         if (value) {
             PUSH(thread, value);
         } else {
@@ -1583,17 +1641,37 @@ static void interpreter_loop(ThreadObj *thread) {
             set_global(thread->module, READ_CONST(thread), PEEK(thread));
             break;
         case OP_GET_GLOBAL: {
-            Obj *value = get_global(thread->module, READ_CONST(thread));
+            Obj *value = get_global(&thread->vulnObjs, thread->module, READ_CONST(thread));
             ASSERT(value, "Interpreter global get operation returned NULL.");
             PUSH(thread, value);
             break;
         }
-        case OP_ASSIGN_LOCAL:
-            thread->frame->bp[READ_NUMBER(thread)] = PEEK(thread);
+        case OP_ASSIGN_LOCAL: {
+            const u32 index = READ_NUMBER(thread);
+            if (
+                FAST_INT_TABLE_HAS_KEY(
+                    &thread->openIndicesSet, thread->frame->bp + index - thread->stack.objects
+                )
+            ) {
+                // Captures are viewed by different functions, and they could be other thread funcs.
+                assign_open_local(thread, index, PEEK(thread));
+                break;
+            }
+            thread->frame->bp[index] = PEEK(thread);
             break;
+        }
         case OP_GET_LOCAL: {
-            Obj *value = thread->frame->bp[READ_NUMBER(thread)];
-            PUSH(thread, value);
+            const u32 index = READ_NUMBER(thread);
+            if (
+                FAST_INT_TABLE_HAS_KEY(
+                    &thread->openIndicesSet, thread->frame->bp + index - thread->stack.objects
+                )
+            ) {
+                // Captures are viewed by different functions, and they could be other thread funcs.
+                PUSH(thread, get_open_local(thread, index));
+                break;
+            }
+            PUSH(thread, thread->frame->bp[index]);
             break;
         }
         case OP_CAPTURE_DEPTH: {
@@ -1625,7 +1703,8 @@ static void interpreter_loop(ThreadObj *thread) {
             CapturedObj *capture = AS_PTR(CapturedObj, closure->captures.data[READ_NUMBER(thread)]);
 
             if (capture->isOpen) {
-                thread->stack.objects[capture->stackIdx] = PEEK(thread);
+                printf("CAPTURED ASSIGN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+                assign_open_capture(capture, PEEK(thread));
             } else {
                 capture->captured = PEEK(thread);
             }
@@ -1640,7 +1719,7 @@ static void interpreter_loop(ThreadObj *thread) {
             CapturedObj *capture = AS_PTR(CapturedObj, closure->captures.data[READ_NUMBER(thread)]);
 
             if (capture->isOpen) {
-                PUSH(thread, thread->stack.objects[capture->stackIdx]);
+                PUSH(thread, get_open_capture(&thread->vulnObjs, capture));
             } else {
                 PUSH(thread, capture->captured);
             }

@@ -127,7 +127,7 @@ NullObj *new_null_obj(VulnerableObjs *vulnObjs) {
 StringObj *new_string_obj(VulnerableObjs *vulnObjs, const char *string, const u32 length) {
     ZmxProgram *program = vulnObjs->program;
     const u32 hash = hash_string(string, length);
-    Obj *interned = table_get_string_key(&program->internedStrings, string, length, hash);
+    Obj *interned = get_string_table_key(&program->internedStrings, string, length, hash);
     if (interned) {
         return AS_PTR(StringObj, interned);
     }
@@ -244,10 +244,11 @@ ThreadObj *new_thread_obj(
     ThreadObj *object = NEW_OBJ(vulnObjs, OBJ_THREAD, ThreadObj);
     
     // Mark as not started and leave the native thread handle uninitialized.
-    init_mutex(&object->lock);
+    init_mutex(&object->threadLock);
     set_thread_state(object, THREAD_NOT_STARTED);
-    object->runnable = runnable;
     object->vm = vm;
+    object->vulnObjs = create_vulnerables(vulnObjs->program);
+    object->runnable = runnable;
     object->module = module;
     object->id = id;
     object->isMain = isMain;
@@ -255,15 +256,17 @@ ThreadObj *new_thread_obj(
     object->isJoinedUnsafe = false;
     create_fields(vulnObjs, &object->fields, 1, "daemon", new_bool_obj(vulnObjs, isDaemon));
 
-    object->vulnObjs = create_vulnerables(vulnObjs->program);
-    INIT_DA(&object->catches);
     INIT_DA(&object->openCaptures);
+    object->openIndicesSet = create_table();
+
+    INIT_DA(&object->catches);
     INIT_DA(&object->callStack);
     object->instrSize = INSTR_ONE_BYTE;
     object->frame = NULL;
     object->stack.objects = NULL;
     object->stack.capacity = 0;
     object->stack.length = 0;
+    init_mutex(&object->capturesLock);
 
     OBJ_TYPE_ALLOCATOR_RETURN(object);
 }
@@ -306,9 +309,12 @@ FuncObj *new_func_obj(
 }
 
 /** Returns a newly created indirect reference to the passed object (capturing the object). */
-CapturedObj *new_captured_obj(VulnerableObjs *vulnObjs, Obj *captured, const u32 stackIdx) {
+CapturedObj *new_captured_obj(
+    VulnerableObjs *vulnObjs, Obj *captured, ThreadObj *threadUnsafe, const u32 stackIdx
+) {
     CapturedObj *object = NEW_OBJ(vulnObjs, OBJ_CAPTURED, CapturedObj);
     object->isOpen = true;
+    object->threadUnsafe = threadUnsafe;
     object->stackIdx = stackIdx;
     object->captured = captured;
     OBJ_TYPE_ALLOCATOR_RETURN(object);
@@ -997,6 +1003,14 @@ static void free_func_obj(FuncObj *func) {
     FREE_DA(&func->positions);
 }
 
+/** Frees an array of catch states and all of its elements' allocated memory. */
+static void free_catches(CatchStateArray *catches) {
+    for (u32 i = 0; i < catches->length; i++) {
+        free_table(&catches->data[i].openIndicesSet);
+    }
+    FREE_DA(catches);
+}
+
 /** 
  * Frees the contents of the passed object.
  * 
@@ -1037,13 +1051,15 @@ void free_obj(Obj *object) {
         break;
     case OBJ_THREAD: {
         ThreadObj *thread = AS_PTR(ThreadObj, object);
-        free_table(&AS_PTR(ThreadObj, object)->fields);
         free_vulnerables(&thread->vulnObjs);
+        free_catches(&thread->catches);
+        free_table(&thread->fields);
+        free_table(&thread->openIndicesSet);
         FREE_DA(&thread->openCaptures);
         FREE_DA(&thread->callStack);
-        FREE_DA(&thread->catches);
         FREE_STACK(thread);
-        destroy_mutex(&thread->lock);
+        destroy_mutex(&thread->threadLock);
+        destroy_mutex(&thread->capturesLock);
         break;
     }
     case OBJ_LOCK:

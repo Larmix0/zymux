@@ -9,6 +9,9 @@
 /** A number index in the table wrapped around like modulo (but more efficiently). */
 #define GET_ENTRY_IDX(index, table) ((index) & ((table)->capacity - 1))
 
+/** Resolves to the hash of an integer literal. Currently just uses the number as the hash. */
+#define INTEGER_HASH(integer) (integer)
+
 void table_set(Table *table, Obj *key, Obj *value);
 
 /** Returns whether or not a given object is hashable. */
@@ -324,11 +327,9 @@ bool table_int_delete(VulnerableObjs *vulnObjs, Table *table, const ZmxInt keyNu
     return success;
 }
 
-/** Returns the string key in a hash table if it exists, otherwise returns NULL. */
-Obj *table_get_string_key(Table *table, const char *string, const u32 length, const u32 hash) {
-    if (table->entries == NULL) {
-        // Empty table, just expand it and return that the key doesn't exist.
-        expand_table(table);
+/** Returns the string key in a string-only hash table if it exists, otherwise returns NULL. */
+Obj *get_string_table_key(Table *table, const char *string, const u32 length, const u32 hash) {
+    if (table->count == 0) {
         return NULL;
     }
 
@@ -338,15 +339,44 @@ Obj *table_get_string_key(Table *table, const char *string, const u32 length, co
         if (EMPTY_ENTRY(entry)) {
             return NULL;
         }
-        if (entry->key->type != OBJ_STRING) {
-            index = GET_ENTRY_IDX(index + 1, table);
-            continue;
-        }
         
+        ASSERT(entry->key->type == OBJ_STRING, "Expected table to only hold string keys.");
         StringObj *key = AS_PTR(StringObj, entry->key);
         if (
             key->hash == hash && key->length == length && strncmp(key->string, string, length) == 0
         ) {
+            return entry->key;
+        }
+        index = GET_ENTRY_IDX(index + 1, table);
+    }
+}
+
+/** 
+ * Checks if an integer exists as a key in an integer-keys-only hash table.
+ * 
+ * This is much faster than a normal table int get operation as it only has macros with no inner
+ * function calls, doesn't allocate any objects in the lookup, and it operates on the presumption
+ * that a found key is an integer (no extra checks).
+ * 
+ * This also operates on the assumption that the caller has checked that there are no entries
+ * in the table with the macro.
+ */
+bool int_table_has_key_unchecked(Table *table, const ZmxInt integer) {
+    if (table->entries == NULL) {
+        return NULL;
+    }
+
+    const u32 hash = INTEGER_HASH(integer);
+    u32 index = GET_ENTRY_IDX(integer, table);
+    while (true) {
+        Entry *entry = &table->entries[index];
+        if (EMPTY_ENTRY(entry)) {
+            return NULL;
+        }
+        
+        ASSERT(entry->key->type == OBJ_INT, "Expected table to only hold integer keys.");
+        IntObj *key = AS_PTR(IntObj, entry->key);
+        if (INTEGER_HASH(key->number) == hash && key->number == hash) {
             return entry->key;
         }
         index = GET_ENTRY_IDX(index + 1, table);

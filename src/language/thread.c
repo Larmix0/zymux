@@ -51,32 +51,32 @@ void destroy_mutex(Mutex *mutex) {
 
 /** Safely retrieves the state of the passed thread object. */
 ThreadState get_thread_state(ThreadObj *thread) {
-    mutex_lock(&thread->lock);
+    mutex_lock(&thread->threadLock);
     const ThreadState state = thread->stateUnsafe;
-    mutex_unlock(&thread->lock);
+    mutex_unlock(&thread->threadLock);
     return state;
 }
 
 /** Safely set a state for the passed thread object. */
 void set_thread_state(ThreadObj *thread, const ThreadState newState) {
-    mutex_lock(&thread->lock);
+    mutex_lock(&thread->threadLock);
     thread->stateUnsafe = newState;
-    mutex_unlock(&thread->lock);
+    mutex_unlock(&thread->threadLock);
 }
 
 /** Safely returns whether or not the thread has been joined yet. */
 bool is_joined_thread(ThreadObj *thread) {
-    mutex_lock(&thread->lock);
+    mutex_lock(&thread->threadLock);
     const bool isJoined = thread->isJoinedUnsafe;
-    mutex_unlock(&thread->lock);
+    mutex_unlock(&thread->threadLock);
     return isJoined;
 }
 
 /** Safely changes whether or not the thread has been joined to the passed bool. */
 void set_thread_joined(ThreadObj *thread, const bool hasJoined) {
-    mutex_lock(&thread->lock);
+    mutex_lock(&thread->threadLock);
     thread->isJoinedUnsafe = hasJoined;
-    mutex_unlock(&thread->lock);   
+    mutex_unlock(&thread->threadLock);   
 }
 
 /** Returns whether or not the thread can be joined. */

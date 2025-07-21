@@ -15,6 +15,10 @@ typedef struct VulnerableObjs VulnerableObjs;
 /** Whether the passed entry is considered empty. */
 #define EMPTY_ENTRY(entry) ((entry)->key == NULL && (entry)->value == NULL)
 
+/** Safe and very performant way to see if an int exists as a key on an int-only table. */
+#define FAST_INT_TABLE_HAS_KEY(table, integer) \
+    ((table)->count != 0 && int_table_has_key_unchecked(table, integer))
+
 /** 
  * An entry in the hash table consisting of key-value pairs and the PSL for robin hood hashing.
  * 
@@ -111,8 +115,22 @@ bool table_string_delete(VulnerableObjs *vulnObjs, Table *table, const char *key
  */
 bool table_int_delete(VulnerableObjs *vulnObjs, Table *table, const ZmxInt keyNumber);
 
-/** Returns the string key in a hash table if it exists, otherwise returns NULL. */
-Obj *table_get_string_key(Table *table, const char *string, const u32 length, const u32 hash);
+/** Returns the string key in a string-only hash table if it exists, otherwise returns NULL. */
+Obj *get_string_table_key(Table *table, const char *string, const u32 length, const u32 hash);
+
+/** 
+ * Base function for checking if an integer exists in an integer only hash table.
+ * 
+ * This is the base function and should not be used. Use the macro equivalent instead.
+ * The reason is because this one doesn't perform a check on whether or not there are
+ * any elements in the table, hence the "_unchecked" suffix.
+ * 
+ * This doesn't perform the check because some int tables (particularly VM capture int tables)
+ * are usually empty and the check is in a performance-critical place
+ * such as the VM's local get/assign, so the check is done outside the function call to optimize
+ * call overhead for the common cses of the table being empty anyway.
+ */
+bool int_table_has_key_unchecked(Table *table, const ZmxInt integer);
 
 /** Frees the memory allocated by the passed hash table. */
 void free_table(Table *table);

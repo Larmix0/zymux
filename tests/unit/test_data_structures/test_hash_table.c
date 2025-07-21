@@ -32,32 +32,32 @@ PRIVATE_TEST_CASE(test_table_get_string) {
     char *name = "Name";
     Obj *somethingAsObj = AS_OBJ(NEW_TEST_STRING(defaultVulnObjs, something));
     Obj *nameAsObj = AS_OBJ(NEW_TEST_STRING(defaultVulnObjs, name));
-    ASSERT_NULL(table_get_string_key(
+    ASSERT_NULL(get_string_table_key(
         &defaultTable, something, strlen(something), hash_string(something, strlen(something))
     ));
-    ASSERT_NULL(table_get_string_key(
+    ASSERT_NULL(get_string_table_key(
         &defaultTable, name, strlen(name), hash_string(name, strlen(name))
     ));
 
     table_set(&defaultTable, somethingAsObj, AS_OBJ(new_null_obj(defaultVulnObjs)));
-    Obj *foundSomething = table_get_string_key(
+    Obj *foundSomething = get_string_table_key(
         &defaultTable, something, strlen(something), hash_string(something, strlen(something))
     );
     ASSERT_NOT_NULL(foundSomething);
     ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundSomething)->string, something);
 
     table_set(&defaultTable, nameAsObj, AS_OBJ(new_null_obj(defaultVulnObjs)));
-    Obj *foundName = table_get_string_key(
+    Obj *foundName = get_string_table_key(
         &defaultTable, name, strlen(name), hash_string(name, strlen(name))
     );
     ASSERT_NOT_NULL(foundName);
     ASSERT_STRING_EQUAL(AS_PTR(StringObj, foundName)->string, name);
 
     table_delete(&defaultTable, somethingAsObj);
-    ASSERT_NULL(table_get_string_key(
+    ASSERT_NULL(get_string_table_key(
         &defaultTable, something, strlen(something), hash_string(something, strlen(something))
     ));
-    foundName = table_get_string_key(
+    foundName = get_string_table_key(
         &defaultTable, name, strlen(name), hash_string(name, strlen(name))
     );
     ASSERT_NOT_NULL(foundName);

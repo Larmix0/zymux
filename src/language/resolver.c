@@ -498,11 +498,10 @@ static void append_capture(VariableArray *captures, Variable *capturedVar) {
  */
 static void capture_local(Resolver *resolver, Variable *toCapture, const u32 closureIdx) {
     ClosedVariables *closure = &resolver->locals.data[closureIdx];
-    U32Array *localCaptures = &closure->localCaptures;
-    LAST_ITEM_DA(localCaptures)++;
+    LAST_ITEM_DA(&closure->localCaptures)++;
 
     for (u32 i = closureIdx; i < resolver->locals.length; i++) {
-        // The closure of the captured itself gets appended a truthy local capture.
+        // The closure of the captured itself gets appended a truthy for "is local capture".
         const bool isLocalCapture = i == closureIdx ? true : false;
         Variable closureCapture = create_variable(
             toCapture->isPrivate, toCapture->isConst, isLocalCapture,
