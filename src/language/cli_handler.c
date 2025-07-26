@@ -137,7 +137,7 @@ static bool line_is_quit(char *line) {
  * part of the source string they come from.
  */
 char *repl_line(CliHandler *cli, VulnerableObjs *vulnObjs, Resolver *resolver, Vm *vm) {
-    printf("> ");
+    synchronized_print(vulnObjs->program, stdout, "> ");
     char *line = get_repl_input();
     if (line_is_quit(line)) {
         cli->exitedRepl = true;

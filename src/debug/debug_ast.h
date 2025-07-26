@@ -8,7 +8,7 @@
 #define AST_DEBUG_DELIMITER "|-|"
 
 /** Prints the passed ast to the console. */
-void print_ast(const NodeArray *ast);
+void print_ast(ZmxProgram *program, const NodeArray *ast);
 
 /** Allocates the string representation of the passed ast in a char buffer. */
 CharBuffer get_ast_string(const NodeArray *ast);

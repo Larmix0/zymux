@@ -6,13 +6,13 @@
 
 /** Prints the current instruction and the stack */
 void print_runtime_state(
-    const FuncObj *func, Obj **stack, const int stackLength,
+    ThreadObj *thread, const FuncObj *func, Obj **stack, const int stackLength,
     const u32 bytecodeOffset, InstrSize size
 );
 
 /** Prints information about a caught runtime error, its effects, and the error message . */
 void print_caught_runtime_error(
-    VulnerableObjs *vulnObjs, FuncObj *setFunc, const u32 poppedLocals, const u32 poppedCaptures,
+    ThreadObj *thread, FuncObj *setFunc, const u32 poppedLocals, const u32 poppedCaptures,
     const u32 poppedOpenCaptures, const char *errorMessage
 );
 

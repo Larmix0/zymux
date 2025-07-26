@@ -1071,7 +1071,7 @@ static void declare_func(Compiler *compiler, FuncObj *compiledFunc, const FuncNo
     }
 
     if (compiler->program->cli->debugBytecode || DEBUG_BYTECODE) {
-        print_bytecode(compiledFunc);
+        print_bytecode(compiler->program, compiledFunc);
     }
 }
 
@@ -1249,7 +1249,7 @@ void compile(Compiler *compiler) {
     write_jumps(compiler);
 
     if (compiler->program->cli->debugBytecode || DEBUG_BYTECODE) {
-        print_bytecode(compiler->func);
+        print_bytecode(compiler->program, compiler->func);
     }
 }
 

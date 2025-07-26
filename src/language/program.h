@@ -6,6 +6,7 @@
 #include "cli_handler.h"
 #include "gc.h"
 #include "hash_table.h"
+#include "thread.h"
 #include "token.h"
 
 typedef struct Node Node;
@@ -37,6 +38,8 @@ typedef struct ZmxProgram {
     StringObj *currentFile; /** The name of the file currently being worked on. */
     BuiltIns builtIn; /** All the built-ins of the language. */
     Gc gc; /** The garbage collector for the program's objects. */
+
+    Mutex printLock; /** The lock for safe, synchronized printing. */
 } ZmxProgram;
 
 /** Returns an initialized, allocated zymux program with the parameters. */

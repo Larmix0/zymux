@@ -59,15 +59,18 @@ static void print_destructure(VulnerableObjs *vulnObjs, Obj *toPrint, const bool
     IteratorObj *iterator = new_iterator_obj(vulnObjs, toPrint);
     bool hasAllocated = false;
     Obj *current;
+    mutex_lock(&vulnObjs->program->printLock);
     while ((current = iterate(vulnObjs, iterator, &hasAllocated))) {
         print_obj(current, false);
         if (addNewline) {
             putchar('\n');
         }
+
         if (hasAllocated) {
             OPT_DROP_UNROOTED(vulnObjs);
         }
     }
+    mutex_unlock(&vulnObjs->program->printLock);
 }
 
 /** Built-in printing function with some boolean flag settings. */
@@ -88,10 +91,12 @@ DEFINE_NATIVE_FUNC(print) {
         }
         print_destructure(&thread->vulnObjs, toPrint, addNewline);
     } else {
+        mutex_lock(&thread->vm->program->printLock);
         print_obj(toPrint, false);
         if (addNewline) {
             putchar('\n');
         }
+        mutex_unlock(&thread->vm->program->printLock);
     }
     DEFAULT_RETURN(thread);
 }
@@ -478,8 +483,6 @@ static void load_classes(VulnerableObjs *vulnObjs) {
  */
 void load_built_ins(VulnerableObjs *vulnObjs) {
     load_funcs(vulnObjs);
-    DROP_ALL_UNROOTED(vulnObjs);
-
     load_classes(vulnObjs);
     DROP_ALL_UNROOTED(vulnObjs);
 }

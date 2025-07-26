@@ -644,7 +644,9 @@ StringObj *as_string(VulnerableObjs *vulnObjs, const Obj *object);
 
 /** 
  * Prints the passed object to the console.
- * If debugPrint is on, it prints some extra things to make the output clearer for debugging.
+ * 
+ * If debug print is on, it prints some extra things to make the output clearer for debugging.
+ * This printing function doesn't use the printing lock for synchronization.
  */
 void print_obj(const Obj *object, const bool debugPrint);
 

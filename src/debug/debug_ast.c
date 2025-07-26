@@ -512,7 +512,8 @@ static void append_node_array(AstBuilder *ast, const NodeArray *nodes) {
 }
 
 /** Prints the entire passed ast. */
-void print_ast(const NodeArray *ast) {
+void print_ast(ZmxProgram *program, const NodeArray *ast) {
+    mutex_lock(&program->printLock);
     printf("-------------------- AST START --------------------\n");
     AstBuilder astString = create_ast_builder(true);
     for (u32 i = 0; i < ast->length; i++) {
@@ -525,6 +526,7 @@ void print_ast(const NodeArray *ast) {
     printf("%s", astString.string.text);
     free_ast_builder(&astString);
     printf("-------------------- AST END --------------------\n");
+    mutex_unlock(&program->printLock);
 }
 
 /** Allocates a string representation of the AST using the debug delimiter. */

@@ -11,6 +11,7 @@
 ZmxProgram *new_zmx_program(char *file, CliHandler *cli, const bool showErrors) {
     ZmxProgram *program = TYPE_ALLOC(ZmxProgram);
 
+    init_mutex(&program->printLock);
     program->isRuntime = false;
     program->hasErrored = false;
     program->showErrors = showErrors;
@@ -44,6 +45,7 @@ void free_zmx_program(ZmxProgram *program) {
     free_table(&program->internedStrings);
     free_built_ins(&program->builtIn);
     free_gc(&program->gc);
+    destroy_mutex(&program->printLock);
 
     free(program); // The program itself is allocated.
 }

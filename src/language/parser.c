@@ -1232,7 +1232,7 @@ bool parse(Parser *parser) {
     PUSH_DA(&parser->ast, new_eof_node(parser->program, PEEK(parser).pos));
 
     if (parser->program->cli->debugAst || DEBUG_AST) {
-        print_ast(&parser->ast);
+        print_ast(parser->program, &parser->ast);
     }
     return !parser->hasErrored;
 }

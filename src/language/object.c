@@ -28,7 +28,6 @@
 static CharBuffer object_cstring(const Obj *object, const bool debugCString);
 void set_thread_state(ThreadObj *thread, const ThreadState newState);
 static void create_fields(VulnerableObjs *vulnObjs, Table *fields, const u32 amount, ...);
-void print_obj(const Obj *object, const bool debugPrint);
 char *obj_type_str(ObjType type);
 
 /** 
@@ -443,7 +442,7 @@ static void map_cstring(const MapObj *map, CharBuffer *string) {
 }
 
 /** 
- * Returns a C-string representation of the object in an allocated char buffer.
+ * Returns a C-string representation of the object in a char buffer.
  * 
  * The debug string parameter indicates whether this should be returned as a debug string
  * with extra information such as quotes in strings.
@@ -948,12 +947,7 @@ StringObj *as_string(VulnerableObjs *vulnObjs, const Obj *object) {
     return result;
 }
 
-/** 
- * Prints the passed object to the console.
- * 
- * Simply wraps around getting an object's c-string and prints it out.
- * If debugPrint is on, it prints some extra things to make the output clearer during debugging.
- */
+/** Prints the passed object to the console. Not synchronized */
 void print_obj(const Obj *object, const bool debugPrint) {
     CharBuffer string = object_cstring(object, debugPrint);
     printf("%s", string.text);

@@ -383,7 +383,9 @@ static Obj *get_open_local(ThreadObj *thread, const u32 index) {
  * Prints in an order that makes the most recently executing function appear at the bottom.
  */
 static void print_stack_trace(ThreadObj *thread) {
+    mutex_lock(&thread->vm->program->printLock);
     fprintf(stderr, RED "Stack trace:\n" DEFAULT_COLOR);
+    
     for (u32 i = 0; i < thread->callStack.length; i++) {
         StackFrame *frame = &thread->callStack.data[i];
         fprintf(stderr, INDENT);
@@ -396,7 +398,9 @@ static void print_stack_trace(ThreadObj *thread) {
         const u32 bytecodeIdx = frame->ip - frame->func->bytecode.data;
         fprintf(stderr, "line %d\n", frame->func->positions.data[bytecodeIdx].line);
     }
+
     fputc('\n', stderr);
+    mutex_unlock(&thread->vm->program->printLock);
 }
 
 /** 
@@ -446,8 +450,7 @@ static void catch_error(ThreadObj *thread, StringObj *errorMessage) {
 
 #if DEBUG_RUNTIME
     print_caught_runtime_error(
-        &thread->vulnObjs, catch.func,
-        localPops, capturePops, openCapturePops, errorMessage->string
+        thread, catch.func, localPops, capturePops, openCapturePops, errorMessage->string
     );
 #endif
 }
@@ -1385,7 +1388,7 @@ static void interpreter_loop(ThreadObj *thread) {
     while (true) {
 #if DEBUG_RUNTIME
         print_runtime_state(
-            thread->frame->func, thread->stack.objects, thread->stack.length,
+            thread, thread->frame->func, thread->stack.objects, thread->stack.length,
             thread->frame->ip - thread->frame->func->bytecode.data, thread->instrSize
         );
 #endif
@@ -1703,7 +1706,6 @@ static void interpreter_loop(ThreadObj *thread) {
             CapturedObj *capture = AS_PTR(CapturedObj, closure->captures.data[READ_NUMBER(thread)]);
 
             if (capture->isOpen) {
-                printf("CAPTURED ASSIGN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
                 assign_open_capture(capture, PEEK(thread));
             } else {
                 capture->captured = PEEK(thread);

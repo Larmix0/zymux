@@ -42,6 +42,3 @@ issues. Not to mention it's useful for printing more object info in threads and 
 
 Make methods' first character of the class capitalized in the internal name for conventions,
 and full/clear separation from other functions.
-
-Synchronize printing during the entire VM execution (including compilation for imports),
-and print thread ID (TID) as part of the output inn the runtime debugging.

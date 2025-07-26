@@ -146,6 +146,8 @@ void file_error(const char *format, ...) {
  * Like a compiler error or a runtime error.
  * 
  * If the passed args list is NULL, it'll simply print the passed string with no formatting.
+ * 
+ * Since this is a user-error being reported, the output is synced/safe for threading.
  */
 void zmx_user_error(
     ZmxProgram *program, const char *fileName, const SourcePosition pos,
@@ -158,6 +160,8 @@ void zmx_user_error(
     if (!program->showErrors) {
         return;
     }
+
+    mutex_lock(&program->printLock);
     if (hasErrored) {
         fputc('\n', stderr);
     }
@@ -172,4 +176,5 @@ void zmx_user_error(
         fprintf(stderr, "%s", format);
     }
     fputc('\n', stderr);
+    mutex_lock(&program->printLock);
 }

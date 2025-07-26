@@ -54,6 +54,8 @@ static void mark_thread(ThreadObj *thread) {
     mark_vulnerables(&thread->vulnObjs);
     mark_obj(AS_OBJ(thread->runnable));
     mark_obj(AS_OBJ(thread->module));
+    mark_obj_array(thread->openCaptures);
+    mark_table(thread->openIndicesSet);
 
     for (u32 i = 0; i < thread->stack.length; i++) {
         mark_obj(thread->stack.objects[i]);
@@ -104,6 +106,7 @@ static void mark_built_ins(BuiltIns *builtIn) {
     
     mark_obj(AS_OBJ(builtIn->fileClass));
     mark_obj(AS_OBJ(builtIn->threadClass));
+    mark_obj(AS_OBJ(builtIn->lockClass));
 }
 
 /** Marks all the objects stored in a program. */
@@ -262,8 +265,12 @@ static void gc_sweep(ZmxProgram *program) {
     Obj *previous = NULL;
     Obj *current = program->allObjs;
     while (current != NULL) {
-        if (FLAG_IS_SET(current->flags, OBJ_REACHABLE_BIT)) {
-            FLAG_DISABLE(current->flags, OBJ_REACHABLE_BIT);// Prepare for next GC.
+        // Don't free if it's been marked as reachable, or isn't even initialized.
+        if (
+            FLAG_IS_SET(current->flags, OBJ_REACHABLE_BIT)
+            || !FLAG_IS_SET(current->flags, OBJ_INITIALIZED_BIT)
+        ) {
+            FLAG_DISABLE(current->flags, OBJ_REACHABLE_BIT); // Prepare for next GC.
             previous = current;
             current = current->next;
         } else if (previous == NULL) {

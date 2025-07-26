@@ -3,7 +3,7 @@
 
 #include "token.h"
 
-/** Prints the passed token array's tokens. */
-void print_tokens(const TokenArray tokens);
+/** Prints an entire array of tokens. */
+void print_tokens(ZmxProgram *program, const TokenArray tokens);
 
 #endif

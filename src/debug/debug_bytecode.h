@@ -20,6 +20,6 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, BytecodeFormat fo
  * source positions array is empty, which should be the case if it was compiled without
  * debugging information set to true on the compiler.
  */
-void print_bytecode(const FuncObj *function);
+void print_bytecode(ZmxProgram *program, const FuncObj *function);
 
 #endif

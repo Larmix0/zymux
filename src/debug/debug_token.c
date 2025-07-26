@@ -2,6 +2,7 @@
 
 #include "debug_token.h"
 #include "char_buffer.h"
+#include "program.h"
 #include "report_error.h"
 
 /** Prints the passed token to the console. */
@@ -28,7 +29,8 @@ static void print_token(const Token token) {
 }
 
 /** Prints an entire array of tokens. */
-void print_tokens(const TokenArray tokens) {
+void print_tokens(ZmxProgram *program, const TokenArray tokens) {
+    mutex_lock(&program->printLock);
     printf("-------------------- TOKENS START --------------------\n");
     for (u32 i = 0; i < tokens.length; i++) {
         printf(INDENT);
@@ -36,4 +38,5 @@ void print_tokens(const TokenArray tokens) {
         putchar('\n');
     }
     printf("-------------------- TOKENS END --------------------\n");
+    mutex_unlock(&program->printLock);
 }

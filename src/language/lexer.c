@@ -973,7 +973,7 @@ bool lex(Lexer *lexer) {
     }
 
     if (lexer->program->cli->debugTokens || DEBUG_TOKENS) {
-        print_tokens(lexer->tokens);
+        print_tokens(lexer->program, lexer->tokens);
     }
     return !lexer->hasErrored;
 }

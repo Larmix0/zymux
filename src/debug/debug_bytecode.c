@@ -1,7 +1,8 @@
 #include <stdio.h>
 
-#include "char_buffer.h"
 #include "debug_bytecode.h"
+#include "char_buffer.h"
+#include "program.h"
 
 /** Resolves to whether or not the func's bytecode has stored its bytecode's positions. */
 #define HAS_POS_INFO(funcObj) ((funcObj)->positions.data != NULL)
@@ -174,7 +175,8 @@ static void print_separator(const FuncObj *func) {
  * It could be NULL in the case that the bytecode array is simple empty,
  * but in that the loop won't end up triggering and printing anything anyways.
  */
-void print_bytecode(const FuncObj *func) {
+void print_bytecode(ZmxProgram *program, const FuncObj *func) {
+    mutex_lock(&program->printLock);
     printf("-------------------- BYTECODE START --------------------\n");
     print_obj(AS_OBJ(func), true);
     putchar('\n');
@@ -192,4 +194,5 @@ void print_bytecode(const FuncObj *func) {
         idx = print_instr(func, idx, &size, HAS_POS_INFO(func) ? FORMAT_NORMAL : FORMAT_NO_LINE);
     }
     printf("-------------------- BYTECODE END --------------------\n");
+    mutex_unlock(&program->printLock);
 }

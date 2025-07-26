@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "object.h"
+#include "program.h"
 #include "thread.h"
 #include "vm.h"
 
@@ -109,4 +110,15 @@ void finish_vm_threads(Vm *vm) {
     mutex_lock(&vm->threadsLock);
     DROP_AMOUNT_DA(&vm->threadsUnsafe, vm->threadsUnsafe.length - 1);
     mutex_unlock(&vm->threadsLock);
+}
+
+/** A thread-safe way to print a formatted output to a specific file stream. */
+void synchronized_print(ZmxProgram *program, FILE *stream, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    mutex_lock(&program->printLock);
+    vfprintf(stream, format, args);
+    fflush(stream);
+    mutex_unlock(&program->printLock);
+    va_end(args);
 }

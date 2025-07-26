@@ -3,6 +3,7 @@
 
 #include <pthread.h>
 
+typedef struct ZmxProgram ZmxProgram;
 typedef struct Vm Vm;
 typedef struct ThreadObj ThreadObj;
 
@@ -60,5 +61,12 @@ void set_thread_joined(ThreadObj *thread, const bool hasJoined);
 
 /** Ends all native threads in the VM. */
 void finish_vm_threads(Vm *vm);
+
+/** 
+ * A thread-safe way to print a formatted output to a specific file stream.
+ * 
+ * This acts like a thread-safe fprintf using the print lock inside the program.
+ */
+void synchronized_print(ZmxProgram *program, FILE *stream, const char *format, ...);
 
 #endif

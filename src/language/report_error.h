@@ -123,6 +123,8 @@ void file_error(const char *format, ...);
  * of Zymux.
  * 
  * Passing NULL for the args parameter would simply print the passed bare string without formatting.
+ * 
+ * Since this is a user-error being reported, the output is synced/safe for threading.
  */
 void zmx_user_error(
     ZmxProgram *program, const char *fileName, const SourcePosition pos,
