@@ -176,5 +176,5 @@ void zmx_user_error(
         fprintf(stderr, "%s", format);
     }
     fputc('\n', stderr);
-    mutex_lock(&program->printLock);
+    mutex_unlock(&program->printLock);
 }
