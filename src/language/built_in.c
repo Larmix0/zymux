@@ -370,8 +370,12 @@ static FuncParams with_optional_params(
     return params;
 }
 
-/** Loads a function into the passed table. */
-static void load_native_method(
+/** 
+ * Loads a function into the passed table.
+ * 
+ * It is loaded as an entry where its name is the key, and the function itself is the value.
+ */
+static void load_method(
     VulnerableObjs *vulnObjs, Table *loadingTable, const char *name,
     NativeFunc func, const FuncParams params
 ) {
@@ -382,16 +386,16 @@ static void load_native_method(
 }
 
 /** Loads a native function into the program, as if it was a method of the program. */
-static void load_native_func(
+static void load_func(
     VulnerableObjs *vulnObjs, const char *name, NativeFunc func, const FuncParams params
 ) {
-    load_native_method(vulnObjs, &vulnObjs->program->builtIn.funcs, name, func, params);
+    load_method(vulnObjs, &vulnObjs->program->builtIn.funcs, name, func, params);
 }
 
 /** Loads all built-in functions. */
-static void load_funcs(VulnerableObjs *vulnObjs) {
+static void load_native_funcs(VulnerableObjs *vulnObjs) {
     char *assertMsg = "Assert failed.";
-    load_native_func(
+    load_func(
         vulnObjs, "print", native_print,
         with_optional_params(
             vulnObjs, 1, 3,
@@ -399,30 +403,22 @@ static void load_funcs(VulnerableObjs *vulnObjs) {
             "newline", new_bool_obj(vulnObjs, true), "destructure", new_bool_obj(vulnObjs, false)
         )
     );
-    load_native_func(
+    load_func(
         vulnObjs, "assert", native_assert,
         with_optional_params(
             vulnObjs, 1, 2,
             "condition", NULL, "message", new_string_obj(vulnObjs, assertMsg, strlen(assertMsg))
         )
     );
-    load_native_func(
+    load_func(
         vulnObjs, "sleep", native_sleep, mandatory_params(vulnObjs, 1, "milliseconds")
     );
-    load_native_func(vulnObjs, "time", native_time, no_params());
-    load_native_func(vulnObjs, "open", native_open, mandatory_params(vulnObjs, 2, "path", "mode"));
-
-    load_native_func(
-        vulnObjs, "Thread", native_Thread,
-        with_optional_params(
-            vulnObjs, 1, 2, "runnable", NULL, "daemon", new_bool_obj(vulnObjs, false)
-        )
-    );
-    load_native_func(vulnObjs, "Lock", native_Lock, no_params());
+    load_func(vulnObjs, "time", native_time, no_params());
+    load_func(vulnObjs, "open", native_open, mandatory_params(vulnObjs, 2, "path", "mode"));
 }
 
 /** Returns an initialized native class without methods or attributes with a terminated C-string. */
-static ClassObj *initial_native_class(VulnerableObjs *vulnObjs, char *nameChars) {
+static ClassObj *initial_native_class(VulnerableObjs *vulnObjs, const char *nameChars) {
     return new_class_obj(vulnObjs, new_string_obj(vulnObjs, nameChars, strlen(nameChars)), false);
 }
 
@@ -430,9 +426,9 @@ static ClassObj *initial_native_class(VulnerableObjs *vulnObjs, char *nameChars)
 static void load_file_class(VulnerableObjs *vulnObjs) {
     ClassObj *fileClass = initial_native_class(vulnObjs, "File");
 
-    load_native_method(vulnObjs, &fileClass->methods, "close", native_File_close, no_params());
-    load_native_method(vulnObjs, &fileClass->methods, "read", native_File_read, no_params());
-    load_native_method(
+    load_method(vulnObjs, &fileClass->methods, "close", native_File_close, no_params());
+    load_method(vulnObjs, &fileClass->methods, "read", native_File_read, no_params());
+    load_method(
         vulnObjs, &fileClass->methods, "write", native_File_write,
         mandatory_params(vulnObjs, 1, "text")
     );
@@ -444,14 +440,14 @@ static void load_thread_class(VulnerableObjs *vulnObjs) {
     ClassObj *threadClass = initial_native_class(vulnObjs, "Thread");
 
     // Safe to pass empty list and map because this only ever gets called once per thread.
-    load_native_method(
+    load_method(
         vulnObjs, &threadClass->methods, "run", native_Thread_run,
         with_optional_params(
             vulnObjs, 0, 2, "args", new_list_obj(vulnObjs, (ObjArray)CREATE_DA()),
             "kwargs", new_map_obj(vulnObjs, create_table())
         )
     );
-    load_native_method(
+    load_method(
         vulnObjs, &threadClass->methods, "join", native_Thread_join,
         with_optional_params(vulnObjs, 0, 1, "bypass", new_bool_obj(vulnObjs, false))
     );
@@ -462,17 +458,44 @@ static void load_thread_class(VulnerableObjs *vulnObjs) {
 static void load_lock_class(VulnerableObjs *vulnObjs) {
     ClassObj *lockClass = initial_native_class(vulnObjs, "Lock");
 
-    load_native_method(vulnObjs, &lockClass->methods, "obtain", native_Lock_obtain, no_params());
-    load_native_method(vulnObjs, &lockClass->methods, "release", native_Lock_release, no_params());
-    load_native_method(vulnObjs, &lockClass->methods, "held", native_Lock_held, no_params());
+    load_method(vulnObjs, &lockClass->methods, "obtain", native_Lock_obtain, no_params());
+    load_method(vulnObjs, &lockClass->methods, "release", native_Lock_release, no_params());
+    load_method(vulnObjs, &lockClass->methods, "held", native_Lock_held, no_params());
     vulnObjs->program->builtIn.lockClass = lockClass;
 }
 
 /** Loads all built-in classes. */
-static void load_classes(VulnerableObjs *vulnObjs) {
+static void load_native_classes(VulnerableObjs *vulnObjs) {
     load_file_class(vulnObjs);
     load_thread_class(vulnObjs);
     load_lock_class(vulnObjs);
+}
+
+/** Returns an empty module object for a built-in module (not a user-written module). */
+static ModuleObj *initial_native_module(VulnerableObjs *vulnObjs, const char *nameChars) {
+    return new_module_obj(
+        vulnObjs, new_string_obj(vulnObjs, nameChars, strlen(nameChars)), NULL, 0
+    );
+}
+
+/** Loads all names inside the built-in threads IO module. */
+static void load_multithread_module(VulnerableObjs *vulnObjs) {
+    const char *fullNameChars = "multithread.zmx";
+    ModuleObj *module = initial_native_module(vulnObjs, fullNameChars);
+
+    load_method(
+        vulnObjs, &module->globalsUnsafe, "Thread", native_Thread,
+        with_optional_params(
+            vulnObjs, 1, 2, "runnable", NULL, "daemon", new_bool_obj(vulnObjs, false)
+        )
+    );
+    load_method(vulnObjs, &module->globalsUnsafe, "Lock", native_Lock, no_params());
+    table_string_set(vulnObjs, &vulnObjs->program->builtIn.modules, fullNameChars, AS_OBJ(module));
+}
+
+/** Loads all built-in modules. */
+static void load_native_modules(VulnerableObjs *vulnObjs) {
+    load_multithread_module(vulnObjs);
 }
 
 /** 
@@ -482,8 +505,9 @@ static void load_classes(VulnerableObjs *vulnObjs) {
  * because this happens here after every set of built-in functionality is loaded.
  */
 void load_built_ins(VulnerableObjs *vulnObjs) {
-    load_funcs(vulnObjs);
-    load_classes(vulnObjs);
+    load_native_funcs(vulnObjs);
+    load_native_classes(vulnObjs);
+    load_native_modules(vulnObjs);
     DROP_ALL_UNROOTED(vulnObjs);
 }
 
@@ -496,4 +520,5 @@ BuiltIns empty_built_ins() {
 /** Frees the memory allocated and owned by built-ins (excluding objs - they're program owned). */
 void free_built_ins(BuiltIns *builtIn) {
     free_table(&builtIn->funcs);
+    free_table(&builtIn->modules);
 }

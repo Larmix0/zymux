@@ -21,7 +21,8 @@ typedef Obj *(*NativeFunc)(ThreadObj *thread, Obj *callee, Obj **args);
 
 /** A struct which holds all the built-ins of a program. */
 typedef struct {
-    Table funcs;
+    Table funcs; /** Name (string) keys, native function values. */
+    Table modules; /** Name (string) keys, native module values. */
     ClassObj *fileClass;
     ClassObj *threadClass;
     ClassObj *lockClass;

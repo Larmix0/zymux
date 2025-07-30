@@ -39,6 +39,3 @@ objects at the end of the program before manually freeing them without printing 
 issues. Not to mention it's useful for printing more object info in threads and such.
 
 ----------------------------------------------------------------------------------------------------
-
-Make methods' first character of the class capitalized in the internal name for conventions,
-and full/clear separation from other functions.

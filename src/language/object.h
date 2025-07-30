@@ -538,11 +538,7 @@ EnumObj *new_enum_obj(VulnerableObjs *vulnObjs, StringObj *name);
 /** Returns an iterator which wraps around an iterable object being iterated on. */
 IteratorObj *new_iterator_obj(VulnerableObjs *vulnObjs, Obj *iterable);
 
-/** 
- * Returns an imported module as an object.
- * 
- * Doesn't take responsibility of freeing the passed globals table, as it only copies them.
- */
+/** Returns an imported module as an object (without setting any names inside it). */
 ModuleObj *new_module_obj(
     VulnerableObjs *vulnObjs, StringObj *path, ModuleObj *importedBy, const u32 id
 );

@@ -201,11 +201,7 @@ IteratorObj *new_iterator_obj(VulnerableObjs *vulnObjs, Obj *iterable) {
     OBJ_TYPE_ALLOCATOR_RETURN(object);
 }
 
-/** 
- * Returns an imported module as an object.
- * 
- * Doesn't take responsibility of freeing the passed globals table, as it only copies them.
- */
+/** Returns an imported module as an object (without setting any names inside it). */
 ModuleObj *new_module_obj(
     VulnerableObjs *vulnObjs, StringObj *path, ModuleObj *importedBy, const u32 id
 ) {

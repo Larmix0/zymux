@@ -1323,17 +1323,8 @@ static bool is_circular_import(ModuleObj *importer, StringObj *path) {
     return false;
 }
 
-/** 
- * Tries to compile the passed path and sets its context as the one currently executing.
- * 
- * It can fail if the passed path doesn't exist, or causes a circular import. When that happens,
- * it simply returns false, otherwise returns true.
- */
-static bool import_module(ThreadObj *thread, StringObj *path) {
-    if (!file_exists(path->string)) {
-        RUNTIME_ERROR(thread, "File '%s' doesn't exist.", path->string);
-        return false;
-    }
+/** Imports a user file that has been confirmed to exist. */
+static bool import_user_file(ThreadObj *thread, StringObj *path) {
     // Convert to ensure the path is absolute (important for storing and erroring circular imports).
     char *absolutePath = alloc_absolute_path(path->string);
     path = new_string_obj(&thread->vulnObjs, absolutePath, strlen(absolutePath));
@@ -1352,11 +1343,31 @@ static bool import_module(ThreadObj *thread, StringObj *path) {
         return false; // Failed to compile.
     }
 
-    PUSH_PROTECTED(&thread->vulnObjs, AS_OBJ(func));
     push_stack_frame(thread, func, thread->frame->sp, thread->frame->sp);
     push_module(thread, path, thread->module);
-    DROP_PROTECTED(&thread->vulnObjs);
+    DROP_PROTECTED(&thread->vulnObjs); // Pop the compiled function off of the protected array.
     return true;
+}
+
+/** 
+ * Tries to compile the passed path and sets its context as the one currently executing.
+ * 
+ * It can fail if the passed path doesn't exist, or causes a circular import. When that happens,
+ * it simply returns false, otherwise returns true.
+ */
+static bool import_module(ThreadObj *thread, StringObj *path) {
+    if (file_exists(path->string)) {
+        return import_user_file(thread, path);
+    }
+
+    Obj *builtInModule = table_get(&thread->vm->program->builtIn.modules, AS_OBJ(path));
+    if (builtInModule) {
+        PUSH(thread, builtInModule);
+        return true;
+    } else {
+        RUNTIME_ERROR(thread, "Module '%s' doesn't exist.", path->string);
+        return false;
+    }
 }
 
 /** 
@@ -1375,7 +1386,7 @@ static bool import_names(ThreadObj *thread, ModuleObj *importedModule, ListObj *
                 thread, "Name '%s' not found in module '%s'.",
                 AS_PTR(StringObj, names->items.data[i])->string, importedModule->path->string
             );
-            return false;            
+            return false;
         }
     }
     return true;
