@@ -58,8 +58,9 @@
 static void print_destructure(VulnerableObjs *vulnObjs, Obj *toPrint, const bool addNewline) {
     IteratorObj *iterator = new_iterator_obj(vulnObjs, toPrint);
     bool hasAllocated = false;
+
     Obj *current;
-    mutex_lock(&vulnObjs->program->printLock);
+    MUTEX_LOCK(&vulnObjs->program->printLock);
     while ((current = iterate(vulnObjs, iterator, &hasAllocated))) {
         print_obj(current, false);
         if (addNewline) {
@@ -70,7 +71,7 @@ static void print_destructure(VulnerableObjs *vulnObjs, Obj *toPrint, const bool
             OPT_DROP_UNROOTED(vulnObjs);
         }
     }
-    mutex_unlock(&vulnObjs->program->printLock);
+    MUTEX_UNLOCK(&vulnObjs->program->printLock);
 }
 
 /** Built-in printing function with some boolean flag settings. */
@@ -91,12 +92,12 @@ DEFINE_NATIVE_FUNC(print) {
         }
         print_destructure(&thread->vulnObjs, toPrint, addNewline);
     } else {
-        mutex_lock(&thread->vm->program->printLock);
+        MUTEX_LOCK(&thread->vm->program->printLock);
         print_obj(toPrint, false);
         if (addNewline) {
             putchar('\n');
         }
-        mutex_unlock(&thread->vm->program->printLock);
+        MUTEX_UNLOCK(&thread->vm->program->printLock);
     }
     DEFAULT_RETURN(thread);
 }
@@ -260,6 +261,9 @@ DEFINE_NATIVE_FUNC(Thread_run) {
 
     ThreadObj *threadToRun = AS_PTR(ThreadObj, callee);
     FuncObj *runnableFunc = get_runnable_func(threadToRun->runnable);
+    if (get_thread_state(threadToRun) != THREAD_NOT_STARTED) {
+        RETURN_ERROR(thread, "Cannot run thread multiple times.");
+    }
     PUSH_PROTECTED(&threadToRun->vulnObjs, argList);
     PUSH_PROTECTED(&threadToRun->vulnObjs, kwargMap);
 
@@ -267,9 +271,6 @@ DEFINE_NATIVE_FUNC(Thread_run) {
         thread, runnableFunc->name->string, derive_runtime_params(runnableFunc),
         argList->items.length, kwargMap
     );
-    if (get_thread_state(threadToRun) != THREAD_NOT_STARTED) {
-        RETURN_ERROR(thread, "Cannot run thread multiple times.");
-    }
     if (!validCall) {
         RETURN_ERROR_SIGNAL();
     }
@@ -303,7 +304,7 @@ DEFINE_NATIVE_FUNC(Lock_obtain) {
     UNUSED_VARIABLE(args);
 
     LockObj *lock = AS_PTR(LockObj, callee);
-    mutex_lock(&lock->lock);
+    MUTEX_LOCK(&lock->lock);
     lock->isHeld = true;
     DEFAULT_RETURN(thread);
 }
@@ -317,7 +318,7 @@ DEFINE_NATIVE_FUNC(Lock_release) {
         RETURN_ERROR(thread, "Attempted to release lock not currently in use.");
     }
 
-    mutex_unlock(&lock->lock);
+    MUTEX_UNLOCK(&lock->lock);
     lock->isHeld = false;
     DEFAULT_RETURN(thread);
 }

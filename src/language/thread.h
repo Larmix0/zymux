@@ -1,8 +1,6 @@
 #ifndef THREAD_H
 #define THREAD_H
 
-#include <pthread.h>
-
 typedef struct ZmxProgram ZmxProgram;
 typedef struct Vm Vm;
 typedef struct ThreadObj ThreadObj;
@@ -14,17 +12,43 @@ typedef enum {
     THREAD_FINISHED /** The OS-thread has fully finished executing. */
 } ThreadState;
 
-/** The C-level thread handle internally in the program. */
-typedef pthread_t ThreadHandle;
+#if OS == WINDOWS_OS
+#include "windows.h"
 
-/** The C-level mutex in the internal program. */
-typedef pthread_mutex_t Mutex;
+/** Defines/declares a function to be internally executed by a C thread. Not static by default. */
+#define THREAD_FUNC(funcName, argName) DWORD WINAPI funcName(LPVOID argName)
 
-/** The signature of a function that a thread can execute. */
-typedef void *(*ThreadFunc)(void *);
+/** The value that should be returned by every thread func. */
+#define THREAD_FUNC_RETURN_VAL 0
+
+#define MUTEX_INIT(mutex) (InitializeCriticalSection(mutex))
+#define MUTEX_LOCK(mutex) (EnterCriticalSection(mutex))
+#define MUTEX_UNLOCK(mutex) (LeaveCriticalSection(mutex))
+#define MUTEX_DESTROY(mutex) (DeleteCriticalSection(mutex))
+
+typedef HANDLE ThreadHandle;
+typedef CRITICAL_SECTION Mutex;
+typedef DWORD WINAPI (*ThreadFunc)(LPVOID);
+
+#elif OS == UNIX_OS
+#include "pthread.h"
 
 /** Defines/declares a function to be internally executed by a C thread. Not static by default. */
 #define THREAD_FUNC(funcName, argName) void *funcName(void *argName)
+
+/** The value that should be returned by every thread func. */
+#define THREAD_FUNC_RETURN_VAL NULL
+
+#define MUTEX_INIT(mutex) (pthread_mutex_init(mutex, NULL))
+#define MUTEX_LOCK(mutex) (pthread_mutex_lock(mutex))
+#define MUTEX_UNLOCK(mutex) (pthread_mutex_unlock(mutex))
+#define MUTEX_DESTROY(mutex) (pthread_mutex_destroy(mutex))
+
+typedef pthread_t ThreadHandle;
+typedef pthread_mutex_t Mutex;
+typedef void *(*ThreadFunc)(void *);
+
+#endif
 
 /** Starts executing the passed thread object with the passed function with thread signature. */
 void run_thread(ThreadObj *thread, ThreadFunc func);
@@ -34,18 +58,6 @@ ThreadHandle get_current_thread_handle();
 
 /** Joins the passed thread's native handle. Does it whether or not it is valid to do so. */
 void join_thread(ThreadObj *thread);
-
-/** Initializes the passed mutex. */
-bool init_mutex(Mutex *mutex);
-
-/** Performs a lock on the mutex, so it can't be used from other threads until it's unlocked. */
-void mutex_lock(Mutex *mutex);
-
-/** Unlocks the passed mutex so other threads can now use it. */
-void mutex_unlock(Mutex *mutex);
-
-/** Destroys the resources allocated for the passed mutex. */
-void destroy_mutex(Mutex *mutex);
 
 /** Safely retrieves the state of the passed thread object. */
 ThreadState get_thread_state(ThreadObj *thread);

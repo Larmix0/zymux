@@ -17,13 +17,13 @@ Gc create_gc(ZmxProgram *program) {
         .startupVulnObjs = create_vulnerables(program), .vm = NULL,
         .allocated = 0, .nextCollection = FIRST_COLLECTION_SIZE, .lock = TYPE_ALLOC(Mutex)
     };
-    init_mutex(gc.lock);
+    MUTEX_INIT(gc.lock);
     return gc;
 }
 
 /** Frees the memory the garbage collector has allocated. */
 void free_gc(Gc *gc) {
-    destroy_mutex(gc->lock);
+    MUTEX_DESTROY(gc->lock);
     free(gc->lock);
     free_vulnerables(&gc->startupVulnObjs);
 }
@@ -91,13 +91,13 @@ static void mark_func(FuncObj *func) {
 
 /** Mark all object roots in the passed VM (including threads). */
 static void mark_vm(Vm *vm) {
-    mutex_lock(&vm->threadsLock);
+    MUTEX_LOCK(&vm->threadsLock);
     mark_obj_array(vm->threadsUnsafe);
-    mutex_unlock(&vm->threadsLock);
+    MUTEX_UNLOCK(&vm->threadsLock);
 
-    mutex_lock(&vm->modulesLock);
+    MUTEX_LOCK(&vm->modulesLock);
     mark_obj_array(vm->modulesUnsafe);
-    mutex_unlock(&vm->modulesLock);
+    MUTEX_UNLOCK(&vm->modulesLock);
 }
 
 /** Marks all the built-in objects in the program. */
@@ -158,9 +158,9 @@ static void mark_obj(Obj *object) {
         mark_obj(AS_OBJ(AS_PTR(ModuleObj, object)->path));
         mark_obj(AS_OBJ(AS_PTR(ModuleObj, object)->importedBy));
 
-        mutex_lock(&(AS_PTR(ModuleObj, object)->globalsLock));
+        MUTEX_LOCK(&(AS_PTR(ModuleObj, object)->globalsLock));
         mark_table(AS_PTR(ModuleObj, object)->globalsUnsafe);
-        mutex_unlock(&(AS_PTR(ModuleObj, object)->globalsLock));
+        MUTEX_UNLOCK(&(AS_PTR(ModuleObj, object)->globalsLock));
         break;
     case OBJ_FILE:
         mark_obj(AS_OBJ(AS_PTR(FileObj, object)->path));
@@ -292,12 +292,12 @@ void gc_collect(ZmxProgram *program) {
     printf("========================== GC start. ==========================\n");
 #endif
 
-    mutex_lock(program->gc.lock);
+    MUTEX_LOCK(program->gc.lock);
     gc_mark(program);
 
     table_delete_weak_references(&program->internedStrings);
     gc_sweep(program);
-    mutex_unlock(program->gc.lock);
+    MUTEX_UNLOCK(program->gc.lock);
 
 #if DEBUG_LOG_GC
     printf("========================== GC end. ==========================\n");

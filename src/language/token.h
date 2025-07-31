@@ -79,14 +79,14 @@ typedef enum {
 
     /** Miscellaneous. */
     TOKEN_EQ, TOKEN_IDENTIFIER, TOKEN_EXIT_KW, TOKEN_EOF, TOKEN_ERROR
-} TokenType;
+} TokType;
 
 /** A series of characters from the source code stored as a single unit. */
 typedef struct {
     char *lexeme; /** Points somewhere in the source at the beginning of the token. */
     i64 lexedIdx; /** This token's index into a lexed tokens array. -1 if it's not in an array. */
     SourcePosition pos; /** Position in the source code. */
-    TokenType type; /** What type of token it is. */
+    TokType type; /** What type of token it is. */
 
     /** Union for special tokens that require extra info like literals and errors. */
     union {
@@ -122,13 +122,13 @@ typedef struct {
 DECLARE_DA_STRUCT(TokenArray, Token);
 
 /** Returns the passed token type as a string literal in all uppercase. */
-char *token_type_string(const TokenType type);
+char *token_type_string(const TokType type);
 
 /** Creates a token without union values, but does have a position in some lexing array. */
-Token create_token_at(char *lexeme, const TokenType type, const i64 lexedIdx);
+Token create_token_at(char *lexeme, const TokType type, const i64 lexedIdx);
 
 /** Creates a "normal" token, which is a token that doesn't have any union values or lexed index. */
-Token create_token(char *lexeme, const TokenType type);
+Token create_token(char *lexeme, const TokType type);
 
 /** 
  * Creates a synthetic integer literal token.

@@ -115,7 +115,7 @@ typedef struct {
 /** Represents a keyword that is parsed as alone like true, false, null, super, etc. */
 typedef struct {
     Node node;
-    TokenType keyword;
+    TokType keyword;
     SourcePosition pos;
 } KeywordNode;
 
@@ -360,7 +360,7 @@ typedef struct {
  */
 typedef struct {
     Node node;
-    TokenType keyword;
+    TokType keyword;
     SourcePosition pos;
     
     i64 localsAmount; /** Amount of locals declared inside the loop block before this node. */

@@ -101,7 +101,7 @@ static char *alloc_current_lexeme(Lexer *lexer) {
  * it's an empty token of length 0 that the user didn't explicitly write,
  * and is only useful internally.
  */
-static void append_implicit(Lexer *lexer, const TokenType type) {
+static void append_implicit(Lexer *lexer, const TokType type) {
     Token implicit = {
         .lexeme = "", .lexedIdx = lexer->tokens.length,
         .pos = create_src_pos(lexer->line, lexer->column, 0), .type = type
@@ -147,7 +147,7 @@ static void append_error_at(
 }
 
 /** Appends a token that was lexed (advanced over) of the passed type. */
-static void append_lexed(Lexer *lexer, const TokenType type) {
+static void append_lexed(Lexer *lexer, const TokType type) {
     Token token = {
         .lexeme = lexer->tokenStart, .lexedIdx = lexer->tokens.length,
         .pos = create_src_pos(lexer->line, lexer->tokenColumn, CURRENT_TOKEN_LENGTH(lexer)),
@@ -263,7 +263,7 @@ static void ignore_whitespace(Lexer *lexer) {
  * The secondary one is lexed if its expected character is found.
  */
 static void one_or_default(
-    Lexer *lexer, const TokenType defaultType, const char expected, const TokenType expectedType
+    Lexer *lexer, const TokType defaultType, const char expected, const TokType expectedType
 ) {
     append_lexed(lexer, MATCH(lexer, expected) ? expectedType : defaultType);
 }
@@ -273,8 +273,8 @@ static void one_or_default(
  * The other 2 possibilities are lexed if their expected character is found.
  */
 static void two_or_default(
-    Lexer *lexer, const TokenType defaultType,
-    const char expected1, const TokenType type1, const char expected2, const TokenType type2
+    Lexer *lexer, const TokType defaultType,
+    const char expected1, const TokType type1, const char expected2, const TokType type2
 ) {
     if (MATCH(lexer, expected1)) {
         append_lexed(lexer, type1);
@@ -295,8 +295,8 @@ static void two_or_default(
  */
 static void two_compound_assigns(
     Lexer *lexer, const char overloadedChar, 
-    const TokenType original, const TokenType originalCompound,
-    const TokenType extended, const TokenType extendedCompound
+    const TokType original, const TokType originalCompound,
+    const TokType extended, const TokType extendedCompound
 ) {
     if (PEEK(lexer) == overloadedChar && PEEK_NEXT(lexer) == '=') {
         ADVANCE_DOUBLE(lexer);
@@ -316,7 +316,7 @@ static bool is_keyword(Lexer *lexer, const char *keyword) {
 }
 
 /** Returns a token type of what the currently lexed token is. Either a keyword or identifier. */
-static TokenType get_name_type(Lexer *lexer) {
+static TokType get_name_type(Lexer *lexer) {
     switch (*lexer->tokenStart) {
     case 'a':
         if (is_keyword(lexer, "as")) return TOKEN_AS_KW;
@@ -397,7 +397,7 @@ static void lex_name(Lexer *lexer) {
     while (IS_ALPHA(PEEK(lexer)) || IS_DIGIT(PEEK(lexer))) {
         ADVANCE(lexer);
     }
-    const TokenType type = get_name_type(lexer);
+    const TokType type = get_name_type(lexer);
     append_lexed(lexer, type);
 }
 

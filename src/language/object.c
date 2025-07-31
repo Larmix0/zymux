@@ -65,7 +65,7 @@ static Obj *new_obj(VulnerableObjs *vulnObjs, const ObjType type, const size_t s
     object->flags = 0; // Sets all flags to false by default.
     object->type = type;
     
-    mutex_lock(program->gc.lock);
+    MUTEX_LOCK(program->gc.lock);
     program->gc.allocated += size;
     bool shouldCollect = program->gc.allocated > program->gc.nextCollection;
     if (shouldCollect) {
@@ -74,7 +74,7 @@ static Obj *new_obj(VulnerableObjs *vulnObjs, const ObjType type, const size_t s
     // Insert in the list of all objects so it can start to be collected.
     object->next = program->allObjs;
     program->allObjs = object;
-    mutex_unlock(program->gc.lock);
+    MUTEX_UNLOCK(program->gc.lock);
 
     if (shouldCollect) {
         gc_collect(program);
@@ -209,7 +209,7 @@ ModuleObj *new_module_obj(
     object->path = path;
     object->importedBy = importedBy;
     object->globalsUnsafe = create_table();
-    init_mutex(&object->globalsLock);
+    MUTEX_INIT(&object->globalsLock);
 
     object->id = id;
     OBJ_TYPE_ALLOCATOR_RETURN(object);
@@ -239,7 +239,7 @@ ThreadObj *new_thread_obj(
     ThreadObj *object = NEW_OBJ(vulnObjs, OBJ_THREAD, ThreadObj);
     
     // Mark as not started and leave the native thread handle uninitialized.
-    init_mutex(&object->threadLock);
+    MUTEX_INIT(&object->threadLock);
     set_thread_state(object, THREAD_NOT_STARTED);
     object->vm = vm;
     object->vulnObjs = create_vulnerables(vulnObjs->program);
@@ -261,7 +261,7 @@ ThreadObj *new_thread_obj(
     object->stack.objects = NULL;
     object->stack.capacity = 0;
     object->stack.length = 0;
-    init_mutex(&object->capturesLock);
+    MUTEX_INIT(&object->capturesLock);
 
     OBJ_TYPE_ALLOCATOR_RETURN(object);
 }
@@ -270,7 +270,7 @@ ThreadObj *new_thread_obj(
 LockObj *new_lock_obj(VulnerableObjs *vulnObjs) {
     LockObj *object = NEW_OBJ(vulnObjs, OBJ_LOCK, LockObj);
     
-    init_mutex(&object->lock);
+    MUTEX_INIT(&object->lock);
     object->isHeld = false;
     OBJ_TYPE_ALLOCATOR_RETURN(object);
 }
@@ -1031,7 +1031,7 @@ void free_obj(Obj *object) {
         break;
     case OBJ_MODULE:
         free_table(&AS_PTR(ModuleObj, object)->globalsUnsafe);
-        destroy_mutex(&AS_PTR(ModuleObj, object)->globalsLock);
+        MUTEX_DESTROY(&AS_PTR(ModuleObj, object)->globalsLock);
         break;
     case OBJ_FILE:
         if (AS_PTR(FileObj, object)->isOpen) {
@@ -1048,12 +1048,12 @@ void free_obj(Obj *object) {
         FREE_DA(&thread->openCaptures);
         FREE_DA(&thread->callStack);
         FREE_STACK(thread);
-        destroy_mutex(&thread->threadLock);
-        destroy_mutex(&thread->capturesLock);
+        MUTEX_DESTROY(&thread->threadLock);
+        MUTEX_DESTROY(&thread->capturesLock);
         break;
     }
     case OBJ_LOCK:
-        destroy_mutex(&AS_PTR(LockObj, object)->lock);
+        MUTEX_DESTROY(&AS_PTR(LockObj, object)->lock);
         break;
     case OBJ_FUNC: {
         FuncObj *func = AS_PTR(FuncObj, object);

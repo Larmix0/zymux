@@ -261,9 +261,9 @@ static void pop_stack_frame(ThreadObj *thread) {
 
 /** Safely sets a key value pair in the globals table of a module. */
 static void set_global(ModuleObj *module, Obj *name, Obj *value) {
-    mutex_lock(&module->globalsLock);
+    MUTEX_LOCK(&module->globalsLock);
     table_set(&module->globalsUnsafe, name, value);
-    mutex_unlock(&module->globalsLock);
+    MUTEX_UNLOCK(&module->globalsLock);
 }
 
 /** 
@@ -273,27 +273,27 @@ static void set_global(ModuleObj *module, Obj *name, Obj *value) {
  * The object is gauranteed to live for at least one instruction
  */
 static Obj *get_global(VulnerableObjs *vulnObjs, ModuleObj *module, Obj *name) {
-    mutex_lock(&module->globalsLock);
+    MUTEX_LOCK(&module->globalsLock);
     Obj *global = table_get(&module->globalsUnsafe, name);
     PUSH_UNROOTED(vulnObjs, global);
-    mutex_unlock(&module->globalsLock);
+    MUTEX_UNLOCK(&module->globalsLock);
     return global;
 }
 
 /** Safely retrieves the length of the threads array in the passed VM. */
 u32 vm_threads_length(Vm *vm) {
-    mutex_lock(&vm->threadsLock);
+    MUTEX_LOCK(&vm->threadsLock);
     const u32 length = vm->threadsUnsafe.length;
-    mutex_unlock(&vm->threadsLock);
+    MUTEX_UNLOCK(&vm->threadsLock);
     return length;
 }
 
 /** Safely retrieves a thread at a specific index in the VM's array of threads. */
 ThreadObj *vm_thread_at(Vm *vm, const u32 index) {
-    mutex_lock(&vm->threadsLock);
+    MUTEX_LOCK(&vm->threadsLock);
     ASSERT(index <= vm->threadsUnsafe.length, "Index goes over the size of the threads array.");
     Obj *thread = vm->threadsUnsafe.data[index];
-    mutex_unlock(&vm->threadsLock);
+    MUTEX_UNLOCK(&vm->threadsLock);
     return AS_PTR(ThreadObj, thread);
 }
 
@@ -315,17 +315,17 @@ ThreadObj *vm_push_thread(
         vulnObjs, vm, runnable, module, vm_threads_length(vm), isMain, isDaemon
     );
 
-    mutex_lock(&vm->threadsLock);
+    MUTEX_LOCK(&vm->threadsLock);
     PUSH_DA(&vm->threadsUnsafe, AS_OBJ(thread));
-    mutex_unlock(&vm->threadsLock);
+    MUTEX_UNLOCK(&vm->threadsLock);
     return thread;
 }
 
 /** Safely returns the length of the modules array in the VM. */
 static u32 vm_modules_length(Vm *vm) {
-    mutex_lock(&vm->modulesLock);
+    MUTEX_LOCK(&vm->modulesLock);
     const u32 length = vm->modulesUnsafe.length;
-    mutex_unlock(&vm->modulesLock);
+    MUTEX_UNLOCK(&vm->modulesLock);
     return length;
 }
 
@@ -340,40 +340,40 @@ static void push_module(ThreadObj *thread, StringObj *path, ModuleObj *importedB
     ModuleObj *module = new_module_obj(&thread->vulnObjs, path, importedBy, vm_modules_length(vm));
     thread->module = module; // Now executing this module.
 
-    mutex_lock(&vm->modulesLock);
+    MUTEX_LOCK(&vm->modulesLock);
     PUSH_DA(&vm->modulesUnsafe, AS_OBJ(module));
-    mutex_unlock(&vm->modulesLock);
+    MUTEX_UNLOCK(&vm->modulesLock);
 }
 
 /** Safely assigns to the alive capture of a captured object on its original thread's stack. */
 static void assign_open_capture(CapturedObj *toAssign, Obj *value) {
-    mutex_lock(&toAssign->threadUnsafe->capturesLock);
+    MUTEX_LOCK(&toAssign->threadUnsafe->capturesLock);
     toAssign->threadUnsafe->stack.objects[toAssign->stackIdx] = value;
-    mutex_unlock(&toAssign->threadUnsafe->capturesLock);
+    MUTEX_UNLOCK(&toAssign->threadUnsafe->capturesLock);
 }
 
 /** Safely retrieves a captured object. Gauranteed to live for an instruction. */
 static Obj *get_open_capture(VulnerableObjs *vulnObjs, CapturedObj *toGet) {
-    mutex_lock(&toGet->threadUnsafe->capturesLock);
+    MUTEX_LOCK(&toGet->threadUnsafe->capturesLock);
     Obj *value = toGet->threadUnsafe->stack.objects[toGet->stackIdx];
     PUSH_UNROOTED(vulnObjs, value); // Safe for an instruction.
-    mutex_unlock(&toGet->threadUnsafe->capturesLock);
+    MUTEX_UNLOCK(&toGet->threadUnsafe->capturesLock);
     return value;
 }
 
 /** Safely assigns to a captured local which may be viewable by other threads that capture it. */
 static void assign_open_local(ThreadObj *thread, const u32 index, Obj *value) {
-    mutex_lock(&thread->capturesLock);
+    MUTEX_LOCK(&thread->capturesLock);
     thread->frame->bp[index] = value;
-    mutex_unlock(&thread->capturesLock);
+    MUTEX_UNLOCK(&thread->capturesLock);
 }
 
 /** Safely retrieves a local which is captured. Gauranteed to live for an instruction. */
 static Obj *get_open_local(ThreadObj *thread, const u32 index) {
-    mutex_lock(&thread->capturesLock);
+    MUTEX_LOCK(&thread->capturesLock);
     Obj *local = thread->frame->bp[index];
     PUSH_UNROOTED(&thread->vulnObjs, local); // Safe for an instruction.
-    mutex_unlock(&thread->capturesLock);
+    MUTEX_UNLOCK(&thread->capturesLock);
     return local;
 }
 
@@ -383,7 +383,7 @@ static Obj *get_open_local(ThreadObj *thread, const u32 index) {
  * Prints in an order that makes the most recently executing function appear at the bottom.
  */
 static void print_stack_trace(ThreadObj *thread) {
-    mutex_lock(&thread->vm->program->printLock);
+    MUTEX_LOCK(&thread->vm->program->printLock);
     fprintf(stderr, RED "Stack trace:\n" DEFAULT_COLOR);
     
     for (u32 i = 0; i < thread->callStack.length; i++) {
@@ -400,7 +400,7 @@ static void print_stack_trace(ThreadObj *thread) {
     }
 
     fputc('\n', stderr);
-    mutex_unlock(&thread->vm->program->printLock);
+    MUTEX_UNLOCK(&thread->vm->program->printLock);
 }
 
 /** 
@@ -497,9 +497,9 @@ void init_vm(Vm *vm, ZmxProgram *program, RuntimeFuncObj *func) {
     
     VulnerableObjs *startupVulns = &program->gc.startupVulnObjs;
     INIT_DA(&vm->threadsUnsafe);
-    init_mutex(&vm->threadsLock);
+    MUTEX_INIT(&vm->threadsLock);
     INIT_DA(&vm->modulesUnsafe);
-    init_mutex(&vm->modulesLock);
+    MUTEX_INIT(&vm->modulesLock);
 
     vm_push_thread(startupVulns, vm, AS_OBJ(func), NULL, true, false);
     ThreadObj *mainThread = get_main_thread(vm);
@@ -515,10 +515,10 @@ void init_vm(Vm *vm, ZmxProgram *program, RuntimeFuncObj *func) {
 /** Frees all memory that the passed VM allocated. */
 void free_vm(Vm *vm) {
     FREE_DA(&vm->threadsUnsafe);
-    destroy_mutex(&vm->threadsLock);
+    MUTEX_DESTROY(&vm->threadsLock);
 
     FREE_DA(&vm->modulesUnsafe);
-    destroy_mutex(&vm->modulesLock);
+    MUTEX_DESTROY(&vm->modulesLock);
 }
 
 /** Performs an assignment on some indexed array element. */
@@ -1222,7 +1222,7 @@ THREAD_FUNC(thread_entry, passedArg) {
     MapObj *kwargs = AS_PTR(MapObj, protected->data[1]);
     execute_thread_entry(thread, args, kwargs);
     set_thread_state(thread, THREAD_FINISHED);
-    return NULL;
+    return THREAD_FUNC_RETURN_VAL;
 }
 
 /** 
@@ -1241,10 +1241,10 @@ static void close_captures(ThreadObj *thread, const u32 pops) {
     for (i64 i = (i64)thread->openCaptures.length - 1; i >= 0; i--) {
         CapturedObj *toClose = AS_PTR(CapturedObj, thread->openCaptures.data[i]);
         if (toClose->stackIdx >= thread->stack.length - pops) {
-            mutex_lock(&thread->capturesLock);
+            MUTEX_LOCK(&thread->capturesLock);
             toClose->isOpen = false;
             toClose->captured = thread->stack.objects[toClose->stackIdx];
-            mutex_unlock(&thread->capturesLock);
+            MUTEX_UNLOCK(&thread->capturesLock);
 
             DROP_DA(&thread->openCaptures);
             table_int_delete(&thread->vulnObjs, &thread->openIndicesSet, toClose->stackIdx);

@@ -68,7 +68,7 @@ Token string_test_token(char *string) {
  * Creates the position from the passed line and column, then figures the length from the lexeme.
  */
 static Token create_token_pos(
-    char *lexeme, const int line, const int column, const TokenType type
+    char *lexeme, const int line, const int column, const TokType type
 ) {
     Token token = {
         .lexeme = lexeme, .pos = create_src_pos(line, column, strlen(lexeme)), .type = type

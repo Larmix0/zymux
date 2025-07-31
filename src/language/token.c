@@ -5,7 +5,7 @@
 #include "token.h"
 
 /** Returns the passed type as a string literal in all uppercase. */
-char *token_type_string(const TokenType type) {
+char *token_type_string(const TokType type) {
     switch (type) {
     case TOKEN_STRING_KW: return "STRING";
     case TOKEN_INT_KW: return "INT";
@@ -103,7 +103,7 @@ char *token_type_string(const TokenType type) {
 }
 
 /** Creates a token without union values, but does have a position in some lexing array. */
-Token create_token_at(char *lexeme, const TokenType type, const i64 lexedIdx) {
+Token create_token_at(char *lexeme, const TokType type, const i64 lexedIdx) {
     Token token = {
         .lexeme = lexeme, .lexedIdx = lexedIdx, .pos = create_src_pos(0, 0, strlen(lexeme)),
         .type = type
@@ -116,7 +116,7 @@ Token create_token_at(char *lexeme, const TokenType type, const i64 lexedIdx) {
  * 
  * Mostly just convenience to allow omitting the manual "-1" argument.
  */
-Token create_token(char *lexeme, const TokenType type) {
+Token create_token(char *lexeme, const TokType type) {
     Token token = {
         .lexeme = lexeme, .lexedIdx = -1, .pos = create_src_pos(0, 0, strlen(lexeme)), .type = type
     };

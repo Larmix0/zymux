@@ -27,7 +27,7 @@ void print_runtime_state(
     ThreadObj *thread, const FuncObj *func, Obj **stack, const int stackLength,
     const u32 bytecodeOffset, InstrSize size
 ) {
-    mutex_lock(&thread->vm->program->printLock);
+    MUTEX_LOCK(&thread->vm->program->printLock);
     print_tid(thread->id);
     if (stackLength == 0) {
         printf("<EMPTY STACK>");
@@ -38,7 +38,7 @@ void print_runtime_state(
 
     print_tid(thread->id);
     print_instr(func, bytecodeOffset, &size, FORMAT_NO_LINE_OR_PAD);
-    mutex_unlock(&thread->vm->program->printLock);
+    MUTEX_UNLOCK(&thread->vm->program->printLock);
 }
 
 /** Prints information about a caught runtime error, its effects, and the error message . */
@@ -46,7 +46,7 @@ void print_caught_runtime_error(
     ThreadObj *thread, FuncObj *setFunc, const u32 poppedLocals, const u32 poppedCaptures,
     const u32 poppedOpenCaptures, const char *errorMessage
 ) {
-    mutex_lock(&thread->vm->program->printLock);
+    MUTEX_LOCK(&thread->vm->program->printLock);
     printf("RUNTIME ERROR CAUGHT:\n" INDENT);
     printf("Error message: %s\n" INDENT, errorMessage);
     printf(
@@ -55,5 +55,5 @@ void print_caught_runtime_error(
         thread->id, as_string(&thread->vulnObjs, AS_OBJ(setFunc))->string,
         poppedLocals, poppedCaptures, poppedOpenCaptures
     );
-    mutex_unlock(&thread->vm->program->printLock);
+    MUTEX_UNLOCK(&thread->vm->program->printLock);
 }
