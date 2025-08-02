@@ -46,12 +46,12 @@ Resolver create_resolver(VulnerableObjs *vulnObjs, NodeArray ast) {
 
 /** Returns a variable, which has its name in a token along some extra resolution information. */
 static Variable create_variable(
-    const bool isPrivate, const bool isConst, const bool isLocalCapture,
+    const bool isConst, const bool isLocalCapture,
     const Token name, const u32 scope, const u32 index, const u32 closureIdx,
     const VarResolution resolution, FuncNode *paramFunc
 ) {
     Variable var = {
-        .isPrivate = isPrivate, .isConst = isConst, .isLocalCapture = isLocalCapture,
+        .isConst = isConst, .isLocalCapture = isLocalCapture,
         .name = name, .scope = scope, .index = index, .closureIdx = closureIdx,
         .resolution = resolution, .resolutions = CREATE_DA(), .paramFunc = paramFunc
     };
@@ -157,9 +157,8 @@ static Variable *find_top_scope_var(VariableArray variables, const Token name, c
 /** Returns a copy of the variable that has its own allocated memory. */
 static Variable copy_variable(const Variable original) {
     Variable copied = create_variable(
-        original.isPrivate, original.isConst, original.isLocalCapture,
-        original.name, original.scope, original.index, original.closureIdx,
-        original.resolution, original.paramFunc
+        original.isConst, original.isLocalCapture, original.name, original.scope,
+        original.index, original.closureIdx, original.resolution, original.paramFunc
     );
     for (u32 i = 0; i < original.resolutions.length; i++) {
         PUSH_DA(&copied.resolutions, original.resolutions.data[i]);
@@ -356,7 +355,7 @@ static void declare_local(Resolver *resolver, DeclareVarNode *node, FuncNode *pa
     node->resolution.index = CURRENT_LOCALS(resolver)->length;
     node->resolution.scope = VAR_LOCAL;
     Variable declared = create_variable(
-        false, node->isConst, false, name, resolver->scopeDepth,
+        node->isConst, false, name, resolver->scopeDepth,
         CURRENT_LOCALS(resolver)->length, resolver->locals.length - 1, node->resolution, paramFunc
     );
     PUSH_DA(&declared.resolutions, &node->resolution);
@@ -379,7 +378,7 @@ static void declare_global(Resolver *resolver, DeclareVarNode *node, FuncNode *p
     node->resolution.scope = VAR_GLOBAL;
 
     Variable declared = create_variable(
-        false, node->isConst, false, name, resolver->scopeDepth,
+        node->isConst, false, name, resolver->scopeDepth,
         resolver->globals.vars.length, 0, node->resolution, paramFunc
     );
     PUSH_DA(&declared.resolutions, &node->resolution);
@@ -504,8 +503,8 @@ static void capture_local(Resolver *resolver, Variable *toCapture, const u32 clo
         // The closure of the captured itself gets appended a truthy for "is local capture".
         const bool isLocalCapture = i == closureIdx ? true : false;
         Variable closureCapture = create_variable(
-            toCapture->isPrivate, toCapture->isConst, isLocalCapture,
-            toCapture->name, toCapture->scope, toCapture->index, toCapture->closureIdx,
+            toCapture->isConst, isLocalCapture, toCapture->name, toCapture->scope,
+            toCapture->index, toCapture->closureIdx,
             create_var_resolution(resolver->locals.data[i].captured.length, VAR_CAPTURED),
             NULL
         );
@@ -802,7 +801,7 @@ static void resolve_match(Resolver *resolver, MatchNode *node) {
     PUSH_DA(
         CURRENT_LOCALS(resolver),
         create_variable(
-            false, false, false, create_token("<matched expr>", 0), resolver->scopeDepth,
+            false, false, create_token("<matched expr>", 0), resolver->scopeDepth,
             matchIdx, resolver->locals.length - 1, create_var_resolution(matchIdx, VAR_LOCAL), NULL
         )
     );
@@ -846,7 +845,7 @@ static void resolve_for(Resolver *resolver, ForNode *node) {
     PUSH_DA(
         CURRENT_LOCALS(resolver),
         create_variable(
-            false, false, false, create_token("<iter>", 0), resolver->scopeDepth,
+            false, false, create_token("<iter>", 0), resolver->scopeDepth,
             loopVarSpot, resolver->locals.length - 1,
             create_var_resolution(loopVarSpot, VAR_LOCAL), NULL
         )

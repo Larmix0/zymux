@@ -27,7 +27,6 @@ typedef enum {
 
 /** Represents a variable and its resolution information at compilation time. */
 typedef struct {
-    bool isPrivate; /** Whether it's private or publicly accessible from the outside. */
     bool isConst; /** Whether it's changeable. */
     bool isLocalCapture; /** True for closures if captured and declared in that same function. */
 

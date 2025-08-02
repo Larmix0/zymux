@@ -16,7 +16,6 @@ char *token_type_string(const TokType type) {
     case TOKEN_ENUM_KW: return "ENUM";
     case TOKEN_CONST_KW: return "CONST";
     case TOKEN_LET_KW: return "LET";
-    case TOKEN_PRIVATE_KW: return "PRIVATE";
     case TOKEN_IF_KW: return "IF";
     case TOKEN_ELSE_KW: return "ELSE";
     case TOKEN_WHILE_KW: return "WHILE";

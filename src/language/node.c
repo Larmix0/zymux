@@ -175,8 +175,7 @@ Node *new_block_node(ZmxProgram *program, const NodeArray stmts, const SourcePos
 /** 
  * Allocates a variable declaration node.
  * 
- * Variable declaration is the first variable assignment which also includes constness.
- * It doesn't include whether or not it is private as private is a node that wraps around names.
+ * Variable declaration is the first variable assignment which includes information like constness.
  */
 Node *new_declare_var_node(ZmxProgram *program, const Token name, Node *value, const bool isConst) {
     DeclareVarNode *node = NEW_NODE(program, AST_DECLARE_VAR, DeclareVarNode);

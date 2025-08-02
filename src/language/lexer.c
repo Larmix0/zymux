@@ -367,9 +367,6 @@ static TokType get_name_type(Lexer *lexer) {
     case 'n':
         if (is_keyword(lexer, "null")) return TOKEN_NULL_KW;
         break;
-    case 'p':
-        if (is_keyword(lexer, "private")) return TOKEN_PRIVATE_KW;
-        break;
     case 'r':
         if (is_keyword(lexer, "return")) return TOKEN_RETURN_KW;
         if (is_keyword(lexer, "raise")) return TOKEN_RAISE_KW;

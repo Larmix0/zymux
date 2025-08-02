@@ -1177,7 +1177,6 @@ static void synchronize(Parser *parser) {
         case TOKEN_LET_KW:
         case TOKEN_CONST_KW:
         case TOKEN_RETURN_KW:
-        case TOKEN_PRIVATE_KW:
         case TOKEN_CONTINUE_KW:
         case TOKEN_INIT_KW:
         case TOKEN_ABSTRACT_KW:
