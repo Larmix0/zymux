@@ -261,12 +261,17 @@ DEFINE_NATIVE_FUNC(Thread_run) {
 
     ThreadObj *threadToRun = AS_PTR(ThreadObj, callee);
     FuncObj *runnableFunc = get_runnable_func(threadToRun->runnable);
-    if (get_thread_state(threadToRun) != THREAD_NOT_STARTED) {
+    MUTEX_LOCK(&threadToRun->threadLock);
+    if (threadToRun->stateUnsafe == THREAD_PENDING) {
+        threadToRun->stateUnsafe = THREAD_RUNNING;
+    } else {
+        MUTEX_UNLOCK(&threadToRun->threadLock);
         RETURN_ERROR(thread, "Cannot run thread multiple times.");
     }
+    MUTEX_UNLOCK(&threadToRun->threadLock);
+
     PUSH_PROTECTED(&threadToRun->vulnObjs, argList);
     PUSH_PROTECTED(&threadToRun->vulnObjs, kwargMap);
-
     const bool validCall = call_is_valid(
         thread, runnableFunc->name->string, derive_runtime_params(runnableFunc),
         argList->items.length, kwargMap

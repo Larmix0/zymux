@@ -22,12 +22,14 @@ static bool run_native_thread(ThreadObj *thread, ThreadFunc func) {
 
 /** Starts executing the passed thread object with the passed function with thread signature. */
 void run_thread(ThreadObj *thread, ThreadFunc func) {
+    set_thread_state(thread, THREAD_RUNNING);
+
     if (!run_native_thread(thread, func)) {
         THREAD_ERROR("Failed to create internal native thread with ID: %" PRIu32, thread->id);
     }
 
 #if OS == WINDOWS_OS
-    // Doesn't kill it, but releases control of the handle (including joining).
+    // Instantly release the handle making it unjoinable (though the thread still keeps running).
     if (thread->isDaemon) {
         CloseHandle(thread->native);
     }
@@ -37,8 +39,6 @@ void run_thread(ThreadObj *thread, ThreadFunc func) {
         THREAD_ERROR("Failed to turn thread daemon with ID: %" PRIu32, thread->id);
     }
 #endif
-
-    set_thread_state(thread, THREAD_RUNNING);
 }
 
 /** Returns the currently executing native thread. */
@@ -53,6 +53,7 @@ ThreadHandle get_current_thread_handle() {
 /** Joins the passed thread's native handle. Does it whether or not it is valid to do so. */
 void join_thread(ThreadObj *thread) {
     set_thread_joined(thread, true);
+
 #if OS == WINDOWS_OS
     WaitForSingleObject(thread->native, INFINITE);
     CloseHandle(thread->native);
@@ -93,7 +94,7 @@ void set_thread_joined(ThreadObj *thread, const bool hasJoined) {
 
 /** Returns whether or not the thread can be joined. */
 static bool is_joinable_thread(ThreadObj *thread) {
-    return !is_joined_thread(thread) && get_thread_state(thread) != THREAD_NOT_STARTED
+    return !is_joined_thread(thread) && get_thread_state(thread) != THREAD_PENDING
         && !thread->isDaemon && !thread->isMain;
 }
 

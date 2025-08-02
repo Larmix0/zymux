@@ -7,7 +7,7 @@ typedef struct ThreadObj ThreadObj;
 
 /** Represents the state of a thread object when it's initially created, ran, and finished. */
 typedef enum {
-    THREAD_NOT_STARTED, /** The OS-thread hasn't started executing yet. */
+    THREAD_PENDING, /** The OS-thread hasn't started executing yet. */
     THREAD_RUNNING, /** the OS-thread is currently executing. */
     THREAD_FINISHED /** The OS-thread has fully finished executing. */
 } ThreadState;

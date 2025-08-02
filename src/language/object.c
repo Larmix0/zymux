@@ -240,7 +240,7 @@ ThreadObj *new_thread_obj(
     
     // Mark as not started and leave the native thread handle uninitialized.
     MUTEX_INIT(&object->threadLock);
-    set_thread_state(object, THREAD_NOT_STARTED);
+    set_thread_state(object, THREAD_PENDING);
     object->vm = vm;
     object->vulnObjs = create_vulnerables(vulnObjs->program);
     object->runnable = runnable;
