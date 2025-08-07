@@ -9,7 +9,7 @@ TEST_DIR = tests
 BIN_DIR = bin
 
 UNIT_DIR = $(TEST_DIR)/unit
-LANG_DIR = $(TEST_DIR)/language
+INTEGRATION_DIR = $(TEST_DIR)/integration
 
 LUKIP_DIR = $(LIB_DIR)/lukip
 LUKIP_LIB = $(LUKIP_DIR)/liblukip.a
@@ -19,11 +19,12 @@ UNIT_EXE = unittest
 
 SRCS := $(wildcard $(SRC_DIR)/*.c $(SRC_DIR)/*/*.c $(SRC_DIR)/*/*/*.c)
 UNIT_SRCS := $(wildcard $(UNIT_DIR)/*.c $(UNIT_DIR)/*/*.c $(UNIT_DIR)/*/*/*.c)
-LANG_SRCS := $(wildcard $(LANG_DIR)/*.zmx $(LANG_DIR)/*/*.zmx $(LANG_DIR)/*/*/*.zmx)
+INTEGRATION_SRCS := \
+	$(wildcard $(INTEGRATION_DIR)/*.zmx $(INTEGRATION_DIR)/*/*.zmx $(INTEGRATION_DIR)/*/*/*.zmx)
 
 ifeq ($(OS), Windows_NT)
 	UNIT_DIR = $(TEST_DIR)\unit
-	LANG_DIR = $(TEST_DIR)\language
+	INTEGRATION_DIR = $(TEST_DIR)\integration
 	LUKIP_DIR = $(LIB_DIR)\lukip
 	LUKIP_LIB = $(LUKIP_DIR)\liblukip.a
 
@@ -31,14 +32,13 @@ ifeq ($(OS), Windows_NT)
 	UNIT_EXE = unittest.exe
 	SRCS := $(subst /,\,$(SRCS))
 	UNIT_SRCS := $(subst /,\,$(UNIT_SRCS))
-	LANG := $(subst /,\,$(LANG))
 
 	CFLAGS += -I$(SRC_DIR)\data_structures -I$(SRC_DIR)\debug -I$(SRC_DIR)\language
-	CFLAGS += -I$(TEST_DIR)\language -I$(TEST_DIR)\unit -I$(TEST_DIR)\unit\test_data_structures
+	CFLAGS += -I$(TEST_DIR)\integration -I$(TEST_DIR)\unit -I$(TEST_DIR)\unit\test_data_structures
 	CFLAGS += -I$(LIB_DIR)\lukip\include
 else
 	CFLAGS += -I$(SRC_DIR)/data_structures -I$(SRC_DIR)/debug -I$(SRC_DIR)/language
-	CFLAGS += -I$(TEST_DIR)/language -I$(TEST_DIR)/unit -I$(TEST_DIR)/unit/test_data_structures
+	CFLAGS += -I$(TEST_DIR)/integration -I$(TEST_DIR)/unit -I$(TEST_DIR)/unit/test_data_structures
 	CFLAGS += -I$(LIB_DIR)/lukip/include
 endif
 
@@ -51,22 +51,22 @@ define newline
 
 endef
 
-.PHONY: all tests langtest unittest clean
+.PHONY: all test integration-test unit-test clean
 
 all: $(ZYMUX_EXE) 
 
-tests: unittest langtest
+test: unit-test integration-test
 
-langtest: $(BIN_DIR) $(ZYMUX_EXE)
-	@echo Language tests started.
+integration-test: $(BIN_DIR) $(ZYMUX_EXE)
+	@echo Integration tests started.
 ifeq ($(OS), Windows_NT)
-	@$(foreach file, $(LANG_SRCS), .\$<\$(ZYMUX_EXE) $(file) || exit 0$(newline)) 
+	@$(foreach file, $(INTEGRATION_SRCS), .\$<\$(ZYMUX_EXE) $(file) || exit 0$(newline)) 
 else
-	@$(foreach file, $(LANG_SRCS), ./$</$(ZYMUX_EXE) $(file) || true$(newline))
+	@$(foreach file, $(INTEGRATION_SRCS), ./$</$(ZYMUX_EXE) $(file) || true$(newline))
 endif
-	@echo Language tests finished.
+	@echo Integration tests finished.
 
-unittest: $(BIN_DIR) $(SRC_OBJS) $(UNIT_OBJS) $(LUKIP_LIB)
+unit-test: $(BIN_DIR) $(SRC_OBJS) $(UNIT_OBJS) $(LUKIP_LIB)
 ifeq ($(OS), Windows_NT)
 	$(CC) -o $<\$(UNIT_EXE) $(UNIT_OBJS) $(LUKIP_LIB) $(LDFLAGS)
 	.\$(BIN_DIR)\$(UNIT_EXE)
