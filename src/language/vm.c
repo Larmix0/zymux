@@ -17,18 +17,17 @@
 #endif
 
 /** 
- * Returns an error if a caught error happens in the interpreter loop.
+ * Finishes the current lopp instruction and returns if an error happened in the loop.
  * 
- * Finishes up an already reported error by exiting the VM interpreter loop, and sets
- * an exit code if the errored thread is the main one (exit code is dictated by the main one only).
+ * This macro isn't wrapped in a "do-while" loop because the "break" must execute
+ * at the interpreter loop level
+ * (breaking out of an instruction to prevent further execution/stack modification).
  */
 #define INTERP_LOOP_FINISH_ERROR(thread) \
-    do { \
-        if ((thread)->isMain) { \
-            set_exit_code(thread, false, 1); \
-        } \
+    if ((thread)->vm->program->cli->exitCode != 0) { \
         return; \
-    } while (0)
+    } \
+    break; \
 
 /** 
  * Raises a runtime error in the interpreter loop's switch statement (no do-while protection).
