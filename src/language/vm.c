@@ -27,7 +27,7 @@
     if ((thread)->vm->program->cli->exitCode != 0) { \
         return; \
     } \
-    break; \
+    break;
 
 /** 
  * Raises a runtime error in the interpreter loop's switch statement (no do-while protection).
