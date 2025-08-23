@@ -21,7 +21,6 @@ DECLARE_DA_STRUCT(StringArray, char *);
 
 /** Stores the state of Zymux throughout the entire execution of the program. */
 typedef struct ZmxProgram {
-    bool hasErrored; /** Whether the program has had any kind of errors. */
     bool showErrors; /** Whether or not error messages should be displayed and printed. */
     bool isRuntime; /** Whether or not runtime execution has started. */
     CliHandler *cli; /** The command line's information (such as arguments and exit codes). */

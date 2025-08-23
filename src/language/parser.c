@@ -58,7 +58,7 @@ static void parser_error_at(
     }
     va_list args;
     va_start(args, format);
-    zmx_user_error(
+    user_error(
         parser->program, parser->program->currentFile->string, erroredToken.pos,
         "Syntax error", format, &args
     );
@@ -93,7 +93,7 @@ static void parser_error_missing(
     );
     va_list args;
     va_start(args, format);
-    zmx_user_error(
+    user_error(
         parser->program, parser->program->currentFile->string, errorPos,
         "Syntax error", format, &args
     );

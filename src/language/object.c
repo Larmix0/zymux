@@ -249,6 +249,7 @@ ThreadObj *new_thread_obj(
     object->isMain = isMain;
     object->isDaemon = isDaemon;
     object->isJoinedUnsafe = false;
+    object->exitCode = ZMX_EXIT_SUCCESS; // On success by default.
     create_fields(vulnObjs, &object->fields, 1, "daemon", new_bool_obj(vulnObjs, isDaemon));
 
     INIT_DA(&object->openCaptures);
@@ -332,6 +333,7 @@ RuntimeFuncObj *new_runtime_func_obj(VulnerableObjs *vulnObjs, FuncObj *func, Mo
     Obj base = object->func.obj; // Runtime function's base obj.
     object->func = *func; // Copy.
     object->func.obj = base; // Change the base obj back to the runtime func's base after copying.
+    object->originalBase = &func->obj; // Store original base obj struct for GC.
 
     FLAG_ENABLE(object->func.flags, FUNC_RUNTIME_BIT);
     object->module = module;

@@ -23,6 +23,15 @@
         free_char_buffer(&buffer_); \
     } while (0)
 
+/** 
+ * Raises a runtime error without printing anything onto the console.
+ * 
+ * Useful when wanting to change the state of the program to erroneous, but the message
+ * was already reported like for example when an imported module raises a syntax error,
+ * then the importing module (runtime) needs to change its state to erroneous without printing.
+ */
+#define RUNTIME_ERROR_NO_MSG(thread) (base_runtime_error(thread, NULL))
+
 /** Zymux's virtual machine for interpreting the bytecode. */
 typedef struct Vm {
     ZmxProgram *program; /** The Zymux program for general information and allocations. */
@@ -84,6 +93,8 @@ void interpret_file_source(ZmxProgram *program, char *source, const bool isMain)
  * 
  * Sets a catch state and doesn't error if there's one. Meant only as a base error function,
  * so prefer to use macros that wrap this instead of directly calling it.
+ * 
+ * if errorMessage is NULL, it won't print anything onto the console (including no stack trace).
  */
 void base_runtime_error(ThreadObj *thread, StringObj *errorMessage);
 

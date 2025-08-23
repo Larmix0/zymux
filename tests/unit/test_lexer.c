@@ -177,7 +177,7 @@ PRIVATE_TEST_CASE(test_lex_successful_programs) {
         ZmxProgram *program = new_zmx_program("testLex", &cli, false);
         Lexer lexer = create_lexer(program, sources[arrayIdx]);
         lex(&lexer);
-        ASSERT_FALSE(lexer.program->hasErrored);
+        ASSERT_FALSE(lexer.hasErrored);
 
         compare_lexed(&lexer, &tokens2DArray[arrayIdx], false);
         free_lexer(&lexer);
@@ -207,7 +207,7 @@ PRIVATE_TEST_CASE(test_lex_errors) {
         ZmxProgram *program = new_zmx_program("testError", &cli, false);
         Lexer lexer = create_lexer(program, sources[i]);
         lex(&lexer);
-        ASSERT_TRUE(lexer.program->hasErrored);
+        ASSERT_TRUE(lexer.hasErrored);
         
         free_lexer(&lexer);
         free_zmx_program(program);

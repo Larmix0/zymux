@@ -96,7 +96,7 @@ static void resolution_error(
     resolver->hasErrored = true;
     va_list args;
     va_start(args, format);
-    zmx_user_error(
+    user_error(
         resolver->program, resolver->program->currentFile->string, pos,
         "Resolution error", format, &args
     );

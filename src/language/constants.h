@@ -19,17 +19,20 @@
     #define PATH_SEPARATOR '/'
 #endif
 
-#define DEFAULT_COLOR "\033[0m" /** A string that resets the terminal color to the default. */
-#define GREEN "\033[32" /** String to set the terminal color green. */
-#define RED "\033[31m" /** String to set the terminal color red. */
-#define YELLOW "\033[33m" /** String to set the terminal color yellow. */
-
 #define DEBUG_TOKENS 0 /** Logs the array of tokens created by the lexer. */
 #define DEBUG_AST 0 /** Logs the abstract syntax tree created by the parser. */
 #define DEBUG_BYTECODE 0 /** Logs the bytecode of every compiled function. */
 #define DEBUG_RUNTIME 0 /** Logs the runtime stack, instruction executing, and catches. */
 #define DEBUG_LOG_GC 0 /** Logs GC actions during a garbage collection. */
 #define DEBUG_ALWAYS_GC 1 /** Performs a garbage collection after every object allocation. */
+
+#define ZMX_EXIT_SUCCESS 0 /** A user program which exited successfully. */
+#define ZMX_EXIT_FAILURE 1 /** A user program which exited with an error. */
+
+#define DEFAULT_COLOR "\033[0m" /** A string that resets the terminal color to the default. */
+#define GREEN "\033[32" /** String to set the terminal color green. */
+#define RED "\033[31m" /** String to set the terminal color red. */
+#define YELLOW "\033[33m" /** String to set the terminal color yellow. */
 
 /** Allows assertions or disables them from the code for performance. */
 #define ASSERTS_ENABLED 1
@@ -57,6 +60,7 @@
 
 /** 
  * Turns into a boolean of whether or not the passed index is within the passed length.
+ * 
  * The length is presumed to be that of some collection, where the highest index is length - 1.
  */
 #define IS_WITHIN_LENGTH(length, index) ((index) >= 0 && (index) <= (length) - 1)

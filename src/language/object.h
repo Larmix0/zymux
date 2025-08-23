@@ -307,6 +307,7 @@ typedef struct ThreadObj {
     CatchStateArray catches; /** Saved states for caught errors where last item is closest catch. */
     CallStack callStack; /** Holds the entire call stack of stack frames during runtime. */
     StackFrame *frame; /** The current frame which holds the bytecode we're executing. */
+    u32 exitCode; /** The code which this thread exited with. 0 if not exited or was successful. */
     Table fields; /** All the fields of the thread instance. */
 
     /** 
@@ -422,6 +423,9 @@ typedef struct {
 typedef struct {
     /** The copy of the statically compiled function. */
     FuncObj func;
+
+    /** The original base object for the static/base function of this runtime func. */
+    Obj *originalBase;
 
     /** The module object this executed under at runtime. */
     ModuleObj *module;

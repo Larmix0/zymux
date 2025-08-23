@@ -82,8 +82,9 @@ static void mark_func(FuncObj *func) {
     mark_func_params(func->staticParams);
 
     if (FLAG_IS_SET(func->flags, FUNC_RUNTIME_BIT)) {
-        // Function is a runtime extension of the static one. Mark its runtime context.
+        // Runtime extension. Also marks the original static func's base so it won't get deleted.
         RuntimeFuncObj *runtimeFunc = AS_PTR(RuntimeFuncObj, func);
+        FLAG_ENABLE(runtimeFunc->originalBase->flags, OBJ_REACHABLE_BIT);
         mark_obj_array(runtimeFunc->paramVals);
         mark_obj_array(runtimeFunc->captures);
     }

@@ -146,7 +146,6 @@ char *repl_line(CliHandler *cli, VulnerableObjs *vulnObjs, Resolver *resolver, V
     FuncObj *func = compile_repl_source(vulnObjs, line, resolver);
     if (func == NULL) {
         // Errors don't matter in REPL, so just reset and try again.
-        vulnObjs->program->hasErrored = false;
         return line;
     }
     ThreadObj *mainThread = get_main_thread(vm);

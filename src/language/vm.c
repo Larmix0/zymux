@@ -24,7 +24,7 @@
  * (breaking out of an instruction to prevent further execution/stack modification).
  */
 #define INTERP_LOOP_FINISH_ERROR(thread) \
-    if ((thread)->vm->program->cli->exitCode != 0) { \
+    if ((thread)->exitCode != 0) { \
         return; \
     } \
     break;
@@ -454,8 +454,15 @@ static void catch_error(ThreadObj *thread, StringObj *errorMessage) {
 #endif
 }
 
-/** Sets whether the VM exited manually and an exit code if valid to do so. */
+/** 
+ * Sets whether the thread exited manually with exit code.
+ * 
+ * This only applies to the thread, unless it is the main thread in which case it'll also
+ * set the global exit code and whether or not the program exit was manually done by the user,
+ * or an error.
+ */
 static void set_exit_code(ThreadObj *thread, const bool manuallyExited, const ZmxInt exitCode) {
+    thread->exitCode = exitCode;
     if (thread->isMain) {
         thread->vm->program->cli->manuallyExited = manuallyExited;
         thread->vm->program->cli->exitCode = exitCode;
@@ -467,6 +474,8 @@ static void set_exit_code(ThreadObj *thread, const bool manuallyExited, const Zm
  * 
  * Sets a catch state and doesn't error if there's one. Meant only as a base error function,
  * so prefer to use macros that wrap this instead of directly calling it.
+ * 
+ * if errorMessage is NULL, it won't print anything onto the console (including no stack trace).
  */
 void base_runtime_error(ThreadObj *thread, StringObj *errorMessage) {
     if (thread->catches.length != 0) {
@@ -475,14 +484,16 @@ void base_runtime_error(ThreadObj *thread, StringObj *errorMessage) {
         return;
     }
 
-    print_stack_trace(thread);
-    const u32 bytecodeIdx = thread->frame->ip - thread->frame->func->bytecode.data;
-    zmx_user_error(
-        thread->vm->program, AS_PTR(RuntimeFuncObj, thread->frame->func)->module->path->string,
-        thread->frame->func->positions.data[bytecodeIdx],
-        "Runtime error", errorMessage->string, NULL
-    );
-    set_exit_code(thread, false, 1);
+    set_exit_code(thread, false, ZMX_EXIT_FAILURE);
+    if (errorMessage) {
+        print_stack_trace(thread);
+        const u32 bytecodeIdx = thread->frame->ip - thread->frame->func->bytecode.data;
+        user_error(
+            thread->vm->program, AS_PTR(RuntimeFuncObj, thread->frame->func)->module->path->string,
+            thread->frame->func->positions.data[bytecodeIdx],
+            "Runtime error", errorMessage->string, NULL
+        );
+    }
 }
 
 /** 
@@ -1339,6 +1350,7 @@ static bool import_user_file(ThreadObj *thread, StringObj *path) {
     FuncObj *func = compile_file_source(&thread->vulnObjs, source, false);
     free(source);
     if (func == NULL) {
+            RUNTIME_ERROR_NO_MSG(thread);
         return false; // Failed to compile.
     }
 
@@ -2109,7 +2121,7 @@ static void interpreter_loop(ThreadObj *thread) {
             return;
         }
         case OP_EOF:
-            set_exit_code(thread, false, 0);
+            set_exit_code(thread, false, ZMX_EXIT_SUCCESS);
             return;
         TOGGLEABLE_DEFAULT_UNREACHABLE();
         }
@@ -2152,6 +2164,9 @@ void interpret_file_source(ZmxProgram *program, char *source, const bool isMain)
     VulnerableObjs *vulnObjs = &program->gc.startupVulnObjs;
     FuncObj *func = compile_file_source(vulnObjs, source, isMain);
     if (func == NULL) {
+        if (isMain) {
+            program->cli->exitCode = EXIT_FAILURE;
+        }
         return; // Failed to compile.
     }
     Vm vm;

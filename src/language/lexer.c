@@ -121,7 +121,7 @@ static void append_lexed_error(Lexer *lexer, const char *format, ...) {
 
     va_list args;
     va_start(args, format);
-    zmx_user_error(
+    user_error(
         lexer->program, lexer->program->currentFile->string, error.pos,
         "Syntax error", format, &args
     );
@@ -140,8 +140,9 @@ static void append_error_at(
 
     va_list args;
     va_start(args, format);
-    zmx_user_error(
-        lexer->program, lexer->program->currentFile->string, error.pos, "Syntax error", format, &args
+    user_error(
+        lexer->program, lexer->program->currentFile->string, error.pos, "Syntax error",
+        format, &args
     );
     va_end(args);
 }

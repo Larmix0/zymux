@@ -83,9 +83,9 @@ PRIVATE_TEST_CASE(test_parser_macros) {
 
     const Token consumedThree = CONSUME(&parser, TOKEN_INT_LIT, "This should succeed");
     ASSERT_TRUE(equal_token(three, consumedThree));
-    ASSERT_FALSE(parser.program->hasErrored);
+    ASSERT_FALSE(parser.hasErrored);
     CONSUME(&parser, TOKEN_BAR_BAR, "This should fail.");
-    ASSERT_TRUE(parser.program->hasErrored);
+    ASSERT_TRUE(parser.hasErrored);
 
     free_lexer(&lexer);
     free_parser(&parser);

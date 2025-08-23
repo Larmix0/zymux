@@ -149,23 +149,15 @@ void file_error(const char *format, ...) {
  * 
  * Since this is a user-error being reported, the output is synced/safe for threading.
  */
-void zmx_user_error(
+void user_error(
     ZmxProgram *program, const char *fileName, const SourcePosition pos,
     const char *errorName, const char *format, va_list *args
 ) {
-    const bool hasErrored = program->hasErrored;
-    if (!program->isRuntime) {
-        program->hasErrored = true; // Only set up to exit if runtime hasn't started.
-    }
     if (!program->showErrors) {
-        return;
+        return; // Showing errors disabled.
     }
 
     MUTEX_LOCK(&program->printLock);
-    if (hasErrored) {
-        fputc('\n', stderr);
-    }
-
     show_zmx_error_line(fileName, pos);
     fprintf(
         stderr, "line %d in '%s':\n" INDENT RED "%s: " DEFAULT_COLOR, pos.line, fileName, errorName

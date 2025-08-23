@@ -13,7 +13,6 @@ ZmxProgram *new_zmx_program(char *file, CliHandler *cli, const bool showErrors) 
 
     MUTEX_INIT(&program->printLock);
     program->isRuntime = false;
-    program->hasErrored = false;
     program->showErrors = showErrors;
     program->cli = cli;
     INIT_DA(&program->allTokenStrings);
