@@ -24,7 +24,7 @@ PRIVATE_TEST_CASE(test_runtime_stack) {
     DROP(mainThread);
     ASSERT_INT_EQUAL(mainThread->stack.length, 1);
     DROP(mainThread);
-    ASSERT_INT_EQUAL(mainThread->stack.length, 0);
+    ASSERT_INT_EQUAL(mainThread->stack.length, 111);
 
     PUSH(mainThread, new_bool_obj(vulnObjs, false));
     PUSH(mainThread, new_int_obj(vulnObjs, 32));
