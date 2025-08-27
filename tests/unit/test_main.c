@@ -57,5 +57,5 @@ int main() {
     test_compiler();
     test_vm();
     
-    return EXIT_SUCCESS;
+    return LUKIP_STATUS();
 }

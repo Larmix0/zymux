@@ -60,9 +60,9 @@ test: unit-test integration-test
 integration-test: $(BIN_DIR) $(ZYMUX_EXE)
 	@echo Integration tests started.
 ifeq ($(OS), Windows_NT)
-	@$(foreach file, $(INTEGRATION_SRCS), .\$<\$(ZYMUX_EXE) $(file) || exit 0$(newline)) 
+	@$(foreach file, $(INTEGRATION_SRCS), .\$<\$(ZYMUX_EXE) $(file)$(newline)) 
 else
-	@$(foreach file, $(INTEGRATION_SRCS), ./$</$(ZYMUX_EXE) $(file) || true$(newline))
+	@$(foreach file, $(INTEGRATION_SRCS), ./$</$(ZYMUX_EXE) $(file)$(newline))
 endif
 	@echo Integration tests finished.
 
