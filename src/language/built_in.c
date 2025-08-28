@@ -102,6 +102,21 @@ DEFINE_NATIVE_FUNC(print) {
     DEFAULT_RETURN(thread);
 }
 
+/** Takes a line of user input and returns it. Text prompt is optional. */
+DEFINE_NATIVE_FUNC(input) {
+    UNUSED_VARIABLE(callee);
+    PARAM_TYPE_CHECK(thread, args, 0, OBJ_STRING);
+    Obj *text = args[0];
+    if (AS_PTR(StringObj, text)->length > 0) {
+        print_obj(text, false); // Only print the prompt text if it isn't just an empty string.
+    }
+
+    char *inputted = get_stdin_line();
+    StringObj *inputtedObj = new_string_obj(&thread->vulnObjs, inputted, strlen(inputted));
+    free(inputted);
+    RETURN_OBJ(inputtedObj);
+}
+
 /** Takes a condition and a string message to print if the assertion failed. */
 DEFINE_NATIVE_FUNC(assert) {
     UNUSED_VARIABLE(callee);
@@ -408,6 +423,10 @@ static void load_native_funcs(VulnerableObjs *vulnObjs) {
             "value", NULL,
             "newline", new_bool_obj(vulnObjs, true), "destructure", new_bool_obj(vulnObjs, false)
         )
+    );
+    load_func(
+        vulnObjs, "input", native_input,
+        with_optional_params(vulnObjs, 0, 1, "text", new_string_obj(vulnObjs, "", 0))
     );
     load_func(
         vulnObjs, "assert", native_assert,
