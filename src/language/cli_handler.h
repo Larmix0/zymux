@@ -42,7 +42,9 @@ void print_cli_help();
 /** Returns an allocated string of a line that the user writes in stdin. */
 char *get_stdin_line();
 
-/** Prompts the user for one line and runs it in REPL once. */
-char *repl_line(CliHandler *cli, VulnerableObjs *vulnObjs, Resolver *resolver, Vm *vm);
+/** Executes a passed code line for REPL. */
+void exec_repl_line(
+    CliHandler *cli, VulnerableObjs *vulnObjs, Resolver *resolver, Vm *vm, char *line
+);
 
 #endif

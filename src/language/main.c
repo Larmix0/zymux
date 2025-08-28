@@ -23,7 +23,6 @@ static void free_repl_lines(StringArray *replLines) {
 
 /** Runs a program on a REPL loop. */
 static void run_repl(CliHandler *cli) {
-    StringArray replLines = CREATE_DA();
     ZmxProgram *program = new_zmx_program("<REPL>", cli, false);
     VulnerableObjs *vulnObjs = &program->gc.startupVulnObjs;
     NodeArray emptyAst = CREATE_DA();
@@ -33,8 +32,14 @@ static void run_repl(CliHandler *cli) {
         &vm, program, new_runtime_func_obj(vulnObjs, new_func_obj(vulnObjs, NULL, 0, 0, true), NULL)
     );
 
+    // Because lexer relies on source code being accessible at all times,
+    // we store and delete all lines after the program ends.
+    StringArray replLines = CREATE_DA();
     while (!cli->exitedRepl) {
-        PUSH_DA(&replLines, repl_line(cli, vulnObjs, &resolver, &vm));
+        synchronized_print(vulnObjs->program, stdout, "> ");
+        char *line = get_stdin_line();
+        PUSH_DA(&replLines, line);
+        exec_repl_line(cli, vulnObjs, &resolver, &vm, line);
     }
     free_resolver(&resolver);
     free_vm(&vm);

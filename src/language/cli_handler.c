@@ -128,31 +128,23 @@ static bool line_is_quit(char *line) {
     return false;
 }
 
-/** 
- * Prompts the user for one line and runs it in REPL once.
- * 
- * returns the allocated line string so it can be stored and freed after the whole REPL session,
- * this is because the resolver needs to keep context for all REPL lines, which includes
- * storing the AST, and the AST has some tokens in its nodes whose lexemes point to whichever
- * part of the source string they come from.
- */
-char *repl_line(CliHandler *cli, VulnerableObjs *vulnObjs, Resolver *resolver, Vm *vm) {
-    synchronized_print(vulnObjs->program, stdout, "> ");
-    char *line = get_stdin_line();
+/** Executes a passed code line for REPL. */
+void exec_repl_line(
+    CliHandler *cli, VulnerableObjs *vulnObjs, Resolver *resolver, Vm *vm, char *line
+) {
     if (line_is_quit(line)) {
         cli->exitedRepl = true;
-        return line;
+        return;
     }
     FuncObj *func = compile_repl_source(vulnObjs, line, resolver);
     if (func == NULL) {
         // Errors don't matter in REPL, so just reset and try again.
-        return line;
+        return;
     }
+
     ThreadObj *mainThread = get_main_thread(vm);
     mainThread->frame->func = func;
     mainThread->frame->ip = func->bytecode.data;
     interpret(vm); // Executes the main thread in the VM.
-
     cli->exitedRepl = cli->manuallyExited;
-    return line;
 }
