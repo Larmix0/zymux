@@ -1,0 +1,521 @@
+# Zymux opcode documentation
+
+## Basic information
+### `InstrSize`
+An enum that represents the size of the next instruction.
+It could be one byte, 2 bytes (short), and even 4 bytes (integer).
+It's primarily used for reading/emitting numbers for instructions, so that the VM
+wouldn't be limited to 255 to represent numbers after instruction.
+
+**Example:** having more than 256 constants in one chunk.
+
+### `DataType`
+An enum that represents all the different data types in Zymux as a language.
+It's used as an enum for certain instructions to pass a number that represents which
+data type is being used.
+
+**Example:** emitting a DataType string enum after an "is" opcode to know what type to check
+at the top of the stack.
+
+<br>
+
+# Opcodes
+
+### Binary:
+Each one of these opcodes pops a first object from the stack, then a second one.
+After that, applies a math operation where the second popped object is the left operand,
+and the first popped object is the right operand.
+Finally, the result of the operation is pushed to the top of the stack.
+
+**Includes:** OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE, OP_MODULO, OP_EXPONENT,
+OP_LSHIFT, OP_RSHIFT, OP_BITWISE_OR, OP_BITWISE_AND, OP_XOR,
+
+**Example:** divide opcode first pops obj1, then obj2.
+The result of obj2 / obj1 is pushed to the stack.
+
+---
+
+**Unary:**
+Pops the top object in the stack, then creates a new object that is the same as the popped one,
+but with the unary operation applied on it.
+
+**Includes:** OP_MINUS, OP_NOT, OP_TILDE
+
+**Example:** minus operation pops an integer object whose value is 7.
+Then, it creates a new integer with a minus sign, which is -7, and that gets pushed to the stack.
+
+---
+
+### Argument size:
+Sets the VM's InstrSize to a specific number of bytes written as bits in the name of the opcode,
+so that the next instruction that reads a number, will read that number of bits.
+
+**Includes:** OP_ARG_16, OP_ARG_32
+
+**Example:** arg 16 right before a jump instruction. That'll let the VM know that the jump
+instruction's number is 16 bits (2 bytes) in size inside the bytecode.
+
+---
+
+### Boolean:
+Pushes a boolean value on the stack, either true or false.
+
+**Includes:** OP_TRUE, OP_FALSE
+
+---
+
+### Equality:
+Checks if the top 2 objects of the stack are considered equal in Zymux.
+Pops them, then pushes a boolean depending on the results.
+
+**Includes:** OP_EQUAL, OP_NOT_EQ
+
+---
+
+### Comparison
+Pops a first object from the stack, then a second one.
+After that, applies a comparison where the second popped object is the left operand,
+while the first popped object is the right operand.
+Finally, pushes a boolean object that indicates the result of the operation (true or false).
+
+**Includes:** OP_GREATER, OP_GREATER_EQ, OP_LESS, OP_LESS_EQ
+
+**Example:** greater opcode pops obj1 then obj2. The resulting boolean of obj2 > obj1 is pushed.
+
+---
+
+### Jumping
+Increments or decrements the instruction pointer (IP) of the VM by a certain amount read
+after the instruction. Might be conditional or backwards.
+
+**Includes:** OP_JUMP, OP_JUMP_BACK, OP_JUMP_IF, OP_JUMP_IF_NOT,
+OP_POP_JUMP_IF, OP_POP_JUMP_IF_NOT, OP_POP_JUMP_BACK_IF
+
+**Example:** jump if opcode will read a number, and increment IP by that number
+only of the top element of the stack is truthy.
+
+---
+
+### For loop iteration
+Assumes the second to last object in the stack is a local variable, and the topmost is
+an iterator object. Reads a number and calls the iteration function on the iterator at
+the top of the stack. If the iterator returned a signal that it's exhausted, then it jumps
+forward the number that it read, otherwise assigns/loads the iterated value for the loop
+variable(s).
+
+**Includes:** OP_FOR_ITER_ASSIGN, OP_FOR_ITER_LOAD
+
+<br>
+
+## ***Specific opcodes***
+
+### OP_LOAD_CONST
+Loads an object into the stack from the constant object pool.
+
+Expects a number index after it in the bytecode which is used to index an object from the 
+constant object pool that is currently being used.
+It loads that object into the top of the stack.
+
+---
+
+### OP_IS
+Changes the topmost object on the stack to be a boolean of whether or not
+it is the same data type as the one from the DataType enum number read.
+
+---
+
+### OP_AS
+Converts the topmost object of the stack to a certain data type.
+That data type is a DataType enum number read after the instruction.
+
+**Example:**
+Integer 3 is the top of the stack. Then the "as" opcode reads a string data type enum after.
+The topmost object (integer of 3) is popped and a string version of it is pushed ("3").
+
+---
+
+### OP_NULL
+Pushes a null object to the stack.
+
+---
+
+### OP_FINISH_STRING
+Expects a number of string objects to be on top of the stack that are to be concatenated
+to form a string. Reads a number after the instruction to indicate how many string objects to
+concatenate. The concatenation is done from the deepest/lowest in the stack to
+the top/most recent object being concatenated last.
+This opcode is done on every string, even non-interpolated one string objects.
+
+**Example:** the stack looks like the following: {"Hi"} | {" middle "} | {"end."}
+We expect the number after the opcode to be 3 in this case.
+Then, we'll start with an empty string (""). After that, we'll peek 3 deep into the stack
+(which will be "Hi"). Then, combine our current string with the peeked string.
+The current empty string is on the left side, while "Hi" is on the right, making the current
+string "Hi". After that, we peek one less deep (2 items deep) where we see " middle ",
+and concatenate our current string as the left side with that string as the right side.
+This makes the current string "Hi middle ". Then we peek one number less, seeing the string
+"end.". Finally, we combine our current string ("Hi middle ") with that, creating
+the final string "Hi middle end.". While we have it stored, we pop the 3 strings we used
+to concatenate, and push that final string ("Hi middle end.").
+
+---
+
+### OP_RANGE
+Pushes a range object by popping the 3 objects on top of the stack and using them
+as its step, end, and start (popping them in that order).
+
+---
+
+### OP_TERNARY
+Reads the topmost stack value as the false side of a ternary, second to top as the true side,
+and the third to last value as the condition of a ternary.
+Then, depending on the condition, either the truthy or falsy side is kept on the stack,
+while the condition will be removed.
+
+---
+
+### OP_LIST
+Creates a list object from other loaded objects in the stack.
+That's done by reading a number, which is how many items on the stack are a part of the list.
+The topmost element on the stack is considered the last item on the list, until the furthest
+item from the stack within the read number, which is the first item on the list.
+after peeking on all of them one by one, we create the list object and pop all those elements
+before pushing the list.
+
+---
+
+### OP_MAP
+Creates a map object from a number of loaded pairs of objects in the stack.
+A read number after the instruction represents how many key-value pairs should be read
+from the stack.
+Reading 1 entry (key-value pair) is by peeking an element (which is the value),
+then peeking 1 element deeper (which is the key), and repeating that deeper and deeper until
+all map entries are read, and used to create a map object.
+Finally, that created map is pushed to the stack after all key-value pairs are popped.
+
+---
+
+### OP_DESTRUCTURE
+Expects the topmost element to be an iterable. Pops it and unpacks its objects on the stack
+one by one, with the first element of the iterable being on top of the stack, and the last
+element being furthest from the top.
+
+---
+
+### OP_FOR_ASSIGN_VARS
+In a for loop iteration, expects the topmost element to be an iterable that is to be assigned
+to the multiple variables behind the iterable of the loop. Reads a number which is how many
+variables are to be assigned using the iterable.
+
+Assignment is done by first destructuring the iterable, then assigning each destructured element
+to the variable in its corresponding index behind the loop iterator. 
+
+---
+
+### OP_GET_BUILT_IN
+Reads a string const, which is the name of the variable whose value is to be extracted from
+the program's loaded built-ins.
+
+---
+
+### OP_DECLARE_GLOBAL
+Sets a new key value pair in the globals hash
+table where a string constant that's read is the key, and a popped object from the stack
+is the value to the key.
+Declared variable must not have been declared before within the scope the instruction is
+executed on.
+
+---
+
+### OP_ASSIGN_GLOBAL
+Sets an existing key value pair in the globals hash table
+where a string constant that's read is the key, and a popped object from the stack
+is the value to the key.
+Assigned variable must've been already declared at some visible scope which is being reassigned.
+
+---
+
+### OP_GET_GLOBAL
+Reads a string const, which is the name of the variable whose value is to be extracted from
+the VM's globals.
+
+---
+
+### OP_ASSIGN_LOCAL
+Read an index number (which is that of the variable to be reassigned in the stack),
+and changes its object/value to the object currently at the top of the stack.
+Variable must've already been declared beforehand at some accessible local scope.
+
+Note on declaring locals: they don't utilize any instructions as we simply load their values
+on the stack and use their indices on the stack as a way to keep track of them.
+
+---
+
+### OP_GET_LOCAL
+Reads an index number
+(which is the index in the stack of the variable whose value is to be extracted),
+then uses it to index into the stack and push that object to the top again.
+
+---
+
+### OP_CAPTURE_DEPTH
+Adds the object located in the stack at a depth equivalent to a read number
+after the instruction into the current closure's captured variables, and the VM's open captures.
+It'll be removed from the VM's open captures once it's popped
+off of the stack and needs to live exclusively on the heap.
+
+---
+
+### OP_CAPTURE_AT
+Adds the object at the read index (relative to the base pointer) into the current closure's
+captured variables, and the VM's open captures.
+It'll be removed from the open captures once it's popped off of the stack and needs to live
+exclusively on the heap.
+
+---
+
+### OP_ASSIGN_CAPTURED
+Reads an index number that is used on the current closure's array of captured variables,
+and the variable at that index gets assigned the topmost object in the stack.
+
+If the original variable is still alive on the stack, then the assignment occurs at it,
+but if it's not, then the assignment goes straight inside the capture object.
+
+---
+
+### OP_GET_CAPTURED
+Reads an index number, and uses it to get the object at that index in the current closure's
+array of captured variables, pushing it to the top of the stack.
+
+If the original variable is still alive on the stack,
+then we push the one on the stack to the top,
+but if it's not, then we push the thing inside the captured object instead.
+
+---
+
+### OP_SET_PROPERTY
+Loads a property of some object that is at the top of the stack. The property name
+that should be loaded from that object is read from the stack as a string object.
+
+Then, it tries to assign the value located at the second to top slot in the stack to
+the property name on the object that's being accessed. If that property doesn't exist,
+create it.
+
+Finally, it pops the object being accessed so that only the assignment value
+is left on the stack.
+
+---
+
+### OP_GET_PROPERTY
+Loads a property of some object that is at the top of the stack. The property name
+that should be loaded from that object is read from the stack as a string object.
+Replaces the object on the top of the stack with the resulting object from the property access.
+
+---
+
+### OP_CALL
+Reads a number, which is the number of arguments on the stack for the callee
+excluding the map of kwargs, which is at the very top of the stack.
+The second to top object in the stack is the rightmost positional argument,
+and the deeper on the stack the more to the left an argument is.
+The callee is expected to be immediately before the first argument on the stack, and it gets
+called with the read amount of arguments (again, excluding the 1 kwargs map)
+so it knows how to deal with those arguments that are ordered on the stack.
+
+Pops the read amount of arguments + kwargs map and replaces the callee with the returned value
+(or some default value if nothing was returned) after the call has finished.
+
+---
+
+### OP_ASSIGN_SUBSCR
+Expects 3 stack elements: Top is the subscript, second to top is the element being subscripted,
+and the third to top element is the value being assigned to the subscript.
+Uses the subscript to determine where in the subscripted the value should be assigned.
+
+After that, it pops only the subscript and the subscripted, while keeping the assignment value
+on the stack to be used or disposed of, just like normal assignment.
+
+---
+
+### OP_GET_SUBSCR
+Peeks 2 elements from the top of the stack. The one at the top of the stack is the subscript,
+while the object underneath it is the one being subscripted. Pushes the result of the subscript
+operation on the stack after popping both the subscript expression
+and the object being subscripted.
+
+If the subscript is making a slice (using a range object), then an iterator will temporarily
+be pushed to the stack while the slice is being constructed to iterate over the original
+object and filter out the objects that won't be a part of the slice. The iterator gets popped
+alongside the subscript and the subscripted before pushing the slice in that case.
+
+---
+
+### OP_FUNC
+Reads a constant, which is the statically compiled function on the stack. Then replaces it
+with a runtime function object that has the same compilation base, but an extension
+that stores the runtime module it currently is on.
+
+---
+
+### OP_OPTIONALS_FUNC
+Expects the top element of the stack to be some a list of loaded, runtime values for
+the optional values of a (runtime) function, which is the second to top element in the stack.
+
+It does so by first appending a C-NULL for each mandatory parameter which doesn't have a default
+value, then it starts appending the default values and places them in the runtime function
+object so that each time the function is encountered (like a loop for example) it creates
+its own list of optional values from the current variable values.
+Finally, pops the optional values at the top of the stack.
+
+---
+
+### OP_MAKE_CLOSURE
+Copies over all captured variables of the current frame over to the runtime function
+it expects to find at the top of the stack, and sets a boolean indicating that the function
+is now a closure with closure context.
+
+Also, this copies the closure context of the runtime function that ran this instruction,
+just in case it has some other captures for the function stack to see.
+
+---
+
+### OP_CLASS
+Creates a bare-bones class with no init and no methods using a read constant for its name.
+Reads a boolean that was placed on the stack indicated whether or not this is an abstract
+class.
+
+---
+
+### OP_ADD_INIT
+Grabs the topmost element (expected to be a function) and adds it as an initializer for
+the class that will be sitting one slot behind it in the stack.
+Pops the init function at the top of the stack after.
+
+---
+
+### OP_METHODS
+Reads a number, which is how many functions on the stack are as methods for the class
+that is one slot behind them. Adds all of those functions as table entries of name keys
+and function (method) values to the class, then pops all of them off of the stack after.
+
+---
+
+### OP_ABSTRACT_METHODS
+Reads a number, which is how many string names on the stack there are which represent
+abstract methods for the abstract class that is one slot behind them.
+Pops all of those string names off of the stack after.
+
+---
+
+### OP_INHERIT
+Assuming the top of the stack is the superclass, and second to last element is the class
+that is inheriting the superclass, it adds the superclass as the class's super.
+
+Also, if the superclass is an abstract class, this performs the check that all methods
+were overridden, or if both the subclass and superclass are abstract, then it inherits
+the abstract methods by copying them over too.
+
+---
+
+### OP_MAKE_ITER
+Grabs the topmost object in the stack and wraps it inside a new iterator object.
+If the topmost object is not iterable, then it causes a runtime error.
+
+---
+
+### OP_POP_LOCAL
+Pops one object from the top of the stack and disposes of it.
+Closes a capture if that object was a variable that was captured by another function.
+
+---
+
+### OP_POP_LOCALS
+Reads a number, which is how many objects to pop off of the top of the stack.
+
+Closes captures if any of the objects popped was a variable that was captured
+by another function.
+
+---
+
+### OP_POP_CAPTURES
+Reads a number, which is how many captured variables to pop off the current closure's captured
+array.
+
+---
+
+### OP_RETURN
+Collapses the stack frame made for the currently executing function while only leaving
+the last item loaded on the stack before returning unpopped as a return value.
+
+---
+
+### OP_CLOSURE_RETURN
+Collapses the stack frame and returns the top value just like a normal return,
+but it also reads a number after the instruction that indicates how many captured variables
+should be popped off of the current closure before the return occurs.
+
+---
+
+### OP_COPY_TOP
+Pushes the topmost element of the stack again, meaning that the top and second to top elements
+are gonna be the same.
+
+Mostly an optimization to reuse the top element in operations
+that modify it without having to reload it every time, as copying/repushing is faster than
+loading a whole expression every time.
+
+---
+
+### OP_START_TRY
+Appends a new catch state to the current VM. Reads a loaded boolean on the stack
+which represents whether or not the started try-catch will want to store whatever error messsage
+is caught. Also reads a number that comes after the instruction, which is where in the current
+function's bytecode will the catch statement start for the created catch state.
+
+---
+
+### OP_IMPORT
+Reads a constant, which is a string that has the path to be imported as a file.
+Errors if it doesn't exist, but if it does then it creates a new context and stack frame
+for the imported module, and continues executing from it.
+
+This is because when an import occurs it automatically executes the top-level code.
+
+---
+
+### OP_IMPORT_NAMES
+Expects the top of the stack to be a module, pops it,
+and reads a constant which is a list that has all the names being imported
+from the module as strings.
+
+Pushes (in order) all the corresponding values of the imported names in the imported module,
+so they can be declared later.
+
+---
+
+### OP_FINISH_TRY
+Pops the most recently added catch state in the VM to represent the end of a try-catch.
+
+---
+
+### OP_RAISE
+Expects the topmost element in the stack to be a string. Pops it and uses it to induce
+an artificially created runtime error with that string as the error message.
+
+---
+
+### OP_END_MODULE
+For the current module: Collapse, exit, and pushes its information as a module object,
+then go back to executing the module that originally imported it.
+
+---
+
+### OP_EXIT
+Represents an exit statement, which immediately terminated the whole program with an exit code
+that is expected to be an integer at the top of the stack.
+Raises a runtime error if it found an object that is not an integer at the top of the stack.
+
+---
+
+### OP_EOF
+Represents the end of the program, terminates with exit code 0 (success).

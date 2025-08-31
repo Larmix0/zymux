@@ -1,21 +1,33 @@
 # **Zymux built-in names documentation**
+The documentation includes all built-in functions, classes, and modules.
 
 <br>
 
-### The style of documentation for built-in fields of built-in objects/classes
+---
 
-----------------------------------------------------------------------------------------------------
+### The style of documentation for built-in functions
+
 ```
-{type} '{name}':
-    {documentation}.
+{returnType} name({parameters}):
+    {function documentation}
 ```
-----------------------------------------------------------------------------------------------------
+
 <br>
 
-### The style of documentation for built-in functions and methods
+---
 
-----------------------------------------------------------------------------------------------------
+### The style of documentation for built-in classes
+
 ```
-{returnType} name(arg1, arg2... optional1={value}, optional2={value}...):
-    {documentation}.
+name({parameters}):
+    {class documentation}
+
+    {returnType} name({parameters}):
+        {method documentation}
+    ...
+
+    {type} 'name':
+        {field documentation}
+    ...
+
 ```

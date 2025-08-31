@@ -1,8 +1,10 @@
-Built-in multithread library module documentation
+# Built-in multithread module documentation
 
-----------------------------------------------------------------------------------------------------
-===== Classes.
+<br>
 
+# Classes
+
+```
 Thread(runnable, daemon=false):
     Represents a thread that executes a runnable user function independently.
     The function executes in parallel (if possible, otherwise concurrently).
@@ -19,7 +21,9 @@ Thread(runnable, daemon=false):
         Joins the thread to the main executing thread.
         If the thread being joined is daemon, it errors out if bypass is false, otherwise ignores
         the entire function call if bypass is set to true.
+```
 
+```
 Lock():
     A mutex lock for synchronizing execution when running threads.
 
@@ -33,3 +37,4 @@ Lock():
 
     bool held():
         Returns whether or not the lock is currently in use (obtained) by any threads.
+```

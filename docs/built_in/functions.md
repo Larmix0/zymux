@@ -1,7 +1,6 @@
-Built-in functions documentation
+# Built-in functions documentation
 
-----------------------------------------------------------------------------------------------------
-
+```
 null print(value, newline=true, destructure=false):
     Prints the passed value to the output.
 
@@ -11,24 +10,33 @@ null print(value, newline=true, destructure=false):
     destructure: whether or not it should treat the print value as an iterable and print
     each of its elements as an independant print, for convenience. If this is enabled alongside
     the newlines boolean, then it prints a newline after every object of the iterable value.
+```
 
+```
 string input(text=""):
     Returns a line of user-written input in the terminal.
 
     text: prompt text that gets printed (with no automatic newlines) before the input is taken.
+```
 
+```
 null assert(condition, message="Assert failure."):
     Raises an error if condition is false, then prints message.
     Does nothing if the condition evaluates to true.
 
     message: the message which gets printed on error. Expected to be a string.
+```
 
+```
 file open(path, mode):
     Returns an opened file from the passed file opened with the passed mode.
     Can cause an error if the file failed to open or if the mode was invalid.
 
     Accepted modes are: "r", "rb", "r+", "rb+", "a", "ab", "a+", "ab+", "w", "wb", "w+", "wb+".
+```
 
+```
 float time():
     Returns the time which has passed since the beginning of the program.
     Measured with how many clock ticks have been used since the start of the program.
+```

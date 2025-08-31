@@ -1,3 +1,6 @@
+# File object type documentation
+
+```
 File(path, mode):
     Creates a file object that represents and interacts with the passed path if it exists.
     Allows or disallows certain operations depending on the mode.
@@ -29,3 +32,4 @@ File(path, mode):
         Would only error if the closing operation went internally wrong.
         Closing a file means it's no longer allowed to perform any operations to it or else it will
         throw an error.
+```
