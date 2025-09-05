@@ -23,6 +23,7 @@ typedef Obj *(*NativeFunc)(ThreadObj *thread, Obj *callee, Obj **args);
 typedef struct {
     Table funcs; /** Name (string) keys, native function values. */
     Table modules; /** Name (string) keys, native module values. */
+    ClassObj *floatClass;
     ClassObj *fileClass;
     ClassObj *threadClass;
     ClassObj *lockClass;

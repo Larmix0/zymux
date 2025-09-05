@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -177,6 +178,20 @@ DEFINE_NATIVE_FUNC(open) {
         RETURN_ERROR(thread, "Couldn't open file at path '%s': %s", path->string, strerror(errno));
     }
     RETURN_OBJ(new_file_obj(&thread->vulnObjs, stream, path, modeStr));
+}
+
+/** Float class: returns the float instance's number as a rounded integer (always rounds down). */
+DEFINE_NATIVE_FUNC(Float_floor) {
+    UNUSED_VARIABLE(args);
+    ZmxInt rounded = (ZmxInt)floor(AS_PTR(FloatObj, callee)->number);
+    RETURN_OBJ(new_int_obj(&thread->vulnObjs, rounded));
+}
+
+/** Float class: returns the float instance's number as a rounded integer (always rounds up). */
+DEFINE_NATIVE_FUNC(Float_ceil) {
+    UNUSED_VARIABLE(args);
+    ZmxInt rounded = (ZmxInt)ceil(AS_PTR(FloatObj, callee)->number);
+    RETURN_OBJ(new_int_obj(&thread->vulnObjs, rounded));
 }
 
 /** File class: attempts to read and return the whole file as one string. Can error. */
@@ -447,6 +462,15 @@ static ClassObj *initial_native_class(VulnerableObjs *vulnObjs, const char *name
     return new_class_obj(vulnObjs, new_string_obj(vulnObjs, nameChars, strlen(nameChars)), false);
 }
 
+/** Loads the float class's information. */
+static void load_float_class(VulnerableObjs *vulnObjs) {
+    ClassObj *floatClass = initial_native_class(vulnObjs, "Float");
+
+    load_method(vulnObjs, &floatClass->methods, "floor", native_Float_floor, no_params());
+    load_method(vulnObjs, &floatClass->methods, "ceil", native_Float_ceil, no_params());
+    vulnObjs->program->builtIn.floatClass = floatClass;
+}
+
 /** Loads the file class's information. */
 static void load_file_class(VulnerableObjs *vulnObjs) {
     ClassObj *fileClass = initial_native_class(vulnObjs, "File");
@@ -491,6 +515,7 @@ static void load_lock_class(VulnerableObjs *vulnObjs) {
 
 /** Loads all built-in classes. */
 static void load_native_classes(VulnerableObjs *vulnObjs) {
+    load_float_class(vulnObjs);
     load_file_class(vulnObjs);
     load_thread_class(vulnObjs);
     load_lock_class(vulnObjs);

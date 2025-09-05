@@ -891,6 +891,11 @@ static bool get_property(ThreadObj *thread, Obj *originalObj, StringObj *name) {
         PEEK(thread) = global;
         return true;
     }
+    case OBJ_FLOAT: {
+        FloatObj *instance = AS_PTR(FloatObj, originalObj);
+        ClassObj *cls = thread->vm->program->builtIn.floatClass;
+        return get_instance_property(thread, NULL, AS_OBJ(instance), cls, name, true);
+    }
     case OBJ_FILE: {
         FileObj *instance = AS_PTR(FileObj, originalObj);
         ClassObj *cls = thread->vm->program->builtIn.fileClass;
@@ -2169,6 +2174,7 @@ void interpret_file_source(ZmxProgram *program, char *source, const bool isMain)
         }
         return; // Failed to compile.
     }
+    
     Vm vm;
     init_vm(&vm, program, AS_PTR(RuntimeFuncObj, func));
     DROP_PROTECTED(vulnObjs); // Compiled function goes inside protected, but it's in VM now. Pop.
