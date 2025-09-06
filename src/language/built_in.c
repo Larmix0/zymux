@@ -180,6 +180,22 @@ DEFINE_NATIVE_FUNC(open) {
     RETURN_OBJ(new_file_obj(&thread->vulnObjs, stream, path, modeStr));
 }
 
+/** 
+ * Int class: returns a single character string of the ASCII form of the number.
+ * 
+ * Errors if the number is not within the permissible ASCII range.
+ */
+DEFINE_NATIVE_FUNC(Int_ascii) {
+    UNUSED_VARIABLE(args);
+    ZmxInt integer = AS_PTR(IntObj, callee)->number;
+    if (integer < 0 || integer > 127) {
+        RETURN_ERROR(thread, ZMX_INT_FMT " is out of allowed ASCII range (0-127)", integer);
+    }
+
+    char ascii[2] = {(char)integer, '\0'};
+    RETURN_OBJ(new_string_obj(&thread->vulnObjs, ascii, strlen(ascii)));
+}
+
 /** Float class: returns the float instance's number as a rounded integer (always rounds down). */
 DEFINE_NATIVE_FUNC(Float_floor) {
     UNUSED_VARIABLE(args);
@@ -462,6 +478,14 @@ static ClassObj *initial_native_class(VulnerableObjs *vulnObjs, const char *name
     return new_class_obj(vulnObjs, new_string_obj(vulnObjs, nameChars, strlen(nameChars)), false);
 }
 
+/** Loads the int class's information. */
+static void load_int_class(VulnerableObjs *vulnObjs) {
+    ClassObj *intClass = initial_native_class(vulnObjs, "Int");
+
+    load_method(vulnObjs, &intClass->methods, "ascii", native_Int_ascii, no_params());
+    vulnObjs->program->builtIn.intClass = intClass;
+}
+
 /** Loads the float class's information. */
 static void load_float_class(VulnerableObjs *vulnObjs) {
     ClassObj *floatClass = initial_native_class(vulnObjs, "Float");
@@ -515,6 +539,7 @@ static void load_lock_class(VulnerableObjs *vulnObjs) {
 
 /** Loads all built-in classes. */
 static void load_native_classes(VulnerableObjs *vulnObjs) {
+    load_int_class(vulnObjs);
     load_float_class(vulnObjs);
     load_file_class(vulnObjs);
     load_thread_class(vulnObjs);

@@ -891,10 +891,13 @@ static bool get_property(ThreadObj *thread, Obj *originalObj, StringObj *name) {
         PEEK(thread) = global;
         return true;
     }
+    case OBJ_INT: {
+        ClassObj *cls = thread->vm->program->builtIn.intClass;
+        return get_instance_property(thread, NULL, originalObj, cls, name, true);
+    }
     case OBJ_FLOAT: {
-        FloatObj *instance = AS_PTR(FloatObj, originalObj);
         ClassObj *cls = thread->vm->program->builtIn.floatClass;
-        return get_instance_property(thread, NULL, AS_OBJ(instance), cls, name, true);
+        return get_instance_property(thread, NULL, originalObj, cls, name, true);
     }
     case OBJ_FILE: {
         FileObj *instance = AS_PTR(FileObj, originalObj);
@@ -907,9 +910,8 @@ static bool get_property(ThreadObj *thread, Obj *originalObj, StringObj *name) {
         return get_instance_property(thread, &instance->fields, AS_OBJ(instance), cls, name, true);
     }
     case OBJ_LOCK: {
-        LockObj *instance = AS_PTR(LockObj, originalObj);
         ClassObj *cls = thread->vm->program->builtIn.lockClass;
-        return get_instance_property(thread, NULL, AS_OBJ(instance), cls, name, true);
+        return get_instance_property(thread, NULL, originalObj, cls, name, true);
     }
     default:
         RUNTIME_ERROR(

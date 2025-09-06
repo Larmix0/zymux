@@ -106,6 +106,7 @@ static void mark_built_ins(BuiltIns *builtIn) {
     mark_table(builtIn->funcs);
     mark_table(builtIn->modules);
     
+    mark_obj(AS_OBJ(builtIn->intClass));
     mark_obj(AS_OBJ(builtIn->floatClass));
     mark_obj(AS_OBJ(builtIn->fileClass));
     mark_obj(AS_OBJ(builtIn->threadClass));
