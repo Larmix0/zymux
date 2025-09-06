@@ -394,8 +394,9 @@ static void print_stack_trace(ThreadObj *thread) {
         } else {
             fprintf(stderr, "%s(): ", frame->func->name->string);
         }
-        const u32 bytecodeIdx = frame->ip - frame->func->bytecode.data;
-        fprintf(stderr, "line %d\n", frame->func->positions.data[bytecodeIdx].line);
+        // -1 because the errored instruction was read and therefore 1 behind frame's current IP.
+        const u32 prevBytecodeIdx = frame->ip - frame->func->bytecode.data - 1;
+        fprintf(stderr, "line %d\n", frame->func->positions.data[prevBytecodeIdx].line);
     }
 
     fputc('\n', stderr);
@@ -487,10 +488,10 @@ void base_runtime_error(ThreadObj *thread, StringObj *errorMessage) {
     set_exit_code(thread, false, ZMX_EXIT_FAILURE);
     if (errorMessage) {
         print_stack_trace(thread);
-        const u32 bytecodeIdx = thread->frame->ip - thread->frame->func->bytecode.data;
+        const u32 prevBytecodeIdx = thread->frame->ip - thread->frame->func->bytecode.data - 1;
         user_error(
             thread->vm->program, AS_PTR(RuntimeFuncObj, thread->frame->func)->module->path->string,
-            thread->frame->func->positions.data[bytecodeIdx],
+            thread->frame->func->positions.data[prevBytecodeIdx],
             "Runtime error", errorMessage->string, NULL
         );
     }
