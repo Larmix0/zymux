@@ -210,6 +210,34 @@ DEFINE_NATIVE_FUNC(Float_ceil) {
     RETURN_OBJ(new_int_obj(&thread->vulnObjs, rounded));
 }
 
+/** Map class: performs a safe get operation which either returns the key's value or a fallback. */
+DEFINE_NATIVE_FUNC(Map_find) {
+    MapObj *map = AS_PTR(MapObj, callee);
+    Obj *key = args[0];
+    Obj *fallback = args[1];
+    if (!is_hashable(key)) {
+        RETURN_ERROR(thread, "Expected hashable key, got %s instead.", obj_type_str(key->type));
+    }
+
+    Obj *value = table_get(&map->table, key);
+    RETURN_OBJ(value ? value : fallback);
+}
+
+/** 
+ * Map class: deletes a key-value pair from the map using the passed key.
+ * 
+ * Returns a boolean which is true if the key did exist and was deleted, otherwise false.
+ */
+DEFINE_NATIVE_FUNC(Map_delete) {
+    MapObj *map = AS_PTR(MapObj, callee);
+    Obj *key = args[0];
+    if (!is_hashable(key)) {
+        RETURN_ERROR(thread, "Expected hashable key, got %s instead.", obj_type_str(key->type));
+    }
+
+    RETURN_OBJ(new_bool_obj(&thread->vulnObjs, table_delete(&map->table, key)));
+}
+
 /** File class: attempts to read and return the whole file as one string. Can error. */
 DEFINE_NATIVE_FUNC(File_read) {
     UNUSED_VARIABLE(args);
@@ -495,6 +523,21 @@ static void load_float_class(VulnerableObjs *vulnObjs) {
     vulnObjs->program->builtIn.floatClass = floatClass;
 }
 
+/** Loads the map class's information. */
+static void load_map_class(VulnerableObjs *vulnObjs) {
+    ClassObj *mapClass = initial_native_class(vulnObjs, "Map");
+
+    load_method(
+        vulnObjs, &mapClass->methods, "delete", native_Map_delete,
+        mandatory_params(vulnObjs, 1, "key")
+    );
+    load_method(
+        vulnObjs, &mapClass->methods, "find", native_Map_find,
+        with_optional_params(vulnObjs, 1, 2, "key", NULL, "fallback", new_null_obj(vulnObjs))
+    );
+    vulnObjs->program->builtIn.mapClass = mapClass;
+} 
+
 /** Loads the file class's information. */
 static void load_file_class(VulnerableObjs *vulnObjs) {
     ClassObj *fileClass = initial_native_class(vulnObjs, "File");
@@ -541,6 +584,7 @@ static void load_lock_class(VulnerableObjs *vulnObjs) {
 static void load_native_classes(VulnerableObjs *vulnObjs) {
     load_int_class(vulnObjs);
     load_float_class(vulnObjs);
+    load_map_class(vulnObjs);
     load_file_class(vulnObjs);
     load_thread_class(vulnObjs);
     load_lock_class(vulnObjs);
