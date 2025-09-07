@@ -32,6 +32,9 @@ file open(path, mode):
     Returns an opened file from the passed file opened with the passed mode.
     Can cause an error if the file failed to open or if the mode was invalid.
 
+    path: the path where the file is located.
+
+    mode: the mode the file will be opened in.
     Accepted modes are: "r", "rb", "r+", "rb+", "a", "ab", "a+", "ab+", "w", "wb", "w+", "wb+".
 ```
 

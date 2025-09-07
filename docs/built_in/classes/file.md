@@ -1,4 +1,4 @@
-# File object type documentation
+# File object documentation
 
 ```
 File(path, mode):
@@ -25,6 +25,8 @@ File(path, mode):
         If it's writing mode, then it overwrites the whole file,
         if it's in appending mode then it appends it to the end of the file,
         otherwise it raises an error.
+
+        'text': the text to write to the file.
 
     null close():
         Closes the file and its resources.
