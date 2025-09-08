@@ -900,6 +900,10 @@ static bool get_property(ThreadObj *thread, Obj *originalObj, StringObj *name) {
         ClassObj *cls = thread->vm->program->builtIn.floatClass;
         return get_instance_property(thread, NULL, originalObj, cls, name, true);
     }
+    case OBJ_LIST: {
+        ClassObj *cls = thread->vm->program->builtIn.listClass;
+        return get_instance_property(thread, NULL, originalObj, cls, name, true);
+    }
     case OBJ_MAP: {
         ClassObj *cls = thread->vm->program->builtIn.mapClass;
         return get_instance_property(thread, NULL, originalObj, cls, name, true);

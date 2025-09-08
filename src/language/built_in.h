@@ -25,6 +25,7 @@ typedef struct {
     Table modules; /** Name (string) keys, native module values. */
     ClassObj *intClass;
     ClassObj *floatClass;
+    ClassObj *listClass;
     ClassObj *mapClass;
     ClassObj *fileClass;
     ClassObj *threadClass;

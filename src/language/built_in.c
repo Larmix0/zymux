@@ -210,6 +210,67 @@ DEFINE_NATIVE_FUNC(Float_ceil) {
     RETURN_OBJ(new_int_obj(&thread->vulnObjs, rounded));
 }
 
+/** List class: pushes an object towards the top of the stack (last element). */
+DEFINE_NATIVE_FUNC(List_push) {
+    ListObj *list = AS_PTR(ListObj, callee);
+    Obj *item = args[0];
+    PUSH_DA(&list->items, item);
+    DEFAULT_RETURN(thread);
+}
+
+/** List class: inserts an item at a specific index in the list. */
+DEFINE_NATIVE_FUNC(List_insert) {
+    UNUSED_VARIABLE(args);
+    PARAM_TYPE_CHECK(thread, args, 0, OBJ_INT);
+
+    ListObj *list = AS_PTR(ListObj, callee);
+    const ZmxInt index = AS_PTR(IntObj, args[0])->number;
+    Obj *item = args[1];
+    if (index > list->items.length || index < 0) {
+        RETURN_ERROR(thread, "Insert index must be within list.");
+    }
+
+    PUSH_DA(&list->items, AS_OBJ(thread->vm->program->internedNull)); // Placeholder null.
+    for (u32 i = list->items.length; i > index; i--) {
+        list->items.data[i] = list->items.data[i - 1];
+    }
+    list->items.data[index] = item;
+    DEFAULT_RETURN(thread);
+}
+
+/** List class: pops the topmost element in the list and returns it safely. */
+DEFINE_NATIVE_FUNC(List_pop) {
+    UNUSED_VARIABLE(args);
+    ListObj *list = AS_PTR(ListObj, callee);
+    if (list->items.length == 0) {
+        RETURN_ERROR(thread, "Can't pop from empty list.");
+    }
+
+    Obj *popped = POP_DA(&list->items);
+    PUSH_UNROOTED(&thread->vulnObjs, popped);
+    RETURN_OBJ(popped);
+}
+
+/** List class: removes an element at the passed integer index. Returns the removed item */
+DEFINE_NATIVE_FUNC(List_remove) {
+    PARAM_TYPE_CHECK(thread, args, 0, OBJ_INT);
+    ListObj *list = AS_PTR(ListObj, callee);
+    const ZmxInt index = AS_PTR(IntObj, args[0])->number;
+    if (list->items.length == 0) {
+        RETURN_ERROR(thread, "Can't remove from empty list.");
+    }
+    if (index > list->items.length - 1 || index < 0) {
+        RETURN_ERROR(thread, "Remove index must be within list.");
+    }
+
+    Obj *removed = list->items.data[index];
+    for (u32 i = index; i < list->items.length - 1; i++) {
+        list->items.data[i] = list->items.data[i + 1];
+    }
+    DROP_DA(&list->items);
+    RETURN_OBJ(removed);
+}
+
 /** Map class: performs a safe get operation which either returns the key's value or a fallback. */
 DEFINE_NATIVE_FUNC(Map_find) {
     MapObj *map = AS_PTR(MapObj, callee);
@@ -523,6 +584,26 @@ static void load_float_class(VulnerableObjs *vulnObjs) {
     vulnObjs->program->builtIn.floatClass = floatClass;
 }
 
+/** Loads the list class's information. */
+static void load_list_class(VulnerableObjs *vulnObjs) {
+    ClassObj *listClass = initial_native_class(vulnObjs, "List");
+
+    load_method(
+        vulnObjs, &listClass->methods, "push", native_List_push,
+        mandatory_params(vulnObjs, 1, "item")
+    );
+    load_method(
+        vulnObjs, &listClass->methods, "insert", native_List_insert,
+        mandatory_params(vulnObjs, 2, "index", "item")
+    );
+    load_method(vulnObjs, &listClass->methods, "pop", native_List_pop, no_params());
+    load_method(
+        vulnObjs, &listClass->methods, "remove", native_List_remove,
+        mandatory_params(vulnObjs, 1, "index")
+    );
+    vulnObjs->program->builtIn.listClass = listClass;
+}
+
 /** Loads the map class's information. */
 static void load_map_class(VulnerableObjs *vulnObjs) {
     ClassObj *mapClass = initial_native_class(vulnObjs, "Map");
@@ -584,6 +665,7 @@ static void load_lock_class(VulnerableObjs *vulnObjs) {
 static void load_native_classes(VulnerableObjs *vulnObjs) {
     load_int_class(vulnObjs);
     load_float_class(vulnObjs);
+    load_list_class(vulnObjs);
     load_map_class(vulnObjs);
     load_file_class(vulnObjs);
     load_thread_class(vulnObjs);
