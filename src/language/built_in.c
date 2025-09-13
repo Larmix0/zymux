@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <errno.h>
 #include <math.h>
 #include <stdarg.h>
@@ -9,6 +10,7 @@
 #include "built_in.h"
 #include "char_buffer.h"
 #include "file.h"
+#include "lexer.h"
 #include "object.h"
 #include "program.h"
 #include "vm.h"
@@ -73,6 +75,29 @@ static void print_destructure(VulnerableObjs *vulnObjs, Obj *toPrint, const bool
         }
     }
     MUTEX_UNLOCK(&vulnObjs->program->printLock);
+}
+
+/** Verifies that a string can be converted to an integer or float. */
+bool string_is_numeric(char *string) {
+    char *current = string;
+    if (*current == '-') {
+        current++; // Allow 1 negative prefix.
+    }
+    if (!IS_DIGIT(*current)) {
+        return false; // Must have at least one digit.
+    }
+    while (IS_DIGIT(*current)) {
+        current++;
+    }
+    
+    // Handle decimal part of float numbers.
+    if (*current == '.' && IS_DIGIT(*(current + 1))) {
+        current += 2;
+        while (IS_DIGIT(*current)) {
+            current++;
+        }
+    }
+    return *current == '\0'; // If it's not done, then it's not a number.
 }
 
 /** Built-in printing function with some boolean flag settings. */
@@ -207,7 +232,58 @@ DEFINE_NATIVE_FUNC(Float_floor) {
 DEFINE_NATIVE_FUNC(Float_ceil) {
     UNUSED_VARIABLE(args);
     ZmxInt rounded = (ZmxInt)ceil(AS_PTR(FloatObj, callee)->number);
+
     RETURN_OBJ(new_int_obj(&thread->vulnObjs, rounded));
+}
+
+/** String class: return how many characters are in the string. */
+DEFINE_NATIVE_FUNC(String_length) {
+    UNUSED_VARIABLE(args);
+    const ZmxInt length = AS_PTR(StringObj, callee)->length;
+
+    RETURN_OBJ(new_int_obj(&thread->vulnObjs, length));
+}
+
+/** String class: return a new string with all ASCII characters as lower case. */
+DEFINE_NATIVE_FUNC(String_lower) {
+    UNUSED_VARIABLE(args);
+    StringObj *original = AS_PTR(StringObj, callee);
+
+    char *cLowered = ARRAY_ALLOC(original->length + 1, char); // +1 for NUL.
+    for (u32 i = 0; i < original->length; i++) {
+        cLowered[i] = tolower(original->string[i]);
+    }
+    cLowered[original->length] = '\0';
+    StringObj *lowered = new_string_obj(&thread->vulnObjs, cLowered, original->length);
+    free(cLowered);
+    RETURN_OBJ(lowered);
+}
+
+/** 
+ * String class: return a new string with all ASCII characters as upper case.
+ * 
+ * Allocates 2 strings even though 1 would be enough, and that is because strings are immutable
+ * (and it would outdate their hash).
+ */
+DEFINE_NATIVE_FUNC(String_upper) {
+    UNUSED_VARIABLE(args);
+    StringObj *original = AS_PTR(StringObj, callee);
+
+    char *cUppered = ARRAY_ALLOC(original->length + 1, char); // +1 for NUL.
+    for (u32 i = 0; i < original->length; i++) {
+        cUppered[i] = toupper(original->string[i]);
+    }
+    cUppered[original->length] = '\0';
+    StringObj *uppered = new_string_obj(&thread->vulnObjs, cUppered, original->length);
+    free(cUppered);
+    RETURN_OBJ(uppered);
+}
+
+/** String class: verifies that a string can be turned into a number (int or float) safely. */
+DEFINE_NATIVE_FUNC(String_isnumeric) {
+    UNUSED_VARIABLE(args);
+    char *string = AS_PTR(StringObj, callee)->string;
+    RETURN_OBJ(new_bool_obj(&thread->vulnObjs, string_is_numeric(string)));
 }
 
 /** List class: pushes an object towards the top of the stack (last element). */
@@ -619,6 +695,17 @@ static void load_map_class(VulnerableObjs *vulnObjs) {
     vulnObjs->program->builtIn.mapClass = mapClass;
 } 
 
+/** Loads the string class's information. */
+static void load_string_class(VulnerableObjs *vulnObjs) {
+    ClassObj *stringClass = initial_native_class(vulnObjs, "String");
+
+    load_method(vulnObjs, &stringClass->methods, "length", native_String_length, no_params());
+    load_method(vulnObjs, &stringClass->methods, "lower", native_String_lower, no_params());
+    load_method(vulnObjs, &stringClass->methods, "upper", native_String_upper, no_params());
+    load_method(vulnObjs, &stringClass->methods, "isnumeric", native_String_isnumeric, no_params());
+    vulnObjs->program->builtIn.stringClass = stringClass;
+}
+
 /** Loads the file class's information. */
 static void load_file_class(VulnerableObjs *vulnObjs) {
     ClassObj *fileClass = initial_native_class(vulnObjs, "File");
@@ -665,6 +752,7 @@ static void load_lock_class(VulnerableObjs *vulnObjs) {
 static void load_native_classes(VulnerableObjs *vulnObjs) {
     load_int_class(vulnObjs);
     load_float_class(vulnObjs);
+    load_string_class(vulnObjs);
     load_list_class(vulnObjs);
     load_map_class(vulnObjs);
     load_file_class(vulnObjs);

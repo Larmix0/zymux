@@ -25,12 +25,16 @@ typedef struct {
     Table modules; /** Name (string) keys, native module values. */
     ClassObj *intClass;
     ClassObj *floatClass;
+    ClassObj *stringClass;
     ClassObj *listClass;
     ClassObj *mapClass;
     ClassObj *fileClass;
     ClassObj *threadClass;
     ClassObj *lockClass;
 } BuiltIns;
+
+/** Verifies that a string can be converted to an integer or float. */
+bool string_is_numeric(char *string);
 
 /** Loads all built-ins into the built-in struct in the program inside the passed vulnerabes. */
 void load_built_ins(VulnerableObjs *vulnObjs);

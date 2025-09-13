@@ -108,6 +108,7 @@ static void mark_built_ins(BuiltIns *builtIn) {
     
     mark_obj(AS_OBJ(builtIn->intClass));
     mark_obj(AS_OBJ(builtIn->floatClass));
+    mark_obj(AS_OBJ(builtIn->stringClass));
     mark_obj(AS_OBJ(builtIn->listClass));
     mark_obj(AS_OBJ(builtIn->mapClass));
     mark_obj(AS_OBJ(builtIn->fileClass));

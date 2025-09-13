@@ -4,9 +4,9 @@
 #include <string.h>
 
 #include "allocator.h"
+#include "built_in.h"
 #include "char_buffer.h"
 #include "emitter.h"
-#include "lexer.h"
 #include "object.h"
 #include "program.h"
 
@@ -796,30 +796,6 @@ bool equal_obj(const Obj *left, const Obj *right) {
     UNREACHABLE_ERROR();
 }
 
-/** Verifies that a string can be converted to an integer or float. */
-static bool string_is_num(char *string) {
-    if (string[0] == '\0') {
-        return false; // Empty string, not a number.
-    }
-    char current;
-    while ((current = *string++)) {
-        if (current == '.') {
-            if (string[0] == '\0') {
-                return false; // Nothing after the float dot, invalid.
-            }
-            while ((current = *string++)) {
-                if (!IS_DIGIT(current)) {
-                    return false;   
-                }
-            }
-            return true; // Finished float.
-        } else if (!IS_DIGIT(current)) {
-            return false;   
-        }
-    }
-    return true; // Finished integer.
-}
-
 /** Returns a copy of the passed object as an integer. Returns NULL if conversion failed. */
 IntObj *as_int(VulnerableObjs *vulnObjs, const Obj *object) {
     ZmxInt result;
@@ -829,7 +805,7 @@ IntObj *as_int(VulnerableObjs *vulnObjs, const Obj *object) {
     case OBJ_BOOL: result = (ZmxInt)(AS_PTR(BoolObj, object)->boolean); break;
     case OBJ_STRING: {
         StringObj *str = AS_PTR(StringObj, object);
-        if (!string_is_num(str->string)) {
+        if (!string_is_numeric(str->string)) {
             return NULL;
         }
         result = strtoll(str->string, NULL, 10);
@@ -870,7 +846,7 @@ FloatObj *as_float(VulnerableObjs *vulnObjs, const Obj *object) {
     case OBJ_BOOL: result = (ZmxFloat)(AS_PTR(BoolObj, object)->boolean); break;
     case OBJ_STRING: {
         StringObj *str = AS_PTR(StringObj, object);
-        if (!string_is_num(str->string)) {
+        if (!string_is_numeric(str->string)) {
             return NULL;
         }
         result = strtod(str->string, NULL);

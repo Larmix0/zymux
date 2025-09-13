@@ -22,12 +22,12 @@ The documentation includes all built-in functions, classes, and modules.
 name({parameters}):
     {class documentation}
 
-    {returnType} name({parameters}):
-        {method documentation}
-    ...
-
     {type} 'name':
         {field documentation}
+    ...
+
+    {returnType} name({parameters}):
+        {method documentation}
     ...
 
 ```
