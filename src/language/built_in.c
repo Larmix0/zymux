@@ -286,6 +286,28 @@ DEFINE_NATIVE_FUNC(String_isnumeric) {
     RETURN_OBJ(new_bool_obj(&thread->vulnObjs, string_is_numeric(string)));
 }
 
+/** 
+ * Converts a single character string into its ASCII code integer (returning it).
+ * 
+ * Raises an error if the string is not a single character.
+ */
+DEFINE_NATIVE_FUNC(String_charcode) {
+    UNUSED_VARIABLE(args);
+    StringObj *string = AS_PTR(StringObj, callee);
+    if (string->length != 1) {
+        RETURN_ERROR(
+            thread, "Can only get char code of single character strings, got %" PRIu32
+            " characters instead.", string->length
+        );
+    }
+
+    unsigned char toConvert = string->string[0];
+    if (toConvert > 127) {
+        RETURN_ERROR(thread, "Character outside of charcode ASCII range (0-127).");
+    }
+    RETURN_OBJ(new_int_obj(&thread->vulnObjs, (ZmxInt)toConvert));
+}
+
 /** List class: pushes an object towards the top of the stack (last element). */
 DEFINE_NATIVE_FUNC(List_push) {
     ListObj *list = AS_PTR(ListObj, callee);
@@ -703,6 +725,7 @@ static void load_string_class(VulnerableObjs *vulnObjs) {
     load_method(vulnObjs, &stringClass->methods, "lower", native_String_lower, no_params());
     load_method(vulnObjs, &stringClass->methods, "upper", native_String_upper, no_params());
     load_method(vulnObjs, &stringClass->methods, "isnumeric", native_String_isnumeric, no_params());
+    load_method(vulnObjs, &stringClass->methods, "charcode", native_String_charcode, no_params());
     vulnObjs->program->builtIn.stringClass = stringClass;
 }
 

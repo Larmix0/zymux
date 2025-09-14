@@ -16,4 +16,9 @@ String(length):
     string isnumeric():
         Returns whether or not the string's text represents a number which can be safely converted
         to an int/float.
+    
+    int charcode():
+        Returns the ASCII integer corresponding to the passed string, which is expected to be
+        a single character.
+        Errors if the string was empty or had more than one character inside it.
 ```
