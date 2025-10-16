@@ -357,6 +357,18 @@ that stores the runtime module it currently is on.
 
 ---
 
+### OP_ENTRY_FUNC
+Reads a function object constant, and sets it as the entry function for the currently executing
+module.
+
+---
+
+### OP_RUN_ENTRY  
+Executes the module’s entry function as a call with no name or parameters,  
+if one is attached. Otherwise, the instruction is treated as a no-op.
+
+---
+
 ### OP_OPTIONALS_FUNC
 Expects the top element of the stack to be some a list of loaded, runtime values for
 the optional values of a (runtime) function, which is the second to top element in the stack.

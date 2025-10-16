@@ -208,6 +208,7 @@ ModuleObj *new_module_obj(
     ModuleObj *object = NEW_OBJ(vulnObjs, OBJ_MODULE, ModuleObj);
     object->path = path;
     object->importedBy = importedBy;
+    object->entryFunc = NULL;
     object->globalsUnsafe = create_table();
     MUTEX_INIT(&object->globalsLock);
 

@@ -962,18 +962,28 @@ static void compile_return(Compiler *compiler, const ReturnNode *node) {
     }
 }
 
+/** Handles the compilation of any function's body (inlcuding the ending implicit return). */
+static void compile_func_body(Compiler *compiler, BlockNode *body, ReturnNode *defaultReturn) {
+    JumpArray previousJumps = compiler->jumps;
+    INIT_DA(&compiler->jumps);
+    compile_node_array(compiler, &body->stmts);
+    compile_return(compiler, defaultReturn);
+
+    write_jumps(compiler);
+    FREE_DA(&compiler->jumps);
+    compiler->jumps = previousJumps;
+}
+
 /** 
- * Finishes compiling the current function on the compiler.
+ * Compiles the signature of the function (the func name and parameters).
  * 
  * First, declares the function itself a second time inside its own self,
  * which makes it treat itself as the first variable (to allow recursion).
  * 
- * After that, gives the function its parameter names and emits the appropriate instructions
+ * Then, gives the function its parameter names and emits the appropriate instructions
  * for handling their declarations/capturement.
- * Then compiles the loop body, writes a default return statement in case the function
- * didn't have any, and finally finishes up the function by writing all statement jumps it had.
  */
-static void finish_func(Compiler *compiler, const FuncNode *node) {
+static void compile_func_signature(Compiler *compiler, const FuncNode *node) {
     if (node->isMethod) {
         compile_declare_var(compiler, node->innerDecl);
     }
@@ -987,14 +997,6 @@ static void finish_func(Compiler *compiler, const FuncNode *node) {
             compiler, OP_CAPTURE_AT, node->capturedParams.data[i], get_node_pos(AS_NODE(node))
         );
     }
-    JumpArray previousJumps = compiler->jumps;
-    INIT_DA(&compiler->jumps);
-    compile_node_array(compiler, &node->body->stmts);
-    compile_return(compiler, node->defaultReturn);
-
-    write_jumps(compiler);
-    FREE_DA(&compiler->jumps);
-    compiler->jumps = previousJumps;
 }
 
 /** Appends an array of parameter declarations to the passed function object's param names. */
@@ -1098,11 +1100,27 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
     );
     // Protect the new function during its compilation (original was already protected recursively).
     PUSH_PROTECTED(compiler->vulnObjs, AS_OBJ(compiler->func));
-    finish_func(compiler, node);
+    compile_func_signature(compiler, node);
+    compile_func_body(compiler, node->body, node->defaultReturn);
     FuncObj *compiledFunc = compiler->func;
     compiler->func = original;
     declare_func(compiler, compiledFunc, node); // Declare the function compiled in the original.
     DROP_PROTECTED(compiler->vulnObjs); // No need to protect anymore, it's inside original now.
+}
+
+/** Compiles an entry function, which is a special function with only a body (no name or params). */
+static void compile_entry(Compiler *compiler, const EntryNode *node) {
+    char *cStringName = "<entry>";
+    StringObj *entryName = new_string_obj(compiler->vulnObjs, cStringName, strlen(cStringName));
+    FuncObj *original = compiler->func;
+    compiler->func = new_func_obj(compiler->vulnObjs, entryName, 0, 0, false);
+
+    compile_func_body(compiler, node->body, node->defaultReturn);
+    FuncObj *compiledEntry = compiler->func;
+    compiler->func = original;
+
+    FLAG_ENABLE(compiledEntry->flags, FUNC_ENTRY_BIT);
+    emit_const(compiler, OP_ENTRY_FUNC, AS_OBJ(compiledEntry), PREVIOUS_OPCODE_POS(compiler));
 }
 
 /** 
@@ -1167,12 +1185,20 @@ static void compile_class(Compiler *compiler, const ClassNode *node) {
 /** 
  * Compiles an EOF node, which is placed to indicate the end of the bytecode.
  * 
- * In a compiler this can indicate the end of an importable file, or the end of the program
- * as a whole (which happens when the exit as at the main file). Emits an end instruction
- * depending on whether it's ending the module or the whole program.
+ * Emits bytecode that indicates either the end of an importable file, or the end of the program
+ * as a whole (which happens when the exit is at the end of the main file's top-level code).
+ * 
+ * If the whole program is ending it also emits an instruction for executing an entry func
+ * if one exists, as an entry function only executes if it's the main file's, and its execution
+ * only starts after the top-level code has finished executing.
  */
 static void compile_eof(Compiler *compiler, const EofNode *node) {
-    emit_instr(compiler, compiler->isMain ? OP_EOF : OP_END_MODULE, node->pos);
+    if (compiler->isMain) {
+        emit_instr(compiler, OP_RUN_ENTRY, node->pos);
+        emit_instr(compiler, OP_EOF, node->pos);
+    } else {
+        emit_instr(compiler, OP_END_MODULE, node->pos);
+    }
 }
 
 /** Emits an exit with a specific exit code (the runtime will check if it's an integer by then). */
@@ -1224,6 +1250,7 @@ static void compile_node(Compiler *compiler, const Node *node) {
     case AST_RAISE: compile_raise(compiler, AS_PTR(RaiseNode, node)); break;
     case AST_RETURN: compile_return(compiler, AS_PTR(ReturnNode, node)); break;
     case AST_FUNC: compile_func(compiler, AS_PTR(FuncNode, node)); break;
+    case AST_ENTRY: compile_entry(compiler, AS_PTR(EntryNode, node)); break;
     case AST_CLASS: compile_class(compiler, AS_PTR(ClassNode, node)); break;
     case AST_EXIT: compile_exit(compiler, AS_PTR(ExitNode, node)); break;
     case AST_EOF: compile_eof(compiler, AS_PTR(EofNode, node)); break;

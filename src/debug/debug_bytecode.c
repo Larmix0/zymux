@@ -126,6 +126,8 @@ u32 print_instr(const FuncObj *func, u32 idx, InstrSize *size, const BytecodeFor
     case OP_ASSIGN_SUBSCR: print_bare_instr("ASSIGN_SUBSCR", &idx); break;
     case OP_GET_SUBSCR: print_bare_instr("GET_SUBSCR", &idx); break;
     case OP_FUNC: print_const_instr("FUNC", func, &idx, size); break;
+    case OP_ENTRY_FUNC: print_const_instr("ENTRY_FUNC", func, &idx, size); break;
+    case OP_RUN_ENTRY: print_bare_instr("RUN_ENTRY", &idx); break;
     case OP_OPTIONALS_FUNC: print_bare_instr("OPTIONALS_FUNC", &idx); break;
     case OP_MAKE_CLOSURE: print_bare_instr("MAKE_CLOSURE", &idx); break;
     case OP_CLASS: print_const_instr("CLASS", func, &idx, size); break;

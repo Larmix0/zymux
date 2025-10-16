@@ -1,0 +1,12 @@
+let success = false;
+
+entry {
+    success = true;
+    assert(success, "Should've been able to modify 'success' variable.");
+
+    let local = 10;
+    local += 2;
+    assert(local == 12, "Access or modification to local entry function variable failed.");
+}
+
+assert(!success, "Shouldn't have executed entry function yet.");

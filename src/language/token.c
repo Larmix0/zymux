@@ -91,6 +91,7 @@ char *token_type_string(const TokType type) {
     case TOKEN_STRING_LIT: return "STRING_LITERAL";
     case TOKEN_INT_LIT: return "INTEGER_LITERAL";
     case TOKEN_FLOAT_LIT: return "FLOAT_LITERAL";
+    case TOKEN_ENTRY_KW: return "ENTRY";
     case TOKEN_EQ: return "EQUAL";
     case TOKEN_IDENTIFIER: return "IDENTIFIER";
     case TOKEN_DOT_DOT: return "DOT_DOT";

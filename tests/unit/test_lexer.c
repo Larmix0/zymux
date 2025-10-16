@@ -216,20 +216,21 @@ PRIVATE_TEST_CASE(test_lex_errors) {
 
 /** Performs a test on a source code that includes every single token in Zymux. */
 PRIVATE_TEST_CASE(test_lex_all_tokens) {
-    char *source = "string int float bool class const let func if else while for "
+    char *source = "string int float bool class const let func if else while for entry "
         "do return break continue true false null as is in super this init abstract inherits "
         "match case default from import && || ! & | ^ << >> ~ += -= *= /= %= **= &= |= <<= >>= "
         "+-*/%** == != > >= < <= ()[]{} ; , . ?: $'str literal {100}' 22 44.2 = variable ..";
     TokenArray allTokens = CREATE_DA();
     append_test_tokens(
-        &allTokens, 83,
+        &allTokens, 84,
         create_token("string", TOKEN_STRING_KW), create_token("int", TOKEN_INT_KW),
         create_token("float", TOKEN_FLOAT_KW), create_token("bool", TOKEN_BOOL_KW),
         create_token("class", TOKEN_CLASS_KW), create_token("const", TOKEN_CONST_KW),
         create_token("let", TOKEN_LET_KW), create_token("func", TOKEN_FUNC_KW),
         create_token("if", TOKEN_IF_KW), create_token("else", TOKEN_ELSE_KW),
         create_token("while", TOKEN_WHILE_KW), create_token("for", TOKEN_FOR_KW),
-        create_token("do", TOKEN_DO_KW), create_token("return", TOKEN_RETURN_KW),
+        create_token("entry", TOKEN_ENTRY_KW), create_token("do", TOKEN_DO_KW),
+        create_token("return", TOKEN_RETURN_KW),
         create_token("break", TOKEN_BREAK_KW), create_token("continue", TOKEN_CONTINUE_KW),
         create_token("true", TOKEN_TRUE_KW), create_token("false", TOKEN_FALSE_KW),
         create_token("null", TOKEN_NULL_KW), create_token("as", TOKEN_AS_KW),

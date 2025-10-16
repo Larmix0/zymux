@@ -1289,8 +1289,12 @@ static void close_captures(ThreadObj *thread, const u32 pops) {
  * and replacing the callee object with that returned object (which also got popped).
  * 
  * Also, closes all alive variables that are gonna be deleted from the stack after the return.
+ * 
+ * Doesn't return anything if the function it's returning from is an entry one, because those
+ * don't have an explicit caller that retrieves a value.
  */
 static void call_return(ThreadObj *thread) {
+    const bool isEntryFunc = FLAG_IS_SET(thread->frame->func->flags, FUNC_ENTRY_BIT);
     const u32 arity = thread->frame->func->staticParams.maxArity;
     Obj *returned = safe_pop(thread);
     if (thread->openCaptures.length > 0) {
@@ -1298,7 +1302,10 @@ static void call_return(ThreadObj *thread) {
     }
     
     pop_stack_frame(thread);
-    DROP_PUSH_DEPTH(thread, returned, arity + 1); // +1 to also pop the callee.
+    DROP_AMOUNT(thread, arity + 1); // +1 to also pop the callee.
+    if (!isEntryFunc) {
+        PUSH(thread, returned); // Ensures that it returns nothing for entry funcs.
+    }
 }
 
 /**
@@ -1922,6 +1929,19 @@ static void interpreter_loop(ThreadObj *thread) {
         case OP_FUNC: {
             FuncObj *func = AS_PTR(FuncObj, READ_CONST(thread));
             PUSH(thread, new_runtime_func_obj(vulnObjs, func, thread->module));
+            break;
+        }
+        case OP_ENTRY_FUNC:
+            ASSERT(thread->module->entryFunc == NULL, "Can't set multiple runtime entry funcs.");
+            thread->module->entryFunc = AS_PTR(FuncObj, READ_CONST(thread));
+            break;
+        case OP_RUN_ENTRY: {
+            FuncObj *entryFunc = thread->module->entryFunc;
+            if (entryFunc) {
+                PUSH(thread, entryFunc);
+                PUSH(thread, new_map_obj(vulnObjs, create_table()));
+                call(thread, AS_OBJ(entryFunc), 1, 0);
+            }
             break;
         }
         case OP_MAKE_CLOSURE: {

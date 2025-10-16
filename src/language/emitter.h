@@ -84,6 +84,8 @@ typedef enum {
     OP_ASSIGN_SUBSCR,
     OP_GET_SUBSCR,
     OP_FUNC,
+    OP_ENTRY_FUNC,
+    OP_RUN_ENTRY,
     OP_OPTIONALS_FUNC,
     OP_MAKE_CLOSURE,
     OP_CLASS,

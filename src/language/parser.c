@@ -113,7 +113,7 @@ static void parser_error_missing(
  */
 static Node *parse_string(Parser *parser) {
     NodeArray exprs = CREATE_DA();
-    SourcePosition pos = PEEK(parser).pos;
+    const SourcePosition pos = PEEK(parser).pos;
     bool nextIsString = true;
     while (!MATCH(parser, TOKEN_STRING_END) && !parser->isPanicking) {
         ASSERT(!IS_EOF(parser), "No string end token to parse for string.");
@@ -616,7 +616,7 @@ static Node *expression_stmt(Parser *parser) {
  * It's basically just an array of declaration statements.
  */
 static Node *finish_block(Parser *parser) {
-    SourcePosition pos = PEEK_PREVIOUS(parser).pos;
+    const SourcePosition pos = PEEK_PREVIOUS(parser).pos;
     NodeArray stmts = CREATE_DA();
     while (!CHECK(parser, TOKEN_RCURLY) && !IS_EOF(parser) && !parser->isPanicking) {
         PUSH_DA(&stmts, declaration(parser));
@@ -1089,6 +1089,15 @@ static Node *parse_func(Parser *parser, const bool isMethod) {
     return named_func(parser, name, isMethod);
 }
 
+/** Parses an entry function statement (main function of a module). */
+static Node *parse_entry(Parser *parser) {
+    const SourcePosition pos = PEEK_PREVIOUS(parser).pos;
+    CONSUME(parser, TOKEN_LCURLY, "Expected '{' after 'entry'.");
+    Node *body = finish_block(parser);
+    
+    return new_entry_node(parser->program, AS_PTR(BlockNode, body), pos);
+}
+
 /** Finishes parsing an init method assuming the "init" keyword was already consumed. */
 static Node *init_method(Parser *parser, ClassNode *cls) {
     if (cls->init) {
@@ -1174,6 +1183,7 @@ static void synchronize(Parser *parser) {
         case TOKEN_DO_KW:
         case TOKEN_CLASS_KW:
         case TOKEN_FUNC_KW:
+        case TOKEN_ENTRY_KW:
         case TOKEN_LET_KW:
         case TOKEN_CONST_KW:
         case TOKEN_RETURN_KW:
@@ -1201,6 +1211,7 @@ static Node *declaration(Parser *parser) {
     case TOKEN_CONST_KW: node = parse_var_declaration(parser, true); break;
     case TOKEN_ENUM_KW: node = parse_enum(parser); break;
     case TOKEN_FUNC_KW: node = parse_func(parser, false); break;
+    case TOKEN_ENTRY_KW: node = parse_entry(parser); break;
 
     case TOKEN_CLASS_KW:
     case TOKEN_ABSTRACT_KW:

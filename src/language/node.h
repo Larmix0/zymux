@@ -57,6 +57,7 @@ typedef enum {
     AST_RAISE,
     AST_RETURN,
     AST_FUNC,
+    AST_ENTRY,
     AST_CLASS,
     AST_EXIT,
     AST_EOF
@@ -439,6 +440,20 @@ typedef struct {
     U32Array capturedParams; /** An array of each index into the params array that is captured. */
 } FuncNode;
 
+/** 
+ * Represents a special "entry" function.
+ * 
+ * It is a function which has no name or parameters, and instantly executes at EOF if it is
+ * on the same file that the program ran on. Similar to a main function in C, but it is a built-in
+ * feature instead of relying on naming conventions.
+ */
+typedef struct {
+    Node node;
+    BlockNode *body;
+    ReturnNode *defaultReturn; /** The default return emitted at the end of an entry function. */
+    SourcePosition pos;
+} EntryNode;
+
 /** Holds a Zymux class with all of its information. */
 typedef struct {
     Node node;
@@ -620,6 +635,9 @@ Node *new_func_node(
     const bool isMethod, const NodeArray mandatoryParams, const NodeArray optionalParams,
     BlockNode *body
 );
+
+/** Allocates a special entry function that executes automatically after EOF for script. */
+Node *new_entry_node(ZmxProgram *program, BlockNode *body, const SourcePosition pos);
 
 /** 
  * Allocates a node which represents a class and all of its information.

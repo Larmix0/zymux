@@ -66,8 +66,9 @@
 
 #define FUNC_RUNTIME_BIT (0x01) /** First bit. Represents any func with runtimem extension. */
 #define FUNC_TOP_LEVEL_BIT (0x02) /** Second bit. Reserved for top-level code "functions". */
-#define FUNC_CLOSURE_BIT (0x04) /** Third bit. Whether or not this stores a closure context. */
-#define FUNC_OPTIONALS_BIT (0x08) /** Fourth bit. Whether or not the func has optional params. */
+#define FUNC_ENTRY_BIT (0x04) /** Third bit. Whether or not this is an entry func. */
+#define FUNC_CLOSURE_BIT (0x08) /** Fourth bit. Whether or not this stores a closure context. */
+#define FUNC_OPTIONALS_BIT (0x10) /** Fifth bit. Whether or not the func has optional params. */
 
 #define FLAG_IS_SET(flags, bit) (((flags) & (bit)) != 0) /** Checks if a passed flag is on. */
 #define FLAG_ENABLE(flags, bit) ((flags) |= (bit)) /** Sets a passed flag as true. */
@@ -216,6 +217,7 @@ typedef struct {
 /** Represents an imported module's visible information. */
 typedef struct ModuleObj {
     Obj obj;
+    FuncObj *entryFunc; /** The optional entry function tied to this module. NULL by default. */
     StringObj *path; /** The file path of this module. */
     ModuleObj *importedBy; /** The module which imported this. NULL if it's the first module. */
     Table globalsUnsafe; /** Globals which can be accessed by other modules. Not thread-safe. */

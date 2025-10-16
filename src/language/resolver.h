@@ -14,6 +14,7 @@ DECLARE_DA_STRUCT(VarResolutionArray, VarResolution *);
 typedef enum {
     FUNC_NONE,
     FUNC_FUNCTION,
+    FUNC_ENTRY,
     FUNC_INIT,
     FUNC_METHOD
 } FuncType;
@@ -89,8 +90,10 @@ DECLARE_DA_STRUCT(ClosedVariablesArray, ClosedVariables);
  */
 typedef struct Resolver {
     ZmxProgram *program; /** Zymux program to hold the program's information. */
-    bool hasErrored; /** Whether or not the resolver errored. */
     NodeArray ast; /** The whole AST that is being resolved. */
+
+    bool hasErrored; /** Whether or not the resolver errored. */
+    bool hasEntry; /** Whether or not it already has an entry func. */
 
     ClosedVariables globals; /** An array of only globally declared variables. */
     ClosedVariablesArray locals; /** All variables excluding globals as an array of closures. */

@@ -78,7 +78,7 @@ typedef enum {
     TOKEN_INTERPOLATE, TOKEN_STRING_END,
 
     /** Miscellaneous. */
-    TOKEN_EQ, TOKEN_IDENTIFIER, TOKEN_EXIT_KW, TOKEN_EOF, TOKEN_ERROR
+    TOKEN_ENTRY_KW, TOKEN_EQ, TOKEN_IDENTIFIER, TOKEN_EXIT_KW, TOKEN_EOF, TOKEN_ERROR
 } TokType;
 
 /** A series of characters from the source code stored as a single unit. */

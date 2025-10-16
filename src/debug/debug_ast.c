@@ -400,6 +400,12 @@ static void append_func(AstBuilder *ast, const FuncNode *node) {
     append_node(ast, AS_NODE(node->body));
 }
 
+/** Appends an entry node, which is the main function that automatically executes in a module. */
+static void append_entry(AstBuilder *ast, const EntryNode *node) {
+    buffer_append_string(&ast->string, "<entry> ");
+    append_node(ast, AS_NODE(node->body));
+}
+
 /** Appends a class node and all the information it has. */
 static void append_class(AstBuilder *ast, const ClassNode *node) {
     buffer_append_string(&ast->string, "<class> ");
@@ -480,6 +486,7 @@ static void append_node(AstBuilder *ast, const Node *node) {
     case AST_RAISE: append_raise(ast, AS_PTR(RaiseNode, node)); break;
     case AST_RETURN: append_return(ast, AS_PTR(ReturnNode, node)); break;
     case AST_FUNC: append_func(ast, AS_PTR(FuncNode, node)); break;
+    case AST_ENTRY: append_entry(ast, AS_PTR(EntryNode, node)); break;
     case AST_CLASS: append_class(ast, AS_PTR(ClassNode, node)); break;
     case AST_EXIT: append_exit(ast, AS_PTR(ExitNode, node)); break;
     case AST_EOF: append_eof(ast); break;

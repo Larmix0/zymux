@@ -21,6 +21,7 @@ or acts as a statement if there isn't any name being declared.
 ```variableDecl``` <br>
 ```| enumDecl``` <br>
 ```| funcDecl``` <br>
+```| entryDecl``` <br>
 ```| classDecl``` <br>
 
 **variableDecl:** ```("let" | "const") (name | "[" nameList "]") ("=" expression)? ";"```
@@ -28,6 +29,8 @@ or acts as a statement if there isn't any name being declared.
 **enumDecl:** ```"enum" name "{" nameList? "}"```
 
 **funcDecl:** ```"func" name unnamedFunc```
+
+**entryDecl:** ```"entry" block```
 
 **classDecl:**
 ```"class" name ("inherits" name)? "{" ("init" unnamedFunc | name unnamedFunc)* "}"```
