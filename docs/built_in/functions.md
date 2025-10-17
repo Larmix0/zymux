@@ -1,4 +1,10 @@
 # Built-in functions documentation
+This file documents all built-in functions which are not
+a part of any built-in class or module.
+
+---
+
+<br>
 
 ```
 null print(value, newline=true, destructure=false):

@@ -1,4 +1,9 @@
 # Built-in multithread module documentation
+The multithread module provides functionality for creating, managing,
+and controlling multiple threads of execution. It allows for concurrency,
+and can achieve parallelism on systems with multiple CPU cores.
+The module includes mechanisms such as joining and synchronization primitives
+to control those threads.
 
 <br>
 

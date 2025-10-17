@@ -1,4 +1,6 @@
 # Built-in system module documentation
+The system module provides variables and functionalities that are general and system-oriented,
+including access to operating system resources, environments and information.
 
 <br>
 
