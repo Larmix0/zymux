@@ -74,12 +74,12 @@ static void parse_cli(const int argc, char **argv, CliHandler *cli) {
 /** Creates a CLI (command line interface) handler, which is returned after parsing the args. */
 CliHandler create_cli_handler(const int argc, char **argv) {
     CliHandler cli = {
-        .validArgs = true, .file = NULL, .exitedRepl = false,
+        .argc = argc, .argv = argv, .validArgs = true, .file = NULL, .exitedRepl = false,
         .help = false, .debugTokens = false, .debugAst = false, .debugBytecode = false,
         .exitCode = 0, .manuallyExited = false
     };
     parse_cli(argc, argv, &cli);
-    return cli; // Returns a copy, which still has all the flags set.
+    return cli;
 }
 
 /** Prints the documentation of the CLI. */

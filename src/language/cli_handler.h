@@ -12,14 +12,17 @@ typedef struct VulnerableObjs VulnerableObjs;
 
 /** Stores all information needed to handle the command line interface of the program. */
 typedef struct {
+    int argc;
+    char **argv;
+
     bool validArgs; /** Whether or not the args given to the CLI handler were valid. */
     bool exitedRepl; /** Whether or not REPL has finished. */
     char *file; /** Name of file being ran (NULL if REPL is running). */
 
-    bool help;
-    bool debugTokens;
-    bool debugAst;
-    bool debugBytecode;
+    bool help; /** Display help menu. */
+    bool debugTokens; /** Display lexed tokens. */
+    bool debugAst; /** Display parsed AST nodes. */
+    bool debugBytecode; /** Display compiled bytecode. */
 
     /** 
      * Whether the program exited via an exit statement (true), or EOF (false).

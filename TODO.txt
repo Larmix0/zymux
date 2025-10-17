@@ -27,11 +27,6 @@ Optimization:
 
 ----------------------------------------------------------------------------------------------------
 
-make maps uniterable and instead call a method that retrieves the map as a 2d list,
-which is a list of 2 element lists that represent the key and value. This will be done
-only when fields and methods are added to built-in objects. This is to allow the user to potentially
-see the order of the iterating map before the iteration happens.
-
 Improve the positioning of some bytecode for error handling.
 
 Is not recursing in object_cstring actually helpful, or do we just need to just print all freed

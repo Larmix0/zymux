@@ -3,9 +3,16 @@ The documentation includes all built-in functions, classes, and modules.
 
 <br>
 
+### Built-in variables
+
+```
+{type} 'name':
+    {variable documentation}
+```
+
 ---
 
-### The style of documentation for built-in functions
+### Built-in functions
 
 ```
 {returnType} name({parameters}):
@@ -16,7 +23,7 @@ The documentation includes all built-in functions, classes, and modules.
 
 ---
 
-### The style of documentation for built-in classes
+### Built-in classes
 
 ```
 name({parameters}):

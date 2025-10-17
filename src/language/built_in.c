@@ -790,7 +790,28 @@ static ModuleObj *initial_native_module(VulnerableObjs *vulnObjs, const char *na
     );
 }
 
-/** Loads all names inside the built-in threads IO module. */
+/** Loads all names inside the built-in system module, for general system functionalities. */
+static void load_system_module(VulnerableObjs *vulnObjs) {
+    const char *fullNameChars = "system.zmx";
+    ModuleObj *module = initial_native_module(vulnObjs, fullNameChars);
+    table_string_set(
+        vulnObjs, &module->globalsUnsafe,
+        "argc", AS_OBJ(new_int_obj(vulnObjs, vulnObjs->program->cli->argc))
+    );
+    ObjArray argvArray = CREATE_DA();
+    for (int i = 0; i < vulnObjs->program->cli->argc; i++) {
+        char *arg = vulnObjs->program->cli->argv[i];
+        PUSH_DA(&argvArray, AS_OBJ(new_string_obj(vulnObjs, arg, strlen(arg))));
+    }
+    table_string_set(
+        vulnObjs, &module->globalsUnsafe,
+        "argv", AS_OBJ(new_list_obj(vulnObjs, argvArray))
+    );
+
+    table_string_set(vulnObjs, &vulnObjs->program->builtIn.modules, fullNameChars, AS_OBJ(module));
+}
+
+/** Loads all names inside the built-in multithreading module. */
 static void load_multithread_module(VulnerableObjs *vulnObjs) {
     const char *fullNameChars = "multithread.zmx";
     ModuleObj *module = initial_native_module(vulnObjs, fullNameChars);
@@ -802,11 +823,13 @@ static void load_multithread_module(VulnerableObjs *vulnObjs) {
         )
     );
     load_method(vulnObjs, &module->globalsUnsafe, "Lock", native_Lock, no_params());
+
     table_string_set(vulnObjs, &vulnObjs->program->builtIn.modules, fullNameChars, AS_OBJ(module));
 }
 
 /** Loads all built-in modules. */
 static void load_native_modules(VulnerableObjs *vulnObjs) {
+    load_system_module(vulnObjs);
     load_multithread_module(vulnObjs);
 }
 
