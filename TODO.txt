@@ -3,34 +3,12 @@ This will (likely) be deleted once Zymux's development is mostly finished.
 
 ----------------------------------------------------------------------------------------------------
 
-Allow backslashes at lexer to skip escapes (like skipping a newline before it happens).
-Also, allow escaping actual escapes in strings?
-
 "nothing" keyword which assigns to nothing. Useful for throwaway assignments in multi-assignments.
 Also, maybe can be used with "is" in order to mean an "empty" datatype
 (like 0 for int, "" for strings, [] for lists, and {} for maps instead of null?).
 
-Issue warnings for weird edge cases for the language. Example:
-    AST finding the expression condition of an if/while to be an assignment.
-(Allow warnings to be disabled with a certain flag)
-
-----------------------------------------------------------------------------------------------------
-
 Optimization:
     1. More efficient vm loops with dispatch tables utilizing goto.
 
-    2. Optimize node memory for unary/binary nodes by storing their operation token as just
-        the source position and a token type enum value.
-
-    3. Change certain macros to use the normal type instead of pointer to optimize dereferencing.
+    2. Change certain macros to use the normal type instead of pointer to optimize dereferencing.
         (In other words, use the dot operator instead of the arrow).
-
-----------------------------------------------------------------------------------------------------
-
-Improve the positioning of some bytecode for error handling.
-
-Is not recursing in object_cstring actually helpful, or do we just need to just print all freed
-objects at the end of the program before manually freeing them without printing to avoid memory
-issues. Not to mention it's useful for printing more object info in threads and such.
-
-----------------------------------------------------------------------------------------------------

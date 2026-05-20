@@ -445,6 +445,10 @@ static void map_cstring(const MapObj *map, CharBuffer *string) {
  * 
  * The debug string parameter indicates whether this should be returned as a debug string
  * with extra information such as quotes in strings.
+ * 
+ * Note: for the sake of debug printing objects when freeing all of them during the program's end,
+ * none of the objects here should recursively call this function even if they hold other objects
+ * inside them, as the object they're holding might've been freed before themselves.
  */
 static CharBuffer object_cstring(const Obj *object, const bool debugCString) {
     CharBuffer string = create_char_buffer();
