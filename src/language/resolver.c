@@ -992,8 +992,8 @@ static void resolve_func(Resolver *resolver, FuncNode *node, const FuncType type
     const FuncType previous = resolver->currentFunc;
     resolver->currentFunc = type;
 
-    if (!node->isMethod) {
-        // Only declare as a variable outside of the func's scope if it's not a method.
+    if (!node->isMethod && !node->isAnon) {
+        // Only declare as variable outside of the func if it's not a method or lambda expression.
         resolve_declare_var(resolver, node->outerDecl, NULL);
     }
     push_scope(resolver, SCOPE_FUNC);

@@ -404,14 +404,15 @@ Node *new_return_node(ZmxProgram *program, Node *value, const SourcePosition pos
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(
     ZmxProgram *program, const Token name, DeclareVarNode *outerDecl, DeclareVarNode *innerDecl,
-    const bool isMethod, const NodeArray mandatoryParams, const NodeArray optionalParams,
-    BlockNode *body
+    const bool isMethod, const bool isAnon,
+    const NodeArray mandatoryParams, const NodeArray optionalParams, BlockNode *body
 ) {
     FuncNode *node = NEW_NODE(program, AST_FUNC, FuncNode);
+    node->isMethod = isMethod;
+    node->isAnon = isAnon;
     node->name = name;
     node->outerDecl = outerDecl;
     node->innerDecl = innerDecl;
-    node->isMethod = isMethod;
 
     node->mandatoryParams = mandatoryParams;
     node->optionalParams = optionalParams;

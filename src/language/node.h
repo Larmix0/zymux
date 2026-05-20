@@ -426,6 +426,8 @@ typedef struct {
 typedef struct {
     Node node;
     bool isMethod; /** Whether or not this func belongs to a class, or is a lone function. */
+    bool isAnon; /** Whether or not the function is anonymous (unnamed). */
+
     Token name; /** Just the name of the function that the user wrote in the code. */
     DeclareVarNode *outerDecl; /** Declaration which binds it to a variable after it's loaded. */
     DeclareVarNode *innerDecl; /** Declaration for the func inside itself ("this" in methods). */
@@ -632,8 +634,8 @@ Node *new_return_node(ZmxProgram *program, Node *value, const SourcePosition pos
 /** Allocates a general node for any type of function written from the user. */
 Node *new_func_node(
     ZmxProgram *program, const Token name, DeclareVarNode *outerDecl, DeclareVarNode *innerDecl,
-    const bool isMethod, const NodeArray mandatoryParams, const NodeArray optionalParams,
-    BlockNode *body
+    const bool isMethod, const bool isAnon,
+    const NodeArray mandatoryParams, const NodeArray optionalParams, BlockNode *body
 );
 
 /** Allocates a special entry function that executes automatically after EOF for script. */

@@ -1068,7 +1068,7 @@ static void declare_func(Compiler *compiler, FuncObj *compiledFunc, const FuncNo
     }
     // Outside decl and params here since they require the compiled func to be loaded on the stack.
     compile_params(compiler, compiledFunc, node);
-    if (!node->isMethod) {
+    if (!node->isMethod && !node->isAnon) {
         compile_declare_var(compiler, node->outerDecl); // Put the loaded func obj on a variable.
     }
 

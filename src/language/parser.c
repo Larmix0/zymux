@@ -27,6 +27,7 @@
 static Node *expression(Parser *parser);
 static Node *declaration(Parser *parser);
 static Node *multi_declaration(Parser *parser, const bool isConst, const bool scanValue);
+static Node *named_func(Parser *parser, const Token name, const bool isMethod, const bool isAnon);
 
 /** Returns an initialized parser. */
 Parser create_parser(ZmxProgram *program, TokenArray tokens) {
@@ -594,13 +595,22 @@ static Node *ternary(Parser *parser) {
     return expr;
 }
 
+/** An anonymous (lambda) function, which is used as an expression. */
+static Node *anon_func(Parser *parser) {
+    if (MATCH(parser, TOKEN_FUNC_KW)) {
+        return named_func(parser, create_token("<anon func>", TOKEN_IDENTIFIER), false, true);
+    } else {
+        return ternary(parser);
+    }
+}
+
 /** Parses and returns an expression. General function that starts with the lowest precedence. */
 static Node *expression(Parser *parser) {
     if (IS_EOF(parser)) {
         parser_error_missing(parser, PEEK_PREVIOUS(parser), true, "Expected expression.");
         return new_error_node(parser->program);
     }
-    return ternary(parser);
+    return anon_func(parser);
 }
 
 /** A statement which only holds an expression inside it. */
@@ -1061,7 +1071,7 @@ static void parse_params(Parser *parser, NodeArray *mandatories, NodeArray *opti
 }
 
 /** Parses any type of function whose name was already parsed and passed to this. */
-static Node *named_func(Parser *parser, const Token name, const bool isMethod) {
+static Node *named_func(Parser *parser, const Token name, const bool isMethod, const bool isAnon) {
     DeclareVarNode *outerDecl = NO_VALUE_DECL_NODE(parser->program, name);
     DeclareVarNode *innerDecl;
     // Inner declaration is either the func name itself again or the instance variable (in methods).
@@ -1078,7 +1088,7 @@ static Node *named_func(Parser *parser, const Token name, const bool isMethod) {
     CONSUME(parser, TOKEN_LCURLY, "Expected '{' after function parameters.");
     Node *body = finish_block(parser);
     return new_func_node(
-        parser->program, name, outerDecl, innerDecl, isMethod,
+        parser->program, name, outerDecl, innerDecl, isMethod, isAnon,
         mandatoryParams, optionalParams, AS_PTR(BlockNode, body)
     );
 }
@@ -1086,7 +1096,7 @@ static Node *named_func(Parser *parser, const Token name, const bool isMethod) {
 /** Parses a function and its name before the function itself for convenience. */
 static Node *parse_func(Parser *parser, const bool isMethod) {
     const Token name = CONSUME(parser, TOKEN_IDENTIFIER, "Expected function name.");
-    return named_func(parser, name, isMethod);
+    return named_func(parser, name, isMethod, false);
 }
 
 /** Parses an entry function statement (main function of a module). */
@@ -1105,7 +1115,7 @@ static Node *init_method(Parser *parser, ClassNode *cls) {
             parser, PEEK_PREVIOUS(parser), false, "Can't have multiple initializers in class."
         );
     }
-    return named_func(parser, PEEK_PREVIOUS(parser), true);
+    return named_func(parser, PEEK_PREVIOUS(parser), true, false);
 }
 
 /** Finishes parsing an abstract method, assuming the abstract keyword was already consumed. */

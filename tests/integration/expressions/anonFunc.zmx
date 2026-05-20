@@ -1,0 +1,15 @@
+let successful = false;
+
+let x = func() {successful = true;};
+x();
+assert(successful);
+
+successful = false;
+
+// Takes an anon func that takes a boolean to set "successful" as.
+func notAnon(anonFunc) {
+    anonFunc(true);
+}
+
+notAnon(func(status){let x = status; successful = x;}); // Tests that anon can create vars too.
+assert(successful);

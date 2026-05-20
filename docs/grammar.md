@@ -104,7 +104,9 @@ change the state of the program. They're typically used inside statements and de
 
 ---
 
-**expression:** ```ternary```
+**expression:** ```anonFunc```
+
+**anonFunc:** ```"func" unnamedFunc | ternary```
 
 **ternary:** ```assignment ("?" expression ":" expression)?```
 
