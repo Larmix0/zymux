@@ -433,7 +433,7 @@ DEFINE_NATIVE_FUNC(File_write) {
         RETURN_ERROR(thread, "Cannot do file operation on closed file.");
     }
     if (file->mode == FILE_READ_ONLY) {
-        RETURN_ERROR(thread, "Can't write to file with mode '%s'.", "TODO: add mode string here.");
+        RETURN_ERROR(thread, "Cannot write to file with read only mode.");
     }
 
     if (fputs(text->string, file->stream) == EOF) {

@@ -1098,14 +1098,14 @@ static void compile_func(Compiler *compiler, const FuncNode *node) {
         node->mandatoryParams.length, node->mandatoryParams.length + node->optionalParams.length,
         false
     );
-    // Protect the new function during its compilation (original was already protected recursively).
+    // Protect the new function during its compilation (original was already protected).
     PUSH_PROTECTED(compiler->vulnObjs, AS_OBJ(compiler->func));
     compile_func_signature(compiler, node);
     compile_func_body(compiler, node->body, node->defaultReturn);
     FuncObj *compiledFunc = compiler->func;
     compiler->func = original;
     declare_func(compiler, compiledFunc, node); // Declare the function compiled in the original.
-    DROP_PROTECTED(compiler->vulnObjs); // No need to protect anymore, it's inside original now.
+    DROP_PROTECTED(compiler->vulnObjs);
 }
 
 /** Compiles an entry function, which is a special function with only a body (no name or params). */
@@ -1115,12 +1115,14 @@ static void compile_entry(Compiler *compiler, const EntryNode *node) {
     FuncObj *original = compiler->func;
     compiler->func = new_func_obj(compiler->vulnObjs, entryName, 0, 0, false);
 
+    PUSH_PROTECTED(compiler->vulnObjs, AS_OBJ(compiler->func));
     compile_func_body(compiler, node->body, node->defaultReturn);
     FuncObj *compiledEntry = compiler->func;
     compiler->func = original;
 
     FLAG_ENABLE(compiledEntry->flags, FUNC_ENTRY_BIT);
     emit_const(compiler, OP_ENTRY_FUNC, AS_OBJ(compiledEntry), PREVIOUS_OPCODE_POS(compiler));
+    DROP_PROTECTED(compiler->vulnObjs); // No need to protect anymore, it's inside original now.
 }
 
 /** 

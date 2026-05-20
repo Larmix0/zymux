@@ -46,8 +46,6 @@
 /** Reads the current instruction and increments IP to prepare for the next one. */
 #define READ_INSTR(thread) (*(thread)->frame->ip++)
 
-// TODO: turn the bytecode_number function fully to a macro for performance?
-// Pretty considerable since it's also used by the const reader.
 /** Reads the upcoming number in the bytecode and can be assigned to it. */
 #define READ_NUMBER(thread) \
     ((thread)->frame->ip += (thread)->instrSize, \

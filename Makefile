@@ -1,6 +1,6 @@
 CC = gcc
 
-CFLAGS = -Werror -Wall -Wextra -Wpedantic -g
+CFLAGS = -Werror -Wall -Wextra -Wpedantic
 LDFLAGS = -lm
 
 LIB_DIR = lib
