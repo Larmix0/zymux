@@ -14,6 +14,13 @@
 
 #if DEBUG_RUNTIME
     #include "debug_runtime.h"
+    #define DEBUG_PRINT_VM(thread) \
+        print_runtime_state( \
+            thread, thread->frame->func, thread->stack.objects, thread->stack.length, \
+            thread->frame->ip - thread->frame->func->bytecode.data, thread->instrSize \
+        );
+#else
+    #define DEBUG_PRINT_VM(thread)
 #endif
 
 /** 
@@ -27,7 +34,7 @@
     if ((thread)->exitCode != 0) { \
         return; \
     } \
-    break;
+    DISPATCH();
 
 /** 
  * Raises a runtime error in the interpreter loop's switch statement (no do-while protection).
@@ -1430,740 +1437,833 @@ static bool import_names(ThreadObj *thread, ModuleObj *importedModule, ListObj *
 
 /** Executes all the bytecode in the passed VM's function object. */
 static void interpreter_loop(ThreadObj *thread) {
+    static void *dispatchTable[] = {
+        [OP_LOAD_CONST] = &&op_load_const,
+        [OP_ARG_16] = &&op_arg_16,
+        [OP_ARG_32] = &&op_arg_32,
+        [OP_TRUE] = &&op_true,
+        [OP_FALSE] = &&op_false,
+        [OP_NULL] = &&op_null,
+        [OP_ADD] = &&op_add,
+        [OP_SUBTRACT] = &&op_subtract,
+        [OP_MULTIPLY] = &&op_multiply,
+        [OP_DIVIDE] = &&op_divide,
+        [OP_MODULO] = &&op_modulo,
+        [OP_EXPONENT] = &&op_exponent,
+        [OP_LSHIFT] = &&op_lshift,
+        [OP_RSHIFT] = &&op_rshift,
+        [OP_BITWISE_OR] = &&op_bitwise_or,
+        [OP_BITWISE_AND] = &&op_bitwise_and,
+        [OP_XOR] = &&op_xor,
+        [OP_EQUAL] = &&op_equal,
+        [OP_NOT_EQUAL] = &&op_not_equal,
+        [OP_GREATER] = &&op_greater,
+        [OP_GREATER_EQ] = &&op_greater_eq,
+        [OP_LESS] = &&op_less,
+        [OP_LESS_EQ] = &&op_less_eq,
+        [OP_MINUS] = &&op_minus,
+        [OP_NOT] = &&op_not,
+        [OP_TILDE] = &&op_tilde,
+        [OP_IS] = &&op_is,
+        [OP_AS] = &&op_as,
+        [OP_FINISH_STRING] = &&op_finish_string,
+        [OP_RANGE] = &&op_range,
+        [OP_TERNARY] = &&op_ternary,
+        [OP_LIST] = &&op_list,
+        [OP_MAP] = &&op_map,
+        [OP_DESTRUCTURE] = &&op_destructure,
+        [OP_FOR_ASSIGN_VARS] = &&op_for_assign_vars,
+        [OP_MAKE_ITER] = &&op_make_iter,
+        [OP_FOR_ITER_ASSIGN] = &&op_for_iter_assign,
+        [OP_FOR_ITER_LOAD] = &&op_for_iter_load,
+        [OP_GET_BUILT_IN] = &&op_get_built_in,
+        [OP_DECLARE_GLOBAL] = &&op_declare_global,
+        [OP_ASSIGN_GLOBAL] = &&op_assign_global,
+        [OP_GET_GLOBAL] = &&op_get_global,
+        [OP_ASSIGN_LOCAL] = &&op_assign_local,
+        [OP_GET_LOCAL] = &&op_get_local,
+        [OP_CAPTURE_DEPTH] = &&op_capture_depth,
+        [OP_CAPTURE_AT] = &&op_capture_at,
+        [OP_ASSIGN_CAPTURED] = &&op_assign_captured,
+        [OP_GET_CAPTURED] = &&op_get_captured,
+        [OP_SET_PROPERTY] = &&op_set_property,
+        [OP_GET_PROPERTY] = &&op_get_property,
+        [OP_GET_SUPER] = &&op_get_super,
+        [OP_CALL] = &&op_call,
+        [OP_ASSIGN_SUBSCR] = &&op_assign_subscr,
+        [OP_GET_SUBSCR] = &&op_get_subscr,
+        [OP_FUNC] = &&op_func,
+        [OP_ENTRY_FUNC] = &&op_entry_func,
+        [OP_RUN_ENTRY] = &&op_run_entry,
+        [OP_OPTIONALS_FUNC] = &&op_optionals_func,
+        [OP_MAKE_CLOSURE] = &&op_make_closure,
+        [OP_CLASS] = &&op_class,
+        [OP_ADD_INIT] = &&op_add_init,
+        [OP_METHODS] = &&op_methods,
+        [OP_ABSTRACT_METHODS] = &&op_abstract_methods,
+        [OP_INHERIT] = &&op_inherit,
+        [OP_JUMP] = &&op_jump,
+        [OP_JUMP_BACK] = &&op_jump_back,
+        [OP_JUMP_IF] = &&op_jump_if,
+        [OP_JUMP_IF_NOT] = &&op_jump_if_not,
+        [OP_POP_JUMP_IF] = &&op_pop_jump_if,
+        [OP_POP_JUMP_IF_NOT] = &&op_pop_jump_if_not,
+        [OP_POP_JUMP_BACK_IF] = &&op_pop_jump_back_if,
+        [OP_POP_LOCAL] = &&op_pop_local,
+        [OP_POP_LOCALS] = &&op_pop_locals,
+        [OP_POP_CAPTURES] = &&op_pop_captures,
+        [OP_RETURN] = &&op_return,
+        [OP_CLOSURE_RETURN] = &&op_closure_return,
+        [OP_COPY_TOP] = &&op_copy_top,
+        [OP_IMPORT] = &&op_import,
+        [OP_IMPORT_NAMES] = &&op_import_names,
+        [OP_START_TRY] = &&op_start_try,
+        [OP_FINISH_TRY] = &&op_finish_try,
+        [OP_RAISE] = &&op_raise,
+        [OP_END_MODULE] = &&op_end_module,
+        [OP_EXIT] = &&op_exit,
+        [OP_EOF] = &&op_eof
+    };
+
+/** 
+ * Dispatches the next instruction depending on the passed IP (pointed).
+ * 
+ * We first drop all unrooted objects to not have any permanently in there after any instruction,
+ * then we go to the next instruction (while incrementing ip).
+ */
+#define DISPATCH() \
+    do { \
+        DEBUG_PRINT_VM(thread); \
+        DROP_ALL_UNROOTED(vulnObjs); \
+        goto *dispatchTable[READ_INSTR(thread)]; \
+    } while (false)
+
     ZmxProgram *program = thread->vm->program;
     VulnerableObjs *vulnObjs = &thread->vulnObjs;
-    while (true) {
-#if DEBUG_RUNTIME
-        print_runtime_state(
-            thread, thread->frame->func, thread->stack.objects, thread->stack.length,
-            thread->frame->ip - thread->frame->func->bytecode.data, thread->instrSize
+    DISPATCH();
+
+    op_load_const:
+        PUSH(thread, READ_CONST(thread));
+        DISPATCH();
+    op_arg_16: thread->instrSize = INSTR_TWO_BYTES; DISPATCH();
+    op_arg_32: thread->instrSize = INSTR_FOUR_BYTES; DISPATCH();
+    op_true: PUSH(thread, program->internedTrue); DISPATCH();
+    op_false: PUSH(thread, program->internedFalse); DISPATCH();
+    op_null: PUSH(thread, program->internedNull); DISPATCH();
+    op_add:
+        if (BIN_LEFT(thread)->type == OBJ_STRING && BIN_RIGHT(thread)->type == OBJ_STRING) {
+            Obj *result = AS_OBJ(concatenate(
+                vulnObjs,
+                AS_PTR(StringObj, BIN_LEFT(thread)), AS_PTR(StringObj, BIN_RIGHT(thread))
+            ));
+            DROP_PUSH_DEPTH(thread, result, 2);
+            DISPATCH();
+        }
+        MATH_BIN_OP(thread, "+", NUM_VAL(BIN_LEFT(thread)) + NUM_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_subtract:
+        MATH_BIN_OP(thread, "-", NUM_VAL(BIN_LEFT(thread)) - NUM_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_multiply:
+        MATH_BIN_OP(thread, "*", NUM_VAL(BIN_LEFT(thread)) * NUM_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_divide:
+        if (BIN_LEFT(thread)->type == OBJ_STRING && BIN_RIGHT(thread)->type == OBJ_STRING) {
+            CharBuffer fullString = create_char_buffer();
+            buffer_append_format(
+                &fullString, "%s%c%s", AS_PTR(StringObj, BIN_LEFT(thread))->string,
+                PATH_SEPARATOR, AS_PTR(StringObj, BIN_RIGHT(thread))->string
+            );
+            StringObj *result = new_string_obj(vulnObjs, fullString.text, fullString.length);
+            free_char_buffer(&fullString);
+            DROP_PUSH_DEPTH(thread, result, 2);
+            DISPATCH();
+        }
+        if (
+            IS_NUM(BIN_LEFT(thread)) && IS_NUM(BIN_RIGHT(thread))
+            && NUM_VAL(BIN_RIGHT(thread)) == 0
+        ) {
+            INTERP_LOOP_RUNTIME_ERROR(thread, "Can't divide by 0.");
+        }
+        MATH_BIN_OP(thread, "/", NUM_VAL(BIN_LEFT(thread)) / NUM_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_modulo:
+        if (
+            IS_NUM(BIN_LEFT(thread)) && IS_NUM(BIN_RIGHT(thread))
+            && NUM_VAL(BIN_RIGHT(thread)) == 0
+        ) {
+            INTERP_LOOP_RUNTIME_ERROR(thread, "Can't modulo by 0.");
+        }
+        // Modulo doesn't handle floats in C, so use fmod() if there's a float in the operation.
+        MATH_BIN_OP(
+            thread, "%",
+            BIN_HAS_FLOAT(thread) ?
+                fmod(NUM_VAL(BIN_LEFT(thread)), NUM_VAL(BIN_RIGHT(thread)))
+                : (AS_PTR(IntObj, BIN_LEFT(thread))->number
+                    % AS_PTR(IntObj, BIN_RIGHT(thread))->number)
         );
-#endif
-        DROP_ALL_UNROOTED(vulnObjs); // Default drops all vulnerables after ever instruction.
-        const OpCode opcode = READ_INSTR(thread);
-        switch (opcode) {
-        case OP_LOAD_CONST:
-            PUSH(thread, READ_CONST(thread));
-            break;
-        case OP_ARG_16: thread->instrSize = INSTR_TWO_BYTES; break;
-        case OP_ARG_32: thread->instrSize = INSTR_FOUR_BYTES; break;
-        case OP_TRUE: PUSH(thread, program->internedTrue); break;
-        case OP_FALSE: PUSH(thread, program->internedFalse); break;
-        case OP_NULL: PUSH(thread, program->internedNull); break;
-        case OP_ADD:
-            if (BIN_LEFT(thread)->type == OBJ_STRING && BIN_RIGHT(thread)->type == OBJ_STRING) {
-                Obj *result = AS_OBJ(concatenate(
-                    vulnObjs,
-                    AS_PTR(StringObj, BIN_LEFT(thread)), AS_PTR(StringObj, BIN_RIGHT(thread))
-                ));
-                DROP_PUSH_DEPTH(thread, result, 2);
-                break;
-            }
-            MATH_BIN_OP(thread, "+", NUM_VAL(BIN_LEFT(thread)) + NUM_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_SUBTRACT:
-            MATH_BIN_OP(thread, "-", NUM_VAL(BIN_LEFT(thread)) - NUM_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_MULTIPLY:
-            MATH_BIN_OP(thread, "*", NUM_VAL(BIN_LEFT(thread)) * NUM_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_DIVIDE:
-            if (BIN_LEFT(thread)->type == OBJ_STRING && BIN_RIGHT(thread)->type == OBJ_STRING) {
-                CharBuffer fullString = create_char_buffer();
-                buffer_append_format(
-                    &fullString, "%s%c%s", AS_PTR(StringObj, BIN_LEFT(thread))->string,
-                    PATH_SEPARATOR, AS_PTR(StringObj, BIN_RIGHT(thread))->string
-                );
-                StringObj *result = new_string_obj(vulnObjs, fullString.text, fullString.length);
-                free_char_buffer(&fullString);
-                DROP_PUSH_DEPTH(thread, result, 2);
-                break;
-            }
-            if (
-                IS_NUM(BIN_LEFT(thread)) && IS_NUM(BIN_RIGHT(thread))
-                && NUM_VAL(BIN_RIGHT(thread)) == 0
-            ) {
-                INTERP_LOOP_RUNTIME_ERROR(thread, "Can't divide by 0.");
-            }
-            MATH_BIN_OP(thread, "/", NUM_VAL(BIN_LEFT(thread)) / NUM_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_MODULO:
-            if (
-                IS_NUM(BIN_LEFT(thread)) && IS_NUM(BIN_RIGHT(thread))
-                && NUM_VAL(BIN_RIGHT(thread)) == 0
-            ) {
-                INTERP_LOOP_RUNTIME_ERROR(thread, "Can't modulo by 0.");
-            }
-            // Modulo doesn't handle floats in C, so use fmod() if there's a float in the operation.
-            MATH_BIN_OP(
-                thread, "%",
-                BIN_HAS_FLOAT(thread) ?
-                    fmod(NUM_VAL(BIN_LEFT(thread)), NUM_VAL(BIN_RIGHT(thread)))
-                    : (AS_PTR(IntObj, BIN_LEFT(thread))->number
-                        % AS_PTR(IntObj, BIN_RIGHT(thread))->number)
+        DISPATCH();
+    op_exponent:
+        MATH_BIN_OP(thread, "**", pow(NUM_VAL(BIN_LEFT(thread)), NUM_VAL(BIN_RIGHT(thread))));
+        DISPATCH();
+    op_lshift: 
+        BITWISE_BIN_OP(thread, "<<", BIT_VAL(BIN_LEFT(thread)) << BIT_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_rshift:
+        BITWISE_BIN_OP(thread, ">>", BIT_VAL(BIN_LEFT(thread)) >> BIT_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_bitwise_or:
+        BITWISE_BIN_OP(thread, "|", BIT_VAL(BIN_LEFT(thread)) | BIT_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_bitwise_and:
+        BITWISE_BIN_OP(thread, "&", BIT_VAL(BIN_LEFT(thread)) & BIT_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_xor:
+        BITWISE_BIN_OP(thread, "^", BIT_VAL(BIN_LEFT(thread)) ^ BIT_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_equal:
+        BOOL_BIN_OP(thread, equal_obj(BIN_LEFT(thread), BIN_RIGHT(thread)));
+        DISPATCH();
+    op_not_equal:
+        BOOL_BIN_OP(thread, !equal_obj(BIN_LEFT(thread), BIN_RIGHT(thread)));
+        DISPATCH();
+    op_greater:
+        NUM_BOOL_BIN_OP(thread, ">", NUM_VAL(BIN_LEFT(thread)) > NUM_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_greater_eq:
+        NUM_BOOL_BIN_OP(thread, ">=", NUM_VAL(BIN_LEFT(thread)) >= NUM_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_less:
+        NUM_BOOL_BIN_OP(thread, "<", NUM_VAL(BIN_LEFT(thread)) < NUM_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_less_eq:
+        NUM_BOOL_BIN_OP(thread, "<=", NUM_VAL(BIN_LEFT(thread)) <= NUM_VAL(BIN_RIGHT(thread)));
+        DISPATCH();
+    op_minus:
+        if (PEEK(thread)->type == OBJ_INT) {
+            const ZmxInt negated = -AS_PTR(IntObj, PEEK(thread))->number;
+            PEEK(thread) = AS_OBJ(new_int_obj(vulnObjs, negated));
+        } else if (PEEK(thread)->type == OBJ_FLOAT) {
+            const ZmxFloat negated = -AS_PTR(FloatObj, PEEK(thread))->number;
+            PEEK(thread) = AS_OBJ(new_float_obj(vulnObjs, negated));
+        } else {
+            INTERP_LOOP_RUNTIME_ERROR(
+                thread, "Can't negate object of type %s.", obj_type_str(PEEK(thread)->type)
             );
-            break;
-        case OP_EXPONENT:
-            MATH_BIN_OP(thread, "**", pow(NUM_VAL(BIN_LEFT(thread)), NUM_VAL(BIN_RIGHT(thread))));
-            break;
-        case OP_LSHIFT: 
-            BITWISE_BIN_OP(thread, "<<", BIT_VAL(BIN_LEFT(thread)) << BIT_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_RSHIFT:
-            BITWISE_BIN_OP(thread, ">>", BIT_VAL(BIN_LEFT(thread)) >> BIT_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_BITWISE_OR:
-            BITWISE_BIN_OP(thread, "|", BIT_VAL(BIN_LEFT(thread)) | BIT_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_BITWISE_AND:
-            BITWISE_BIN_OP(thread, "&", BIT_VAL(BIN_LEFT(thread)) & BIT_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_XOR:
-            BITWISE_BIN_OP(thread, "^", BIT_VAL(BIN_LEFT(thread)) ^ BIT_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_EQUAL:
-            BOOL_BIN_OP(thread, equal_obj(BIN_LEFT(thread), BIN_RIGHT(thread)));
-            break;
-        case OP_NOT_EQUAL:
-            BOOL_BIN_OP(thread, !equal_obj(BIN_LEFT(thread), BIN_RIGHT(thread)));
-            break;
-        case OP_GREATER:
-            NUM_BOOL_BIN_OP(thread, ">", NUM_VAL(BIN_LEFT(thread)) > NUM_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_GREATER_EQ:
-            NUM_BOOL_BIN_OP(thread, ">=", NUM_VAL(BIN_LEFT(thread)) >= NUM_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_LESS:
-            NUM_BOOL_BIN_OP(thread, "<", NUM_VAL(BIN_LEFT(thread)) < NUM_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_LESS_EQ:
-            NUM_BOOL_BIN_OP(thread, "<=", NUM_VAL(BIN_LEFT(thread)) <= NUM_VAL(BIN_RIGHT(thread)));
-            break;
-        case OP_MINUS:
-            if (PEEK(thread)->type == OBJ_INT) {
-                const ZmxInt negated = -AS_PTR(IntObj, PEEK(thread))->number;
-                PEEK(thread) = AS_OBJ(new_int_obj(vulnObjs, negated));
-            } else if (PEEK(thread)->type == OBJ_FLOAT) {
-                const ZmxFloat negated = -AS_PTR(FloatObj, PEEK(thread))->number;
-                PEEK(thread) = AS_OBJ(new_float_obj(vulnObjs, negated));
-            } else {
-                INTERP_LOOP_RUNTIME_ERROR(
-                    thread, "Can't negate object of type %s.", obj_type_str(PEEK(thread)->type)
-                );
-            }
-            break;
-        case OP_NOT: {
-            if (as_bool(vulnObjs, PEEK(thread))->boolean) {
-                PEEK(thread) = AS_OBJ(program->internedFalse);
-            } else {
-                PEEK(thread) = AS_OBJ(program->internedTrue);
-            }
-            break;
         }
-        case OP_TILDE: {
-            ZmxInt flipped;
-            if (PEEK(thread)->type == OBJ_INT) {
-                flipped = ~AS_PTR(IntObj, PEEK(thread))->number;
-            } else if (PEEK(thread)->type == OBJ_BOOL) {
-                flipped = ~((ZmxInt)AS_PTR(BoolObj, PEEK(thread))->boolean);
-            } else {
-                INTERP_LOOP_RUNTIME_ERROR(
-                    thread, "Can't apply '~' to %s.", obj_type_str(PEEK(thread)->type)
-                );
-            }
-            PEEK(thread) = AS_OBJ(new_int_obj(vulnObjs, flipped));
-            break;
+        DISPATCH();
+    op_not: {
+        if (as_bool(vulnObjs, PEEK(thread))->boolean) {
+            PEEK(thread) = AS_OBJ(program->internedFalse);
+        } else {
+            PEEK(thread) = AS_OBJ(program->internedTrue);
         }
-        case OP_IS: {
-            ObjType checkedType;
-            switch ((DataType)READ_NUMBER(thread)) {
-            case TYPE_INT: checkedType = OBJ_INT; break;
-            case TYPE_FLOAT: checkedType = OBJ_FLOAT; break;
-            case TYPE_BOOL: checkedType = OBJ_BOOL; break;
-            case TYPE_STRING: checkedType = OBJ_STRING; break;
-            TOGGLEABLE_DEFAULT_UNREACHABLE();
-            }
-            PEEK(thread) = AS_OBJ(new_bool_obj(vulnObjs, PEEK(thread)->type == checkedType));
-            break;
-        }
-        case OP_AS: {
-            Obj *converted;
-            switch ((DataType)READ_NUMBER(thread)) {
-            case TYPE_INT: converted = AS_OBJ(as_int(vulnObjs, PEEK(thread))); break;
-            case TYPE_FLOAT: converted = AS_OBJ(as_float(vulnObjs, PEEK(thread))); break;
-            case TYPE_BOOL: converted = AS_OBJ(as_bool(vulnObjs, PEEK(thread))); break;
-            case TYPE_STRING: converted = AS_OBJ(as_string(vulnObjs, PEEK(thread))); break;
-            TOGGLEABLE_DEFAULT_UNREACHABLE();
-            }
-            if (converted == NULL) {
-                if (PEEK(thread)->type == OBJ_STRING) {
-                    INTERP_LOOP_RUNTIME_ERROR(
-                        thread, "Can't convert string '%s' to number.",
-                        AS_PTR(StringObj, PEEK(thread))->string
-                    );
-                }
-                INTERP_LOOP_RUNTIME_ERROR(
-                    thread, "Can't convert %s to a number.", obj_type_str(PEEK(thread)->type)
-                );
-            }
-            PEEK(thread) = AS_OBJ(converted);
-            break;
-        }
-        case OP_FINISH_STRING: {
-            const u32 amount = READ_NUMBER(thread);
-
-            // Build a string from the deepest/oldest till the outermost/newest one in the stack.
-            CharBuffer finishedString = create_char_buffer();
-            for (u32 i = 1; i <= amount; i++) {
-                buffer_append_string(
-                    &finishedString, AS_PTR(StringObj, PEEK_DEPTH(thread, amount - i))->string
-                );
-            }
-            DROP_PUSH_DEPTH(
-                thread, new_string_obj(vulnObjs, finishedString.text, finishedString.length), amount
+        DISPATCH();
+    }
+    op_tilde: {
+        ZmxInt flipped;
+        if (PEEK(thread)->type == OBJ_INT) {
+            flipped = ~AS_PTR(IntObj, PEEK(thread))->number;
+        } else if (PEEK(thread)->type == OBJ_BOOL) {
+            flipped = ~((ZmxInt)AS_PTR(BoolObj, PEEK(thread))->boolean);
+        } else {
+            INTERP_LOOP_RUNTIME_ERROR(
+                thread, "Can't apply '~' to %s.", obj_type_str(PEEK(thread)->type)
             );
-            free_char_buffer(&finishedString);
-            break;
         }
-        case OP_RANGE: {
-            Obj *step = PEEK(thread);
-            Obj *end = PEEK_DEPTH(thread, 1);
-            Obj *start = PEEK_DEPTH(thread, 2);
-            if (start->type != OBJ_INT || end->type != OBJ_INT || step->type != OBJ_INT) {
-                INTERP_LOOP_RUNTIME_ERROR(
-                    thread, "Range takes 3 integers, got %s, %s, and %s instead.",
-                    obj_type_str(start->type), obj_type_str(end->type), obj_type_str(step->type)
-                );
-            }
-            if (AS_PTR(IntObj, step)->number < 0) {
-                INTERP_LOOP_RUNTIME_ERROR(thread, "Range's step can't be a negative number.");
-            }
-            DROP_PUSH_DEPTH(
-                thread, new_range_obj(vulnObjs, NUM_VAL(start), NUM_VAL(end), NUM_VAL(step)), 3
-            );
-            break;
-        }
-        case OP_TERNARY: {
-            Obj *falseExpr = PEEK(thread);
-            Obj *trueExpr = PEEK_DEPTH(thread, 1);
-            Obj *condition = PEEK_DEPTH(thread, 2);
-            bool boolean = as_bool(vulnObjs, condition)->boolean; 
-            DROP_PUSH_DEPTH(thread, boolean ? trueExpr : falseExpr, 3);
-            break;
-        }
-        case OP_LIST: {
-            const u32 length = READ_NUMBER(thread);
-            ObjArray items = CREATE_DA();
-            for (u32 i = 1; i <= length; i++) {
-                PUSH_DA(&items, PEEK_DEPTH(thread, length - i));
-            }
-            Obj *list = AS_OBJ(new_list_obj(vulnObjs, items));
-            DROP_PUSH_DEPTH(thread, list, length);
-            break;
-        }
-        case OP_MAP: {
-            // x2 the amount of entries to account for each entry being 2: a key and value.
-            const u32 length = READ_NUMBER(thread) * 2;
-            Table entries = create_table();
-            for (u32 i = 0; i < length; i += 2) {
-                Obj *value = PEEK_DEPTH(thread, i);
-                Obj *key = PEEK_DEPTH(thread, i + 1);
-                if (!is_hashable(key)) {
-                    INTERP_LOOP_RUNTIME_ERROR(
-                        thread, "Can't hash %s key.", obj_type_str(key->type)
-                    );
-                }
-                table_set(&entries, key, value);
-            }
-            DROP_PUSH_DEPTH(thread, new_map_obj(vulnObjs, entries), length);
-            break;
-        }
-        case OP_GET_BUILT_IN: {
-            Obj *value = table_get(&program->builtIn.funcs, READ_CONST(thread));
-            PUSH(thread, value);
-            break;
-        }
-        case OP_DECLARE_GLOBAL:
-            set_global(thread->module, READ_CONST(thread), PEEK(thread));
-            DROP(thread);
-            break;
-        case OP_ASSIGN_GLOBAL:
-            set_global(thread->module, READ_CONST(thread), PEEK(thread));
-            break;
-        case OP_GET_GLOBAL: {
-            Obj *value = get_global(&thread->vulnObjs, thread->module, READ_CONST(thread));
-            ASSERT(value, "Interpreter global get operation returned NULL.");
-            PUSH(thread, value);
-            break;
-        }
-        case OP_ASSIGN_LOCAL: {
-            const u32 index = READ_NUMBER(thread);
-            if (
-                FAST_INT_TABLE_HAS_KEY(
-                    &thread->openIndicesSet, thread->frame->bp + index - thread->stack.objects
-                )
-            ) {
-                // Captures are viewed by different functions, and they could be other thread funcs.
-                assign_open_local(thread, index, PEEK(thread));
-                break;
-            }
-            thread->frame->bp[index] = PEEK(thread);
-            break;
-        }
-        case OP_GET_LOCAL: {
-            const u32 index = READ_NUMBER(thread);
-            if (
-                FAST_INT_TABLE_HAS_KEY(
-                    &thread->openIndicesSet, thread->frame->bp + index - thread->stack.objects
-                )
-            ) {
-                // Captures are viewed by different functions, and they could be other thread funcs.
-                PUSH(thread, get_open_local(thread, index));
-                break;
-            }
-            PUSH(thread, thread->frame->bp[index]);
-            break;
-        }
-        case OP_CAPTURE_DEPTH: {
-            ASSERT(
-                FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT),
-                "Tried to capture inside non-closure."
-            );
-            const u32 depth = READ_NUMBER(thread);
-            capture_variable(thread, PEEK_DEPTH(thread, depth), thread->stack.length - depth - 1);
-            break;
-        }
-        case OP_CAPTURE_AT: {
-            ASSERT(
-                FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT),
-                "Tried to capture inside non-closure."
-            );
-            const u32 at = READ_NUMBER(thread);
-            capture_variable(
-                thread, thread->frame->bp[at], thread->frame->bp + at - thread->stack.objects
-            );
-            break;
-        }
-        case OP_ASSIGN_CAPTURED: {
-            ASSERT(
-                FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT),
-                "Tried to assign captured inside non-closure."
-            );
-            RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, thread->frame->func);
-            CapturedObj *capture = AS_PTR(CapturedObj, closure->captures.data[READ_NUMBER(thread)]);
-
-            if (capture->isOpen) {
-                assign_open_capture(capture, PEEK(thread));
-            } else {
-                capture->captured = PEEK(thread);
-            }
-            break;
-        }
-        case OP_GET_CAPTURED: {
-            ASSERT(
-                FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT),
-                "Tried to get captured inside non-closure."
-            );
-            RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, thread->frame->func);
-            CapturedObj *capture = AS_PTR(CapturedObj, closure->captures.data[READ_NUMBER(thread)]);
-
-            if (capture->isOpen) {
-                PUSH(thread, get_open_capture(&thread->vulnObjs, capture));
-            } else {
-                PUSH(thread, capture->captured);
-            }
-            break;
-        }
-        case OP_SET_PROPERTY: {
-            Obj *originalObj = PEEK(thread);
-            StringObj *name = AS_PTR(StringObj, READ_CONST(thread));
-            Obj *value = PEEK_DEPTH(thread, 1);
-            if (!set_property(thread, originalObj, name, value)) {
-                INTERP_LOOP_FINISH_ERROR(thread);
-            }
-            break;
-        }
-        case OP_GET_PROPERTY: {
-            Obj *originalObj = PEEK(thread);
-            StringObj *name = AS_PTR(StringObj, READ_CONST(thread));
-            if (!get_property(thread, originalObj, name)) {
-                INTERP_LOOP_FINISH_ERROR(thread);
-            }
-            break;
-        }
-        case OP_GET_SUPER: {
-            ASSERT(
-                PEEK(thread)->type == OBJ_INSTANCE, "Expected stack top to be instance for super."
-            );
-            ASSERT(thread->frame->func->cls != NULL, "Super outside class not caught by resolver.");
-            ASSERT(
-                thread->frame->func->cls->superclass != NULL,
-                "Super in non-inheriting class not caught by resolver."
-            );
-            InstanceObj *instance = AS_PTR(InstanceObj, PEEK(thread));
-            StringObj *name = AS_PTR(StringObj, READ_CONST(thread));
-            ClassObj *superclass = thread->frame->func->cls->superclass;
-
-            Obj *method = find_method(superclass, name);
-            if (method) {
-                PEEK(thread) = AS_OBJ(new_method_obj(vulnObjs, instance, AS_PTR(FuncObj, method)));
-            } else {
-                INTERP_LOOP_RUNTIME_ERROR(
-                    thread, "Couldn't find method '%s' in superclass.", name->string
-                );
-            }
-            break;
-        }
-        case OP_DESTRUCTURE: {
-            const u32 amount = READ_NUMBER(thread);
-            if (!destructure(thread, amount)) {
-                INTERP_LOOP_FINISH_ERROR(thread);
-            }
-            break;
-        }
-        case OP_FOR_ASSIGN_VARS: {
-            const u32 amount = READ_NUMBER(thread);
-            if (!destructure(thread, amount)) {
-                INTERP_LOOP_FINISH_ERROR(thread);
-            }
-            for (u32 i = 0; i < amount; i++) {
-                // +1 to go over the iterator.
-                PEEK_DEPTH(thread, amount + i + 1) = PEEK_DEPTH(thread, i);
-            }
-            DROP_AMOUNT(thread, amount);
-            break;
-        }
-        case OP_MAKE_ITER: {
-            if (!is_iterable(PEEK(thread))) {
-                INTERP_LOOP_RUNTIME_ERROR(
-                    thread, "Can't iterate over object of type %s.",
-                    obj_type_str(PEEK(thread)->type)
-                );
-            }
-            PEEK(thread) = AS_OBJ(new_iterator_obj(vulnObjs, PEEK(thread)));
-            break;
-        }
-        case OP_FOR_ITER_ASSIGN: {
-            Obj *iterated = for_iter_or_jump(thread);
-            if (iterated) {
-                PEEK_DEPTH(thread, 1) = iterated;
-            }
-            break;
-        }
-        case OP_FOR_ITER_LOAD: {
-            Obj *iterated = for_iter_or_jump(thread);
-            if (iterated) {
-                PUSH(thread, iterated);
-            }
-            break;
-        }
-        case OP_CALL: {
-            const u32 argAmount = READ_NUMBER(thread) + 1; // +1 to account for keyword args.
-            const u32 argsIdx = thread->frame->sp - argAmount - thread->stack.objects;
-
-            if (!call(thread, PEEK_DEPTH(thread, argAmount), argsIdx, argAmount - 1)) {
-                INTERP_LOOP_FINISH_ERROR(thread);
-            }
-            break;
-        }
-        case OP_ASSIGN_SUBSCR: {
-            Obj *subscript = PEEK(thread);
-            Obj *callee = PEEK_DEPTH(thread, 1);
-            Obj *value = PEEK_DEPTH(thread, 2);
-            if (callee->type == OBJ_LIST) {
-                if (!list_assign_subscr(thread, AS_PTR(ListObj, callee), subscript, value)) {
-                    INTERP_LOOP_FINISH_ERROR(thread);
-                }
-            } else if (callee->type == OBJ_MAP) {
-                if (!map_assign_subscr(thread, AS_PTR(MapObj, callee), subscript, value)) {
-                    INTERP_LOOP_FINISH_ERROR(thread);
-                }
-            } else {
-                INTERP_LOOP_RUNTIME_ERROR(
-                    thread, "Can't subscript assign to %s.", obj_type_str(callee->type)
-                );
-            }
-            break;
-        }
-        case OP_GET_SUBSCR: {
-            Obj *subscript = PEEK(thread);
-            Obj *callee = PEEK_DEPTH(thread, 1);
-            if (
-                callee->type == OBJ_LIST || callee->type == OBJ_STRING || callee->type == OBJ_ENUM
-            ) {
-                if (!array_get_subscr(thread, callee, subscript)) {
-                    INTERP_LOOP_FINISH_ERROR(thread);
-                }
-            } else if (callee->type == OBJ_MAP) {
-                if (!map_get_subscr(thread, AS_PTR(MapObj, callee), subscript)) {
-                    INTERP_LOOP_FINISH_ERROR(thread);
-                }
-            } else {
-                INTERP_LOOP_RUNTIME_ERROR(
-                    thread, "Can't subscript object of type %s.", obj_type_str(callee->type)
-                );
-            }
-            break;
-        }
-        case OP_OPTIONALS_FUNC: {
-            ObjArray values = AS_PTR(ListObj, PEEK(thread))->items;
-            FuncObj *func = AS_PTR(FuncObj, PEEK_DEPTH(thread, 1));
-            ASSERT(
-                FLAG_IS_SET(func->flags, FUNC_RUNTIME_BIT),
-                "Function on the stack is not a runtime one."
-            );
-            RuntimeFuncObj *withOptionals = AS_PTR(RuntimeFuncObj, func);
-
-            FLAG_ENABLE(withOptionals->func.flags, FUNC_OPTIONALS_BIT);
-            for (u32 i = 0; i < withOptionals->func.staticParams.minArity; i++) {
-                PUSH_DA(&withOptionals->paramVals, NULL); // C-NULL values for mandatories.
-            }
-            for (u32 i = 0; i < values.length; i++) {
-                PUSH_DA(&withOptionals->paramVals, values.data[i]);
-            }
-            DROP(thread); // The values list.
-            break;
-        }
-        case OP_FUNC: {
-            FuncObj *func = AS_PTR(FuncObj, READ_CONST(thread));
-            PUSH(thread, new_runtime_func_obj(vulnObjs, func, thread->module));
-            break;
-        }
-        case OP_ENTRY_FUNC:
-            ASSERT(thread->module->entryFunc == NULL, "Can't set multiple runtime entry funcs.");
-            thread->module->entryFunc = AS_PTR(FuncObj, READ_CONST(thread));
-            break;
-        case OP_RUN_ENTRY: {
-            FuncObj *entryFunc = thread->module->entryFunc;
-            if (entryFunc) {
-                PUSH(thread, entryFunc);
-                PUSH(thread, new_map_obj(vulnObjs, create_table()));
-                call(thread, AS_OBJ(entryFunc), 1, 0);
-            }
-            break;
-        }
-        case OP_MAKE_CLOSURE: {
-            FuncObj *func = AS_PTR(FuncObj, PEEK(thread));
-            ASSERT(
-                FLAG_IS_SET(func->flags, FUNC_RUNTIME_BIT),
-                "Function on the stack is not a runtime one."
-            );
-            RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, func);
-            FLAG_ENABLE(closure->func.flags, FUNC_CLOSURE_BIT);
-
-            // Copy the current function's closure context just in case its got one too.
-            RuntimeFuncObj *frameClosure = AS_PTR(RuntimeFuncObj, thread->frame->func);
-            for (u32 i = 0; i < frameClosure->captures.length; i++) {
-                PUSH_DA(&closure->captures, frameClosure->captures.data[i]);
-            }
-            break;
-        }
-        case OP_CLASS: {
-            const bool isAbstract = AS_PTR(BoolObj, PEEK(thread))->boolean;
-            PEEK(thread) = AS_OBJ(
-                new_class_obj(vulnObjs, AS_PTR(StringObj, READ_CONST(thread)), isAbstract)
-            );
-            break;
-        }
-        case OP_INHERIT: {
-            if (PEEK(thread)->type != OBJ_CLASS) {
-                INTERP_LOOP_RUNTIME_ERROR(
-                    thread, "Inherited name must be class, but got %s.",
-                    obj_type_str(PEEK(thread)->type)
-                );
-            }
-            ClassObj *superclass = AS_PTR(ClassObj, PEEK(thread));
-            ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(thread, 1));
-            if (superclass->isAbstract && !inherit_abstract(thread, cls, superclass)) {
-                INTERP_LOOP_FINISH_ERROR(thread);
-            }
-            cls->superclass = superclass;
-            DROP(thread);
-            break;
-        }
-        case OP_ADD_INIT: {
-            ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(thread, 1));
-            cls->init = AS_PTR(FuncObj, PEEK(thread));
-            DROP(thread);
-            break;
-        }
-        case OP_METHODS: {
-            const u32 amount = READ_NUMBER(thread);
-            ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(thread, amount));
-            for (u32 i = 0; i < amount; i++) {
-                // Order of appending doesn't matter since we're using a hash table.
-                FuncObj *method = AS_PTR(FuncObj, PEEK_DEPTH(thread, i));
-                method->cls = cls; // Sets the class of the function that is now a method.
-                table_set(&cls->methods, AS_OBJ(method->name), AS_OBJ(method));
-            }
-            DROP_AMOUNT(thread, amount);
-            break;
-        }
-        case OP_ABSTRACT_METHODS: {
-            const u32 amount = READ_NUMBER(thread);
-            ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(thread, amount));
-            ASSERT(cls->isAbstract, "Tried to add abstract methods to non-abstract class.");
-
-            for (u32 i = 0; i < amount; i++) {
-                PUSH_DA(&cls->abstractMethods, PEEK_DEPTH(thread, i));
-            }
-            DROP_AMOUNT(thread, amount);
-            break;
-        }
-        case OP_JUMP: {
-            const u32 jump = READ_NUMBER(thread);
-            thread->frame->ip += jump;
-            break;
-        }
-        case OP_JUMP_BACK: {
-            const u32 jump = READ_NUMBER(thread);
-            thread->frame->ip -= jump;
-            break;
-        }
-        case OP_JUMP_IF: {
-            const u32 jump = READ_NUMBER(thread);
-            if (as_bool(vulnObjs, PEEK(thread))->boolean) {
-                thread->frame->ip += jump;
-            }
-            break;
-        }
-        case OP_JUMP_IF_NOT: {
-            const u32 jump = READ_NUMBER(thread);
-            if (!(as_bool(vulnObjs, PEEK(thread))->boolean)) {
-                thread->frame->ip += jump;
-            }
-            break;
-        }
-        case OP_POP_JUMP_IF_NOT: {
-            const u32 jump = READ_NUMBER(thread);
-            if (!(as_bool(vulnObjs, PEEK(thread))->boolean)) {
-                thread->frame->ip += jump;
-            }
-            DROP(thread);
-            break;
-        }
-        case OP_POP_JUMP_IF: {
-            const u32 jump = READ_NUMBER(thread);
-            if (as_bool(vulnObjs, PEEK(thread))->boolean) {
-                thread->frame->ip += jump;
-            }
-            DROP(thread);
-            break;
-        }
-        case OP_POP_JUMP_BACK_IF: {
-            const u32 jump = READ_NUMBER(thread);
-            if (as_bool(vulnObjs, PEEK(thread))->boolean) {
-                thread->frame->ip -= jump;
-            }
-            DROP(thread);
-            break;
-        }
-        case OP_POP_LOCAL:
-            if (thread->openCaptures.length > 0) {
-                close_captures(thread, 1);
-            }
-            DROP(thread);
-            break;
-        case OP_POP_LOCALS: {
-            const u32 pops = READ_NUMBER(thread);
-            if (thread->openCaptures.length > 0) {
-                close_captures(thread, pops);
-            }
-            DROP_AMOUNT(thread, pops);
-            break;
-        }
-        case OP_POP_CAPTURES:
-            ASSERT(
-                FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT),
-                "Tried to pop captured inside non-closure."
-            );
-            DROP_AMOUNT_DA(
-                &AS_PTR(RuntimeFuncObj, thread->frame->func)->captures, READ_NUMBER(thread)
-            );
-            break;
-        case OP_RETURN:
-            ASSERT(
-                thread->callStack.length > 1, "Tried to return top-level or a nonexistent level."
-            );
-            call_return(thread);
-            if (is_spawned_thread_done(thread)) {
-                return;
-            }
-            break;
-        case OP_CLOSURE_RETURN:
-            ASSERT(
-                FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT),
-                "Tried to closure return from non-closure."
-            );
-            RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, thread->frame->func);
-            DROP_AMOUNT_DA(&closure->captures, READ_NUMBER(thread));
-            call_return(thread);
-            if (is_spawned_thread_done(thread)) {
-                return;
-            }
-            break;
-        case OP_COPY_TOP: {
-            Obj *top = PEEK(thread);
-            PUSH(thread, top);
-            break;
-        }
-        case OP_IMPORT: {
-            StringObj *path = AS_PTR(StringObj, READ_CONST(thread));
-            if (!import_module(thread, path)) {
-                INTERP_LOOP_FINISH_ERROR(thread);
-            }
-            break;
-        }
-        case OP_IMPORT_NAMES: {
-            ASSERT(PEEK(thread)->type == OBJ_MODULE, "Expected module for imported names.");
-
-            ListObj *names = AS_PTR(ListObj, READ_CONST(thread));
-            ModuleObj *importedModule = AS_PTR(ModuleObj, safe_pop(thread));
-            if (!import_names(thread, importedModule, names)) {
-                INTERP_LOOP_FINISH_ERROR(thread);
-            }
-            break;
-        }
-        case OP_START_TRY: {
-            const bool saveErrorMessage = AS_PTR(BoolObj, PEEK(thread))->boolean;
-            DROP(thread); // Already stored as a C-boolean, safe to drop.
-
-            const u32 relativeCatchSpot = READ_NUMBER(thread);
-            u8 *catchIp = thread->frame->ip + relativeCatchSpot;
-            PUSH_DA(&thread->catches, create_catch_state(thread, catchIp, saveErrorMessage));
-            break;
-        }
-        case OP_FINISH_TRY:
-            DROP_DA(&thread->catches);
-            break;
-        case OP_RAISE: {
-            StringObj *message = AS_PTR(StringObj, PEEK(thread));
-            INTERP_LOOP_RUNTIME_ERROR(thread, message->string);
-            DROP(thread);
-            break;
-        }
-        case OP_END_MODULE: {
-            ModuleObj *importedModule = thread->module;
-            pop_stack_frame(thread); // The stack frame associated with the module's top level code.
-            PUSH(thread, importedModule);
-            thread->module = importedModule->importedBy;
-            break;
-        }
-        case OP_EXIT: {
-            Obj *exitCode = PEEK(thread);
-            if (exitCode->type != OBJ_INT) {
-                INTERP_LOOP_RUNTIME_ERROR(thread, "Expected exit code to be integer.");
-            }
-            set_exit_code(thread, true, AS_PTR(IntObj, exitCode)->number);
-            DROP(thread);
-            return;
-        }
-        case OP_EOF:
-            set_exit_code(thread, false, ZMX_EXIT_SUCCESS);
-            return;
+        PEEK(thread) = AS_OBJ(new_int_obj(vulnObjs, flipped));
+        DISPATCH();
+    }
+    op_is: {
+        ObjType checkedType;
+        switch ((DataType)READ_NUMBER(thread)) {
+        case TYPE_INT: checkedType = OBJ_INT; break;
+        case TYPE_FLOAT: checkedType = OBJ_FLOAT; break;
+        case TYPE_BOOL: checkedType = OBJ_BOOL; break;
+        case TYPE_STRING: checkedType = OBJ_STRING; break;
         TOGGLEABLE_DEFAULT_UNREACHABLE();
         }
+        PEEK(thread) = AS_OBJ(new_bool_obj(vulnObjs, PEEK(thread)->type == checkedType));
+        DISPATCH();
     }
+    op_as: {
+        Obj *converted;
+        switch ((DataType)READ_NUMBER(thread)) {
+        case TYPE_INT: converted = AS_OBJ(as_int(vulnObjs, PEEK(thread))); break;
+        case TYPE_FLOAT: converted = AS_OBJ(as_float(vulnObjs, PEEK(thread))); break;
+        case TYPE_BOOL: converted = AS_OBJ(as_bool(vulnObjs, PEEK(thread))); break;
+        case TYPE_STRING: converted = AS_OBJ(as_string(vulnObjs, PEEK(thread))); break;
+        TOGGLEABLE_DEFAULT_UNREACHABLE();
+        }
+        if (converted == NULL) {
+            if (PEEK(thread)->type == OBJ_STRING) {
+                INTERP_LOOP_RUNTIME_ERROR(
+                    thread, "Can't convert string '%s' to number.",
+                    AS_PTR(StringObj, PEEK(thread))->string
+                );
+            }
+            INTERP_LOOP_RUNTIME_ERROR(
+                thread, "Can't convert %s to a number.", obj_type_str(PEEK(thread)->type)
+            );
+        }
+        PEEK(thread) = AS_OBJ(converted);
+        DISPATCH();
+    }
+    op_finish_string: {
+        const u32 amount = READ_NUMBER(thread);
+
+        // Build a string from the deepest/oldest till the outermost/newest one in the stack.
+        CharBuffer finishedString = create_char_buffer();
+        for (u32 i = 1; i <= amount; i++) {
+            buffer_append_string(
+                &finishedString, AS_PTR(StringObj, PEEK_DEPTH(thread, amount - i))->string
+            );
+        }
+        DROP_PUSH_DEPTH(
+            thread, new_string_obj(vulnObjs, finishedString.text, finishedString.length), amount
+        );
+        free_char_buffer(&finishedString);
+        DISPATCH();
+    }
+    op_range: {
+        Obj *step = PEEK(thread);
+        Obj *end = PEEK_DEPTH(thread, 1);
+        Obj *start = PEEK_DEPTH(thread, 2);
+        if (start->type != OBJ_INT || end->type != OBJ_INT || step->type != OBJ_INT) {
+            INTERP_LOOP_RUNTIME_ERROR(
+                thread, "Range takes 3 integers, got %s, %s, and %s instead.",
+                obj_type_str(start->type), obj_type_str(end->type), obj_type_str(step->type)
+            );
+        }
+        if (AS_PTR(IntObj, step)->number < 0) {
+            INTERP_LOOP_RUNTIME_ERROR(thread, "Range's step can't be a negative number.");
+        }
+        DROP_PUSH_DEPTH(
+            thread, new_range_obj(vulnObjs, NUM_VAL(start), NUM_VAL(end), NUM_VAL(step)), 3
+        );
+        DISPATCH();
+    }
+    op_ternary: {
+        Obj *falseExpr = PEEK(thread);
+        Obj *trueExpr = PEEK_DEPTH(thread, 1);
+        Obj *condition = PEEK_DEPTH(thread, 2);
+        bool boolean = as_bool(vulnObjs, condition)->boolean; 
+        DROP_PUSH_DEPTH(thread, boolean ? trueExpr : falseExpr, 3);
+        DISPATCH();
+    }
+    op_list: {
+        const u32 length = READ_NUMBER(thread);
+        ObjArray items = CREATE_DA();
+        for (u32 i = 1; i <= length; i++) {
+            PUSH_DA(&items, PEEK_DEPTH(thread, length - i));
+        }
+        Obj *list = AS_OBJ(new_list_obj(vulnObjs, items));
+        DROP_PUSH_DEPTH(thread, list, length);
+        DISPATCH();
+    }
+    op_map: {
+        // x2 the amount of entries to account for each entry being 2: a key and value.
+        const u32 length = READ_NUMBER(thread) * 2;
+        Table entries = create_table();
+        for (u32 i = 0; i < length; i += 2) {
+            Obj *value = PEEK_DEPTH(thread, i);
+            Obj *key = PEEK_DEPTH(thread, i + 1);
+            if (!is_hashable(key)) {
+                INTERP_LOOP_RUNTIME_ERROR(
+                    thread, "Can't hash %s key.", obj_type_str(key->type)
+                );
+            }
+            table_set(&entries, key, value);
+        }
+        DROP_PUSH_DEPTH(thread, new_map_obj(vulnObjs, entries), length);
+        DISPATCH();
+    }
+    op_get_built_in: {
+        Obj *value = table_get(&program->builtIn.funcs, READ_CONST(thread));
+        PUSH(thread, value);
+        DISPATCH();
+    }
+    op_declare_global:
+        set_global(thread->module, READ_CONST(thread), PEEK(thread));
+        DROP(thread);
+        DISPATCH();
+    op_assign_global:
+        set_global(thread->module, READ_CONST(thread), PEEK(thread));
+        DISPATCH();
+    op_get_global: {
+        Obj *value = get_global(&thread->vulnObjs, thread->module, READ_CONST(thread));
+        ASSERT(value, "Interpreter global get operation returned NULL.");
+        PUSH(thread, value);
+        DISPATCH();
+    }
+    op_assign_local: {
+        const u32 index = READ_NUMBER(thread);
+        if (
+            FAST_INT_TABLE_HAS_KEY(
+                &thread->openIndicesSet, thread->frame->bp + index - thread->stack.objects
+            )
+        ) {
+            // Captures are viewed by different functions, and they could be other thread funcs.
+            assign_open_local(thread, index, PEEK(thread));
+            DISPATCH();
+        }
+        thread->frame->bp[index] = PEEK(thread);
+        DISPATCH();
+    }
+    op_get_local: {
+        const u32 index = READ_NUMBER(thread);
+        if (
+            FAST_INT_TABLE_HAS_KEY(
+                &thread->openIndicesSet, thread->frame->bp + index - thread->stack.objects
+            )
+        ) {
+            // Captures are viewed by different functions, and they could be other thread funcs.
+            PUSH(thread, get_open_local(thread, index));
+            DISPATCH();
+        }
+        PUSH(thread, thread->frame->bp[index]);
+        DISPATCH();
+    }
+    op_capture_depth: {
+        ASSERT(
+            FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT),
+            "Tried to capture inside non-closure."
+        );
+        const u32 depth = READ_NUMBER(thread);
+        capture_variable(thread, PEEK_DEPTH(thread, depth), thread->stack.length - depth - 1);
+        DISPATCH();
+    }
+    op_capture_at: {
+        ASSERT(
+            FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT),
+            "Tried to capture inside non-closure."
+        );
+        const u32 at = READ_NUMBER(thread);
+        capture_variable(
+            thread, thread->frame->bp[at], thread->frame->bp + at - thread->stack.objects
+        );
+        DISPATCH();
+    }
+    op_assign_captured: {
+        ASSERT(
+            FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT),
+            "Tried to assign captured inside non-closure."
+        );
+        RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, thread->frame->func);
+        CapturedObj *capture = AS_PTR(CapturedObj, closure->captures.data[READ_NUMBER(thread)]);
+
+        if (capture->isOpen) {
+            assign_open_capture(capture, PEEK(thread));
+        } else {
+            capture->captured = PEEK(thread);
+        }
+        DISPATCH();
+    }
+    op_get_captured: {
+        ASSERT(
+            FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT),
+            "Tried to get captured inside non-closure."
+        );
+        RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, thread->frame->func);
+        CapturedObj *capture = AS_PTR(CapturedObj, closure->captures.data[READ_NUMBER(thread)]);
+
+        if (capture->isOpen) {
+            PUSH(thread, get_open_capture(&thread->vulnObjs, capture));
+        } else {
+            PUSH(thread, capture->captured);
+        }
+        DISPATCH();
+    }
+    op_set_property: {
+        Obj *originalObj = PEEK(thread);
+        StringObj *name = AS_PTR(StringObj, READ_CONST(thread));
+        Obj *value = PEEK_DEPTH(thread, 1);
+        if (!set_property(thread, originalObj, name, value)) {
+            INTERP_LOOP_FINISH_ERROR(thread);
+        }
+        DISPATCH();
+    }
+    op_get_property: {
+        Obj *originalObj = PEEK(thread);
+        StringObj *name = AS_PTR(StringObj, READ_CONST(thread));
+        if (!get_property(thread, originalObj, name)) {
+            INTERP_LOOP_FINISH_ERROR(thread);
+        }
+        DISPATCH();
+    }
+    op_get_super: {
+        ASSERT(
+            PEEK(thread)->type == OBJ_INSTANCE, "Expected stack top to be instance for super."
+        );
+        ASSERT(thread->frame->func->cls != NULL, "Super outside class not caught by resolver.");
+        ASSERT(
+            thread->frame->func->cls->superclass != NULL,
+            "Super in non-inheriting class not caught by resolver."
+        );
+        InstanceObj *instance = AS_PTR(InstanceObj, PEEK(thread));
+        StringObj *name = AS_PTR(StringObj, READ_CONST(thread));
+        ClassObj *superclass = thread->frame->func->cls->superclass;
+
+        Obj *method = find_method(superclass, name);
+        if (method) {
+            PEEK(thread) = AS_OBJ(new_method_obj(vulnObjs, instance, AS_PTR(FuncObj, method)));
+        } else {
+            INTERP_LOOP_RUNTIME_ERROR(
+                thread, "Couldn't find method '%s' in superclass.", name->string
+            );
+        }
+        DISPATCH();
+    }
+    op_destructure: {
+        const u32 amount = READ_NUMBER(thread);
+        if (!destructure(thread, amount)) {
+            INTERP_LOOP_FINISH_ERROR(thread);
+        }
+        DISPATCH();
+    }
+    op_for_assign_vars: {
+        const u32 amount = READ_NUMBER(thread);
+        if (!destructure(thread, amount)) {
+            INTERP_LOOP_FINISH_ERROR(thread);
+        }
+        for (u32 i = 0; i < amount; i++) {
+            // +1 to go over the iterator.
+            PEEK_DEPTH(thread, amount + i + 1) = PEEK_DEPTH(thread, i);
+        }
+        DROP_AMOUNT(thread, amount);
+        DISPATCH();
+    }
+    op_make_iter: {
+        if (!is_iterable(PEEK(thread))) {
+            INTERP_LOOP_RUNTIME_ERROR(
+                thread, "Can't iterate over object of type %s.",
+                obj_type_str(PEEK(thread)->type)
+            );
+        }
+        PEEK(thread) = AS_OBJ(new_iterator_obj(vulnObjs, PEEK(thread)));
+        DISPATCH();
+    }
+    op_for_iter_assign: {
+        Obj *iterated = for_iter_or_jump(thread);
+        if (iterated) {
+            PEEK_DEPTH(thread, 1) = iterated;
+        }
+        DISPATCH();
+    }
+    op_for_iter_load: {
+        Obj *iterated = for_iter_or_jump(thread);
+        if (iterated) {
+            PUSH(thread, iterated);
+        }
+        DISPATCH();
+    }
+    op_call: {
+        const u32 argAmount = READ_NUMBER(thread) + 1; // +1 to account for keyword args.
+        const u32 argsIdx = thread->frame->sp - argAmount - thread->stack.objects;
+
+        if (!call(thread, PEEK_DEPTH(thread, argAmount), argsIdx, argAmount - 1)) {
+            INTERP_LOOP_FINISH_ERROR(thread);
+        }
+        DISPATCH();
+    }
+    op_assign_subscr: {
+        Obj *subscript = PEEK(thread);
+        Obj *callee = PEEK_DEPTH(thread, 1);
+        Obj *value = PEEK_DEPTH(thread, 2);
+        if (callee->type == OBJ_LIST) {
+            if (!list_assign_subscr(thread, AS_PTR(ListObj, callee), subscript, value)) {
+                INTERP_LOOP_FINISH_ERROR(thread);
+            }
+        } else if (callee->type == OBJ_MAP) {
+            if (!map_assign_subscr(thread, AS_PTR(MapObj, callee), subscript, value)) {
+                INTERP_LOOP_FINISH_ERROR(thread);
+            }
+        } else {
+            INTERP_LOOP_RUNTIME_ERROR(
+                thread, "Can't subscript assign to %s.", obj_type_str(callee->type)
+            );
+        }
+        DISPATCH();
+    }
+    op_get_subscr: {
+        Obj *subscript = PEEK(thread);
+        Obj *callee = PEEK_DEPTH(thread, 1);
+        if (
+            callee->type == OBJ_LIST || callee->type == OBJ_STRING || callee->type == OBJ_ENUM
+        ) {
+            if (!array_get_subscr(thread, callee, subscript)) {
+                INTERP_LOOP_FINISH_ERROR(thread);
+            }
+        } else if (callee->type == OBJ_MAP) {
+            if (!map_get_subscr(thread, AS_PTR(MapObj, callee), subscript)) {
+                INTERP_LOOP_FINISH_ERROR(thread);
+            }
+        } else {
+            INTERP_LOOP_RUNTIME_ERROR(
+                thread, "Can't subscript object of type %s.", obj_type_str(callee->type)
+            );
+        }
+        DISPATCH();
+    }
+    op_optionals_func: {
+        ObjArray values = AS_PTR(ListObj, PEEK(thread))->items;
+        FuncObj *func = AS_PTR(FuncObj, PEEK_DEPTH(thread, 1));
+        ASSERT(
+            FLAG_IS_SET(func->flags, FUNC_RUNTIME_BIT),
+            "Function on the stack is not a runtime one."
+        );
+        RuntimeFuncObj *withOptionals = AS_PTR(RuntimeFuncObj, func);
+
+        FLAG_ENABLE(withOptionals->func.flags, FUNC_OPTIONALS_BIT);
+        for (u32 i = 0; i < withOptionals->func.staticParams.minArity; i++) {
+            PUSH_DA(&withOptionals->paramVals, NULL); // C-NULL values for mandatories.
+        }
+        for (u32 i = 0; i < values.length; i++) {
+            PUSH_DA(&withOptionals->paramVals, values.data[i]);
+        }
+        DROP(thread); // The values list.
+        DISPATCH();
+    }
+    op_func: {
+        FuncObj *func = AS_PTR(FuncObj, READ_CONST(thread));
+        PUSH(thread, new_runtime_func_obj(vulnObjs, func, thread->module));
+        DISPATCH();
+    }
+    op_entry_func:
+        ASSERT(thread->module->entryFunc == NULL, "Can't set multiple runtime entry funcs.");
+        thread->module->entryFunc = AS_PTR(FuncObj, READ_CONST(thread));
+        DISPATCH();
+    op_run_entry: {
+        FuncObj *entryFunc = thread->module->entryFunc;
+        if (entryFunc) {
+            PUSH(thread, entryFunc);
+            PUSH(thread, new_map_obj(vulnObjs, create_table()));
+            call(thread, AS_OBJ(entryFunc), 1, 0);
+        }
+        DISPATCH();
+    }
+    op_make_closure: {
+        FuncObj *func = AS_PTR(FuncObj, PEEK(thread));
+        ASSERT(
+            FLAG_IS_SET(func->flags, FUNC_RUNTIME_BIT),
+            "Function on the stack is not a runtime one."
+        );
+        RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, func);
+        FLAG_ENABLE(closure->func.flags, FUNC_CLOSURE_BIT);
+
+        // Copy the current function's closure context just in case its got one too.
+        RuntimeFuncObj *frameClosure = AS_PTR(RuntimeFuncObj, thread->frame->func);
+        for (u32 i = 0; i < frameClosure->captures.length; i++) {
+            PUSH_DA(&closure->captures, frameClosure->captures.data[i]);
+        }
+        DISPATCH();
+    }
+    op_class: {
+        const bool isAbstract = AS_PTR(BoolObj, PEEK(thread))->boolean;
+        PEEK(thread) = AS_OBJ(
+            new_class_obj(vulnObjs, AS_PTR(StringObj, READ_CONST(thread)), isAbstract)
+        );
+        DISPATCH();
+    }
+    op_inherit: {
+        if (PEEK(thread)->type != OBJ_CLASS) {
+            INTERP_LOOP_RUNTIME_ERROR(
+                thread, "Inherited name must be class, but got %s.",
+                obj_type_str(PEEK(thread)->type)
+            );
+        }
+        ClassObj *superclass = AS_PTR(ClassObj, PEEK(thread));
+        ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(thread, 1));
+        if (superclass->isAbstract && !inherit_abstract(thread, cls, superclass)) {
+            INTERP_LOOP_FINISH_ERROR(thread);
+        }
+        cls->superclass = superclass;
+        DROP(thread);
+        DISPATCH();
+    }
+    op_add_init: {
+        ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(thread, 1));
+        cls->init = AS_PTR(FuncObj, PEEK(thread));
+        DROP(thread);
+        DISPATCH();
+    }
+    op_methods: {
+        const u32 amount = READ_NUMBER(thread);
+        ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(thread, amount));
+        for (u32 i = 0; i < amount; i++) {
+            // Order of appending doesn't matter since we're using a hash table.
+            FuncObj *method = AS_PTR(FuncObj, PEEK_DEPTH(thread, i));
+            method->cls = cls; // Sets the class of the function that is now a method.
+            table_set(&cls->methods, AS_OBJ(method->name), AS_OBJ(method));
+        }
+        DROP_AMOUNT(thread, amount);
+        DISPATCH();
+    }
+    op_abstract_methods: {
+        const u32 amount = READ_NUMBER(thread);
+        ClassObj *cls = AS_PTR(ClassObj, PEEK_DEPTH(thread, amount));
+        ASSERT(cls->isAbstract, "Tried to add abstract methods to non-abstract class.");
+
+        for (u32 i = 0; i < amount; i++) {
+            PUSH_DA(&cls->abstractMethods, PEEK_DEPTH(thread, i));
+        }
+        DROP_AMOUNT(thread, amount);
+        DISPATCH();
+    }
+    op_jump: {
+        const u32 jump = READ_NUMBER(thread);
+        thread->frame->ip += jump;
+        DISPATCH();
+    }
+    op_jump_back: {
+        const u32 jump = READ_NUMBER(thread);
+        thread->frame->ip -= jump;
+        DISPATCH();
+    }
+    op_jump_if: {
+        const u32 jump = READ_NUMBER(thread);
+        if (as_bool(vulnObjs, PEEK(thread))->boolean) {
+            thread->frame->ip += jump;
+        }
+        DISPATCH();
+    }
+    op_jump_if_not: {
+        const u32 jump = READ_NUMBER(thread);
+        if (!(as_bool(vulnObjs, PEEK(thread))->boolean)) {
+            thread->frame->ip += jump;
+        }
+        DISPATCH();
+    }
+    op_pop_jump_if_not: {
+        const u32 jump = READ_NUMBER(thread);
+        if (!(as_bool(vulnObjs, PEEK(thread))->boolean)) {
+            thread->frame->ip += jump;
+        }
+        DROP(thread);
+        DISPATCH();
+    }
+    op_pop_jump_if: {
+        const u32 jump = READ_NUMBER(thread);
+        if (as_bool(vulnObjs, PEEK(thread))->boolean) {
+            thread->frame->ip += jump;
+        }
+        DROP(thread);
+        DISPATCH();
+    }
+    op_pop_jump_back_if: {
+        const u32 jump = READ_NUMBER(thread);
+        if (as_bool(vulnObjs, PEEK(thread))->boolean) {
+            thread->frame->ip -= jump;
+        }
+        DROP(thread);
+        DISPATCH();
+    }
+    op_pop_local:
+        if (thread->openCaptures.length > 0) {
+            close_captures(thread, 1);
+        }
+        DROP(thread);
+        DISPATCH();
+    op_pop_locals: {
+        const u32 pops = READ_NUMBER(thread);
+        if (thread->openCaptures.length > 0) {
+            close_captures(thread, pops);
+        }
+        DROP_AMOUNT(thread, pops);
+        DISPATCH();
+    }
+    op_pop_captures:
+        ASSERT(
+            FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT),
+            "Tried to pop captured inside non-closure."
+        );
+        DROP_AMOUNT_DA(
+            &AS_PTR(RuntimeFuncObj, thread->frame->func)->captures, READ_NUMBER(thread)
+        );
+        DISPATCH();
+    op_return:
+        ASSERT(
+            thread->callStack.length > 1, "Tried to return top-level or a nonexistent level."
+        );
+        call_return(thread);
+        if (is_spawned_thread_done(thread)) {
+            return;
+        }
+        DISPATCH();
+    op_closure_return:
+        ASSERT(
+            FLAG_IS_SET(thread->frame->func->flags, FUNC_CLOSURE_BIT),
+            "Tried to closure return from non-closure."
+        );
+        RuntimeFuncObj *closure = AS_PTR(RuntimeFuncObj, thread->frame->func);
+        DROP_AMOUNT_DA(&closure->captures, READ_NUMBER(thread));
+        call_return(thread);
+        if (is_spawned_thread_done(thread)) {
+            return;
+        }
+        DISPATCH();
+    op_copy_top: {
+        Obj *top = PEEK(thread);
+        PUSH(thread, top);
+        DISPATCH();
+    }
+    op_import: {
+        StringObj *path = AS_PTR(StringObj, READ_CONST(thread));
+        if (!import_module(thread, path)) {
+            INTERP_LOOP_FINISH_ERROR(thread);
+        }
+        DISPATCH();
+    }
+    op_import_names: {
+        ASSERT(PEEK(thread)->type == OBJ_MODULE, "Expected module for imported names.");
+
+        ListObj *names = AS_PTR(ListObj, READ_CONST(thread));
+        ModuleObj *importedModule = AS_PTR(ModuleObj, safe_pop(thread));
+        if (!import_names(thread, importedModule, names)) {
+            INTERP_LOOP_FINISH_ERROR(thread);
+        }
+        DISPATCH();
+    }
+    op_start_try: {
+        const bool saveErrorMessage = AS_PTR(BoolObj, PEEK(thread))->boolean;
+        DROP(thread); // Already stored as a C-boolean, safe to drop.
+
+        const u32 relativeCatchSpot = READ_NUMBER(thread);
+        u8 *catchIp = thread->frame->ip + relativeCatchSpot;
+        PUSH_DA(&thread->catches, create_catch_state(thread, catchIp, saveErrorMessage));
+        DISPATCH();
+    }
+    op_finish_try:
+        DROP_DA(&thread->catches);
+        DISPATCH();
+    op_raise: {
+        StringObj *message = AS_PTR(StringObj, PEEK(thread));
+        INTERP_LOOP_RUNTIME_ERROR(thread, message->string);
+        DROP(thread);
+        DISPATCH();
+    }
+    op_end_module: {
+        ModuleObj *importedModule = thread->module;
+        pop_stack_frame(thread); // The stack frame associated with the module's top level code.
+        PUSH(thread, importedModule);
+        thread->module = importedModule->importedBy;
+        DISPATCH();
+    }
+    op_exit: {
+        Obj *exitCode = PEEK(thread);
+        if (exitCode->type != OBJ_INT) {
+            INTERP_LOOP_RUNTIME_ERROR(thread, "Expected exit code to be integer.");
+        }
+        set_exit_code(thread, true, AS_PTR(IntObj, exitCode)->number);
+        DROP(thread);
+        return;
+    }
+    op_eof:
+        set_exit_code(thread, false, ZMX_EXIT_SUCCESS);
+        return;
+    TOGGLEABLE_DEFAULT_UNREACHABLE();
+
+#undef DISPATCH
 }
 
 /** 
