@@ -2,7 +2,7 @@
 #define DEBUG_BYTECODE_H
 
 #include "object.h"
-#include "emitter.h"
+#include "vm.h"
 
 typedef enum {
     FORMAT_NO_LINE_OR_PAD,

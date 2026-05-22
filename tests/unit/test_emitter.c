@@ -5,6 +5,7 @@
 #include "dynamic_array.h"
 
 #include "emitter.c"
+#include "vm.h"
 
 Compiler defaultCompiler; /** Default compiler for testing the bytecode emitters. */
 
@@ -106,13 +107,18 @@ PRIVATE_TEST_CASE(test_number_read_and_write) {
     emit_number(&defaultCompiler, OP_FINISH_STRING, U16_MAX + 100, create_src_pos(1, 0, 1));
     
     InstrSize size = INSTR_ONE_BYTE;
-    u32 actual = bytecode_number(&defaultCompiler.func->bytecode, 1, &size);
+    u8 *ip = defaultCompiler.func->bytecode.data + 1;
+    u32 actual = read_number(&ip, &size);
     ASSERT_UINT32_EQUAL(actual, TYPE_FLOAT);
+
     size = INSTR_TWO_BYTES;
-    actual = bytecode_number(&defaultCompiler.func->bytecode, 4, &size);
+    ip += 2;
+    actual = read_number(&ip, &size);
     ASSERT_UINT32_EQUAL(actual, U8_MAX + 100);
+
     size = INSTR_FOUR_BYTES;
-    actual = bytecode_number(&defaultCompiler.func->bytecode, 8, &size);
+    ip += 2;
+    actual = read_number(&ip, &size);
     ASSERT_UINT32_EQUAL(actual, U16_MAX + 100);
 
     SourcePositionArray *positions = &defaultCompiler.func->positions;
@@ -160,7 +166,8 @@ static void assert_large_jump(
 
     InstrSize readSize = argSize == OP_ARG_16 ? INSTR_TWO_BYTES : INSTR_FOUR_BYTES;
     ASSERT_TRUE(readSize == get_number_size(expectedSize));
-    const u32 inserted = bytecode_number(&defaultCompiler.func->bytecode, argSizeIdx + 2, &readSize);
+    u8 *ip = defaultCompiler.func->bytecode.data + argSizeIdx + 2;
+    const u32 inserted = read_number(&ip, &readSize);
     ASSERT_UINT32_EQUAL(inserted, expectedSize);
 }
 

@@ -141,22 +141,6 @@ void emit_number(Compiler *compiler, const u8 instr, const u32 number, const Sou
     insert_number(compiler, numIdx, number);
 }
 
-/** 
- * Reads a number that's a max size of a U32 which begins from numStart as an index in bytecode.
- * 
- * The amount of bytes read depends on the passed instruction size. Worth mentioning that the 
- * instruction size pointer is automatically set to 1 byte for next reads after being called.
- */
-u32 bytecode_number(const ByteArray *bytecode, const u32 numStart, InstrSize *size) {
-    ASSERT(numStart + *size - 1 < bytecode->length, "Reading outside bytecode boundary.");
-    u32 total = 0;
-    for (int i = 0; i < (int)*size; i++) {
-        total = (total << 8) | bytecode->data[numStart + i];
-    }
-    *size = INSTR_ONE_BYTE;
-    return total;
-}
-
 /** Emits an instruction followed by an idx after to be used for an object in the const pool. */
 void emit_const(Compiler *compiler, const u8 instr, Obj *constant, const SourcePosition pos) {
     PUSH_DA(&compiler->func->constPool, constant);

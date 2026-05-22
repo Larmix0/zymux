@@ -21,8 +21,10 @@ static u32 print_number_instr(
     const char *instrName, const FuncObj *func, u32 *idx, InstrSize *size
 ) {
     print_bare_instr(instrName, idx);
+    u8 *ip = func->bytecode.data + *idx;
+    const u32 number = read_number(&ip, size);
     *idx += *size;
-    const u32 number = bytecode_number(&func->bytecode, *idx - *size, size);
+
     printf(" %"PRIu32, number);
     return number;
 }

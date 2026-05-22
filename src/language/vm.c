@@ -54,13 +54,7 @@
 #define READ_INSTR(thread) (*(thread)->frame->ip++)
 
 /** Reads the upcoming number in the bytecode and can be assigned to it. */
-#define READ_NUMBER(thread) \
-    ((thread)->frame->ip += (thread)->instrSize, \
-    bytecode_number( \
-        &(thread)->frame->func->bytecode, \
-        (thread)->frame->ip - (thread)->frame->func->bytecode.data - (thread)->instrSize, \
-        &(thread)->instrSize \
-    ))
+#define READ_NUMBER(thread) (read_number(&(thread)->frame->ip, &(thread)->instrSize))
 
 /** Reads the upcoming number and uses it to index an object in the current constant pool. */
 #define READ_CONST(thread) ((thread)->frame->func->constPool.data[READ_NUMBER(thread)])

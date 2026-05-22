@@ -26,7 +26,7 @@
      * Asserts a passed condition and spits an assert error if it's falsy with a message.
      * Currently disabled, so no assertions are actually being executed (for performance).
      */
-    #define ASSERT(condition, message)
+    #define ASSERT(condition, ...)
 #endif
 
 /** Reports an error relating to the user's operating system.*/

@@ -98,6 +98,31 @@ void interpret_file_source(ZmxProgram *program, char *source, const bool isMain)
  */
 void base_runtime_error(ThreadObj *thread, StringObj *errorMessage);
 
+/** 
+ * Reads a number that's a max size of a U32, then changes ip and size accordingly.
+ * 
+ * The amount of bytes read depends on the passed instruction size. Worth mentioning that the 
+ * instruction size pointer is always ensured to be 1 byte for next reads after being called.
+ */
+static inline u32 read_number(u8 **ip, InstrSize *size) {
+    u32 number;
+    switch (*size) {
+    case INSTR_ONE_BYTE:
+        number = *(*ip)++;
+        break;
+    case INSTR_TWO_BYTES:
+        number = ((*ip)[0] << 8) | ((*ip)[1]);
+        *ip += 2;
+        *size = INSTR_ONE_BYTE;
+        break;
+    case INSTR_FOUR_BYTES:
+        number = ((*ip)[0] << 24) | ((*ip)[1] << 16) | ((*ip)[2] << 8) | ((*ip)[3]);
+        *ip += 4;
+        *size = INSTR_ONE_BYTE;
+        break;
+    }
+    return number;
+}
 
 /** Safely retrieves the length of the threads array in the passed VM. */
 u32 vm_threads_length(Vm *vm);
