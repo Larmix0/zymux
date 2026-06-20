@@ -156,10 +156,6 @@ static Node *primary(Parser *parser) {
     case TOKEN_NULL_KW:
     case TOKEN_TRUE_KW:
     case TOKEN_FALSE_KW:
-    case TOKEN_INT_KW:
-    case TOKEN_FLOAT_KW:
-    case TOKEN_BOOL_KW:
-    case TOKEN_STRING_KW:
         return new_keyword_node(parser->program, PEEK_PREVIOUS(parser));
         
     case TOKEN_THIS_KW:
@@ -340,13 +336,10 @@ static Node *binary_data_type(Parser *parser) {
     Node *expr = unary(parser);
     while (CHECK(parser, TOKEN_IS_KW) || CHECK(parser, TOKEN_AS_KW)) {
         const Token operation = ADVANCE_PEEK(parser);
-        Node *dataType = unary(parser);
+        const Token typeKeyword = ADVANCE_PEEK(parser);
         if (
-            dataType->type != AST_KEYWORD ||
-            (AS_PTR(KeywordNode, dataType)->keyword != TOKEN_INT_KW
-            && AS_PTR(KeywordNode, dataType)->keyword != TOKEN_FLOAT_KW
-            && AS_PTR(KeywordNode, dataType)->keyword != TOKEN_BOOL_KW
-            && AS_PTR(KeywordNode, dataType)->keyword != TOKEN_STRING_KW)
+            (typeKeyword.type != TOKEN_INT_KW && typeKeyword.type != TOKEN_FLOAT_KW
+            && typeKeyword.type != TOKEN_BOOL_KW && typeKeyword.type != TOKEN_STRING_KW)
         ) {
             parser_error_at(
                 parser, PEEK_PREVIOUS(parser), false, "Expected data type after '%s'.",
@@ -354,7 +347,9 @@ static Node *binary_data_type(Parser *parser) {
             );
             return new_error_node(parser->program);
         }
-        expr = new_binary_node(parser->program, expr, operation, dataType);
+        expr = new_binary_node(
+            parser->program, expr, operation, new_keyword_node(parser->program, typeKeyword)
+        );
     }
     return expr;
 }

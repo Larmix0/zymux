@@ -24,7 +24,7 @@
 #define DEBUG_BYTECODE 0 /** Logs the bytecode of every compiled function. */
 #define DEBUG_RUNTIME 0 /** Logs the runtime stack, instruction executing, and catches. */
 #define DEBUG_LOG_GC 0 /** Logs GC actions during a garbage collection. */
-#define DEBUG_ALWAYS_GC 1 /** Performs a garbage collection after every object allocation. */
+#define DEBUG_ALWAYS_GC 0 /** Performs a garbage collection after every object allocation. */
 
 #define ZMX_EXIT_SUCCESS 0 /** A user program which exited successfully. */
 #define ZMX_EXIT_FAILURE 1 /** A user program which exited with an error. */
@@ -35,7 +35,7 @@
 #define YELLOW "\033[33m" /** String to set the terminal color yellow. */
 
 /** Allows assertions or disables them from the code for performance. */
-#define ASSERTS_ENABLED 1
+#define ASSERTS_ENABLED 0
 
 /** Allows us to disable default unreachables on enum-exhaustive switches so they throw warnings. */
 #define UNREACHABLE_DEFAULT_ENABLED 0
