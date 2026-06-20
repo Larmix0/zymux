@@ -2022,7 +2022,10 @@ static void interpreter_loop(ThreadObj *thread) {
     }
     op_entry_func:
         ASSERT(thread->module->entryFunc == NULL, "Can't set multiple runtime entry funcs.");
-        thread->module->entryFunc = AS_PTR(FuncObj, READ_CONST(thread));
+        RuntimeFuncObj *entry = new_runtime_func_obj(
+            vulnObjs, AS_PTR(FuncObj, READ_CONST(thread)), thread->module
+        );
+        thread->module->entryFunc = AS_PTR(FuncObj, entry);
         DISPATCH();
     op_run_entry: {
         FuncObj *entryFunc = thread->module->entryFunc;
