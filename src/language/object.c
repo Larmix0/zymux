@@ -554,6 +554,7 @@ static CharBuffer object_cstring(const Obj *object, const bool debugCString) {
 /** Returns whether or not the passed object is something that can be iterated over. */
 bool is_iterable(const Obj *object) {
     switch (object->type) {
+    case OBJ_INT:
     case OBJ_STRING:
     case OBJ_RANGE:
     case OBJ_LIST:
@@ -561,7 +562,6 @@ bool is_iterable(const Obj *object) {
     case OBJ_ENUM:
         return true;
 
-    case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:
     case OBJ_NULL:
@@ -599,6 +599,16 @@ Obj *iterate(VulnerableObjs *vulnObjs, IteratorObj *iterator, bool *hasAllocated
     ASSERT(is_iterable(iterator->iterable), "Attempted to iterate over non-iterable object.");
     SET_HAS_ALLOCATED_TO(hasAllocated, false); // No alloc default (especially for early returns).
     switch (iterator->iterable->type) {
+    case OBJ_INT: {
+        ZmxInt integer = AS_PTR(IntObj, iterator->iterable)->number;
+        if (integer <= 0 || iterator->iteration == integer) {
+            return NULL; // Only iterate positive ints, and stop when exhausted.
+        }
+        const ZmxInt result = iterator->iteration; // Returns current iter so it starts from 0.
+        iterator->iteration++;
+        SET_HAS_ALLOCATED_TO(hasAllocated, true);
+        return AS_OBJ(new_int_obj(vulnObjs, result));
+    }
     case OBJ_STRING: {
         StringObj *string = AS_PTR(StringObj, iterator->iterable);
         if (iterator->iteration >= string->length) {
@@ -654,7 +664,6 @@ Obj *iterate(VulnerableObjs *vulnObjs, IteratorObj *iterator, bool *hasAllocated
         }
         return enumObj->members.data[iterator->iteration++];
     }
-    case OBJ_INT:
     case OBJ_FLOAT:
     case OBJ_BOOL:
     case OBJ_NULL:
