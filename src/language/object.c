@@ -609,10 +609,9 @@ Obj *iterate(VulnerableObjs *vulnObjs, IteratorObj *iterator, bool *hasAllocated
     }
     case OBJ_RANGE: {
         RangeObj *range = AS_PTR(RangeObj, iterator->iterable);
-        const bool isIncreasing = range->start < range->end;
-        const ZmxInt result = isIncreasing ? range->start + (iterator->iteration * range->step)
-            : range->start - (iterator->iteration * range->step);
-            
+        const bool isIncreasing = range->step > 0;
+
+        const ZmxInt result = range->start + (iterator->iteration * range->step);
         iterator->iteration++;
         if ((isIncreasing && result > range->end) || (!isIncreasing && result < range->end)) {
             return NULL;

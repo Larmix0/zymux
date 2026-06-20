@@ -1729,9 +1729,6 @@ static void interpreter_loop(ThreadObj *thread) {
                 obj_type_str(start->type), obj_type_str(end->type), obj_type_str(step->type)
             );
         }
-        if (AS_PTR(IntObj, step)->number < 0) {
-            INTERP_LOOP_RUNTIME_ERROR(thread, "Range's step can't be a negative number.");
-        }
         DROP_PUSH_DEPTH(
             thread, new_range_obj(vulnObjs, NUM_VAL(start), NUM_VAL(end), NUM_VAL(step)), 3
         );
