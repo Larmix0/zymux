@@ -71,10 +71,7 @@ int main(const int argc, char **argv) {
     OS_ERROR("Your operating system is not supported in Zymux.");
 #endif
     CliHandler cli = create_cli_handler(argc, argv);
-    if (!cli.validArgs) {
-        print_cli_help();
-        return EXIT_FAILURE;
-    } else if (cli.help) {
+    if (cli.help) {
         print_cli_help();
         return EXIT_SUCCESS; // Assume the user just wanted the help menu.
     }

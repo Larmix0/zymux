@@ -36,31 +36,25 @@ static bool is_arg(const char *arg, const size_t argLength, const char *expected
     return insensitive_strcmp(arg, expectedArg) == 0;
 }
 
-/** Sets the flag of a matching argument in CLI, erroring if it was already set. */
-static void set_flag(CliHandler *cli, bool *flagPtr) {
-    if (*flagPtr) {
-        cli->validArgs = false;
-    } else {
-        *flagPtr = true;
-    }
+/** Sets the flag of a matching argument in CLI. */
+static void set_flag(bool *flagPtr) {
+    *flagPtr = true;
 }
 
-/** Parses one argument into the CLI, setting an error if necessary.*/
+/** Parses one argument into the CLI.*/
 static void cli_arg(char *arg, const int argIdx, CliHandler *cli) {
     const size_t length = strlen(arg);
 
     if (is_arg(arg, length, "--help") || is_arg(arg, length, "-help") || is_arg(arg, length, "-h")) {
-        set_flag(cli, &cli->help);
+        set_flag(&cli->help);
     } else if (is_arg(arg, length, "--db-token")) {
-        set_flag(cli, &cli->debugTokens);
+        set_flag(&cli->debugTokens);
     } else if (is_arg(arg, length, "--db-ast")) {
-        set_flag(cli, &cli->debugAst);
+        set_flag(&cli->debugAst);
     } else if (is_arg(arg, length, "--db-bytecode")) {
-        set_flag(cli, &cli->debugBytecode);
+        set_flag(&cli->debugBytecode);
     } else if (argIdx == 1) {
         cli->file = arg; // Take 2nd argument as file name.
-    } else {
-        cli->validArgs = false; // If it's not the 2nd argument, then it can't be the file name.
     }
 }
 
@@ -74,7 +68,7 @@ static void parse_cli(const int argc, char **argv, CliHandler *cli) {
 /** Creates a CLI (command line interface) handler, which is returned after parsing the args. */
 CliHandler create_cli_handler(const int argc, char **argv) {
     CliHandler cli = {
-        .argc = argc, .argv = argv, .validArgs = true, .file = NULL, .exitedRepl = false,
+        .argc = argc, .argv = argv, .file = NULL, .exitedRepl = false,
         .help = false, .debugTokens = false, .debugAst = false, .debugBytecode = false,
         .exitCode = 0, .manuallyExited = false
     };
@@ -84,8 +78,8 @@ CliHandler create_cli_handler(const int argc, char **argv) {
 
 /** Prints the documentation of the CLI. */
 void print_cli_help() {
-    printf("Run file: zymux <file> [options]\n");
-    printf("Run REPL: zymux [options]\n");
+    printf("Run file: zymux <file> [options/arguments]\n");
+    printf("Run REPL: zymux [options/arguments]\n");
     printf("--------------------------------\n");
     printf("options:\n");
     printf("--help | -help | -h: show help menu.\n");

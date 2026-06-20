@@ -15,7 +15,6 @@ typedef struct {
     int argc;
     char **argv;
 
-    bool validArgs; /** Whether or not the args given to the CLI handler were valid. */
     bool exitedRepl; /** Whether or not REPL has finished. */
     char *file; /** Name of file being ran (NULL if REPL is running). */
 

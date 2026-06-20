@@ -13,28 +13,21 @@ PRIVATE_TEST_CASE(test_is_arg) {
 }
 
 PRIVATE_TEST_CASE(test_parse_cli) {
-    CliHandler replCli = {.validArgs = true};
+    CliHandler replCli = {0};
     char *replArgs[] = {"exe"};
     parse_cli(1, replArgs, &replCli);
-    // No file, no debugging enabled and no args got invalidated.
+    // No file and no debugging enabled.
     ASSERT_NULL(replCli.file);
     ASSERT_FALSE(replCli.debugTokens || replCli.debugAst || replCli.debugBytecode);
-    ASSERT_TRUE(replCli.validArgs);
 
-    CliHandler fileCli = {.validArgs = true};
+    CliHandler fileCli = {0};
     char *fileArgs[] = {"exe", "file.ext", "--db-ast"};
     parse_cli(3, fileArgs, &fileCli);
     ASSERT_STRING_EQUAL(fileCli.file, "file.ext");
-    // Correct debugging enabled and no args got invalidated.
+    // Correct debugging enabled.
     ASSERT_FALSE(fileCli.debugTokens);
     ASSERT_FALSE(fileCli.debugBytecode);
     ASSERT_TRUE(fileCli.debugAst);
-    ASSERT_TRUE(fileCli.validArgs);
-
-    CliHandler invalidCli = {.validArgs = true};
-    char *invalidArgs[] = {"exe", "file.ext", "invalidArgument"};
-    parse_cli(3, invalidArgs, &invalidCli);
-    ASSERT_FALSE(invalidCli.validArgs);
 }
 
 /** Tests the general creation of a command line handler. */
@@ -43,11 +36,6 @@ PRIVATE_TEST_CASE(test_create_cli_handler) {
     CliHandler cli = create_cli_handler(2, validArgs);
     ASSERT_FALSE(cli.debugTokens || cli.debugAst || cli.debugBytecode);
     ASSERT_TRUE(cli.help);
-    ASSERT_TRUE(cli.validArgs);
-
-    char *invalidArgs[] = {"exe", "-h", "invalid", "invalid"};
-    cli = create_cli_handler(4, invalidArgs);
-    ASSERT_FALSE(cli.validArgs);
 }
 
 /** Tests cli_handler.c/.h. */
