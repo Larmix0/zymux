@@ -45,4 +45,6 @@
     "cSpell.words": [
         "Zymux"
     ],
+
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/.vscode/compile_commands.json"
 }

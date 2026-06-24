@@ -1,6 +1,6 @@
 CC = gcc
 
-CFLAGS = -Werror -Wall -Wextra
+CFLAGS = -Werror -Wall -Wextra -D_DEFAULT_SOURCE=200809L
 LDFLAGS = -lm
 
 LIB_DIR = lib

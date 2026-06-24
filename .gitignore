@@ -1,3 +1,4 @@
 *.o
 bin/
 /*.zmx
+compile_commands.json

@@ -18,6 +18,7 @@
 #if OS == WINDOWS_OS
     #include <windows.h>
 #elif OS == UNIX_OS
+    #include <time.h>
     #include <unistd.h>
 #endif
 
@@ -177,9 +178,22 @@ DEFINE_NATIVE_FUNC(sleep) {
 DEFINE_NATIVE_FUNC(time) {
     UNUSED_VARIABLE(callee);
     UNUSED_VARIABLE(args);
+#if OS == WINDOWS_OS
+    static LARGE_INTEGER frequency = {0};
 
-    const ZmxFloat currentTime = (ZmxFloat)clock() / CLOCKS_PER_SEC;
+    if (frequency.QuadPart == 0)
+        QueryPerformanceFrequency(&frequency);
+
+    LARGE_INTEGER counter;
+    QueryPerformanceCounter(&counter);
+    const ZmxFloat currentTime = (double)counter.QuadPart / (double)frequency.QuadPart;
     RETURN_OBJ(new_float_obj(&thread->vulnObjs, currentTime));
+#elif OS == UNIX_OS
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    const ZmxFloat currentTime = (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
+    RETURN_OBJ(new_float_obj(&thread->vulnObjs, currentTime));
+#endif
 }
 
 /** Opens and returns the passed file in a mode. Errors if it failed to open it. */
