@@ -13,7 +13,7 @@ typedef enum {
 } ThreadState;
 
 #if OS == WINDOWS_OS
-#include "windows.h"
+#include <windows.h>
 
 /** Defines/declares a function to be internally executed by a C thread. Not static by default. */
 #define THREAD_FUNC(funcName, argName) DWORD WINAPI funcName(LPVOID argName)
@@ -31,7 +31,7 @@ typedef CRITICAL_SECTION Mutex;
 typedef DWORD WINAPI (*ThreadFunc)(LPVOID);
 
 #elif OS == UNIX_OS
-#include "pthread.h"
+#include <pthread.h>
 
 /** Defines/declares a function to be internally executed by a C thread. Not static by default. */
 #define THREAD_FUNC(funcName, argName) void *funcName(void *argName)
