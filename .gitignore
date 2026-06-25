@@ -1,4 +1,5 @@
 *.o
 bin/
 /*.zmx
+contacts.txt
 compile_commands.json

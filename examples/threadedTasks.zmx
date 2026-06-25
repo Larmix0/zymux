@@ -1,0 +1,72 @@
+import multithread as mt;
+import system as sys;
+
+const SECOND = 1000; // Global for multiplying to make a number seconds in sleep().
+
+/** Simulates a simple task with a name and amount of miliseconds it takes to do.*/
+func performTask(taskName, timeToDo) {
+    print($"{taskName} started.");
+    sleep(timeToDo);
+    print($"{taskName} finished.");
+}
+
+/** Sequential version of the task runner which runs all tasks sequentially.*/
+func runSequential(taskAmount, timeToDo) {
+    let sequentialTime = time();
+    for i in taskAmount {
+        performTask($"sequential task {i + 1}", timeToDo);
+    }
+    sequentialTime = time() - sequentialTime;
+    print($"Finished sequential test in {sequentialTime as int} seconds.");
+    return sequentialTime;
+}
+
+/** Threaded version of task runner which runs 1 thread per task given. */
+func runThreaded(taskAmount, timeToDo) {
+    let threadedTime = time();
+    let threads = [];
+
+    for i in taskAmount {
+        let t = mt.Thread(performTask);
+        threads.push(t);
+        t.run([$"Threaded task {i + 1}", timeToDo]);
+    }
+    for t in threads {
+        t.join();
+    }
+
+    threadedTime = time() - threadedTime;
+    print($"Finished multithreaded test in {threadedTime as int} seconds.");
+    return threadedTime;
+}
+
+/** Runs both tests and prints their results. */
+func runTests(taskAmount, timeToDo) {
+    print("Running sequential test...");
+    const sequentialTime = runSequential(taskAmount, timeToDo);
+    print("Sequential test finished.\n");
+
+    print("Running multithreaded test...");
+    const threadedTime = runThreaded(taskAmount, timeToDo);
+    print("Multithreaded test finished.");
+
+    print("\n------- Results -------");
+    print($"Single-threaded test finished in {sequentialTime} seconds.");
+    print($"Multithreaded test finished in {threadedTime} seconds.");
+}
+
+entry {
+    // Default values.
+    let timeToDo = 1 * SECOND;
+    let taskAmount = 5;
+
+    if sys.argc == 3 {
+        timeToDo = ((sys.argv[2] as float) * SECOND) as int;
+    } else if sys.argc == 4 {
+        timeToDo = ((sys.argv[2] as float) * SECOND) as int;
+        taskAmount = sys.argv[3] as int;
+    } else if sys.argc > 4 {
+        raise "Allowed arguments (optional, 2 at most): secondsToDo and threadAmount.";
+    }
+    runTests(taskAmount, timeToDo);
+}

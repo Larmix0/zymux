@@ -15,22 +15,7 @@ assert(f == 1);
 a = 33;
 assert(a == 33);
 
-// Nested assignments.
-a = b = c = 44;
-assert(a == 44);
-assert(a == b);
-assert(a == c);
-
-// Multi-variable assignment.
-[a, b, c] = [11, 22, 33];
-assert(a == 11);
-assert(b == 22);
-assert(c == 33);
-
-// Never changed.
-assert(d == 3);
-
-const combined = 11 + 22 + 33 + 3 + 2 + 1;
+const combined = 33 + 20 + 4 + 3 + 2 + 1;
 assert(a + b + c + d + e + f == combined);
 
 {

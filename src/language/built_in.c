@@ -322,6 +322,13 @@ DEFINE_NATIVE_FUNC(String_charcode) {
     RETURN_OBJ(new_int_obj(&thread->vulnObjs, (ZmxInt)toConvert));
 }
 
+/** List class: return how many elements are in the list. */
+DEFINE_NATIVE_FUNC(List_length) {
+    UNUSED_VARIABLE(args);
+    ListObj *list = AS_PTR(ListObj, callee);
+    RETURN_OBJ(new_int_obj(&thread->vulnObjs, list->items.length));
+}
+
 /** List class: pushes an object towards the top of the stack (last element). */
 DEFINE_NATIVE_FUNC(List_push) {
     ListObj *list = AS_PTR(ListObj, callee);
@@ -700,6 +707,9 @@ static void load_float_class(VulnerableObjs *vulnObjs) {
 static void load_list_class(VulnerableObjs *vulnObjs) {
     ClassObj *listClass = initial_native_class(vulnObjs, "List");
 
+    load_method(
+        vulnObjs, &listClass->methods, "length", native_List_length, no_params()
+    );
     load_method(
         vulnObjs, &listClass->methods, "push", native_List_push,
         mandatory_params(vulnObjs, 1, "item")

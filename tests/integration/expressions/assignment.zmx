@@ -1,4 +1,7 @@
 let a = 10;
+let b;
+let c;
+
 a += 3;
 assert(a == 13);
 
@@ -45,6 +48,18 @@ assert(a == 6);
 
 a ^= 11;
 assert(a == 13);
+
+// Nested assignments.
+a = b = c = 44;
+assert(a == 44);
+assert(a == b);
+assert(a == c);
+
+// Multi-variable assignment.
+[a, b, c] = [11, 22, 33];
+assert(a == 11);
+assert(b == 22);
+assert(c == 33);
 
 // Divide or modulo by 0 should raise a runtime error.
 let errorCaught = false;

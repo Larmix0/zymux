@@ -1,0 +1,152 @@
+const CONTACTS_LOCATION = "contacts.txt";
+
+/** Represents a single contact in the contact book. */
+class Contact {
+    init(name, phone, email) {
+        this.name = name;
+        this.phone = phone;
+        this.email = email;
+    }
+
+    /** Returns a clean formatted string representing all the information in the contact. */
+    info() {
+        return $"{this.name} | {this.phone} | {this.email}";
+    }
+}
+
+/** Represents all the contacts saved. */
+class ContactBook {
+    init() {
+        this.contacts = [];
+    }
+
+    /** Adds a contact with a name, phone, and email information. */
+    addContact(name, phone, email) {
+        this.contacts.push(Contact(name, phone, email));
+    }
+
+    /** Prints out all the current contacts. */
+    listContacts() {
+        if !this.contacts {
+            print("No contacts found.");
+            return;
+        }
+        for i in this.contacts.length() {
+            print($"{i + 1}. {this.contacts[i].info()}");
+        }
+    }
+
+    /** Tries to find and return a contact with given name, returning null if not found.*/
+    searchContact(name) {
+        for contact in this.contacts {
+            if name.lower() == contact.name.lower() {
+                return contact;
+            }
+        }
+        return null;
+    }
+
+    /** Tries deleting a contact with a given name and returns whether or not it deleted anything.*/
+    deleteContact(name) {
+        for i in this.contacts.length() {
+            if this.contacts[i].name.lower() == name.lower() {
+                this.contacts.remove(i);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Opens and reads the current contacts, creating an empty file if it doesn't exist.*/
+    load(fileName) {
+        this.contacts = [];
+
+        // Using "a+", so we can read or automatically create file if one doesn't exist.
+        let file = open(fileName, "a+");
+        const text = file.read();
+        file.close();
+
+        let [field, name, phone, email] = ["", "", "", ""];
+        let fieldIndex = 0;
+
+        // Loop for building each field from the file.
+        for char in text {
+            if char == "|" {
+                // Both name and phone come before a bar, and neither end a line/contact.
+                if fieldIndex == 0 {
+                    name = field;
+                } else if fieldIndex == 1 {
+                    phone = field;
+                }
+                field = "";
+                fieldIndex += 1;
+            } else if char == "\n" {
+                // An email is the last piece of contact info, meaning it's right before a newline.
+                email = field;
+                this.contacts.push(Contact(name, phone, email));
+                [field, name, phone, email] = ["", "", "", ""];
+                fieldIndex = 0;
+            } else {
+                field += char; // Advance one character on the given field.
+            }
+        }
+    }
+
+    /** Saves and writes all of the current contacts to the actual contacts file. */
+    save(fileName) {
+        let file = open(fileName, "w");
+        
+        for contact in this.contacts {
+            const line = $"{contact.name}|{contact.phone}|{contact.email}\n";
+            file.write(line);
+        }
+        file.close();
+    }
+}
+
+entry {
+    let book = ContactBook();
+    book.load(CONTACTS_LOCATION);
+
+    while true {
+        print("\n------- Contact Book -------");
+        print("1. Add Contact");
+        print("2. Show Contacts");
+        print("3. Search Contact");
+        print("4. Delete Contact");
+        print("5. Exit");
+
+        const choice = input("Choice: ");
+        match choice {
+            case "1" {
+                const name = input("Name: ");
+                const phone = input("Phone: ");
+                const email = input("Email: ");
+
+                book.addContact(name, phone, email);
+                print("Contact added.");
+            }
+            case "2" {
+                book.listContacts();
+            }
+            case "3" {
+                const name = input("Search: ");
+                const contact = book.searchContact(name);
+                print(contact ? contact.info : "Contact not found.");
+            }
+            case "4" {
+                const name = input("Name to delete: ");
+                const hasDeleted = book.deleteContact(name);
+                print(hasDeleted ? "Deleted." : "Contact not found.");
+            }
+            case "5" {
+                print("Saving and exiting.");
+                book.save(CONTACTS_LOCATION);
+                break;
+            }
+            default {
+                print("Invalid choice.");
+            }
+        }
+    }
+}
