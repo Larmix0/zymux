@@ -68,11 +68,11 @@ entry {
 }
 ```
 
-## Other Examples
-Inside the /examples directory are a few more practical programs.
+### Other Examples
+Inside the [examples](examples) directory are a few more practical programs.
 
 ## Documentation
-The language's grammar (BNF), built-in classes, modules, functions and runtime opcodes are documented inside the /docs directory.
+The language's grammar (BNF), built-in classes, modules, functions and runtime opcodes are documented inside the [docs](docs) directory.
 
 ## Building
 Clone in the directory with submodules, then make:
